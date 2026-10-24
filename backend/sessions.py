@@ -5,7 +5,11 @@ data/manifest.csv. Ids are only ever looked up in the catalogue, never joined in
 
 One session = one conversation = one `BuildingSession` + one `Guide`, behind a per-session lock so the Guide's
 history never sees two turns at once. `SessionStore` is an in-memory dict; it is the seam where a persistent
-store (Supabase) goes later."""
+store (Supabase) goes later.
+
+`MapView` derives what the map UI draws from a session: the point-cloud export of the session's *current*
+building (cached until the session's BuildingMap object is replaced, e.g. by apply_change or a building switch)
+and outgoing events enriched with route `vertices` and change `space_ids` (copies; session.events is untouched)."""
 
 import csv
 import os
@@ -16,6 +20,8 @@ from pathlib import Path
 
 from agent.guide import Guide, make_client
 from agent.tools import BuildingSession
+from core.building_map import OUTSIDE, BuildingMap
+from core.pointcloud import export_points, route_vertices
 
 DATA_DIR = Path(os.environ.get("GUIDE_DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
 SPLITS = ("train", "dev", "test")
@@ -39,6 +45,62 @@ def load_catalogue(data_dir: Path = DATA_DIR) -> dict[str, dict]:
     return catalogue
 
 
+class MapView:
+    """Per-conversation cache of the point-cloud export and of route polylines (by event index)."""
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()  # own lock: /events and /points read while a Guide turn holds the turn lock
+        self.building: BuildingMap | None = None  # the object the caches were built from (identity, not equality)
+        self.export: dict | None = None
+        self.routes: dict[int, list[list[float]]] = {}
+
+    def refresh(self, building: BuildingMap) -> dict:
+        if building is not self.building:
+            self.building, self.export, self.routes = building, export_points(building), {}
+        return self.export  # type: ignore[return-value]
+
+    def points(self, session: BuildingSession) -> dict:
+        with self.lock:
+            return self.refresh(session.building)
+
+    def enrich(self, session: BuildingSession, events: list[dict], first_index: int) -> list[dict]:
+        """Copies of `events` (session.events[first_index:...]) with route vertices and change space ids.
+
+        Limitation: vertices are computed on the session's building as it is now, not the one current when the
+        route was emitted (changes only add doors or closures, so earlier paths still resolve); the route cache is
+        dropped together with the export whenever the building object changes."""
+        with self.lock:
+            building = session.building
+            enriched = []
+            for index, event in enumerate(events, start=first_index):
+                if event.get("type") == "route":
+                    export = self.refresh(building)
+                    if index not in self.routes:
+                        try:
+                            self.routes[index] = route_vertices(export, building, event.get("space_path") or [],
+                                                                event.get("element_path") or [])
+                        except (KeyError, StopIteration):  # path no longer valid on this building
+                            self.routes[index] = []
+                    event = {**event, "vertices": self.routes[index]}
+                elif event.get("type") == "change":
+                    event = {**event, "space_ids": affected_spaces(building, event.get("targets") or [])}
+                enriched.append(event)
+            return enriched
+
+
+def affected_spaces(building: BuildingMap, targets: list[str]) -> list[str]:
+    """Spaces a change touches: a connector's spaces, an opening's two sides (minus outside), a space itself."""
+    spaces: list[str] = []
+    for target in targets:
+        if target in building.connectors:
+            spaces += building.connectors[target]["space_ids"]
+        elif target in building.openings:
+            spaces += building.openings[target]["space_ids"]
+        elif target in building.spaces:
+            spaces.append(target)
+    return list(dict.fromkeys(space for space in spaces if space != OUTSIDE))
+
+
 @dataclass
 class Conversation:
     id: str
@@ -46,6 +108,7 @@ class Conversation:
     session: BuildingSession
     guide: Guide
     lock: threading.Lock = field(default_factory=threading.Lock)
+    view: MapView = field(default_factory=MapView)
 
 
 class UnknownBuilding(ValueError):

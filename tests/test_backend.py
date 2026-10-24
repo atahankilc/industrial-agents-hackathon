@@ -5,7 +5,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import app
+from backend.app import app, store
 
 BUILDING = "train/proc-campus-train-000"
 ROUTE = "from Main lobby to Meeting room 3.07"
@@ -77,7 +77,7 @@ def test_profile_and_confirmed_change(client):
     session_id = new_session(client)
     say(client, session_id, "I use a wheelchair")
     state = client.get(f"/sessions/{session_id}").json()
-    assert state["profile"]["step_free"] is True and state["profile"]["summary"] == "step-free"
+    assert state["profile"]["step_free"] is True and state["profile"]["summary"] == "step-free, doors at least 0.8 m wide (assumed)"
     say(client, session_id, ROUTE)
     say(client, session_id, "Lift 1 is broken")
     assert client.get(f"/sessions/{session_id}").json()["pending"] and not state["applied"]
@@ -130,3 +130,44 @@ def test_session_header_persists_across_completions(client):
     reply = client.post("/v1/chat/completions", json=second, headers=headers).json()
     assert "step-free" in reply["choices"][0]["message"]["content"]
     assert client.get("/sessions/voice-call-1").json()["profile"]["step_free"] is True
+
+
+def test_points_export(client):
+    session_id = new_session(client)
+    response = client.get(f"/sessions/{session_id}/points")
+    assert response.status_code == 200
+    export = response.json()
+    assert export["count"] > 0 and len(export["points"]["kind"]) == export["count"]
+    assert export["connectors"] and export["openings"] and export["closed"] == []
+    assert client.get("/sessions/missing/points").status_code == 404
+
+
+def test_points_are_gzipped(client):
+    session_id = new_session(client)
+    response = client.get(f"/sessions/{session_id}/points", headers={"Accept-Encoding": "gzip"})
+    assert response.headers.get("content-encoding") == "gzip"
+
+
+def test_route_event_has_vertices(client):
+    session_id = new_session(client)
+    turn = say(client, session_id, ROUTE)
+    route = next(event for event in turn["events"] if event["type"] == "route")
+    assert len(route["vertices"]) >= 2 and all(len(vertex) == 4 for vertex in route["vertices"])
+    polled = client.get("/events", params={"session_id": session_id}).json()["events"]
+    assert next(event for event in polled if event["type"] == "route")["vertices"] == route["vertices"]
+
+
+def test_change_event_has_space_ids_and_points_update(client):
+    session_id = new_session(client)
+    before = client.get(f"/sessions/{session_id}/points").json()
+    say(client, session_id, ROUTE)
+    say(client, session_id, "Lift 1 is broken")
+    turn = say(client, session_id, "yes")
+    change = next(event for event in turn["events"] if event["type"] == "change")
+    lift = next(item for item in before["connectors"] if item["name"] == "Lift 1")
+    assert change["space_ids"] == [before["spaces"][index]["id"] for index in lift["spaces"]]
+    assert client.get(f"/sessions/{session_id}/points").json()["closed"] == [lift["id"]]
+    polled = client.get("/events", params={"session_id": session_id}).json()["events"]
+    assert next(event for event in polled if event["type"] == "change")["space_ids"] == change["space_ids"]
+    raw = store.get(session_id).session.events  # the enrichment works on copies
+    assert all("vertices" not in event and "space_ids" not in event for event in raw if event["type"] != "highlight")

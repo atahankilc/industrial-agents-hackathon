@@ -1,10 +1,13 @@
 ---
 id: product-routing-profiles
 summary: Deterministic, explainable routing profiles (hard filters + soft penalties) layered on the exact benchmark route model; DEFAULT reproduces benchmark costs exactly. Persona parameter table, inference/memory rules, "what changes" diffs, dataset reality check.
-status: proposed (design sketch; nothing implemented)
+status: partly implemented (presets + cue safety net, 2026-10-24); soft penalties and the remaining filters are a design sketch
 sources:
   - docs/kit/route-model.md
   - core/building_map.py (BuildingMap.graph, route)
+  - agent/tools.py (RoutingProfile, PRESETS, set_profile)
+  - agent/guide.py (profile_cues, profile safety net)
+  - "data/*/*/building.json scan 2026-10-24: 576 stairs connectors all step_free false, 136 lifts all true"
   - "dataset scan of all 280 buildings with core/building_map.py, 2026-10-24"
 related: [personas.md, ../kit/route-model.md, ../architecture/solver-plan.md, ../architecture/overview.md]
 ---
@@ -85,6 +88,26 @@ change trivially-forced segments. Negative penalties allowed only where `cost` s
 | `evacuation` | [P13](personas.md#p13--fire-warden--evacuation) | per person | – | ✔ (fire) | – | none; destination = nearest `"outside"` |
 | `simple` | [P02](personas.md#p02--first-day-at-work), [P16](personas.md#p16--delivery-courier--visitor) | – | – | – | – | space change 3 m |
 
+<a id="implemented-presets"></a>
+**Implemented presets** (`set_profile(preset=…)` in `agent/tools.py`, 2026-10-24) — only rows the graph can
+honour today with the existing filters (`step_free`, `min_door_width_m`, `avoid_lifts`):
+
+| `preset` | Sets | Assumed (said to the user) | Source of the number |
+|---|---|---|---|
+| `wheelchair` | step_free, min_door_width_m 0.8 | min_door_width_m | `wheelchair` row above: "0.8 (assumed)" |
+| `pram` | step_free, min_door_width_m 0.8 | min_door_width_m | `trolley(w)` row above: "pram 0.8" |
+| `trolley` | step_free; result `needs: ["min_door_width_m"]` unless the width is given | – | user-given (`w`) |
+| `no_lifts` | avoid_lifts | – | `no_lifts` row above |
+| `default` | resets every field ([P26](personas.md#p26--changing-constraints-user)) | – | – |
+
+A preset changes only its own fields (so `no_lifts` then `wheelchair` composes); explicit fields in the same call
+override it and are no longer marked assumed. `avoid_stairs` is not a separate field: every stairs connector in
+the data is `step_free: false`, so `step_free` already excludes stairs (it also blocks the 30 stepped entrances).
+Not presets yet: `forklift`, `crutches`, `low_stamina`, `quiet`, `low_vision`, `evacuation`, `simple` (they need
+`avoid_room_types` or soft penalties), and a mobility-scooter preset — **UNVERIFIED: no scooter door width is
+given in our sources**, so a scooter cue sets step-free only and the Guide should ask the width
+([P21](personas.md#p21--mobility-scooter-user)).
+
 Penalty values are starting points to tune in the demo; each is metres-equivalent so it can be explained:
 "I took a route 12 m longer to avoid the canteen."
 
@@ -105,6 +128,43 @@ reply ("step-free, quiet route").
 5. **Persist** per user (optional, collaboration backend) so the profile survives reloads.
 6. **Never silently relax a hard filter.** If unreachable, say why and offer the relaxed alternative as a
    separate, labelled option.
+
+<a id="todo-preference-extraction"></a>
+### TODO — preference extraction (gap check 2026-10-24)
+
+Today (`agent/tools.py`): `RoutingProfile` has `step_free`, `min_door_width_m`, `avoid_lifts` (+ `preset`, `assumed`);
+it lives in the in-memory session; the model calls `set_profile` (with a preset where one fits), and a
+deterministic safety net catches the cues it misses. Missing:
+
+- [x] **Persona presets in `set_profile`** — implemented in `agent/tools.py` (`PRESETS`, `tool_set_profile`): see
+  [implemented presets](#implemented-presets). Results carry `changed`, `assumed` and (trolley) `needs`.
+  Tests: `tests/test_profiles.py` (preset section).
+- [ ] **Remaining parameters**: `avoid_stairs`, `avoid_room_types`, and the soft penalties (crutches, quiet,
+  low_vision, low_stamina need them).
+- [x] **Safety net**: a deterministic cue detector runs on every user message alongside the LLM (same idea as
+  `PARSER_MODE=hybrid`, D-007). If it finds a cue the model didn't act on, the Guide applies it and confirms it.
+  That way a forgotten `set_profile` never costs a "without asking twice" point. Implemented in `agent/guide.py`
+  (`profile_cues`, `profile_satisfies`, `Guide.profile_safety_net`): after the model's turn, if the profile doesn't
+  already satisfy the cue, the Guide calls `set_profile` itself (recorded in `GuideTurn.auto_profile` and as a
+  `tool_calls` entry with `"auto": true`), appends one "(Noted: …)" line built from the result (added to the
+  grounding corpus), and — if the turn already routed — asks the model once to redo the answer under the new
+  profile; otherwise the next user message carries a "[profile note …]" so the model knows. Cues: wheelchair /
+  Rollstuhl, pram/stroller/buggy, mobility scooter (step-free only), trolley/cart/pallet/bed with an actor word,
+  a width next to a vehicle word ("80 cm", "0.7 m"), can't use / avoid stairs, won't take lifts / claustrophobic,
+  reset ("out of the cast", "not in the chair any more", "reset my profile"). Deliberately not cues: facility
+  words ("wheelchair lift", "wheelchair-accessible toilet", "pram room"), third parties without a guided-person
+  link ("a wheelchair user complained"), negations ("I don't use a wheelchair"), lift closures ("I can't take the
+  lift, it's broken"), analytics ("step-free reachable"). A guided person counts (P19 "my mother uses a
+  wheelchair" sets it). Tests: `tests/test_profiles.py` (cue and safety-net sections).
+- [ ] **Scope and lifetime**: permanent vs this-route-only ("this time without the trolley", step 4) vs expiring
+  ("on crutches this week"); explicit reset ("I'm not in the chair any more").
+- [ ] **Whose profile**: "my visitor uses a wheelchair" or "a group with one wheelchair user". The profile applies
+  to the person being guided; for a group it is the composition of all members' profiles.
+- [ ] **Non-routing preferences** in the same session state: language, channel/verbosity (voice = short steps),
+  direction style (landmarks vs metres), last known location, role (facility manager may edit).
+- [ ] **Persist per user** (step 5) once the backend has user identity (Supabase, D-006).
+- [ ] **Test**: scripted tricky conversation where the constraint is said once in turn 1 and every later turn
+  (route, closure, what-if) still honours it.
 
 ## "What changes?" — closure diffs
 

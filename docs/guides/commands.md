@@ -91,6 +91,17 @@ match wins: body `session_id`, `elevenlabs_extra_body.session_id`, header `X-Ses
 shared `default` session. How ElevenLabs actually sends it, and its system `tools`, are UNVERIFIED
 ([elevenlabs.md](../research/elevenlabs.md)). Sessions are in memory (lost on restart; Supabase later, D-006).
 
+## Frontend app
+
+```bash
+GUIDE_LLM=offline uv run uvicorn backend.app:app --port 8765    # or: uv run --env-file .env uvicorn … (real Claude)
+cd frontend/app && npm install && npx vite --port 5181          # open http://localhost:5181 (?building=<id>)
+cd frontend/app && npm run build                                # type-check + production bundle in dist/
+```
+
+Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8765`). Design and data path:
+[visualization.md](../product/visualization.md#app-and-data-path).
+
 ## Sunday benchmark
 
 `agent.run_benchmark <building_dir> <questions file> <answers.json> [--csv …]` — documented in

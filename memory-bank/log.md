@@ -10,6 +10,29 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Frontend app (monochrome point cloud) + point-cloud API + profile presets
+
+- **Did:** Reviewed the teammate's gap check (routing-profiles TODO, personas P19–P26): accurate; fixed P21's Q-004
+  link. Built `frontend/app/` (Vite/React/r3f): monochrome cloud with emergence + scan plane, route comets,
+  highlight/closure/lost-access per-space states, floor solo + separation, camera rig, chat panel, light/dark.
+  Subagents: `core/pointcloud.py` + `GET /sessions/{id}/points` + enriched route/change events; `set_profile`
+  presets + cue safety net. Route events now carry `element_path`, `length_m`, `profile`.
+- **Learned:** the route only reads well when off-route rooms step back; overlapping event polls replayed events
+  (now chained); port 5173 is taken by another local project (we use 5181).
+- **Decisions:** D-011 accepted (monochrome, Atahan).
+- **Budget:** +$0.058 (one live Sonnet regression run) → ≈ $0.58 total.
+- **Next:** [project-state.md](project-state.md#next-priorities).
+
+## 2026-10-24 — Preference-extraction gap check + new personas
+
+- **Did:** Compared the profile plan in routing-profiles.md with `agent/tools.py`; wrote the gap list as a TODO.
+  Added personas P19–P26.
+- **Learned:** `RoutingProfile` has only `step_free`, `min_door_width_m`, `avoid_lifts`; it is session-only; it
+  depends on the model calling `set_profile` (no presets, no safety net).
+- **Changed docs:** [routing-profiles.md](../docs/product/routing-profiles.md#todo-preference-extraction),
+  [personas.md](../docs/product/personas.md#added-personas-2026-10-24), project-state priority 4.
+- **Next:** [project-state.md](project-state.md#next-priorities).
+
 
 ## 2026-10-24 — Live Guide check (API key set)
 

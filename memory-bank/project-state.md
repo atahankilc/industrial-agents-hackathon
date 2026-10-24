@@ -11,7 +11,7 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 ## Phase
 
-**Phase 1 ✅ · Phase 2 ✅ (dev 138/138) · Phase 3 — Agent + interaction ✅ (offline tests + live check on Opus/Sonnet) → Phase 4 UI + voice**
+**Phase 1 ✅ · Phase 2 ✅ (dev 138/138) · Phase 3 ✅ · Phase 4 — UI ✅ first version (`frontend/app/`), voice next**
 
 Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
@@ -57,6 +57,12 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - **Backend** `backend/` (FastAPI): sessions per conversation + building choice, `POST /chat`, `GET /events`,
   OpenAI-compatible streaming `/v1/chat/completions`; runs with `GUIDE_LLM=offline uv run uvicorn backend.app:app`
   ([commands.md](../docs/guides/commands.md#backend-guide-api)). `uv run pytest` **87 passed**.
+- **Frontend app** `frontend/app/` (Vite + React + r3f): monochrome point cloud ([D-011](decisions.md#d-011)) with
+  emergence + scan, route flow, highlight / closure / lost-access states, floor solo + separation, camera fly-to,
+  chat panel; light/dark. Backend serves `GET /sessions/{id}/points` (`core/pointcloud.py`) and enriches route /
+  change events. Verified in Chrome with the offline Guide ([commands.md](../docs/guides/commands.md#frontend-app)).
+- **Profiles:** `set_profile` presets (wheelchair, pram, trolley, no_lifts, default) + deterministic cue safety net
+  in the Guide (`tests/test_profiles.py`); live Sonnet run uses the preset itself. `uv run pytest` **136 passed**.
 - **Live Guide** (API key set 2026-10-24): 7-turn tricky-user conversation correct on Opus 5.5 medium (~5.9–7.3 s/turn,
   ~$0.15) and Sonnet 5.5 low (~3.3–3.9 s/turn, ~$0.06), 0 ungrounded replies — table in
   [ai-agents.md](../docs/architecture/ai-agents.md#implementation--agentguidepy-2026-10-24).
@@ -82,11 +88,14 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## Next priorities
 
-1. Frontend 2D plan with route overlay + chat on top of `backend/` (`/chat`, `/events`).
-2. Voice-friendly replies: step text still contains bracketed ids; replies use markdown bullets/bold.
-   Decide model per channel (Q-012).
-3. (Atahan) Vercel + Supabase accounts and API key → [stack checklist](../docs/research/stack-options.md#7-day-one-setup-checklist-human-actions--ask-before-creating-anything).
-4. Sunday hardening: wording robustness (LLM parser fallback measured with a key), Swiss per-floor frames for
+1. Voice: voice-friendly replies (no markdown, short steps) + ElevenLabs Custom LLM on `/v1/chat/completions` —
+   needs a public deploy; ask Atahan before creating anything in any account. Decide model per channel (Q-012).
+2. Frontend polish: phone layout check, closure ripple for edits, narrow doors for the active profile, run against
+   the real Guide (key set) and record a demo GIF/video.
+3. (Atahan) Vercel + Supabase accounts → [stack checklist](../docs/research/stack-options.md#7-day-one-setup-checklist-human-actions--ask-before-creating-anything).
+4. Preference extraction, remaining TODO: group composition (P20), profile lifetime/reset scope, persistence,
+   soft penalties → [TODO](../docs/product/routing-profiles.md#todo-preference-extraction).
+5. Sunday hardening: wording robustness (LLM parser fallback measured with a key), Swiss per-floor frames for
    `straight_line_3d` (UNVERIFIED risk), output format once Q-001 is announced.
 
 ## Blockers

@@ -31,16 +31,34 @@ from core.solvers.walls import shared_wall_neighbours
 MAX_RESULTS = 15
 
 
+# Persona presets for set_profile, from the "Profiles per persona" table in docs/product/routing-profiles.md.
+# Only presets the graph can honour today (hard filters: step-free, minimum door width, no lifts). "assumed" lists
+# values the user did not give, so the Guide can say "I assumed 0.8 m; tell me if yours is wider". "needs" lists
+# values that have no default and must be asked (trolley width). `avoid_stairs` is not a separate field: every
+# stairs connector in the data is step_free: false, so step_free routing already excludes stairs.
+PRESETS: dict[str, dict] = {
+    "default": {"values": {"step_free": False, "min_door_width_m": None, "avoid_lifts": False}},
+    "wheelchair": {"values": {"step_free": True, "min_door_width_m": 0.8}, "assumed": ["min_door_width_m"]},
+    "pram": {"values": {"step_free": True, "min_door_width_m": 0.8}, "assumed": ["min_door_width_m"]},
+    "trolley": {"values": {"step_free": True}, "needs": ["min_door_width_m"]},
+    "no_lifts": {"values": {"avoid_lifts": True}},
+}
+PROFILE_FIELDS = ("step_free", "min_door_width_m", "avoid_lifts")
+
+
 @dataclass
 class RoutingProfile:
     step_free: bool = False
     min_door_width_m: float | None = None
     avoid_lifts: bool = False
+    preset: str = "default"  # the last preset applied; explicit fields may refine it
+    assumed: list[str] = field(default_factory=list)  # fields set from a preset default, not from the user
 
     def describe(self) -> str:
         parts = ["step-free" if self.step_free else "stairs allowed"]
         if self.min_door_width_m:
-            parts.append(f"doors at least {self.min_door_width_m} m wide")
+            assumed = " (assumed)" if "min_door_width_m" in self.assumed else ""
+            parts.append(f"doors at least {self.min_door_width_m} m wide{assumed}")
         if self.avoid_lifts:
             parts.append("no lifts")
         return ", ".join(parts)
@@ -183,7 +201,9 @@ class BuildingSession:
         route["profile"] = self.profile.describe()
         if route.get("reachable") and self.emitting:
             self.last_route = {"start": start, "destination": destination, "via": via or []}
-            self.events.append({"type": "route", "space_path": route["space_path"]})
+            self.events.append({"type": "route", "space_path": route["space_path"],
+                                "element_path": route["element_path"], "length_m": route["length_m"],
+                                "profile": route["profile"]})
         return route
 
     def tool_tour(self, stops: list[str]) -> dict:
@@ -214,15 +234,44 @@ class BuildingSession:
     # ---------- profile ----------
 
     def tool_set_profile(
-        self, step_free: bool | None = None, min_door_width_m: float | None = None, avoid_lifts: bool | None = None
+        self, preset: str | None = None, step_free: bool | None = None, min_door_width_m: float | None = None,
+        avoid_lifts: bool | None = None,
     ) -> dict:
-        if step_free is not None:
-            self.profile.step_free = step_free
-        if min_door_width_m is not None:
-            self.profile.min_door_width_m = min_door_width_m or None
-        if avoid_lifts is not None:
-            self.profile.avoid_lifts = avoid_lifts
-        return {"profile": asdict(self.profile), "summary": self.profile.describe()}
+        """Apply a persona preset (its fields only; others are kept), then explicit fields, which override it.
+        preset "default" resets everything. The result says what changed and which values are assumed."""
+        if preset is not None and preset not in PRESETS:
+            raise ValueError(f"Unknown preset '{preset}'; use one of {', '.join(PRESETS)}")
+        if min_door_width_m is not None and min_door_width_m < 0:
+            raise ValueError("min_door_width_m must be ≥ 0 (0 clears it)")
+        before = {name: getattr(self.profile, name) for name in PROFILE_FIELDS}
+        needs: list[str] = []
+        if preset == "default":
+            self.profile = RoutingProfile()
+        elif preset is not None:
+            spec = PRESETS[preset]
+            for name, value in spec["values"].items():
+                setattr(self.profile, name, value)
+                if name in self.profile.assumed:
+                    self.profile.assumed.remove(name)
+            self.profile.assumed += [name for name in spec.get("assumed", []) if name not in self.profile.assumed]
+            self.profile.preset = preset
+            needs = [name for name in spec.get("needs", []) if min_door_width_m is None]
+        explicit = {"step_free": step_free, "min_door_width_m": min_door_width_m, "avoid_lifts": avoid_lifts}
+        for name, value in explicit.items():
+            if value is None:
+                continue
+            setattr(self.profile, name, (value or None) if name == "min_door_width_m" else value)
+            if name in self.profile.assumed:
+                self.profile.assumed.remove(name)
+        changed = {name: getattr(self.profile, name) for name in PROFILE_FIELDS
+                   if getattr(self.profile, name) != before[name]}
+        result = {"profile": asdict(self.profile), "summary": self.profile.describe(), "changed": changed,
+                  "assumed": list(self.profile.assumed)}
+        if preset is not None:
+            result["preset"] = preset
+        if needs:
+            result["needs"] = needs  # ask the user, e.g. how wide the trolley is
+        return result
 
     # ---------- changes: propose → confirm → apply ----------
 
@@ -430,9 +479,13 @@ TOOL_DEFINITIONS: list[dict] = [
      "step_free_reachable_count {closed, start, floor_id}.", "input_schema": {"type": "object", "properties": {
          "kind": {"type": "string", "enum": sorted(SOLVERS)}, "params": {"type": "object"}},
          "required": ["kind", "params"]}},
-    {"name": "set_profile", "description": "Remember the user's mobility constraints for every later route.",
-     "input_schema": {"type": "object", "properties": {"step_free": {"type": "boolean"},
-                      "min_door_width_m": {"type": "number"}, "avoid_lifts": {"type": "boolean"}}}},
+    {"name": "set_profile", "description": "Remember the user's mobility constraints for every later route. "
+     "preset: wheelchair or pram = step-free + doors ≥ 0.8 m (assumed); trolley = step-free, also give "
+     "min_door_width_m (ask if unknown); no_lifts; default = clear all constraints. A preset changes only its own "
+     "fields; explicit fields override it. The result lists assumed values: name them to the user.",
+     "input_schema": {"type": "object", "properties": {
+         "preset": {"type": "string", "enum": list(PRESETS)}, "step_free": {"type": "boolean"},
+         "min_door_width_m": {"type": "number"}, "avoid_lifts": {"type": "boolean"}}}},
     {"name": "propose_change", "description": "Prepare (not apply) a building change and predict its effect: the "
      "last route before/after and, from that route's start, rooms that lose access and routes that get longer. "
      "Show the summary to the user and apply only after they confirm.", "input_schema": {

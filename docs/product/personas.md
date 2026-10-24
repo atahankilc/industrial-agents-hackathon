@@ -197,6 +197,65 @@ P03 by voice. Covers FIND, ROUTE, EDIT, REACT and voice in ~3 minutes.
   voice-only confirmations.
 - **Data:** n/a — UI requirement. Captions come free from ElevenLabs transcripts.
 
+<a id="added-personas-2026-10-24"></a>
+## Added personas (2026-10-24, not yet ranked)
+
+These come from the [preference-extraction TODO](routing-profiles.md#todo-preference-extraction). Most of them
+test *whose* profile applies and how profiles combine, not new graph filters.
+
+<a id="p19--carer--companion"></a>
+### P19 — Carer / companion
+- **Quote:** "Where's the nearest toilet for my mother? She uses a wheelchair."
+- **Needs:** the profile belongs to the person being guided, not the speaker; don't ask the speaker about their
+  own mobility.
+- **Data:** ✅ same as [P01](#p01--wheelchair-user).
+
+<a id="p20--group--school-tour-leader"></a>
+### P20 — Group / school tour leader
+- **Quote:** "30 kids, one in a wheelchair, and a teacher who won't take lifts."
+- **Needs:** the group's profile is the composition of all members' profiles. If nothing satisfies all of them
+  (step-free needs a lift, someone refuses lifts), say so and offer to split the group.
+- **Data:** ✅ connectors, step_free.
+
+<a id="p21--mobility-scooter-user"></a>
+### P21 — Mobility scooter user
+- **Needs:** step-free with a wider minimum door width than a wheelchair.
+- **Data:** ✅ `width_m`. ❌ lifts carry no width/cabin-size field in the data (see the
+  [Q-004](../../memory-bank/open-questions.md#q-004) answer), so the agent must say it can't confirm the scooter
+  fits the lift. ⚠ UNVERIFIED: no scooter door width in our sources, so there is no `mobility_scooter` preset; a
+  scooter cue sets step-free only and the Guide asks the width
+  ([implemented presets](routing-profiles.md#implemented-presets)).
+
+<a id="p22--pregnant--heart-condition"></a>
+### P22 — Pregnant / heart condition
+- **Needs:** stairs allowed but discouraged: soft stairs penalty, like `low_stamina` in
+  [routing-profiles.md](routing-profiles.md#profiles-per-persona).
+- **Data:** ✅ connectors.
+
+<a id="p23--hazardous-goods-carrier"></a>
+### P23 — Hazardous-goods carrier
+- **Quote:** "I'm moving a chemical drum to the lab."
+- **Needs:** no passenger lifts, avoid canteen and office-type rooms (`avoid_room_types`), width limit.
+- **Data:** ✅ `room_type`, `width_m`. ❌ goods lifts vs passenger lifts aren't distinguished. ⚠ which room types
+  to avoid is our policy.
+
+<a id="p24--hygiene-zone--cleanroom-worker"></a>
+### P24 — Hygiene-zone / cleanroom worker
+- **Needs:** don't pass through "dirty" zones on the way to a clean area (`avoid_room_types`).
+- **Data:** ⚠ UNVERIFIED: no clean/dirty classification seen in the data; we would have to map it from
+  `room_type` ourselves.
+
+<a id="p25--long-load-carrier"></a>
+### P25 — Technician carrying a long load (ladder, pipes)
+- **Needs:** door width limit; tight turns are also a problem.
+- **Data:** ✅ `width_m`. ❌ turn angles and corridor geometry aren't modelled.
+
+<a id="p26--changing-constraints-user"></a>
+### P26 — User whose constraints change
+- **Quote:** "Actually my chair is narrow, 0.7 m." / "I'm out of the cast now."
+- **Needs:** update or reset the profile and confirm the change in one line; don't keep the old constraint.
+- **Data:** n/a, session state only.
+
 ## Cross-cutting interaction rules (derived from the personas)
 
 1. **State the understood profile once**, then remember it for the conversation: "Step-free route, doors ≥ 0.9 m."

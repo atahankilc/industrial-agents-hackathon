@@ -20,6 +20,7 @@ _ids = itertools.count(1)
 CONFIRM = re.compile(r"^\s*(yes|yep|yeah|ok|okay|sure|confirm|do it|apply|go ahead|please do)\b", re.IGNORECASE)
 STEP_FREE = re.compile(r"wheelchair|step[- ]free|can'?t (use|take|climb) (the )?stairs|no stairs|pram|walker",
                        re.IGNORECASE)
+WHEELCHAIR = re.compile(r"\b(?:use|in|on) (?:a |my )?wheelchair\b", re.IGNORECASE)
 BROKEN = re.compile(r"(?:the )?(?P<target>[\w .-]+?) (?:is|are) (?:broken|closed|out of order|out of service|"
                     r"blocked|not working)", re.IGNORECASE)
 ROUTE = re.compile(r"from (?:the )?(?P<start>.+?) to (?:the )?(?P<destination>.+?)\s*[?.!]*$", re.IGNORECASE)
@@ -70,11 +71,18 @@ class OfflineClient:
     def on_user(self, text: str, messages: list[dict]) -> BetaMessage:
         if text.startswith("[grounding check"):
             return message(text_block("Sorry, I can only repeat what the building tools told me; ask me again."))
+        if text.startswith("[profile check"):  # the Guide's safety net changed the profile: redo the route
+            route = self.last_route(messages)
+            return message(tool_use("find_route", route)) if route else message(text_block("Noted."))
+        if text.startswith("[profile note"):
+            text = text.partition("\n\n")[2]
         uses = []
         pending = self.pending_change(messages)
         if CONFIRM.match(text) and pending:
             return message(tool_use("apply_change", {"change_id": pending}))
-        if STEP_FREE.search(text):
+        if WHEELCHAIR.search(text):
+            uses.append(tool_use("set_profile", {"preset": "wheelchair"}))
+        elif STEP_FREE.search(text):
             uses.append(tool_use("set_profile", {"step_free": True}))
         if broken := BROKEN.search(text):
             uses.append(tool_use("propose_change", {"action": "close", "targets": [broken["target"].strip()]}))

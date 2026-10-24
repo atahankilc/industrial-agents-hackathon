@@ -6,7 +6,7 @@ related: [open-questions.md, project-state.md, ../docs/architecture/overview.md]
 
 # Decisions
 
-[Memory bank](README.md) · Next free id: **D-011**
+[Memory bank](README.md) · Next free id: **D-012**
 
 Template:
 
@@ -137,3 +137,14 @@ Template:
 - **Consequences:** one extra request when the model invents a number; a confirmation always costs one user turn.
   Derived numbers (differences, sums) must come from tools → `compare_routes` and `extra_m` exist for that.
 - **Evidence:** `tests/test_guide.py` (same-turn apply refused; invented "437 m" repaired; leftovers reported).
+
+<a id="d-011"></a>
+### D-011 — Monochrome visual language for the app (black / white, light + dark)
+- **Status:** accepted · **Date:** 2026-10-24 · **By:** Atahan ("simplistic look, black or white colour scheme for
+  light and dark mode, point clouds with good animations")
+- **Context:** [visualization.md](../docs/product/visualization.md#visual-language) had a colour-coded scheme
+  (cyan walls, magenta cores, amber doors, gold highlight).
+- **Decision:** the app is monochrome: white on black (dark), black on white (light), system default + toggle.
+  Point kinds and states are told apart by density, alpha, size and motion (flow, flicker, float, sink), never hue.
+- **Consequences:** additive glow in dark mode, normal blending with crisp dots in light mode; the prototype keeps
+  its colours as a reference only.

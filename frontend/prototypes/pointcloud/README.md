@@ -4,6 +4,9 @@ Standalone three.js viewer: a building rendered as a point cloud that **emerges*
 cloud, **densifies** with a slider, separates floors vertically, highlights a room and shows a route as
 flowing particles. Design rationale: [docs/product/visualization.md](../../../docs/product/visualization.md).
 
+The sampler now lives in `core/pointcloud.py` (also served by the backend at `GET /sessions/{id}/points` for
+the app in `frontend/app/`); `export_points.py` is a thin CLI over it with the same flags and output.
+
 ## Run
 
 ```bash

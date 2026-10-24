@@ -121,8 +121,8 @@ def explain_new_route(request: dict) -> object:
 
 TRICKY_USER = [
     ("Where's the printer?", [call(("locate", {"query": "printer"})), ask_which_printer]),
-    ("I use a wheelchair.", [call(("set_profile", {"step_free": True})),
-                              say("Got it: step-free routes from now on.")]),
+    ("I use a wheelchair.", [call(("set_profile", {"preset": "wheelchair"})),
+                              say("Got it: step-free routes, and I assumed doors of at least 0.8 m.")]),
     ("Take me from the main lobby to the meeting room.", [
         call(("find_route", {"start": "Main lobby", "destination": "Meeting room"})),
         call(("search", {"query": "meeting room"})),
@@ -152,7 +152,9 @@ def test_tricky_user_conversation(session):
     assert printer.text.count("Print room") == 3  # ≤ 3 options although there are 4 printers
 
     assert session.profile.step_free
-    assert turns["I use a wheelchair."].tool_calls[0]["result"]["summary"] == "step-free"
+    wheelchair = turns["I use a wheelchair."]
+    assert wheelchair.tool_calls[0]["result"]["summary"] == "step-free, doors at least 0.8 m wide (assumed)"
+    assert wheelchair.auto_profile is None and len(wheelchair.tool_calls) == 1  # the model did it: no safety net
 
     vague = turns["Take me from the main lobby to the meeting room."]
     assert "ambiguous" in vague.tool_calls[0]["result"]["error"]
@@ -164,7 +166,9 @@ def test_tricky_user_conversation(session):
     assert route["step_free"] and route["length_m"] == 124.24 and LIFT_1 in route["element_path"]
     assert "set_profile" not in [c["name"] for c in directions.tool_calls]  # profile remembered, not re-asked
     assert "\n1. " in directions.text and "about 124 m" in directions.text
-    assert directions.events[-1] == {"type": "route", "space_path": route["space_path"]}
+    assert directions.events[-1] == {"type": "route", "space_path": route["space_path"],
+                                     "element_path": route["element_path"], "length_m": 124.24,
+                                     "profile": "step-free, doors at least 0.8 m wide (assumed)"}
 
     broken = turns["The lift is broken!"]
     assert [c["name"] for c in broken.tool_calls] == ["propose_change", "apply_change"]

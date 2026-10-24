@@ -29,31 +29,53 @@ versions to be pinned when the frontend is scaffolded (UNVERIFIED here).
 
 ## Visual language
 
-| Element | Points | Meaning |
+**Monochrome** ([D-011](../../memory-bank/decisions.md#d-011)): white points on black (dark mode), black on white
+(light mode), following the system setting with a toggle. No hues — meaning is carried by density, alpha, size and
+motion. (The prototype in `frontend/prototypes/pointcloud/` still uses the earlier colour scheme.)
+
+| Element | Points (app, `frontend/app/src/scene/shaders.ts`) | Meaning |
 |---|---|---|
-| Walls | dense, cyan, extruded to ≤ 3 m | the structure "emerges" from these first |
-| Floors | sparse jittered grid, dim blue | footprint without hiding the level below |
-| Doors | gaps in walls + amber lintel row | you can literally see the way through |
-| Stairs / lifts | magenta | vertical cores, where floors connect |
-| Assets | small green clusters in their footprint | machines, desks, printers — the things people ask for |
-| Route | bright particles flowing along the exact route-model path | animated directions; floor changes are vertical risers |
-| Highlight | room points turn gold and grow; everything else dims | "show what I understood" |
+| Walls | dense, strong alpha, extruded to ≤ 3 m | the structure "emerges" from these first |
+| Floors | sparse jittered grid, faint | footprint without hiding the level below |
+| Doors | gaps in walls + brightest, larger lintel row | you can literally see the way through |
+| Stairs / lifts | medium alpha, soft pulse | vertical cores, where floors connect |
+| Assets | small clusters in their footprint | machines, desks, printers — the things people ask for |
+| Route | line draws itself in; 7 comets with fading tails flow along the exact route-model path; destination ring pulses; rooms off the route step back | animated directions; floor changes are vertical risers |
+| Highlight | room points brighten, grow and float; everything else dims; camera flies to them | "show what I understood" |
+| Closure | the closed element's spaces flicker, then stay faint | "the lift is out" |
+| Lost access | rooms that lose access sink and fade | consequence of a closure (`compare_routes`) |
 
 **Emergence and densification** (built): every point has a random `reveal` value. On load, points fly from a
 noise shell to their positions in reveal order — the outline appears first, then fills in. The density slider
 is a threshold on `reveal`, so the cloud gets denser or sparser without re-uploading geometry.
 
+**Built in the app (2026-10-24)** besides emergence: a scan plane sweeps up through the floors while points
+arrive; highlight / closure / lost-access / on-route states ease per space through a 1-row state texture; floor
+solo + animated floor separation; idle breathing and slow auto-rotate after 9 s without input; camera fly-to that
+yields to any drag. Verified in Chrome (dark + light, offline Guide: printer, wheelchair, route, Lift 1 closed →
+re-route via Lift 2), no console errors. Not tested: phone layout, low-end GPUs.
+
 **Planned effects** (same mechanism, new uniforms/attributes):
 
-- **Closures** (lift closed, aisle blocked): affected space's points flicker red; routes that used it re-flow.
 - **Collaboration edits** (another user moves a machine / adds a door): a ripple ring expands from the edit
   position, then points settle into the new geometry — instant-update feedback for
   [collaboration](../architecture/overview.md#collaboration-flow-instant-updates).
 - **Level 4 "scan" build**: while the Builder agent drafts a building from a plan image, each accepted room's
   points materialise as it is added — the building is literally scanned into existence.
-- **Profiles** ([routing-profiles.md](routing-profiles.md)): step-free route in a different colour; doors too
-  narrow for the active profile tinted red.
+- **Profiles** ([routing-profiles.md](routing-profiles.md)): doors too narrow for the active profile drawn
+  hollow/faint (monochrome).
 - Floor explode slider = isometric stacked floors from the brief's presentation add-in.
+
+## App and data path
+
+- **App:** `frontend/app/` (Vite + React + TypeScript, three.js via react-three-fiber + drei). `src/scene/`
+  (BuildingCloud, RouteFlow, Scene with the camera rig, shaders), `src/ui/Chat.tsx`, `src/App.tsx` (session,
+  events → scene). Run: [commands.md](../guides/commands.md#frontend-app).
+- **Points:** `core/pointcloud.py` `export_points(building_map)` (the prototype's sampler as a library, plus
+  `connectors`, `openings`, `closed`) served by `GET /sessions/{id}/points` (gzip, cached per building object).
+- **Events:** the app polls `GET /events` with a cursor; the backend adds `vertices` (viewer-frame polyline from
+  `route_vertices`) to route events and `space_ids` to change events. The scene is driven only by events, so a
+  voice conversation through `/v1/chat/completions` moves the same view.
 
 ## Performance
 

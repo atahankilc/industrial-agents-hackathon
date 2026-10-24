@@ -104,3 +104,81 @@ def merge_connector_hops(legs: list[dict]) -> list[dict]:
         else:
             merged.append(leg)
     return merged
+
+
+# ---------- spoken/written steps for the Guide ----------
+# The kit's step text ("Walk about 26 m through the door into Corridor 0.01", with ids on the first and last line)
+# has no turns and no landmarks. These steps come from the same legs: a relative turn, a rounded distance, the
+# door, and the most recognisable item standing next to that door, so a person can follow them on the spot.
+
+# Asset types a person notices while walking, most recognisable first; furniture like chairs and desks is not.
+LANDMARK_TYPES = (
+    "reception_desk", "vending_machine", "coffee_machine", "water_dispenser", "multifunction_printer", "printer",
+    "display_screen", "defibrillator", "3d_printer", "industrial_3d_printer", "laser_cutter", "press_brake",
+    "conveyor", "compressor", "forklift_charging_station", "coordinate_measuring_machine", "kitchen_counter",
+    "lectern", "bench", "plant", "coat_rack", "whiteboard", "fire_extinguisher",
+)
+LANDMARK_RADIUS_M = 4.0  # an item further than this from the door doesn't mark it
+TURN_PHRASE = {"left": "Turn left and walk", "right": "Turn right and walk", "back": "Turn around and walk",
+               "straight": "Walk"}
+DOOR_WORD = {"door": "door", "entrance": "entrance", "opening": "opening"}
+FLOOR_COUNT = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine"}
+
+
+def about_m(metres: float) -> int:
+    """How a person says a distance: whole metres below 10, then steps of 5, then of 10 from 100 (half up)."""
+    step = 1 if metres < 10 else 5 if metres < 100 else 10
+    return max(1, int(math.floor(metres / step + 0.5)) * step)
+
+
+def landmark(building: BuildingMap, opening_id: str) -> str | None:
+    """The most recognisable landmark-type asset within LANDMARK_RADIUS_M of the opening, in a space it joins."""
+    opening = building.openings[opening_id]
+    door = opening["position"]
+    found = [(LANDMARK_TYPES.index(asset["type"]), math.dist(door, asset["position"][:2]), asset["type"])
+             for asset in building.assets.values()
+             if asset["type"] in LANDMARK_TYPES and asset["space_id"] in opening["space_ids"]
+             and math.dist(door, asset["position"][:2]) <= LANDMARK_RADIUS_M]
+    return min(found)[2].replace("_", " ").replace("3d ", "3D ") if found else None
+
+
+def guidance_steps(building: BuildingMap, space_path: list[str], element_path: list[str]) -> list[str]:
+    """Followable steps for a route: turn, rounded metres, the door and a landmark next to it; one line per
+    staircase or lift ride; no ids.
+
+    The turn is taken where a person makes it: coming through the last door (heading = previous room's anchor →
+    that door), which way is the next door. `route_legs` turns at the room's anchor instead, which reads "turn
+    around" when the next door is next to the one you came in by. No turn on the first leg or after a ride."""
+    if not space_path:
+        return []
+    start = space_path[0]
+    steps = ["Start outside the building." if start == OUTSIDE
+             else f"Start in {building.spaces[start]['name']} ({floor_of(building, start)})."]
+    behind: tuple[float, float] | None = None  # a point before the last door, on the walking line through it
+    entered: tuple[float, float] | None = None  # the last door we came through
+    current = start
+    for leg in route_legs(building, space_path, element_path):
+        if leg["kind"] == "connector":
+            floors = leg.get("floors", 1)
+            span = f" {FLOOR_COUNT.get(floors, str(floors))} floors" if floors > 1 else ""
+            steps.append(f"Take {leg['via']} {'up' if leg['up'] else 'down'}{span} to {leg['floor']}.")
+            behind = entered = None
+        elif leg["kind"] == "arrive":
+            steps.append("You are now outside the building." if leg["to_id"] == OUTSIDE
+                         else f"You have arrived at {leg['to']} ({leg['floor']}).")
+        else:
+            door_at = tuple(building.openings[leg["via"]]["position"])
+            degrees = heading_change(behind, entered, door_at) if behind and entered else None
+            door = DOOR_WORD.get(leg["via_kind"], "opening")
+            mark = landmark(building, leg["via"])
+            by = f" (by the {mark})" if mark else ""
+            where = "and leave the building" if leg["kind"] == "exit" else f"into {leg['to']}"
+            if leg["distance_m"] < 1:
+                steps.append(f"Go through the {door}{by} {where}.")
+            else:
+                steps.append(f"{TURN_PHRASE[turn_word(degrees)]} about {about_m(leg['distance_m'])} m through the "
+                             f"{door}{by} {where}.")
+            behind = building.anchor(current) if current != OUTSIDE else entered
+            entered = door_at
+        current = leg["to_id"]
+    return steps

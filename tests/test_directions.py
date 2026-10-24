@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from agent.tools import BuildingSession
-from core.directions import heading_change, route_legs, turn_word
+from core.directions import about_m, guidance_steps, heading_change, landmark, route_legs, turn_word
 
 BUILDING = Path("data/train/proc-campus-train-000")
 
@@ -28,8 +28,11 @@ def test_legs_follow_the_route_and_match_kit_steps(session):
     legs = route_legs(session.building, route["space_path"], route["element_path"])
     assert legs[-1]["kind"] == "arrive" and legs[-1]["to_id"] == route["space_path"][-1]
     assert all(leg["to_id"] in route["space_path"] for leg in legs)
-    # the kit's "Walk about N m … into X" lines carry the same rounded distances
-    kit = [line for line in route["steps"] if line.startswith("Walk about")]
+    # the kit's "Walk about N m … into X" lines (core.navigation; the Guide's tool now gives guidance steps)
+    from core import navigation
+    kit_route = navigation.find_route(session.building, route["space_path"][0], route["space_path"][-1]).to_dict()
+    assert kit_route["length_m"] == route["length_m"]
+    kit = [line for line in kit_route["steps"] if line.startswith("Walk about")]
     ours = [f"{leg['distance_m']:.0f} m" for leg in legs if leg["kind"] == "door"]
     assert [line.split("Walk about ")[1].split(" m")[0] + " m" for line in kit] == ours
     # ground → floor 3 on one staircase is a single leg
@@ -46,3 +49,32 @@ def test_route_event_carries_legs():
     client.post("/chat", json={"session_id": session_id, "message": "from Main lobby to Meeting room 3.07"})
     route = [e for e in client.get("/events", params={"session_id": session_id}).json()["events"] if e["type"] == "route"]
     assert route and route[-1]["legs"][-1]["kind"] == "arrive"
+
+
+def test_about_m_rounds_like_a_person():
+    assert [about_m(m) for m in (0.4, 5.2, 9.6, 26, 27.6, 85.15, 97.03, 148.38)] == [1, 5, 10, 25, 30, 85, 95, 150]
+
+
+def test_guidance_steps_have_turns_landmarks_rounded_metres_and_no_ids(session):
+    route = session.call("find_route", {"start": "Main lobby", "destination": "Meeting room 3.07"})
+    steps = route["steps"]
+    assert steps == guidance_steps(session.building, route["space_path"], route["element_path"])
+    assert steps[0] == "Start in Main lobby (Ground floor)." and steps[-1].startswith("You have arrived at Meeting room")
+    assert "Walk about 25 m through the door (by the reception desk) into Corridor 0.01." in steps
+    assert any(step.startswith(("Turn left", "Turn right")) for step in steps)
+    assert sum(step.startswith("Take Staircase") for step in steps) == 1  # one line for ground → floor 3
+    assert not any("proc-campus" in step or "[" in step for step in steps)
+    assert route["about_m"] == about_m(route["length_m"])
+
+
+def test_landmark_is_a_recognisable_item_next_to_the_door(session):
+    building = session.building
+    marked = {landmark(building, opening) for opening in building.openings}
+    assert "reception desk" in marked and None in marked
+    assert not marked & {"chair", "desk", "office chair"}
+
+
+def test_tour_legs_get_guidance_steps(session):
+    tour = session.call("tour", {"stops": ["Main lobby", "Meeting room 3.07", "Main lobby"]})
+    assert tour["reachable"] and tour["about_m"] == about_m(tour["length_m"])
+    assert all(leg["steps"][0].startswith("Start in") and "[" not in " ".join(leg["steps"]) for leg in tour["legs"])

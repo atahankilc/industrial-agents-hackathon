@@ -104,6 +104,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
     `tests/interaction_scenarios/*.json` (6: first day/coffee, wheelchair two trips, facility manager + lift, voice
     technician in the factory, typo + change of mind, Turkish trolley), an LLM judge scores the brief's rubric 1–5.
     All Opus 5.5: asks 4.17 · shows 4.17 · **directions 3.33** · remembers 4.83 · goal 5/6, ~$0.62 per run (log).
+  - 2026-10-24: **Guidance steps** `core/directions.py` `guidance_steps` / `about_m` / `landmark`: the Guide's
+    `find_route` / `tour` steps now carry turns (taken at the door you came through), a landmark item within 4 m of
+    each door, rounded metres, one line per ride, no ids; `about_m` = rounded total (`length_m` stays exact).
+    Interaction eval: directions **3.33 → 4.17**, asks 4.67, shows 4.83, remembers 5.00, goal 5/6; eval_guide 18/18.
   - Ported into the canonical Guide (2026-10-24): place resolution + described candidates + typo suggestions +
     route fan-out over an ambiguous destination (`agent/places.py`, `BuildingSession.resolve`), and grounding
     (unit-glued numbers, list lengths, clock times, half-up rounding) in `agent/guide.py`; `tests/test_places.py`.

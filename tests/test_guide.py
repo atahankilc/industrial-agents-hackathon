@@ -266,7 +266,7 @@ def test_offline_client_runs_the_same_conversation(session):
     guide = Guide(session, client=OfflineClient())
     assert "Which one" in guide.reply("Where is the printer?").text
     assert "step-free" in guide.reply("I use a wheelchair").text and session.profile.step_free
-    assert "About 124 m" in guide.reply("from Main lobby to Meeting room 3.07").text
+    assert "About 120 m" in guide.reply("from Main lobby to Meeting room 3.07").text
     assert "Shall I apply" in guide.reply("Lift 1 is broken").text and not session.applied
     turn = guide.reply("yes")
-    assert session.applied and "About 132 m" in turn.text and turn.ungrounded == []
+    assert session.applied and "About 130 m" in turn.text and turn.ungrounded == []

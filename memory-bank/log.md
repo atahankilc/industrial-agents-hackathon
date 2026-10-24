@@ -10,6 +10,24 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Directions: turns, landmarks, rounded metres
+
+- **Did:** `core/directions.py`: `about_m` (whole metres < 10, steps of 5 < 100, then 10, half up), `landmark` (the
+  most recognisable item of `LANDMARK_TYPES` within 4 m of an opening, in a space it joins; no chairs/desks),
+  `guidance_steps` (start line, "Turn left and walk about 15 m through the door (by the vending machine) into X",
+  one "Take Staircase 2 up two floors to Floor 2." per ride, arrival; no ids). The turn is the heading change at the
+  door you came through (previous room's anchor → that door → next door); `route_legs` (camera mode) still turns at
+  the room anchor, which read "turn around" next to the entry door. `BuildingSession.guide_steps` replaces the kit
+  step text in `find_route` and each `tour` leg and adds `about_m`; prompt: use the route's steps, total as about_m.
+  Offline client says about_m. Tests: `tests/test_directions.py` (+4), expectations in `test_guide.py` /
+  `test_speech.py` moved from exact to rounded metres (124 → 120, 132 → 130, 27 → 25).
+- **Live (Opus 5.5, single runs):** eval_guide 18/18 (~$0.22). Interaction eval: asks 4.67 · shows 4.83 ·
+  directions **4.17** (was 3.33) · remembers 5.00 · goal 5/6 (~$0.56). Three scenarios score directions 5.
+- **Learned:** remaining judge issues — step distances (straight segments) don't add up to about_m (route cost incl.
+  lift/stairs cost), a landmark can sit at the destination door itself, the factory technician still has no route
+  (bay rule, see the entry below). Left/right comes from plan geometry and is **UNVERIFIED** on site.
+- **Next:** say step distances are approximate or derive the total from them for display; factory bay rule (Q-015).
+
 ## 2026-10-24 — Interaction eval: simulated tricky users + LLM judge
 
 - **Did:** `scripts/interaction_eval.py`: a simulated user (Claude, structured JSON `message/done/goal_reached`,

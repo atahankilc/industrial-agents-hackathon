@@ -74,7 +74,7 @@ def test_voice_route_turn_is_grounded_and_speakable():
     guide = Guide(BuildingSession.load(BUILDING), client=client, model="claude-sonnet-5-5")
     turn = guide.reply("How do I get to meeting room 3.07 from the main lobby?", channel="voice")
     assert turn.ungrounded == []
-    assert turn.spoken.startswith("About 99 metres: Walk about 27 metres") and turn.spoken.endswith("continue?")
+    assert turn.spoken.startswith("About 99 metres: Walk about 25 metres") and turn.spoken.endswith("continue?")
     assert "\n" not in turn.spoken and "[" not in turn.spoken
     # the voice system message stays in history; the next request still sees it before the tool round
     assert {"role": "system", "content": VOICE_STYLE} in client.requests[1]["messages"]

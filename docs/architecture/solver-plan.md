@@ -53,9 +53,13 @@ Argmax area among the same set. Answer line: `<ref> (<name>), <area> m²` — th
 space answers and disambiguates repeated OSM names.
 
 ## straight_line_3d
-`Polygon.centroid` (`buffer(0)` if invalid) at floor `elevation_m`; 3D Euclidean. No frame correction: train+dev
-use only OSM/procedural here. ⚠ Swiss floors are centred per floor, so a Swiss cross-floor question would be
-unreliable (UNVERIFIED — none in data).
+`Polygon.centroid` (`buffer(0)` if invalid) at floor `elevation_m`; 3D Euclidean. No frame correction.
+**Swiss risk checked (2026-10-24):** all 30 train+dev and all 15 test `straight_line_3d` questions are on
+procedural/OSM buildings — the generator avoids Swiss here, as the kit README states for stacked questions. The
+misalignment is real (84 of 108 multi-floor Swiss buildings have every floor's space-bbox centre within 2 m of
+the origin on each axis; 82 with a Euclidean 2 m radius), but a gold answer would be computed from the same raw
+coordinates, so no frame correction is the right call either way. The
+Guide's `room_facts` omits "above/below" for Swiss buildings (`UNALIGNED_SOURCES` in `agent/tools.py`).
 
 ## room_stacked
 Next existing `level` up/down (gaps skipped, e.g. swiss-460 levels 0,2,3,4); winner = largest intersection area

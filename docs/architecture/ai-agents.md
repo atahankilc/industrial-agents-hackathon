@@ -33,7 +33,7 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 |---|---|---|
 | `building_overview` | floors, cores, entrances, closures | no |
 | `search(query, floor?)` | ranked spaces/assets with ids | no |
-| `room_facts(space)` | area, centre, floor, neighbours (shared walls), above/below, doors + widths | no |
+| `room_facts(space)` | area, centre, floor, neighbours (shared walls), above/below (omitted on Swiss Dwellings buildings, floors not aligned — [solver-plan](solver-plan.md#straight_line_3d)), doors + widths | no |
 | `find_route(from, to, via?, profile)` | node path, metres, steps with landmarks, profile used | no |
 | `compare_routes(before/after change)` | diff: rooms that lost access, extra metres | no |
 | `set_profile(...)` | the active [routing profile](../product/routing-profiles.md) for this user | user state only |

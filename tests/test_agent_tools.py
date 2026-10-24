@@ -103,3 +103,11 @@ def test_proposal_reports_who_loses_access(session):
     assert sum(floor["count"] for floor in effect["lost_access_by_floor"].values()) == effect["lost_access_count"]
     assert session.events == events  # a proposal highlights nothing
     assert "C2" in session.call("apply_change", {"change_id": "pending"})["error"]  # lists the real ids
+
+
+def test_room_facts_skips_stacking_on_unaligned_buildings():
+    swiss = next(Path(__file__).resolve().parent.parent.glob("data/train/swiss-1075"))
+    session = BuildingSession.load(swiss)
+    room = next(space for space in session.building.spaces.values() if space["type"] == "room")
+    facts = session.call("room_facts", {"space": room["id"]})
+    assert "error" not in facts and set(facts["stacked"]) == {"note"}

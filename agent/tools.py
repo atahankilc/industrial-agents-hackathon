@@ -29,6 +29,10 @@ from core.solvers.routing import with_new_door
 from core.solvers.walls import shared_wall_neighbours
 
 MAX_RESULTS = 15
+# Kit README: some Swiss Dwellings floors are centred per floor rather than aligned (84 of 108 multi-floor Swiss
+# buildings have every floor's space-bbox centre within 2 m of the origin on each axis; 82 with a Euclidean 2 m
+# radius), so "directly above/below" is meaningless there.
+UNALIGNED_SOURCES = {"swiss_dwellings"}
 
 
 # Persona presets for set_profile, from the "Profiles per persona" table in docs/product/routing-profiles.md.
@@ -157,8 +161,10 @@ class BuildingSession:
         space_id = self.resolve(space)
         record = self.building.spaces[space_id]
         x, y, z = centre_3d(self.building, space_id)
-        stacked = {}
-        for direction in ("above", "below"):
+        stacked: dict = {}
+        if self.building.data["building"]["source"] in UNALIGNED_SOURCES:
+            stacked["note"] = "floors of this building are not aligned in the data, so rooms above/below are unknown"
+        for direction in ("above", "below") if not stacked else ():
             if adjacent_floor(self.building, record["floor_id"], direction) is not None:
                 stacked[direction] = self.space_summary(solve(self.building, "room_stacked", {
                     "start": space_id, "direction": direction}).value)
@@ -461,8 +467,9 @@ TOOL_DEFINITIONS: list[dict] = [
     {"name": "count_assets", "description": "How many assets of a type, on one floor or the whole building.",
      "input_schema": {"type": "object", "properties": {"asset_type": {"type": "string"},
                       "floor_id": {"type": "string"}}, "required": ["asset_type"]}},
-    {"name": "room_facts", "description": "Area, centre, shared walls, doors with widths, rooms above/below, "
-     "items in a room.", "input_schema": {"type": "object", "properties": {"space": PLACE}, "required": ["space"]}},
+    {"name": "room_facts", "description": "Area, centre, shared walls, doors with widths, rooms above/below "
+     "(omitted where floors aren't aligned), items in a room.",
+     "input_schema": {"type": "object", "properties": {"space": PLACE}, "required": ["space"]}},
     {"name": "find_route", "description": "Shortest walk under the user's profile and current closures: metres, "
      "rooms passed, followable steps.", "input_schema": {"type": "object", "properties": {
          "start": PLACE, "destination": PLACE, "via": {"type": "array", "items": PLACE}},

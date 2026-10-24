@@ -98,8 +98,8 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 3. (Atahan) Vercel + Supabase accounts → [stack checklist](../docs/research/stack-options.md#7-day-one-setup-checklist-human-actions--ask-before-creating-anything).
 4. Preference extraction, remaining TODO: group composition (P20), profile lifetime/reset scope, persistence,
    soft penalties → [TODO](../docs/product/routing-profiles.md#todo-preference-extraction).
-5. Sunday hardening: wording robustness (LLM parser fallback measured with a key), Swiss per-floor frames for
-   `straight_line_3d` (UNVERIFIED risk), output format once Q-001 is announced.
+5. Sunday hardening: wording robustness ✅ (hybrid 31/31 on paraphrases), Swiss `straight_line_3d` ✅ (generator
+   avoids Swiss; no correction needed); still open: output format once Q-001 is announced, new kinds.
 
 ## Blockers
 

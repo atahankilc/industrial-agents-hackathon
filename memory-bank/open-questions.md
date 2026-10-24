@@ -68,8 +68,10 @@ Template:
 - **Context:** [ai-agents.md](../docs/architecture/ai-agents.md#benchmark-pipeline).
   Sunday wording may differ; `kind` may not be provided.
 - **Evidence (2026-10-24):** one template per kind (two for room_stacked); regex parser 655/655 on train+dev,
-  145/145 on test → [D-007](decisions.md#d-007) accepted 2026-10-24 (configurable modes). Remaining: live LLM
-  accuracy on paraphrases (`scripts/eval_llm_parser.py --paraphrase`, needs an API key).
+  145/145 on test → [D-007](decisions.md#d-007) accepted 2026-10-24 (configurable modes).
+- **Live paraphrase check (2026-10-24):** 31 reworded dev questions, all 9 kinds: regex 0/31, llm 31/31,
+  hybrid 31/31 ([question-parsing.md](../docs/research/question-parsing.md#risks)). Hybrid stays the default;
+  open only for kinds that don't exist yet (new Sunday kinds can only map onto our solvers).
 
 <a id="q-010"></a>
 ### Q-010 — Which Level 5 add-in do we pick?

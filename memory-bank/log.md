@@ -10,6 +10,12 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Guide Task 4: grounding checker (branch `1-agentic-yarag`)
+
+- **Did:** Added `agent/guide/grounding.py` (`grounded_tokens`, `ungrounded`, `fallback_text`); numbers in a reply must
+  appear in tool results, rounded to 0/1/2 dp, or be a list length; 14 tests in `tests/test_guide_grounding.py`.
+- **Next:** Task 5 wires it into the Guide loop (one repair round, then `fallback_text`).
+
 ## 2026-10-24 — Guide Task 3: route + update_session tools (branch `1-agentic-yarag`)
 
 - **Did:** Added `route` and `update_session` to `agent/guide/tools.py`; session closures are fan-out slots

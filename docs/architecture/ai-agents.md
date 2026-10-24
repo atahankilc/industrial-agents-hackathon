@@ -197,6 +197,11 @@ tool wins.
 ## Builder (Level 4)
 
 Edit mode design (step 1 of the Builder): [builder-edit-mode-design](../superpowers/specs/2026-10-24-builder-edit-mode-design.md).
+**Milestone 1 implemented (2026-10-24, branch `2-builder-edit`):** View / Edit switch in the app; drag corners
+(shared walls stay shared), doors along walls and assets on a 2D plan with a live 3D inset; undo; validator issues
+in red (pre-existing issues of the original are warnings); save as `user/<slug>`, then the Guide routes in it.
+Code: `core/edits.py`, `core/validate.py`, `backend/drafts.py` + `/drafts`, `frontend/app/src/edit/`. Not yet:
+prompt edits (Builder agent, milestone 2), deployed store (Supabase, milestone 3), plan images (project 2).
 
 1. Upload plan image (PNG/PDF page) or describe changes by conversation.
 2. Claude vision drafts `floors`/`spaces`/`openings` in our schema (scale from a known dimension the user gives

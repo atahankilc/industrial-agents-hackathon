@@ -26,9 +26,10 @@ type Props = {
   emergeKey: number
   route: { vertices: [number, number, number, number][]; key: number } | null
   focus: Focus | null
+  inset?: boolean // small preview canvas (Edit mode): no chat-panel offset
 }
 
-function CameraRig({ focus, cloud }: { focus: Focus | null; cloud: PointCloud }) {
+function CameraRig({ focus, cloud, inset }: { focus: Focus | null; cloud: PointCloud; inset?: boolean }) {
   const { camera, controls } = useThree() as { camera: THREE.PerspectiveCamera; controls: OrbitControlsImpl | null }
   const goal = useRef<{ target: THREE.Vector3; position: THREE.Vector3 } | null>(null)
   const lastInteraction = useRef(performance.now())
@@ -36,10 +37,10 @@ function CameraRig({ focus, cloud }: { focus: Focus | null; cloud: PointCloud })
   // Keep the building centred in the area the chat panel leaves free (desktop): shift the principal point.
   const { size } = useThree()
   useEffect(() => {
-    const panel = size.width > PHONE_MAX_PX ? Math.min(400, size.width * 0.36) + 16 : 0
+    const panel = !inset && size.width > PHONE_MAX_PX ? Math.min(400, size.width * 0.36) + 16 : 0
     camera.filmOffset = (panel / 2 / size.width) * camera.getFilmWidth()
     camera.updateProjectionMatrix()
-  }, [size, camera])
+  }, [size, camera, inset])
 
   // Overview pose for each new building: the whole bounding sphere in view, looking down at ~35°.
   useEffect(() => {
@@ -87,7 +88,7 @@ function CameraRig({ focus, cloud }: { focus: Focus | null; cloud: PointCloud })
   return null
 }
 
-export function Scene({ cloud, dark, sets, floorsOn, explode, density, emergeKey, route, focus }: Props) {
+export function Scene({ cloud, dark, sets, floorsOn, explode, density, emergeKey, route, focus, inset }: Props) {
   const background = dark ? '#000000' : '#ffffff'
   return (
     <Canvas
@@ -108,7 +109,7 @@ export function Scene({ cloud, dark, sets, floorsOn, explode, density, emergeKey
       />
       {route && <RouteFlow vertices={route.vertices} dark={dark} explode={explode} routeKey={route.key} />}
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} autoRotateSpeed={0.35} maxPolarAngle={Math.PI * 0.49} />
-      <CameraRig focus={focus} cloud={cloud} />
+      <CameraRig focus={focus} cloud={cloud} inset={inset} />
     </Canvas>
   )
 }

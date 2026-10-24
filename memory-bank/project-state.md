@@ -51,7 +51,11 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `core/validate.py` — `validate(building, base)`, issues already in the base are warnings
   (`scripts/validate_dataset.py`, `tests/test_validate.py` over all 280 buildings). Task 4: `backend/drafts.py`
   (`DraftStore`, local `data/user/`, gitignored) + `/drafts` endpoints (create, get, points, ops, undo, save →
-  `user/<slug>` in `/buildings`, Guide routes in it; `tests/test_drafts.py`). Next: Task 5 frontend Edit mode.
+  `user/<slug>` in `/buildings`, Guide routes in it; `tests/test_drafts.py`). Tasks 5–7: frontend Edit mode
+  (`frontend/app/src/edit/`: View/Edit switch, SVG plan editor, 3D inset, issues, undo, save → View + Guide);
+  verified in headless Chrome (offline Guide): corner / door / asset drags, rotate, 4× undo, save → route 99 m in
+  `user/forschungsbau-edited`. **M1 done.** Next: final branch review, then milestone 2 (prompt edits via a
+  Builder agent) — its own plan.
 
 - **Solvers** `core/solvers/` (geometry, walls, reachability, routing): **655/655** train+dev on gold inputs
   (`scripts/validate_solvers.py`); rules + rejected variants in [solver-plan.md](../docs/architecture/solver-plan.md).

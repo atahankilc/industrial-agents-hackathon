@@ -129,6 +129,12 @@ cd frontend/app && npm install && npx vite --port 5181          # open http://lo
 cd frontend/app && npm run build                                # type-check + production bundle in dist/
 ```
 
+**Edit mode** (header switch View / Edit): edits a draft copy of the current building on a 2D plan — click a room
+and drag its corners, drag doors along walls, drag things (R / Shift+R rotates), ⌘Z undoes; problems are listed on
+the right; **Save** writes `user/<slug>` (local `data/user/`, or `GUIDE_USER_DIR`) and switches the Guide to it
+(the conversation restarts). The draft id is kept in `localStorage` per building. Local store only for now — on the
+deployed app `/drafts` can't write (milestone 3).
+
 Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8765`). Design and data path:
 [visualization.md](../product/visualization.md#app-and-data-path).
 

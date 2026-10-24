@@ -74,6 +74,27 @@ export type SessionSummary = {
   event_count: number
 }
 
+/** building.json as served by /drafts (docs/kit/data-format.md). */
+export type SpaceJson = { id: string; floor_id: string; type: string; room_type: string; name: string; ref: string | null; polygon: [number, number][] }
+export type OpeningJson = { id: string; floor_id: string; space_ids: string[]; kind: string; position: [number, number]; width_m: number; step_free: boolean }
+export type AssetJson = {
+  id: string; name: string; category: string; type: string; space_id: string; floor_id: string; position: [number, number]
+  footprint: { width_m: number; depth_m: number; rotation_deg: number }
+}
+export type BuildingJson = {
+  building: { id: string; name: string; source: string }
+  floors: { id: string; level: number; name: string }[]
+  spaces: SpaceJson[]
+  openings: OpeningJson[]
+  vertical_connectors: { id: string; space_ids: string[] }[]
+  assets: AssetJson[]
+}
+/** core/validate.py issue; warnings are issues the original building already had. */
+export type Issue = { severity: 'error' | 'warning'; code: string; message: string; ids: string[] }
+export type DraftState = { draft: { id: string; base: string; name: string; steps: number }; building: BuildingJson; issues: Issue[] }
+/** core/edits.py op: {"op": name, ...arguments}. */
+export type Op = { op: string; [key: string]: unknown }
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(BASE + path, {
     ...init,
@@ -101,6 +122,14 @@ export const api = {
   chat: (id: string, message: string) =>
     request<ChatReply>('/chat', { method: 'POST', body: JSON.stringify({ session_id: id, message }) }),
   chatStream,
+  createDraft: (base: string) => request<DraftState>('/drafts', { method: 'POST', body: JSON.stringify({ base }) }),
+  draft: (id: string) => request<DraftState>(`/drafts/${id}`),
+  draftPoints: (id: string) => request<PointCloud>(`/drafts/${id}/points`),
+  applyOps: (id: string, ops: Op[]) =>
+    request<DraftState>(`/drafts/${id}/ops`, { method: 'POST', body: JSON.stringify({ ops }) }),
+  undo: (id: string) => request<DraftState>(`/drafts/${id}/undo`, { method: 'POST' }),
+  saveDraft: (id: string, name: string) =>
+    request<{ building: string; issues: Issue[] }>(`/drafts/${id}/save`, { method: 'POST', body: JSON.stringify({ name }) }),
   events: (id: string, after: number) =>
     request<{ events: UiEvent[]; next: number }>(`/events?session_id=${encodeURIComponent(id)}&after=${after}`),
 }

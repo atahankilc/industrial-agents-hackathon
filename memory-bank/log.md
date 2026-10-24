@@ -10,6 +10,18 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 19:58 — Builder Edit mode M1 Tasks 5–7: frontend Edit mode, save → Guide
+
+- **Did:** `frontend/app/src/edit/` (`EditMode.tsx`, `PlanEditor.tsx`, `geometry.ts`, `edit.css`), draft API in
+  `api.ts`, `Scene` `inset` prop, View/Edit switch + save flow in `App.tsx`. Verified with playwright-core driving
+  headless Chrome against backend :8775 / Vite :5191 (offline Guide): plan + inset render, corner drag moves the
+  shared corner in both rooms and the validator flags assets left outside, door slide, asset drag + R, 4× ⌘Z back to
+  0 changes, save "Forschungsbau edited" → View on `user/forschungsbau-edited`, note in chat, Guide route Main lobby →
+  Meeting room 3.07 99 m. No console errors. `npm run build` clean.
+- **Learned:** `.opening.opening` in CSS matches every `.opening` — kind classes need a prefix (`kind-door`); the
+  3D inset needs `density` ≈ 0.3 or the small canvas turns black.
+- **Next:** final review of the branch; milestone 2 plan (Builder agent).
+
 ## 2026-10-24 19:47 — Builder Edit mode M1 Task 4: drafts store + API
 
 - **Did:** `backend/drafts.py` — drafts as base + steps persisted in `data/user/.drafts/<id>.json`, saved buildings in

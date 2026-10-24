@@ -20,6 +20,13 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Changed docs:** [commands.md](../docs/guides/commands.md#deploy-vercel), [project-state.md](project-state.md#next-priorities).
 - **Next:** Atahan imports the repo into Vercel and sets the env vars; pushing `dev` needs Atahan's OK.
 
+## 2026-10-24 — Handoff: app deployed, frontend polish next
+
+- **Did:** Recorded that Atahan has deployed the app; reordered project-state "Do next": frontend polish first
+  (next session), Q-014 organiser follow-up and Q-001 output format parked by Atahan's choice; listed the small
+  gaps (numpy undeclared, `route_model` not persisted, no live smoke test yet).
+- **Next:** frontend polish ([project-state](project-state.md#-start-here-handoff-for-the-next-session-2026-10-24-evening)).
+
 ## 2026-10-24 — Q-014: second route model (geodesic) + route rules
 
 - **Did:** `core/geodesic.py` (in-space door-to-door distance, polygon shrunk 0.15 m, visibility graph; subagent),

@@ -10,6 +10,14 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 19:47 — Builder Edit mode M1 Task 4: drafts store + API
+
+- **Did:** `backend/drafts.py` — drafts as base + steps persisted in `data/user/.drafts/<id>.json`, saved buildings in
+  `data/user/<slug>/` registered as `user/<slug>`; `/drafts` endpoints in `backend/app.py`; endpoints table in
+  [commands.md](../docs/guides/commands.md#backend-guide-api). `.gitignore`: `data/user/`, `.superpowers/`.
+  `uv run pytest` 670 passed, 1 skipped.
+- **Next:** Task 5 — frontend View/Edit switch, plan view, 3D inset.
+
 ## 2026-10-24 19:40 — Builder Edit mode M1 Tasks 2–3: wall moves, validator
 
 - **Did:** `core/edits.py` gained `move_vertex` (moves a corner in every room that has it) and `set_polygon`; both

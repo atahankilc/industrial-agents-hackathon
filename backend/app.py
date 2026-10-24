@@ -5,8 +5,9 @@
 Endpoints: /health, /buildings, /sessions (create, inspect, switch building), /sessions/{id}/points (point-cloud
 export of the session's current building, gzipped), /chat, /chat/stream (the same turn as NDJSON: live tool steps,
 then the reply), /events (polling cursor for the map UI; route events
-carry `vertices`, change events `space_ids`) and the OpenAI-compatible /v1/chat/completions for ElevenLabs
-(backend/openai_compat.py).
+carry `vertices`, change events `space_ids`), the OpenAI-compatible /v1/chat/completions for ElevenLabs
+(backend/openai_compat.py), and the Edit mode's /drafts (create, get, points, ops, undo, save — backend/drafts.py;
+saved buildings appear in /buildings as `user/<slug>`, stored under GUIDE_USER_DIR, default data/user/).
 Guide turns are blocking (tool loop + LLM calls), so those endpoints are plain `def` and run in FastAPI's
 threadpool; each conversation's lock serialises its turns. With persistence on (backend/persistence.py) every turn
 is saved when it ends; a turn that lost a save race to another instance answers 409 and must be resent.
@@ -19,6 +20,7 @@ import json
 import os
 import queue
 import threading
+from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,7 +30,11 @@ from pydantic import BaseModel
 
 from agent.guide import PHOTO_TYPES, llm_mode
 from backend import openai_compat, persistence
-from backend.sessions import DEFAULT_SESSION, Conversation, SessionStore, UnknownBuilding, summary
+from backend.drafts import Draft, DraftStore
+from backend.sessions import DATA_DIR, DEFAULT_SESSION, Conversation, SessionStore, UnknownBuilding, summary
+from core.building_map import BuildingMap
+from core.edits import EditError
+from core.pointcloud import export_points
 
 API_PREFIX = "/api"
 
@@ -53,6 +59,7 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], a
 app.add_middleware(GZipMiddleware, minimum_size=1000)  # the point-cloud export is ~4 MB of JSON
 app.add_middleware(StripPrefix)  # added last = outermost: routes see the path without /api
 store = SessionStore()
+drafts = DraftStore(Path(os.environ.get("GUIDE_USER_DIR", DATA_DIR / "user")), store.catalogue)
 
 
 class NewSession(BaseModel):
@@ -61,6 +68,18 @@ class NewSession(BaseModel):
 
 class SwitchBuilding(BaseModel):
     building: str
+
+
+class NewDraft(BaseModel):
+    base: str
+
+
+class DraftOps(BaseModel):
+    ops: list[dict]
+
+
+class SaveDraft(BaseModel):
+    name: str
 
 
 class ChatRequest(BaseModel):
@@ -213,6 +232,62 @@ def events(session_id: str, after: int = Query(0, ge=0)) -> dict:
 def points(session_id: str) -> dict:
     conversation = conversation_or_404(session_id)
     return conversation.view.points(conversation.session)
+
+
+# ---------- Edit mode: drafts (backend/drafts.py) ----------
+
+
+def draft_or_404(draft_id: str) -> Draft:
+    draft = drafts.get(draft_id)
+    if draft is None:
+        raise HTTPException(404, f"unknown draft {draft_id!r}")
+    return draft
+
+
+@app.post("/drafts")
+def create_draft(body: NewDraft) -> dict:
+    try:
+        draft = drafts.create(body.base)
+    except KeyError:
+        raise HTTPException(422, f"unknown building {body.base!r}; see GET /buildings") from None
+    return drafts.state(draft)
+
+
+@app.get("/drafts/{draft_id}")
+def get_draft(draft_id: str) -> dict:
+    return drafts.state(draft_or_404(draft_id))
+
+
+@app.get("/drafts/{draft_id}/points")
+def draft_points(draft_id: str) -> dict:
+    return export_points(BuildingMap(drafts.building(draft_or_404(draft_id))))
+
+
+@app.post("/drafts/{draft_id}/ops")
+def draft_ops(draft_id: str, body: DraftOps) -> dict:
+    draft = draft_or_404(draft_id)
+    try:
+        drafts.apply(draft, body.ops)
+    except EditError as error:
+        raise HTTPException(422, str(error)) from None
+    return drafts.state(draft)
+
+
+@app.post("/drafts/{draft_id}/undo")
+def draft_undo(draft_id: str) -> dict:
+    draft = draft_or_404(draft_id)
+    try:
+        drafts.undo(draft)
+    except EditError as error:
+        raise HTTPException(409, str(error)) from None
+    return drafts.state(draft)
+
+
+@app.post("/drafts/{draft_id}/save")
+def draft_save(draft_id: str, body: SaveDraft) -> dict:
+    draft = draft_or_404(draft_id)
+    issues = drafts.issues(draft)
+    return {"building": drafts.save(draft, body.name), "issues": issues}
 
 
 @app.post("/v1/chat/completions", response_model=None)

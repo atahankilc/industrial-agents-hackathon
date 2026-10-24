@@ -49,7 +49,9 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `apply_steps` (`tests/test_edits.py`). Task 2: `move_vertex` / `set_polygon` keep shared walls (overlapped
   neighbours shrink, refused if one would vanish; doors re-projected; thick Swiss walls handled). Task 3:
   `core/validate.py` — `validate(building, base)`, issues already in the base are warnings
-  (`scripts/validate_dataset.py`, `tests/test_validate.py` over all 280 buildings). Next: Task 4 drafts store + API.
+  (`scripts/validate_dataset.py`, `tests/test_validate.py` over all 280 buildings). Task 4: `backend/drafts.py`
+  (`DraftStore`, local `data/user/`, gitignored) + `/drafts` endpoints (create, get, points, ops, undo, save →
+  `user/<slug>` in `/buildings`, Guide routes in it; `tests/test_drafts.py`). Next: Task 5 frontend Edit mode.
 
 - **Solvers** `core/solvers/` (geometry, walls, reachability, routing): **655/655** train+dev on gold inputs
   (`scripts/validate_solvers.py`); rules + rejected variants in [solver-plan.md](../docs/architecture/solver-plan.md).

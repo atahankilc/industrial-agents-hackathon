@@ -81,14 +81,14 @@
   background: var(--bg);
 }
 
-/* issues */
+/* issues: compact, bottom-left over the plan */
 .edit-issues {
   position: absolute;
   z-index: 2;
-  right: 16px;
+  left: 72px;
   bottom: 16px;
   width: 340px;
-  top: 262px;
+  max-height: 28vh;
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -103,6 +103,47 @@
 .edit .issue.error { border-color: rgba(229, 72, 77, 0.5); }
 .edit .issue.warning { color: var(--ink-3); }
 .edit-issues .hint { margin: 6px 0 0; font-size: 11px; }
+
+/* Builder chat: right column under the 3D preview */
+.builder {
+  position: absolute;
+  z-index: 2;
+  top: 262px;
+  right: 16px;
+  bottom: 16px;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background: var(--surface, var(--panel));
+  box-shadow: var(--shadow-float, none);
+  overflow: hidden;
+}
+.builder-lines { flex: 1; overflow: auto; padding: 14px 14px 6px; display: flex; flex-direction: column; gap: 8px; }
+.builder-empty p { margin: 0 0 8px; color: var(--ink-2); font-size: 13px; }
+.edit .builder-chip { display: block; width: 100%; margin-bottom: 6px; text-align: left; background: var(--surface-2, var(--fill)); border: 0; }
+.builder-line { margin: 0; font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
+.builder-line.from-user { align-self: flex-end; max-width: 85%; padding: 7px 10px; border-radius: 12px; background: var(--accent-soft, var(--fill)); }
+.builder-line.from-note { color: var(--ink-2); font-size: 12px; }
+.builder-line.step { color: var(--ink-2); font-size: 12px; display: flex; gap: 6px; align-items: center; }
+.builder-line.step .spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.builder-proposal { padding: 10px 12px; border-radius: 12px; background: var(--surface-2, var(--fill)); display: flex; flex-direction: column; gap: 4px; }
+.builder-proposal p { margin: 0; font-size: 12px; }
+.builder-proposal .summary { font-size: 13px; font-weight: 600; }
+.builder-proposal .area { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.builder-proposal .problem { color: #e5484d; }
+.builder-proposal .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.edit .builder-proposal button { display: inline-flex; align-items: center; gap: 4px; }
+.builder-ask { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--hair); }
+.builder-ask input { flex: 1; height: 34px; padding: 0 10px; border: 1px solid var(--hair); border-radius: 10px; background: transparent; font: inherit; font-size: 13px; color: inherit; }
+.edit .builder-ask button { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; }
+
+/* the Builder's proposal on the plan */
+.plan-editor .ghost-space { fill: rgba(10, 132, 255, 0.12); stroke: var(--accent, #0a84ff); stroke-width: 2px; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; pointer-events: none; }
+.plan-editor .ghost-asset { fill: rgba(10, 132, 255, 0.18); stroke: var(--accent, #0a84ff); stroke-width: 1.5px; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; pointer-events: none; }
+.plan-editor .ghost-opening { stroke: var(--accent, #0a84ff); stroke-width: 0.3; pointer-events: none; }
+.plan-editor .space.removing { fill: rgba(229, 72, 77, 0.12); stroke-dasharray: 6 4; }
 
 /* save dialog */
 .edit-save {
@@ -125,14 +166,10 @@
 .edit-save .warn { margin: 0; color: #e5484d; font-size: 12px; }
 .edit-save .row { display: flex; justify-content: flex-end; gap: 8px; }
 
-/* View / Edit switch in the header */
-.mode-switch { display: inline-flex; padding: 2px; border: 1px solid var(--hair); border-radius: 10px; background: var(--panel); }
-.mode-switch button { height: 26px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-3); cursor: pointer; font-size: 12px; }
-.mode-switch button.on { background: var(--ink); color: var(--bg); }
-
 @media (max-width: 720px) {
   .plan-editor { left: 0; right: 0; top: 190px; bottom: 28vh; width: 100%; height: calc(100% - 190px - 28vh); }
   .edit-inset { width: 46vw; height: 30vw; top: 84px; }
-  .edit-issues { width: auto; left: 12px; right: 12px; max-height: 26vh; }
+  .edit-issues { width: auto; left: 12px; right: 12px; max-height: 20vh; bottom: calc(40vh + 24px); }
+  .builder { top: auto; left: 12px; right: 12px; width: auto; height: 40vh; bottom: 12px; }
   .edit-strip { top: 140px; left: 12px; max-width: 48vw; }
 }

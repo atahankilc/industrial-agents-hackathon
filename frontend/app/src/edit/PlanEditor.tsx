@@ -18,6 +18,7 @@ type Props = {
   onOps: (ops: Op[]) => void
   busy: boolean // an op is in flight: no new edits until it lands
   revision: number // bumped by the parent on every op response (applied or refused)
+  ghost?: BuildingJson | null // the Builder's proposal: elements that would change are drawn dashed on top
 }
 
 type View = { x: number; y: number; w: number; h: number }
@@ -55,7 +56,7 @@ function doorSegment(opening: OpeningJson, polygonOf: (id: string) => XY[] | und
   return [[x - ux * half, y - uy * half], [x + ux * half, y + uy * half]]
 }
 
-export function PlanEditor({ building, floorId, issues, selected, onSelect, onOps, busy, revision }: Props) {
+export function PlanEditor({ building, floorId, issues, selected, onSelect, onOps, busy, revision, ghost }: Props) {
   const svg = useRef<SVGSVGElement>(null)
   const [view, setView] = useState<View | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
@@ -69,6 +70,25 @@ export function PlanEditor({ building, floorId, issues, selected, onSelect, onOp
   const assets = useMemo(() => building.assets.filter((item) => item.floor_id === floorId), [building, floorId])
   const polygons = useMemo(() => new Map(spaces.map((space) => [space.id, space.polygon as XY[]])), [spaces])
   const vertices = useMemo(() => spaces.flatMap((space) => space.polygon as XY[]), [spaces])
+  // What the open proposal would change on this floor: new / changed elements, and ids it would remove.
+  const proposed = useMemo(() => {
+    if (!ghost) return null
+    const differs = <T extends { id: string; floor_id: string }>(after: T[], before: T[]) => {
+      const old = new Map(before.map((item) => [item.id, JSON.stringify(item)]))
+      return after.filter((item) => item.floor_id === floorId && old.get(item.id) !== JSON.stringify(item))
+    }
+    const gone = (key: 'spaces' | 'openings' | 'assets') => {
+      const kept = new Set(ghost[key].map((item) => item.id))
+      return building[key].filter((item) => item.floor_id === floorId && !kept.has(item.id)).map((item) => item.id)
+    }
+    return {
+      spaces: differs(ghost.spaces, building.spaces),
+      openings: differs(ghost.openings, building.openings),
+      assets: differs(ghost.assets, building.assets),
+      removed: new Set([...gone('spaces'), ...gone('openings'), ...gone('assets')]),
+      polygons: new Map(ghost.spaces.map((space) => [space.id, space.polygon as XY[]])),
+    }
+  }, [ghost, building, floorId])
   const bad = useMemo(() => new Set(issues.filter((item) => item.severity === 'error').flatMap((item) => item.ids)), [issues])
 
   // Fit the floor when it changes (not on every edit, so the view stays put while you work).
@@ -199,7 +219,8 @@ export function PlanEditor({ building, floorId, issues, selected, onSelect, onOp
       <g className="spaces">
         {spaces.map((space) => {
           const polygon = polygonOf(space.id)
-          const classes = ['space', `type-${space.type}`, selected?.id === space.id ? 'selected' : '', bad.has(space.id) ? 'bad' : '']
+          const classes = ['space', `type-${space.type}`, selected?.id === space.id ? 'selected' : '', bad.has(space.id) ? 'bad' : '',
+            proposed?.removed.has(space.id) ? 'removing' : '']
           return (
             <polygon
               key={space.id}
@@ -274,6 +295,23 @@ export function PlanEditor({ building, floorId, issues, selected, onSelect, onOp
           )
         })}
       </g>
+      {proposed && (
+        <g className="ghost">
+          {proposed.spaces.map((space) => (
+            <polygon key={space.id} className="ghost-space" points={svgPoints(space.polygon as XY[])} />
+          ))}
+          {proposed.assets.map((asset) => (
+            <g key={asset.id} transform={`translate(${asset.position[0]} ${-asset.position[1]}) rotate(${-asset.footprint.rotation_deg})`}>
+              <rect className="ghost-asset" x={-asset.footprint.width_m / 2} y={-asset.footprint.depth_m / 2}
+                width={asset.footprint.width_m} height={asset.footprint.depth_m} />
+            </g>
+          ))}
+          {proposed.openings.map((opening) => {
+            const [a, b] = doorSegment(opening, (id) => proposed.polygons.get(id))
+            return <line key={opening.id} className="ghost-opening" x1={a[0]} y1={-a[1]} x2={b[0]} y2={-b[1]} />
+          })}
+        </g>
+      )}
       {selectedSpace && (
         <g className="handles">
           {polygonOf(selectedSpace.id).map((vertex, i) => (

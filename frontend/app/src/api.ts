@@ -147,6 +147,23 @@ export type Issue = { severity: 'error' | 'warning'; code: string; message: stri
 export type DraftState = { draft: { id: string; base: string; name: string; steps: number }; building: BuildingJson; issues: Issue[] }
 /** core/edits.py op: {"op": name, ...arguments}. */
 export type Op = { op: string; [key: string]: unknown }
+/** An open Builder proposal (agent/builder_tools.py); `building` is the draft as it would be after the ops. */
+export type Proposal = {
+  id: string
+  summary: string
+  ops: Op[]
+  new_problems: string[]
+  effect: { changed_spaces: { id: string; name: string; area_before: number; area_after: number }[]; added: Record<string, number>; removed: Record<string, number> }
+  building: BuildingJson
+}
+export type BuilderReply = {
+  reply: string
+  tool_calls: { name: string; input: unknown }[]
+  proposal: Proposal | null
+  applied: string | null
+  state: DraftState
+}
+export type BuilderStep = { kind: 'tool' | 'tool_done' | 'check'; name: string; input?: Record<string, unknown>; ok?: boolean }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(BASE + path, {
@@ -185,6 +202,9 @@ export const api = {
   undo: (id: string) => request<DraftState>(`/drafts/${id}/undo`, { method: 'POST' }),
   saveDraft: (id: string, name: string) =>
     request<{ building: string; issues: Issue[] }>(`/drafts/${id}/save`, { method: 'POST', body: JSON.stringify({ name }) }),
+  builderStream,
+  applyProposal: (id: string, proposalId: string) =>
+    request<DraftState>(`/drafts/${id}/proposals/${proposalId}/apply`, { method: 'POST' }),
   events: (id: string, after: number) =>
     request<{ events: UiEvent[]; next: number }>(`/events?session_id=${encodeURIComponent(id)}&after=${after}`),
 }
@@ -212,6 +232,35 @@ async function chatStream(id: string, message: string, options: ChatOptions = {}
       const item = JSON.parse(line) as { type: string } & Record<string, unknown>
       if (item.type === 'step') options.onStep?.(item as unknown as ChatStep)
       else if (item.type === 'reply') return item as unknown as ChatReply
+      else if (item.type === 'error') throw new Error(String(item.detail))
+    }
+    if (done) throw new Error('the reply stream ended early')
+  }
+}
+
+/** One Builder turn (prompt edit) over NDJSON, parsed like `chatStream`. */
+async function builderStream(draftId: string, message: string, onStep?: (step: BuilderStep) => void): Promise<BuilderReply> {
+  const response = await fetch(`${BASE}/drafts/${draftId}/chat/stream`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ message }),
+  })
+  if (!response.ok || !response.body) {
+    const detail = await response.text().catch(() => '')
+    throw new Error(`${response.status} /drafts/chat/stream: ${detail.slice(0, 200)}`)
+  }
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    buffer += value ?? ''
+    const lines = buffer.split('\n')
+    buffer = done ? '' : lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line.trim()) continue
+      const item = JSON.parse(line) as { type: string } & Record<string, unknown>
+      if (item.type === 'step') onStep?.(item as unknown as BuilderStep)
+      else if (item.type === 'reply') return item as unknown as BuilderReply
       else if (item.type === 'error') throw new Error(String(item.detail))
     }
     if (done) throw new Error('the reply stream ended early')

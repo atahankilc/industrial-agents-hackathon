@@ -135,8 +135,11 @@ cd frontend/app && npm run build                                # type-check + p
 **Edit mode** (ruler-pencil button in the building screen's right-hand controls): edits a draft copy of the current
 building on a 2D plan, with the building's 3D model (`PlanView` fed by `GET /drafts/{id}/plan`) as a live preview —
 click a room and drag its corners, drag doors along walls, drag things (R / Shift+R rotates), ⌘Z undoes; problems
-are listed on the right; **Done** goes back (the draft is kept); **Save** writes `user/<slug>` (local `data/user/`,
+are listed bottom-left; **Done** goes back (the draft is kept); **Save** writes `user/<slug>` (local `data/user/`,
 or `GUIDE_USER_DIR`) and opens it as a new building (fresh Guide session, a note says it is the edited building).
+The chat on the right edits by prompt (the Builder agent): it proposes, the plan shows the proposal dashed in
+blue with its area changes and new problems, **Apply** (or typing "yes") applies, **Cancel** drops it. Live check of
+the agent: `uv run --env-file .env python scripts/live_builder.py [building_id] [--model …] [--effort …]`.
 The draft id is kept in `localStorage` per building. Local store only for now — on the
 deployed app `/drafts` can't write (milestone 3).
 

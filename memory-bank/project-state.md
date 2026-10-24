@@ -64,7 +64,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   floor_plan, propose_edit — dry run + effect + new problems, never applies). Task 3 `agent/builder.py` (tool
   loop, "yes" applies the one open proposal without a model call, Apply-button / hand-edit notes, grounding repair,
   stop after 2 failed proposals) + `agent/builder_offline.py` (rename / resize / door rules); Task 4
-  `/drafts/{id}/chat/stream` + `/drafts/{id}/proposals/{pid}/apply` (stale → 409). Next: Task 5 frontend.
+  `/drafts/{id}/chat/stream` + `/drafts/{id}/proposals/{pid}/apply` (stale → 409). Task 5 frontend
+  (`edit/BuilderChat.tsx`, ghost overlay in `PlanEditor`, Apply / Cancel, examples from the building's rooms);
+  headless Chrome offline + live Opus check (`scripts/live_builder.py`, ~$0.08 for 3 prompts + $0.03 follow-up).
+  **M2 done** — next: whole-branch review of M2, then write the M3 plan for Atahan.
 - **M3 (deployed store: drafts, saved buildings, Builder history in Supabase) is Atahan's** (Utku, 2026-10-24) —
   write its plan after M2, don't implement it.
 

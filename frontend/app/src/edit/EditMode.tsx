@@ -3,10 +3,11 @@
 // The draft id is kept in localStorage per base building, so a reload resumes the same draft.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { api, type DraftState, type Issue, type Op, type Plan } from '../api'
+import { api, type BuilderReply, type DraftState, type Issue, type Op, type Plan, type Proposal } from '../api'
 import type { PlanPalette } from '../plan/palette'
 import { PlanView } from '../plan/PlanView'
 import { DEFAULT_SETTINGS } from '../plan/settings'
+import { BuilderChat } from './BuilderChat'
 import { PlanEditor, type Selection } from './PlanEditor'
 import './edit.css'
 
@@ -57,6 +58,7 @@ export function EditMode({ base, palette, onSaved, onExit }: Props) {
   const [busy, setBusy] = useState(false)
   const [revision, setRevision] = useState(0) // bumped on every op response, applied or refused
   const [naming, setNaming] = useState<string | null>(null) // save dialog open: the name being typed
+  const [proposal, setProposal] = useState<Proposal | null>(null) // the Builder's open proposal, drawn as a ghost
 
   // Open (or resume) the draft for this base building.
   useEffect(() => {
@@ -99,11 +101,32 @@ export function EditMode({ base, palette, onSaved, onExit }: Props) {
     }
   }, [])
 
-  const onOps = useCallback((ops: Op[]) => draftId && !busy && run(() => api.applyOps(draftId, ops)), [draftId, busy, run])
-  const undo = useCallback(
-    () => draftId && !busy && state && state.draft.steps > 0 && run(() => api.undo(draftId)),
-    [draftId, busy, state, run],
-  )
+  // A hand edit makes an open proposal stale (the backend would refuse it), so it is dropped.
+  const onOps = useCallback((ops: Op[]) => {
+    if (!draftId || busy) return
+    setProposal(null)
+    void run(() => api.applyOps(draftId, ops))
+  }, [draftId, busy, run])
+  const undo = useCallback(() => {
+    if (!draftId || busy || !state || state.draft.steps === 0) return
+    setProposal(null)
+    void run(() => api.undo(draftId))
+  }, [draftId, busy, state, run])
+
+  const onReply = (reply: BuilderReply) => {
+    setState(reply.state)
+    setProposal(reply.proposal)
+    if (!reply.proposal) return
+    // show the floor the proposal touches
+    const before = reply.state.building
+    const after = reply.proposal.building
+    const changed = [
+      ...after.spaces.filter((item) => JSON.stringify(item) !== JSON.stringify(before.spaces.find((old) => old.id === item.id))),
+      ...after.openings.filter((item) => JSON.stringify(item) !== JSON.stringify(before.openings.find((old) => old.id === item.id))),
+      ...after.assets.filter((item) => JSON.stringify(item) !== JSON.stringify(before.assets.find((old) => old.id === item.id))),
+    ]
+    if (changed[0]) setFloorId(changed[0].floor_id)
+  }
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -130,6 +153,11 @@ export function EditMode({ base, palette, onSaved, onExit }: Props) {
   }
 
   const floors = useMemo(() => [...(state?.building.floors ?? [])].sort((a, b) => b.level - a.level), [state])
+  const examples = useMemo(() => {
+    const rooms = (state?.building.spaces ?? []).filter((space) => space.type === 'room' && space.ref)
+    if (rooms.length < 2) return []
+    return [`Make ${rooms[0].ref} 1 m wider to the east`, `Rename ${rooms[1].ref} to Quiet room`]
+  }, [state])
   const errors = state?.issues.filter((issue) => issue.severity === 'error') ?? []
   const warnings = state?.issues.filter((issue) => issue.severity === 'warning') ?? []
 
@@ -174,6 +202,7 @@ export function EditMode({ base, palette, onSaved, onExit }: Props) {
         onOps={onOps}
         busy={busy}
         revision={revision}
+        ghost={proposal?.building ?? null}
       />
 
       <nav className="hud floors edit-floors" aria-label="Floors">
@@ -202,6 +231,20 @@ export function EditMode({ base, palette, onSaved, onExit }: Props) {
           />
         )}
       </div>
+
+      <BuilderChat
+        draftId={state.draft.id}
+        proposal={proposal}
+        disabled={busy}
+        examples={examples}
+        onReply={onReply}
+        onApplied={(next) => {
+          setProposal(null)
+          setState(next)
+          setRevision((value) => value + 1)
+        }}
+        onCancel={() => setProposal(null)}
+      />
 
       <aside className="edit-issues">
         <p className="label">{errors.length === 0 ? 'No problems' : `${errors.length} ${errors.length === 1 ? 'problem' : 'problems'}`}</p>

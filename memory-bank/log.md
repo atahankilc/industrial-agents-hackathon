@@ -10,6 +10,23 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 21:08 — Builder M2 Task 5: Edit-mode chat, proposal ghost, live check
+
+- **Did:** `frontend/app/src/edit/BuilderChat.tsx` (NDJSON stream with step lines, proposal card with areas / new
+  problems, Apply / Cancel), `api.builderStream` / `applyProposal`, `PlanEditor` `ghost` (changed / new elements
+  dashed blue, removed ones red), EditMode right column = PlanView inset + chat, issues bottom-left; a hand edit or
+  undo drops the open proposal. `scripts/live_builder.py`. Headless Chrome (offline client): widen → 2 ghost rooms +
+  card (33.6 → 39.6, 24.6 → 18.6 m², 3 assets left outside) → Apply → 1 change; rename proposal dropped by a door drag;
+  "yes" applies; no console errors.
+- **Live (Opus 5.5 medium, train/proc-campus-train-000):** "make Lab 0.13 one metre wider, into the room next to it" →
+  asked which side (Main lobby east / Toilet 0.14 west), 5.4 s, ~$0.018; "Into the toilet." → `move_edge` 1 m west,
+  39.06 → 45.06 / 38.46 → 32.46 m², flagged Sink 0.14 left outside and offered to move it, 6.9 s; "yes" applied.
+  Move 3D printer → `move_asset` 7.6 s ~$0.022; door between Office 0.02 / 0.03 → `add_opening` 13.1 s ~$0.039.
+  0 ungrounded replies.
+- **Learned:** `.builder` (panel) also matched the chat line's role class `builder` — class names in the Edit mode
+  need prefixes; same story as `.plan` / `.primary`.
+- **Next:** M2 whole-branch review; M3 plan for Atahan (not implemented by us).
+
 ## 2026-10-24 20:56 — Builder M2 Tasks 3–4: Builder agent loop, offline client, backend routes
 
 - **Did:** `agent/builder.py` (`Builder`, `BuilderTurn`, `make_builder_client`; request shape from the Guide;

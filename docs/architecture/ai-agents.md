@@ -201,8 +201,14 @@ Edit mode design (step 1 of the Builder): [builder-edit-mode-design](../superpow
 new UI, merged from `dev`); drag corners (shared walls stay shared), doors along walls and assets on a 2D plan with
 the 3D `PlanView` of the draft as a live inset; undo; validator issues
 in red (pre-existing issues of the original are warnings); save as `user/<slug>`, then the Guide routes in it.
-Code: `core/edits.py`, `core/validate.py`, `backend/drafts.py` + `/drafts`, `frontend/app/src/edit/`. In progress:
-prompt edits (Builder agent, milestone 2 — `move_edge` op and `agent/builder_tools.py` done). Not yet: deployed store (Supabase, milestone 3), plan images (project 2).
+Code: `core/edits.py`, `core/validate.py`, `backend/drafts.py` + `/drafts`, `frontend/app/src/edit/`. **Milestone 2 implemented (2026-10-24):** prompt edits — the Builder agent (`agent/builder.py`,
+`agent/builder_tools.py`, offline `agent/builder_offline.py`; `BUILDER_MODEL` default `claude-opus-5-5`) proposes
+op lists with `propose_edit` (dry run, area effect, new problems), never applies; the Edit mode's chat shows the
+proposal as a ghost on the plan with Apply / Cancel, a plain "yes" also applies; hand edits drop an open proposal
+(stale ones are refused server-side). Live (Opus 5.5 medium, `scripts/live_builder.py`): move a machine 7.6 s, add a
+door 13.1 s, an ambiguous "widen the lab into the next room" asked which side (5.4 s), then proposed `move_edge` and
+flagged the sink left outside (6.9 s); 0 ungrounded; ~$0.02–0.04 per turn. Not yet: deployed store and Builder
+history persistence (milestone 3 — Atahan), plan images (project 2).
 
 1. Upload plan image (PNG/PDF page) or describe changes by conversation.
 2. Claude vision drafts `floors`/`spaces`/`openings` in our schema (scale from a known dimension the user gives

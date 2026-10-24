@@ -2,7 +2,7 @@
 id: arch-agents
 summary: PROPOSED design of every AI agent in the system — Building Guide (chat + voice), benchmark pipeline, Builder (plan → building), and how they share one deterministic tool layer.
 status: proposed
-sources: [../research/elevenlabs.md, ../kit/starter-agent.md, ../challenge/brief.md, ../challenge/scoring.md]
+sources: [../research/elevenlabs.md, ../kit/starter-agent.md, ../challenge/brief.md, ../challenge/scoring.md, ../../agent/tools.py, ../../agent/guide.py, ../../agent/offline_llm.py]
 related: [overview.md, solver-plan.md, ../product/routing-profiles.md, ../product/personas.md, ../research/question-parsing.md]
 ---
 
@@ -17,7 +17,7 @@ distance, count or route that did not come from a tool result ([D-003](../../mem
 
 | Agent | Job | Model (start) | Channel | Points |
 |---|---|---|---|---|
-| **Building Guide** | conversation: find, route, react, edit; clarifies; remembers user profile. **v1 implemented** (terminal, `agent/guide/`: 6 tools, grounding check, session; live scripted run 16/16 turns, 9 conversations, [spec](../superpowers/specs/2026-10-24-guide-agent-design.md), [plan](../superpowers/plans/2026-10-24-guide-agent.md)); edit tools, UI and voice not yet | Opus 5.5 default (`GUIDE_MODEL`), medium effort | terminal REPL; text chat + voice (via ElevenLabs) planned | Interaction 25, L1–L3 |
+| **Building Guide** | conversation: find, route, react, edit; clarifies; remembers user profile. **v1 implemented** (terminal, `agent/guide_v1/`: 6 tools, grounding check, session; live scripted run 16/16 turns, 9 conversations, [spec](../superpowers/specs/2026-10-24-guide-agent-design.md), [plan](../superpowers/plans/2026-10-24-guide-agent.md)); the v1 Guide has no edit tools, UI or voice — those are in the canonical `agent/guide.py` (below) | Opus 5.5 default (`GUIDE_MODEL`), medium effort | terminal REPL; text chat + voice (via ElevenLabs) planned | Interaction 25, L1–L3 |
 | **Benchmark pipeline** | question text → parse → solver → `Answer:` line; no free-form LLM | none; Haiku/Sonnet only as parse fallback | CLI `run_benchmark`, `benchmark.evaluate --agent` | Does it work 55 |
 | **Builder** | floor-plan image → draft `building.json` → validate → user confirms | Opus 5.5 (vision) | UI upload + chat | L4 |
 | (dev) **Claude Code subagents** | build the product: research, solvers, tests | — | this repo | — |
@@ -33,13 +33,30 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 |---|---|---|
 | `building_overview` | floors, cores, entrances, closures | no |
 | `search(query, floor?)` | ranked spaces/assets with ids | no |
-| `room_facts(space)` | area, centre, floor, neighbours (shared walls), above/below, doors + widths | no |
+| `room_facts(space)` | area, centre, floor, neighbours (shared walls), above/below (omitted on Swiss Dwellings buildings, floors not aligned — [solver-plan](solver-plan.md#straight_line_3d)), doors + widths | no |
 | `find_route(from, to, via?, profile)` | node path, metres, steps with landmarks, profile used | no |
 | `compare_routes(before/after change)` | diff: rooms that lost access, extra metres | no |
 | `set_profile(...)` | the active [routing profile](../product/routing-profiles.md) for this user | user state only |
 | `propose_change(kind, …)` | a **pending** change (close lift, add door, move asset) + its predicted effect | no — needs confirm |
 | `apply_change(change_id)` | committed edit event, broadcast to all clients | **yes** |
 | `show_on_map(ids, route?)` | UI event (highlight / fly to / switch floor) | no |
+
+**Implemented (2026-10-24):** `agent/tools.py` — `BuildingSession` (private building copy, routing profile,
+pending/applied changes, UI events) + `TOOL_DEFINITIONS` (Anthropic tool schemas) for building_overview, search,
+locate, count_assets, room_facts, find_route, tour, reachable_rooms, solve (every benchmark kind), set_profile,
+propose_change, apply_change, compare_routes, show_on_map. Errors come back as `{"error": …}` so the model can
+search or ask. Profile → constraints: `min_door_width_m` and `avoid_lifts` act as closures of narrow openings /
+lifts. Built on `core/navigation.py` (locate, count, find_route, tour; gold path format) and `core/solvers/`.
+Tests: `tests/test_agent_tools.py`.
+
+`compare_routes(change_id, start?)` works on a **pending** change (current building vs the building with the
+change) or an **applied** one (snapshot before vs after `apply_change`). From `start` (default: the last route's
+start, else the main step-free entrance) under the user's profile it returns rooms reachable before/after, the
+rooms that **lost access** as `lost_access_by_floor` (`{floor: {count, rooms}}`, uncapped; also emitted as a
+`highlight` event with `style: "lost_access"`), the routes that got longer with `before_m`/`after_m`/`extra_m`
+(route-model metres, longest first) and the last route's before/after. `propose_change`'s effect carries the same
+impact (lost access by floor, longer routes, `max_extra_m`) plus the last route's `extra_m`, without emitting
+events — so one call answers "what happens if…", and the model never counts or subtracts itself.
 
 `propose_change` → user sees an "I understood: close *Office lift*; 3 routes get 40 m longer. Apply?" card →
 `apply_change`. That is the brief's "show what it understood before it changes a plan"
@@ -50,7 +67,7 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 - **Ask only what changes the answer.** If a search returns several candidates and the words don't settle it,
   run the solver for each; if the answers agree, just answer. If they differ, ask one short question listing
   ≤ 3 options by what tells them apart — ref first, else floor, size, a neighbour or position (duplicate names
-  usually share the floor) — or highlight them on the plan ([D-010](../../memory-bank/decisions.md#d-010)). Never ask where the user is if the question doesn't
+  usually share the floor) — or highlight them on the plan ([D-012](../../memory-bank/decisions.md#d-012)). Never ask where the user is if the question doesn't
   need it; once known, remember it for the session.
 - **Profile once, remember always.** Infer constraints (wheelchair, trolley width, no lifts, quiet) from the
   conversation, confirm once in one line, store in the session/user profile → used by every later route
@@ -61,15 +78,62 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 - **Robust to tricky users:** vague ("the printer"), wrong ("room 9.99" → nearest matches), mid-course
   changes ("actually avoid the lift"), multilingual (ElevenLabs language detection).
 
+### Implementation — `agent/guide.py` (2026-10-24)
+
+`Guide(session, client=None)` is one conversation: `guide.reply(text) → GuideTurn(text, tool_calls, events,
+ungrounded, stop_reason)`. A manual tool-use loop over `client.beta.messages.create` (≤ 12 tool rounds per turn):
+every `tool_use` block goes to `BuildingSession.call`, all results return in one user message (`is_error` on
+`{"error": …}`), text written before tool calls is kept in the reply.
+
+| Aspect | How |
+|---|---|
+| Model | `GUIDE_MODEL` (default `claude-opus-5-5`), `GUIDE_EFFORT` (default `medium`); thinking left at the model default (adaptive); `fallbacks: "default"` with beta `server-side-fallback-2026-07-01`, as in `agent/llm_parser.py` |
+| Caching | system = fixed instructions + building overview (static `BuildingMap.overview()`, no profile/closures) with `cache_control`; tools render before it, so both are cached; top-level `cache_control` also caches the growing history |
+| History | append-only (assistant `response.content` stored unchanged), so the cached prefix and thinking blocks stay valid |
+| Confirm before edit | `apply_change` for a change proposed in the **same user turn** is refused with an error telling the model to show the summary and wait — enforced in code, not only in the prompt |
+| Profile safety net | a deterministic cue detector reads every user message (wheelchair, pram, no lifts, trolley width, reset…); if the model's turn left the cue unhonoured the Guide calls `set_profile` itself, appends a one-line confirmation and, if the turn already routed, asks once for a redo. `set_profile` takes persona presets ([routing-profiles.md](../product/routing-profiles.md#implemented-presets)); tests `tests/test_profiles.py` |
+| D-003 grounding | after each turn, every number and id in the reply must appear in a tool result, the overview or the user's own messages (a number counts if a known number rounds to it at the same precision; numbered-list markers ignored). Fails → one repair round ("[grounding check] … appear in no tool result"); anything still ungrounded is returned in `GuideTurn.ungrounded` |
+| No key | `make_client()` → `agent/offline_llm.py` `OfflineClient`: keyword rules choose tools, replies are composed only from tool results (demo + backend tests). `GUIDE_LLM=offline|anthropic` forces either |
+
+Tests: `tests/test_guide.py` — a scripted fake client plays the tricky user (vague printer → ≤ 3 options;
+ambiguous "the meeting room" → search → ≤ 3 options with floors; "I use a wheelchair" → `set_profile`, remembered
+on the next route; "the lift is broken" → propose, same-turn apply refused, apply after "yes"; route after the
+closure 124.24 m → 132.2 m via Lift 2, `compare_routes` +7.96 m), plus request shape (cached system, env model,
+append-only history, every tool_use answered), the repair round, and the offline client.
+
+**Live check (2026-10-24, `scripts/live_guide.py`, same 7 turns, train campus 000):**
+
+| Model · effort | s / turn | $ / 7 turns | Behaviour |
+|---|---|---|---|
+| Opus 5.5 · medium (default) | ~5.9–7.3 (7.3 pre-fix, 5.9 post-fix) | 0.13–0.16 | all turns correct; inferred "the lift" = Lift 1 on the route; most thorough, longest replies |
+| Opus 5.5 · low | ~6.8 (one pre-fix run) | 0.12 | same quality, no clear speed gain (one pre-fix run; not directly comparable) |
+| Sonnet 5.5 · low | ~3.3–3.9 (3.3 pre-fix, 3.9 post-fix) | 0.06 | correct and shortest (best for voice); applied the routing-profiles wheelchair default 0.8 m door width and said so |
+
+All runs: 0 ungrounded replies, no same-turn apply, cache reads on every request after the first. Fixed from
+the first runs: lost-room list was capped at 15; a parallel `compare_routes` guessed a change id; an
+unsupported "nothing upstairs" claim → impact moved into `propose_change`, two prompt sentences added. Model
+choice stays open ([Q-012](../../memory-bank/open-questions.md#q-012)).
+
 ## Voice path
 
 Per [elevenlabs.md](../research/elevenlabs.md#tldr-recommendation): ElevenLabs Agent handles STT, turn-taking,
 interruptions and TTS; its **Custom LLM** points at our backend's OpenAI-compatible streaming endpoint, which
-wraps the same Building Guide (one brain for text and voice). Map actions reach the browser as ElevenLabs
+wraps the same Building Guide (one brain for text and voice) — skeleton in `backend/` (see
+[commands.md](../guides/commands.md#backend-guide-api)). Map actions reach the browser as ElevenLabs
 **client tools** and/or our own realtime channel. Fallback: Scribe Realtime → Guide → TTS WebSocket.
 Per-building **keyterms** (room names, machine names) go to Scribe for accurate recognition.
 A **transcript rewriter** normalises each STT transcript to the building's vocabulary before the Guide sees it
-(original transcript passed along too); typed chat has no rewriter ([D-011](../../memory-bank/decisions.md#d-011)).
+(original transcript passed along too); typed chat has no rewriter ([D-013](../../memory-bank/decisions.md#d-013)).
+
+**Implemented (2026-10-24):** `Guide.reply(text, channel="voice")` — used by `/v1/chat/completions` — adds the
+`VOICE_STYLE` instruction (plain spoken sentences, ≤ ~3 sentences, first 2–3 steps then offer to continue) as a
+mid-conversation **system message** after the user turn on models that support it (Opus 5/5.5, Opus 4.8, Fable,
+Sonnet 5.5, Haiku 5.5 — keeps the cached prefix), else as a note in the user turn; then `agent/speech.py`
+`speakable()` deterministically strips markdown, list markers, ids and symbols and spells out units (it never adds
+a number, so grounding holds). `GuideTurn.spoken` carries the result; the chat panel keeps the text channel.
+Live (Sonnet 5.5 low, `scripts/live_guide.py --channel voice`): 7 turns, ~3 s/turn, $0.054, 0 ungrounded, no ids
+or markdown in speech. Tests: `tests/test_speech.py`. Still open: ElevenLabs account wiring (session id, system
+tools) — needs the public deploy.
 
 ## Benchmark pipeline
 
@@ -78,6 +142,11 @@ question text ─► template parser ──ok──► solver(kind, params) ─�
                      │ fail                        ▲
                      └► LLM extractor (strict schema) ┘  (resolved + validated in code)
 ```
+
+Implemented: `agent/benchmark_agent.py` (`answer()` for `benchmark.evaluate --agent`) and `agent/run_benchmark.py`
+(Sunday/test CLI, [BENCHMARK.md](../../BENCHMARK.md)). Dev 138/138 end to end. Warm-up kinds (locate, count,
+route, step-free, closure, tour) parse via `core/basic_parser.py` → `core/navigation.py`: 2120/2130 train+dev
+from text, 100% with gold ids (`scripts/validate_warmup.py`).
 
 Parser evidence and accuracy: [question-parsing.md](../research/question-parsing.md) ([Q-008](../../memory-bank/open-questions.md#q-008)).
 Solvers: [solver-plan.md](solver-plan.md). The same solvers back the Guide's `room_facts` / `find_route` tools,

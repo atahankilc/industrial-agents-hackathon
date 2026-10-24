@@ -17,7 +17,7 @@ import pytest
 from agent.answer import answer
 from benchmark.score import committed_answer
 from core.question_parser import ParseError, parse_question
-from core.solvers import solve
+from core.solvers_v1 import solve
 from tests.test_question_parser import DATA, building
 
 TOLERANCE_M = 0.01

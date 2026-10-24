@@ -6,7 +6,7 @@ related: [open-questions.md, project-state.md, ../docs/architecture/overview.md]
 
 # Decisions
 
-[Memory bank](README.md) · Next free id: **D-012**
+[Memory bank](README.md) · Next free id: **D-014**
 
 Template:
 
@@ -128,7 +128,31 @@ Template:
   modified OSM buildings we publish stay ODbL.
 
 <a id="d-010"></a>
-### D-010 — Duplicate room names: core returns candidates, the agent asks; the benchmark runs them all
+### D-010 — Guide guardrails live in code: same-turn apply refused, grounding check with one repair round
+- **Status:** proposed · **Date:** 2026-10-24 · **By:** Claude (Guide session)
+- **Context:** The behaviour contract ([ai-agents.md](../docs/architecture/ai-agents.md#building-guide--behaviour-contract))
+  needs propose → confirm → apply and D-003 ("every number and id from a tool"). A prompt alone can't guarantee
+  either, and the brief scores "shows what it understood before it changes a plan".
+- **Decision:** `agent/guide.py` refuses `apply_change` for a change proposed in the same user turn, and checks
+  every reply: numbers/ids must appear in a tool result, the overview or the user's words (rounding allowed);
+  one repair round, then report leftovers in `GuideTurn.ungrounded` instead of blocking the reply.
+- **Consequences:** one extra request when the model invents a number; a confirmation always costs one user turn.
+  Derived numbers (differences, sums) must come from tools → `compare_routes` and `extra_m` exist for that.
+- **Evidence:** `tests/test_guide.py` (same-turn apply refused; invented "437 m" repaired; leftovers reported).
+
+<a id="d-011"></a>
+### D-011 — Monochrome visual language for the app (black / white, light + dark)
+- **Status:** accepted · **Date:** 2026-10-24 · **By:** Atahan ("simplistic look, black or white colour scheme for
+  light and dark mode, point clouds with good animations")
+- **Context:** [visualization.md](../docs/product/visualization.md#visual-language) had a colour-coded scheme
+  (cyan walls, magenta cores, amber doors, gold highlight).
+- **Decision:** the app is monochrome: white on black (dark), black on white (light), system default + toggle.
+  Point kinds and states are told apart by density, alpha, size and motion (flow, flicker, float, sink), never hue.
+- **Consequences:** additive glow in dark mode, normal blending with crisp dots in light mode; the prototype keeps
+  its colours as a reference only.
+
+<a id="d-012"></a>
+### D-012 — Duplicate room names: core returns candidates, the agent asks; the benchmark runs them all
 - **Status:** accepted · **Date:** 2026-10-24 · **By:** Utku
 - **Context:** Some buildings repeat a name on the same floor (three "Büro" on the ground floor, OSM rooms
   duplicated with the same ref). The question text then cannot say which room is meant: all 12 train+dev misses
@@ -141,8 +165,8 @@ Template:
 - **Consequences:** benchmark misses on such texts are accepted; the Guide needs a candidate-describing tool
   (ref, floor, area, neighbours). Contract: [ai-agents.md](../docs/architecture/ai-agents.md#building-guide--behaviour-contract).
 
-<a id="d-011"></a>
-### D-011 — Voice input gets a transcript rewriter before the Guide (Phase 4)
+<a id="d-013"></a>
+### D-013 — Voice input gets a transcript rewriter before the Guide (Phase 4)
 - **Status:** accepted · **Date:** 2026-10-24 · **By:** Utku
 - **Context:** Speech-to-text transcripts are messy ("Lab two twenty", filler words, misheard machine names). For
   typed input we rely on the Guide model plus code-side name resolution and add no rewriter (extra latency/cost,

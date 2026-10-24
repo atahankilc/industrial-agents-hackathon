@@ -3,9 +3,9 @@
 import functools
 from pathlib import Path
 
-from agent.guide.tools import TOOLS, Session, run_tool
+from agent.guide_v1.tools import TOOLS, Session, run_tool
 from core.building_map import BuildingMap
-from core.solvers import area, shared_walls, solve
+from core.solvers_v1 import area, shared_walls, solve
 from tests.test_question_parser import labelled_questions
 
 FACTORY = Path("data/dev/proc-factory-dev-004")

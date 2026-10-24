@@ -1,6 +1,6 @@
 """The Guide loop: one conversational turn = Claude calling tools until it can answer, then a grounding check.
 
-Claude decides which tools to call and how to phrase the answer; tools (agent/guide/tools.py) supply every fact.
+Claude decides which tools to call and how to phrase the answer; tools (agent/guide_v1/tools.py) supply every fact.
 Before a reply leaves the loop, every number in it must appear in some tool result of this conversation (or the
 building overview). An ungrounded reply gets one repair request; if it is still ungrounded, a refusal or cut-off
 happens, or the tool budget runs out, the reply is replaced by the tools' own code-written summaries.
@@ -19,9 +19,9 @@ from pathlib import Path
 
 import anthropic
 
-from agent.guide.grounding import fallback_text, grounded_tokens, ungrounded
-from agent.guide.prompt import overview_text, system_blocks
-from agent.guide.tools import TOOLS, Session, run_tool
+from agent.guide_v1.grounding import fallback_text, grounded_tokens, ungrounded
+from agent.guide_v1.prompt import overview_text, system_blocks
+from agent.guide_v1.tools import TOOLS, Session, run_tool
 from agent.llm_parser import FALLBACK_BETA, LlmUsage
 from core.building_map import BuildingMap
 

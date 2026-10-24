@@ -3,7 +3,7 @@
 import functools
 from pathlib import Path
 
-from agent.guide.resolve import MAX_OPTIONS, describe, fan_out, nearest_names, resolve_elements, resolve_places
+from agent.guide_v1.resolve import MAX_OPTIONS, describe, fan_out, nearest_names, resolve_elements, resolve_places
 from core.building_map import BuildingMap
 
 FACTORY = Path("data/dev/proc-factory-dev-004")   # two 3D printers, both in F0-S004

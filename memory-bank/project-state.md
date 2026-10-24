@@ -7,21 +7,20 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-24** (zero-cost stack session, after first commit `3300e6c`)
+[Memory bank](README.md) · Last updated: **2026-10-24** (merge of `origin/main` into `1-agentic-yarag`: both stacks side by side)
 
 ## Phase
 
-**Phase 0 — Foundation ✅ · Phase 1 — Deterministic core + solvers ✅ · Phase 2 — Benchmark runner ✅ → next:
-Phase 3 — Agent + interaction and Phase 4 — App/UI + voice (see [Next priorities](#next-priorities) 3–4)**
+**Phase 1 ✅ · Phase 2 ✅ (dev 138/138) · Phase 3 ✅ · Phase 4 — UI ✅ first version (`frontend/app/`), voice next**
 
 Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 | Phase | Goal | Done when |
 |---|---|---|
 | 0 Foundation | docs, memory bank, CLAUDE.md | ✅ 2026-10-24 |
-| 1 Core + solvers | per-kind solvers verified on train+dev `inputs` | ✅ 2026-10-24, all rows VERIFIED in [solver-plan](../docs/architecture/solver-plan.md) |
-| 2 Benchmark runner | question text → solver → `Answer:` reply; dev score via `benchmark.evaluate`; test CSV | ✅ 2026-10-24: dev 138/138; test CSV at `submissions/team_jaRAG.csv` (team name jaRAG) |
-| 3 Agent + interaction | conversational agent with clarifications, directions, closures, edits | scripted tricky-user conversation works |
+| 1 Core + solvers | per-kind solvers verified on train+dev `inputs` | ✅ 2026-10-24 — 655/655 |
+| 2 Benchmark runner | question text → solver → `Answer:` reply; dev score via `benchmark.evaluate`; test CSV | ✅ 2026-10-24 — dev 138/138, `agent.run_benchmark`, [BENCHMARK.md](../BENCHMARK.md) |
+| 3 Agent + interaction | conversational agent with clarifications, directions, closures, edits | scripted tricky-user conversation works — ✅ 2026-10-24 offline (`tests/test_guide.py`) + live (`scripts/live_guide.py`) |
 | 4 App/UI + voice | 2D view with route, then stacked floors; voice | demoable |
 | 5 Build + extend | plan → building (L4), one add-in (L5) | demoable |
 | 6 Submission | `BENCHMARK.md`, Sunday run, video, tech explanation | submitted before code freeze |
@@ -31,16 +30,6 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - Repo root is the build root ([D-004](decisions.md#d-004)): `core/` (building_map from the kit + question_parser),
   `benchmark/` (official scorer), `data/` (committed, [D-005](decisions.md#d-005)), `tests/`, `pyproject.toml` (uv,
   pytest dev dep). Kit remainder in `archive/initial-repo/`.
-- Phase 3 in progress ([plan](../docs/superpowers/plans/2026-10-24-guide-agent.md)): `agent/guide/resolve.py` —
-  resolve_places / resolve_elements / nearest_names / describe / fan_out; 11 tests in `tests/test_guide_resolve.py`;
-  full suite 47 passed.
-- `agent/guide/tools.py` — Session, TOOLS, run_tool; locate / find_places / place_info / building_fact (strict
-  schemas); 12 tests in `tests/test_guide_tools.py`; full suite 56 passed.
-- `route` + `update_session` tools in `agent/guide/tools.py` (session position / step-free / closures feed routes; closures fan out as slots and never leak into `bmap.closed`); 13 tests in `tests/test_guide_route.py`; full suite 69 passed.
-- `agent/guide/grounding.py` — grounded_tokens / ungrounded / fallback_text (numbers in replies must come from tool results); 14 tests in `tests/test_guide_grounding.py`; full suite 83 passed.
-- `agent/guide/prompt.py` + `guide.py` + `__main__.py` — Guide loop (`Guide.turn` → `TurnResult`, one grounding repair then code fallback, API errors roll the turn back) and REPL `uv run --env-file .env python -m agent.guide <building_dir> [--show-tools]`; 15 tests in `tests/test_guide_loop.py` (+1 in `tests/test_guide_route.py`: `[]` for via/close/reopen means none); full suite 100 passed.
-- Guide v1 done (Phase 3, Task 6): 8 scripted conversations in `tests/guide_conversations/*.json` + `scripts/eval_guide.py` (`check_turn` recomputes `route_to` with `core.solvers.route` from the session state); 7 offline tests in `tests/test_guide_conversations.py`; full suite 107 passed. Live run (campus + factory dev): 12/15 turns first, after 3 prompt rules (re-call the tool after a clarifying answer, call `route` afresh each time, no closing offers) 15/15 PASS (single run, so not a stability measure), ~$0.27 per full run.
-- Guide final review fixes: unit-glued numbers ("120m", "45m²") are grounding-checked; not_found / ambiguous summaries name the failing or varying slot; failed `update_session` says nothing was saved; any tool / turn exception is answered or rolled back (REPL and eval survive); fallback strips raw ids and ends ambiguous results with the options. Tests: 17 grounding, 14 tools, 16 route, 19 loop, 7 conversations, 11 resolve; full suite 117 passed. Live run with 9 conversations (new `compact_units.json`): 16/16 turns PASS, ~$0.32 (single run).
 - Knowledge base: [docs/](../docs/README.md) incl. architecture, agents, personas, routing profiles, research.
 - Point-cloud 3D prototype: `frontend/prototypes/pointcloud/` (exporter + three.js viewer), see
   [visualization.md](../docs/product/visualization.md).
@@ -53,27 +42,54 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## What works (verified 2026-10-24)
 
+- **Solvers** `core/solvers/` (geometry, walls, reachability, routing): **655/655** train+dev on gold inputs
+  (`scripts/validate_solvers.py`); rules + rejected variants in [solver-plan.md](../docs/architecture/solver-plan.md).
+- **Benchmark pipeline** `agent/benchmark_agent.py` + `agent/run_benchmark.py`: from question text dev **138/138**,
+  train **515/517** (2 inherently ambiguous names, Q-006); all 145 test questions answered without errors.
+- **Navigation** `core/navigation.py` + `core/basic_parser.py`: warm-up 2120/2130 from text, 100% with gold ids,
+  exact `space_path`/`element_path` (`scripts/validate_warmup.py`).
+- **Agent tool layer** `agent/tools.py`: `BuildingSession` + Anthropic tool definitions (profile, propose/apply
+  changes, `compare_routes`, UI events).
+- **Building Guide** `agent/guide.py`: Claude tool-use loop (`GUIDE_MODEL`, cached overview system prompt,
+  append-only history); same-turn `apply_change` refused and D-003 grounding check in code
+  ([D-010](decisions.md#d-010) proposed). Offline client `agent/offline_llm.py` when no key.
+  `tests/test_guide.py`: scripted tricky-user conversation passes offline.
+- **Backend** `backend/` (FastAPI): sessions per conversation + building choice, `POST /chat`, `GET /events`,
+  OpenAI-compatible streaming `/v1/chat/completions`; runs with `GUIDE_LLM=offline uv run uvicorn backend.app:app`
+  ([commands.md](../docs/guides/commands.md#backend-guide-api)).
+- **Frontend app** `frontend/app/` (Vite + React + r3f): monochrome point cloud ([D-011](decisions.md#d-011)) with
+  emergence + scan, route flow, highlight / closure / lost-access states, floor solo + separation, camera fly-to,
+  chat panel; light/dark. Backend serves `GET /sessions/{id}/points` (`core/pointcloud.py`) and enriches route /
+  change events. Verified in Chrome with the offline Guide ([commands.md](../docs/guides/commands.md#frontend-app)).
+- **Profiles:** `set_profile` presets (wheelchair, pram, trolley, no_lifts, default) + deterministic cue safety net
+  in the Guide (`tests/test_profiles.py`); live Sonnet run uses the preset itself.
+- **Voice replies:** `Guide.reply(…, channel="voice")` (used by `/v1/chat/completions`): spoken-style system
+  message + deterministic `agent/speech.py`; live Sonnet low 7 turns ~3 s/turn, $0.054, clean speech.
+  `uv run pytest` **146 passed**.
+- **Live Guide** (API key set 2026-10-24): 7-turn tricky-user conversation correct on Opus 5.5 medium (~5.9–7.3 s/turn,
+  ~$0.15) and Sonnet 5.5 low (~3.3–3.9 s/turn, ~$0.06), 0 ungrounded replies — table in
+  [ai-agents.md](../docs/architecture/ai-agents.md#implementation--agentguidepy-2026-10-24).
+
 - `uv sync` at root; starter oracle on dev **369/369**; `core.building_map` reproduces 120/120 dev warm-up routes < 1 cm.
 - `core/question_parser.py`: 655/655 train+dev params match `inputs`; 145/145 test questions parse (`uv run pytest`).
 - `agent/parsing.py` modes + `agent/llm_parser.py`: offline tests pass; live (2026-10-24, `scripts/eval_llm_parser.py --per-kind 3`, 24 dev
   questions): original text regex/llm/hybrid 24/24 each; `--paraphrase` regex **0/24**, llm 24/24, hybrid 24/24.
   Parser-only cost ≈ $0.42 (cold cache) and ≈ $0.19 (warm) per 24-question run. `.env` now has `ANTHROPIC_API_KEY`.
-- `core/solvers.py`: every benchmark kind; 655/655 train+dev on gold `inputs`; via text → parser → solver
-  648/648 plus 7 ambiguous texts the test skips (`uv run pytest tests/test_solvers.py -q -s`); 145/145 test questions parse and solve without error.
-- `agent/answer.py` (`answer(building_dir, text)` for `benchmark.evaluate --agent agent.answer:answer`): parser →
-  solver → deterministic `Answer:` line. Official scorer: dev **138/138**, train 515/517, train+dev 653/655
-  (`uv run pytest tests/test_answer.py -q -s`); the 2 misses are ambiguous duplicate names (H02, H04 of
-  osm-way37850565) whose text cannot identify the room. Test: 145/145 replies, none fail.
-- `run_benchmark <building_dir> <questions> <answers>` (`agent/run_benchmark.py`, `[project.scripts]`): .jsonl/.json/.csv
-  in; .csv (submission) or .json (reply + ids + solver result) out. Test CSV = 145 rows, same ids as
-  `submission_template.csv`, replies identical to `benchmark.evaluate --submission-csv` (`tests/test_run_benchmark.py`).
-- Route paths: `BuildingMap.route()` gives per-leg `space_path` + `element_path` in the warm-up answer format,
-  exact on all 1,338 train+dev warm-up route/step-free/closure/tour questions (`tests/test_routes.py`); errand
-  returns its 2 legs; `run_benchmark` .json has `route` (20 test errands). Sunday format assumed = warm-up (Q-001).
-- Warm-up kinds (locate, count, route, route_step_free, route_with_closure, tour): parser templates + solvers +
-  replies; from text 2,120/2,130 train+dev (`tests/test_warm_up.py`; 10 misses = duplicate room names); LLM
-  parser knows them (offline fake-client test; live 12/12 reworded).
-- Guide REPL live (2026-10-24, campus dev-001): "Where is the 3D printer?" → both rooms from `locate`; "how do I get there from the main lobby?" → `update_session` + `route` ambiguous → asks which room; ≈ $0.03 for the 2 turns.
+- **Second stack (v1)** from branch `1-agentic-yarag`, merged beside the canonical one on 2026-10-24 under `_v1`
+  names (the backend, UI and `agent.run_benchmark` use the canonical stack above):
+  - `core/solvers_v1.py` (`solve(bmap, kind, params)` → dict): every benchmark kind + warm-up kinds; 655/655
+    train+dev on gold `inputs` (`uv run pytest tests/test_solvers.py -q -s`).
+  - `agent/answer.py` (`benchmark.evaluate --agent agent.answer:answer`): dev **138/138**, train 515/517
+    (`tests/test_answer.py`); `agent/run_benchmark_v1.py`: .csv or .json (reply, ids, solver result, `route`
+    with per-leg `space_path`/`element_path`) out; produced `submissions/team_jaRAG.csv` (145 rows).
+  - `BuildingMap.route()` per-leg paths exact on all 1,338 train+dev warm-up routes (`tests/test_routes.py`);
+    warm-up kinds from text 2,120/2,130 (`tests/test_warm_up.py`; 10 misses = duplicate names, [D-012](decisions.md#d-012)).
+  - v1 Guide `agent/guide_v1/` (plan: [guide-agent](../docs/superpowers/plans/2026-10-24-guide-agent.md)): 6 tools
+    (locate, find_places, place_info, building_fact, route, update_session), candidate fan-out for ambiguous names,
+    grounding check with one repair then a code fallback; REPL `uv run --env-file .env python -m agent.guide_v1
+    <building_dir> [--show-tools]`. 9 scripted conversations (`tests/guide_conversations/`, `scripts/eval_guide.py`):
+    16/16 turns PASS live (single run, ~$0.32). Next: port name resolution / fan-out, the stricter grounding
+    fallback and the voice transcript rewriter ([D-013](decisions.md#d-013)) into `agent/guide.py`.
 - `benchmark/score.py` parsing behaviour checked ([scoring.md](../docs/challenge/scoring.md#formatting-pitfalls-cost-real-points)).
 
 ## Pending decisions (Atahan)
@@ -81,25 +97,56 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - none (D-006 zero-cost stack accepted 2026-10-24).
 - [Q-002](open-questions.md#q-002) times — Atahan will provide.
 
-## ▶ Start here (handoff for the next session, 2026-10-24)
+## ▶ Start here (handoff for the next session, 2026-10-24 ~15:30)
 
-- **Focus now: implementing the app.** Atahan handles the cloud accounts (Vercel, Supabase) later — don't block on it.
-- **Benchmark pipeline is done:** solvers, formatter, `answer()`, `run_benchmark`, [BENCHMARK.md](../BENCHMARK.md),
-  test CSV in `submissions/`. Next: structured route output for Sunday ([Q-001](open-questions.md#q-001)), then the app.
-- **Ways of working:** keep `.claude/worklog/PENDING.md` current; commit only via `/ship`
-  ([dev-workflow.md](../docs/guides/dev-workflow.md)). Parallel subagents are welcome (Atahan: quota is fine).
-- `.env` has `ANTHROPIC_API_KEY` (Utku's machine); no ElevenLabs key yet.
+**Git (`dev`, not pushed — ask Atahan before pushing; never commit on `main`):** latest commits
+`188abd3` conversation persistence · `dc058f8` Sunday hardening · `46321b5` voice-ready replies · `89070ba` frontend app + point-cloud API + profile
+presets · `ed5f6c1` live Guide check · `a4e3efb` Guide loop + backend. All via `/ship` (verifier PASS).
+
+**Deployment work (no longer uncommitted):** the conversation persistence on Supabase (`backend/persistence.py`,
+`supabase/`, `tests/test_persistence.py`, …) was committed as `188abd3`. The Vercel deploy config (`vercel.json`,
+`StripPrefix` / `CORS_ORIGINS` in `backend/app.py`, `tests/test_deploy.py`, the commands.md deploy section) lands in
+the commit after it, and this handoff (Q-014 in `open-questions.md`, the warning in `docs/kit/route-model.md`, this
+section and its `log.md` entry) ships together with that deploy commit.
+
+**What works:** benchmark dev 138/138, train 515/517 (2 irreducible Q-006); parser hybrid 31/31 on paraphrases;
+Guide live on Opus 5.5 / Sonnet 5.5 (grounding check, confirm-before-apply, profile presets + cue safety net, voice
+channel); FastAPI backend (`/chat`, `/events`, `/sessions/{id}/points`, OpenAI-compatible streaming
+`/v1/chat/completions` speaking); React app `frontend/app/` (monochrome point cloud, D-011). `uv run pytest` 147
+passed (+ Atahan's persistence tests) before the merge; after merging `1-agentic-yarag`: 258 passed, 1 skipped. API spend ≈ $1.4 of $150.
+
+**Running locally (may still be up):** backend `uvicorn backend.app:app --port 8765` (real Claude), Vite on
+`:5181` (port 5173 is another local project). Restart commands: [commands.md](../docs/guides/commands.md#frontend-app).
+
+**▶ Do next, in order:**
+1. **[Q-014](open-questions.md#q-014) — new Sunday route scoring rule (HIGH).** Send Atahan the 5 organiser
+   questions (draft in Q-014), then build the second route model + production-bay / forklift / no-outside rules and
+   measure sequence differences on train/dev. Stays in `core/` + `agent/` (not his deploy files).
+2. Help finish the deploy if Atahan asks (Vercel: Vite frontend + FastAPI, `/api` rewrite or `VITE_API_BASE`).
+3. ElevenLabs Custom LLM wiring once there is a public URL (ask before creating anything in any account).
+4. Frontend: phone-layout check, demo GIF (needs the Chrome extension; it was disconnected), bundle split.
+5. Open for Atahan: model per channel (Q-012; proposal Opus 5.5 medium for text, Sonnet 5.5 low for voice), team
+   name for the test CSV, push `dev`.
+
+**Ways of working:** session protocol in CLAUDE.md; keep `.claude/worklog/PENDING.md` current; commit only via
+`/ship`, staging/stamp/commit as separate commands; subagents get disjoint files.
 
 ## Next priorities
 
-1. (Later, Atahan) Accounts per the zero-cost [stack checklist](../docs/research/stack-options.md#7-day-one-setup-checklist-human-actions--ask-before-creating-anything):
-   Atahan signs up for Vercel + Supabase (free) and puts keys in `.env`; Claude then configures Vercel (frontend +
-   FastAPI as Services) and the Supabase schema. First commit is pushed (`3300e6c`).
-2. Benchmark: done — `run_benchmark` ([BENCHMARK.md](../BENCHMARK.md)), `submissions/team_jaRAG.csv` (145/145
-   answered). Route paths are in the .json output in the warm-up format; adjust once organisers answer [Q-001](open-questions.md#q-001) (message drafted there).
-   Solvers are done; [Q-004](open-questions.md#q-004)/[Q-005](open-questions.md#q-005) stay open (rules match, few labels).
-3. In parallel: FastAPI skeleton + frontend skeleton (2D plan + route) deployed; Supabase schema.
-4. Routing profiles ([routing-profiles.md](../docs/product/routing-profiles.md)) + Guide agent + voice.
+1. Voice: ElevenLabs Custom LLM on `/v1/chat/completions` (replies are voice-ready) — needs the public deploy
+   (Atahan working on it); ask before creating anything in any account. Decide model per channel (Q-012).
+2. Frontend polish: phone layout check, closure ripple for edits, narrow doors for the active profile, run against
+   the real Guide (key set) and record a demo GIF/video.
+3. Deploy: Supabase ✅ (project created, `conversations` table applied, sessions persisted via
+   `backend/persistence.py`, live round trip incl. real Claude verified 2026-10-24). Vercel config ✅ (`vercel.json`
+   with services `web` + `api`, `/api` rewrite, `excludeFiles`, `maxDuration` 300; `StripPrefix` and `CORS_ORIGINS`
+   in `backend/app.py`; `tests/test_deploy.py`; `uv run pytest` 162 passed, 1 skipped). Next: Atahan imports the repo
+   into Vercel and sets the env vars (`ANTHROPIC_API_KEY`, `SUPABASE_DB_URL`), then smoke-test; the first-deploy
+   UNVERIFIED items are listed in [commands.md](../docs/guides/commands.md#deploy-vercel).
+4. Preference extraction, remaining TODO: group composition (P20), profile lifetime/reset scope, persistence,
+   soft penalties → [TODO](../docs/product/routing-profiles.md#todo-preference-extraction).
+5. Sunday hardening: wording robustness ✅ (hybrid 31/31 on paraphrases), Swiss `straight_line_3d` ✅ (generator
+   avoids Swiss; no correction needed); still open: output format once Q-001 is announced, new kinds.
 
 ## Blockers
 

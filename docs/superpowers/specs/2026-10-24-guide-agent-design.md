@@ -12,6 +12,10 @@ related: [../../architecture/ai-agents.md, ../../challenge/brief.md, ../../produ
 
 # Building Guide agent — Phase 3 design (the brain, terminal first)
 
+> **Since the merge of `origin/main` (2026-10-24):** this Guide lives at `agent/guide_v1/` (REPL:
+> `python -m agent.guide_v1`) and its solvers at `core/solvers_v1.py`; `agent/guide/` and `core/solvers.py` below
+> are the names at the time of writing. The canonical Guide used by the backend is `agent/guide.py`.
+
 [Docs index](../../README.md) · Agent overview: [ai-agents.md](../../architecture/ai-agents.md)
 
 ## Intent and why
@@ -39,7 +43,7 @@ core.
 3. **Directions:** A→B, step-free, multi-stop tour, across floors, and a one-off closure stated in the request
    ("the lift is out, route me around it") — kept for this session's routes, the building is not changed
    (see session state below).
-4. **Clarify only what changes the answer** (contract in [ai-agents.md](../../architecture/ai-agents.md#building-guide--behaviour-contract), [D-010](../../../memory-bank/decisions.md#d-010)):
+4. **Clarify only what changes the answer** (contract in [ai-agents.md](../../architecture/ai-agents.md#building-guide--behaviour-contract), [D-012](../../../memory-bank/decisions.md#d-012)):
    several candidates → solve for each; same answer → just answer; different answers → one short question
    with ≤ 3 options told apart by ref, floor or neighbour.
 5. **Session context:** pronouns and references ("there", "that room", "the one on floor 1"), the user's
@@ -119,7 +123,7 @@ user text ─► Guide.turn(text)
   "answer": …}` (all candidates give the same answer → just answer) or `{"status": "ambiguous", "options":
   [...]}` with each option's distinguishing facts (ref, floor, a neighbour or containing room) and its own
   result. The model only phrases the question; it never compares answers itself. *(my call — keeps the
-  D-010 rule deterministic instead of trusting the model to loop)*
+  D-012 rule deterministic instead of trusting the model to loop)*
 - **Session state lives in code, not in the model's memory** (`Guide.session`): position, `step_free`, and
   closures the user stated. *(my calls:)*
   - A stated constraint ("I'm in a wheelchair") is acknowledged as a **statement in the same reply**

@@ -30,9 +30,10 @@ Template:
   [scoring.md](../docs/challenge/scoring.md#-conflict-pdf-vs-readme).
 - **How to resolve:** ask organisers; meanwhile make solvers return structured results (ids, node path, length)
   *and* prose.
-- **Progress (2026-10-24):** `run_benchmark <building_dir> <questions> <answers>` exists
-  ([BENCHMARK.md](../BENCHMARK.md)); `.json` output has reply, `Answer:` text, kind, resolved ids and solver
-  result. Missing: route as ordered node ids.
+- **Progress (2026-10-24):** both runners exist ([BENCHMARK.md](../BENCHMARK.md)): canonical
+  `agent.run_benchmark` writes answers.json per id (`kind`, `params`, `answer`, `unit`, `area_m2`, `evidence` with
+  route node/element paths, `reply`, `error`); v1 `agent.run_benchmark_v1` .json has reply, `Answer:` text, kind,
+  resolved ids, solver result and `route`. Missing: the announced Sunday format itself.
 - **Progress (2026-10-24, upstream README §3–4):** the graph's nodes are spaces (anchor =
   `representative_point()`), openings and one `"outside"` node. Warm-up route answers give the path as
   `space_path` (space ids + `"outside"`) and `element_path` (the `via` of every edge walked: an opening id twice per
@@ -63,25 +64,57 @@ Template:
   > 4. Is there an example `answers.json` (the PDF says it would be in the data folder)?
   > Thanks!
 
+<a id="q-014"></a>
+### Q-014 — Sunday route scoring uses a different distance rule than the kit route model
+- **Status:** open · **Priority:** HIGH · **Resolve by:** ask organisers + implement a second route model
+- **Source:** organiser message on Discord, pasted by Atahan 2026-10-24 (summary, not verbatim):
+  - Distance is measured inside each space **from door to door, ~15 cm off the walls, around corners** (never
+    through walls). Furniture/machines are not obstacles. A route to an item ends in the room/bay that holds it.
+  - **Stairs = 2 m per metre climbed; lift = 15 m + 1 m per metre of height.**
+  - Without stairs: lifts, ramps, doors only. **Forklift: forklift aisles and openings ≥ 3 m only; pedestrian
+    walkways don't count.** Closed areas avoided. **Factory production bays are destinations only — never driven
+    through as a shortcut.** No route under the rules → the correct answer is to say so.
+  - Scoring: the answer is the **ordered list of spaces**; each step must go through a real door/opening/stair/
+    lift and obey the rules (else **score 0**); the route is re-measured with their rule; score = best length ÷
+    our length, within 1 % = full marks. Our own distance numbers don't matter.
+- **Gap vs our code** (`core/building_map.py`, [route-model.md](../docs/kit/route-model.md)): we use the kit model
+  (anchor `representative_point` → door straight lines; stairs 12 m/floor; lift 15 + 6 m/floor). Floor heights in
+  the data are 3.0–8.0 m, so stair/lift costs change per building and the stairs-vs-lift choice can flip (3 floors
+  of 3 m: kit picks the lift 33 vs 36 m; new rule picks stairs 18 vs 24 m). We have **no production-bay rule**
+  (factory halls `production_zone` 78, also assembly/logistics/warehouse/additive zones — routing through them would
+  score 0), **no forklift profile** (1,065 openings ≥ 3 m; no aisle/walkway spaces in our data → Sunday likely adds
+  them), and our `space_path` can pass through `outside` between two entrances (probably invalid under their check).
+- **Ask organisers:** (1) does the new rule also replace the kit model for numeric distances (`errand` total walking
+  distance, warm-up `length_m`) or only for Sunday route questions? (2) where does a route start/end inside the first
+  and last space (door or centre)? (3) space ids or names in the list; may it contain "outside"? (4) how are forklift
+  aisles, pedestrian walkways and production bays marked (type/room_type/name/new field)? (5) "metre climbed" = the
+  `elevation_m` difference between floors?
+- **Plan (no API cost, stays in `core/` + `agent/`):** (a) a second route model selectable per question:
+  door-to-door geodesic inside each space polygon shrunk by 0.15 m (visibility graph over the polygon's reflex
+  vertices), height-based stair/lift costs; keep the kit model as default until (1) is answered; (b) measure how often
+  the two models pick different space sequences on train/dev warm-up routes; (c) rules: production bays = destination
+  only, forklift profile (≥ 3 m, exclude walkway-like spaces), no route through `outside`; (d) benchmark "no route"
+  answer wording checked.
+- **Open details (branch `1-agentic-yarag`, merged in):** how a door position is snapped into the shrunken
+  polygon; keep the warm-up cost profile bit-exact beside the new one and compare both on train/dev. Factory
+  schema (aisles, walkways, bays) → [Q-015](#q-015); make the router take a rule set (allowed space predicate, min
+  opening width, no-pass-through predicate) so it can be wired to the Sunday fields without code changes elsewhere.
+
 <a id="q-002"></a>
 ### Q-002 — When is code freeze and when is the Sunday building released?
 - **Status:** open · **Priority:** high · **Resolve by:** ask organisers
 - **Context:** PDF says "TODO: exact time". Drives the whole plan in [project-state.md](project-state.md).
 - **Owner:** Atahan will provide the times — don't chase this.
 
-<a id="q-004"></a>
-### Q-004 — Door-width rule details for `wide_delivery_count`
-- **Status:** open · **Priority:** med · **Resolve by:** experiment
-- **Context:** Do `opening` (no leaf) and entrances also need `width_m ≥ min_width`? Are lifts width-limited?
-  Is `≥` or `>`? Is the arrival entrance itself checked?
-- **How to resolve:** variants vs 80 train+dev answers.
-- **Progress (2026-10-24):** applying `width_m >= min_width` to every opening kind (door, opening, entrance),
-  lifts unrestricted, matches 80/80 (`core/solvers.py:reachable_rooms`). Alternatives not tested, so we do not
-  know which of them the data would also accept; keep open until a failing case appears.
+
 
 <a id="q-005"></a>
 ### Q-005 — Exact semantics of `what_if_door` (and `step_free_reachable_count`)
 - **Status:** open · **Priority:** med · **Resolve by:** experiment (only 4 / 2 labelled examples)
+- **Progress (2026-10-24):** what_if_door 4/4 and step_free_reachable_count 2/2 with the rules in
+  [solver-plan.md](../docs/architecture/solver-plan.md#what_if_door) (full graph, `type == room`, > 1 m, longest
+  shared stretch midpoint; robustness sweep over 1044 pairs). Stays open only because labelled examples are few
+  and the closure never changes the count in the 2 step-free examples.
 - **Context:** New door width/step-free? "Middle of the shared wall" when the shared boundary is multiple
   segments? Which rooms on the target floor are counted; is improvement measured strictly > 1 m? Unreachable
   rooms? See [solver-plan.md](../docs/architecture/solver-plan.md#what_if_door).
@@ -96,7 +129,9 @@ Template:
   (Floor 2)". OSM names repeat ("WC"). Train/dev `inputs` give the gold mapping to test a resolver.
 - **Progress (2026-10-24):** resolver in `core/question_parser.py` handles all train/dev/test; 7 train/dev
   questions are inherently ambiguous (same OSM name twice on one floor, e.g. "Büro (Ground floor)") — returns all
-  candidates. Remaining: solver policy for candidates (run all, answer if they agree). See
+  candidates. Solver policy implemented in `agent/benchmark_agent.py`: run every candidate, keep the answer when they
+  agree, else first candidate (sorted id). Costs 2 train questions (osm-way37850565-H02/H03 are identical text
+  with different gold answers, H04) — irreducible without more context. See
   [question-parsing.md](../docs/research/question-parsing.md).
 
 <a id="q-008"></a>
@@ -105,8 +140,10 @@ Template:
 - **Context:** [ai-agents.md](../docs/architecture/ai-agents.md#benchmark-pipeline).
   Sunday wording may differ; `kind` may not be provided.
 - **Evidence (2026-10-24):** one template per kind (two for room_stacked); regex parser 655/655 on train+dev,
-  145/145 on test → [D-007](decisions.md#d-007) accepted 2026-10-24 (configurable modes). Remaining: live LLM
-  accuracy on paraphrases (`scripts/eval_llm_parser.py --paraphrase`, needs an API key).
+  145/145 on test → [D-007](decisions.md#d-007) accepted 2026-10-24 (configurable modes).
+- **Live paraphrase check (2026-10-24):** 31 reworded dev questions, all 9 kinds: regex 0/31, llm 31/31,
+  hybrid 31/31 ([question-parsing.md](../docs/research/question-parsing.md#risks)). Hybrid stays the default;
+  open only for kinds that don't exist yet (new Sunday kinds can only map onto our solvers).
 
 <a id="q-010"></a>
 ### Q-010 — Which Level 5 add-in do we pick?
@@ -122,6 +159,13 @@ Template:
   for agentic dev work. One full test run with the starter-style Opus agent ≈ 145 × $0.10–0.25 ≈ $15–36; with
   deterministic solvers + template parser the LLM cost of a benchmark run should be near $0. Track spend in
   [log.md](log.md).
+- **Guide (2026-10-24):** `agent/guide.py` defaults to `claude-opus-5-5` at effort `medium`; switch with
+  `GUIDE_MODEL` / `GUIDE_EFFORT` (e.g. `claude-sonnet-5-5`, `low` for voice latency). `guide.usage` counts tokens
+  incl. cache reads.
+- **Live evidence (2026-10-24, `scripts/live_guide.py`, 7 tricky-user turns):** Opus 5.5 medium ~5.9–7.3 s/turn
+  (7.3 pre-fix, 5.9 post-fix), $0.13–0.16; Opus 5.5 low ~6.8 s/turn (one pre-fix run), $0.12; Sonnet 5.5 low
+  ~3.3–3.9 s/turn (3.3 pre-fix, 3.9 post-fix), $0.06 — all correct, 0 ungrounded. Proposal:
+  Opus 5.5 medium for text chat, Sonnet 5.5 low for voice (latency). Needs Atahan's call; default unchanged.
 
 <a id="q-013"></a>
 ### Q-013 — May we redistribute the kit's code (scorer, starter agent) in our public repo?
@@ -129,22 +173,6 @@ Template:
 - **Context:** Upstream repo publishes no licence; data licences are explicit, code's are not. We include it
   unmodified for reproducibility and say so in `NOTICE.md` ([D-009](decisions.md#d-009)). Fallback if they say
   no: delete `archive/initial-repo/starter_agent`, keep `benchmark/` out of git and fetch it from upstream in CI.
-
-<a id="q-014"></a>
-### Q-014 — Sunday route scoring uses a different distance model: how do we pick the best space sequence?
-- **Status:** open · **Priority:** high · **Resolve by:** experiment + team decision
-- **Context:** Organisers' note (2026-10-24): walking distance is measured inside each space **door to door,
-  ~15 cm off the walls, around corners**; stairs = **2 m per metre climbed**; lift = **15 m + 1 m per metre of
-  height**; furniture/equipment are not obstacles. Our warm-up graph uses anchor (`representative_point`) →
-  door straight lines, stairs 12 m × floor span, lift 15 m + 6 m × floor span
-  ([route-model.md](../docs/kit/route-model.md#graph)). Score = best ÷ ours, full marks within 1%, so a space
-  sequence that is optimal under the anchor model can lose points (L-shaped corridors, stair vs lift choice).
-- **How to resolve:** add a second cost profile (keep the warm-up one bit-exact): door-to-door geodesic inside
-  `polygon.buffer(-0.15)` (visibility graph), connector cost from floor `elevation_m` differences; search over
-  door nodes, return the space sequence. Open details: start/end point inside the first/last space (anchor? item
-  position? any point?), how a door position is snapped into the shrunken polygon, how "metre climbed" is taken
-  for a lift/stair spanning several floors (elevation difference of the end floors, presumably). Compare both
-  profiles on train/dev to see how often the space sequence changes.
 
 <a id="q-015"></a>
 ### Q-015 — Factory buildings: forklift aisles, pedestrian walkways, production bays — what is the schema?
@@ -161,6 +189,16 @@ Template:
 
 ## Resolved
 
+<a id="q-004"></a>
+### Q-004 — Door-width rule details for `wide_delivery_count`
+- **Status:** resolved (2026-10-24) · **Priority:** med · **Resolve by:** experiment
+- **Context:** Do `opening` (no leaf) and entrances also need `width_m ≥ min_width`? Are lifts width-limited?
+  Is `≥` or `>`? Is the arrival entrance itself checked?
+- **How to resolve:** variants vs 80 train+dev answers.
+- **Answer:** every opening kind (door, opening, entrance) needs `width_m >= min_width`; lifts unlimited (no width
+  field); start counts if it is a room. 80/80 — [solver-plan.md](../docs/architecture/solver-plan.md#wide_delivery_count).
+
+
 <a id="q-003"></a>
 ### Q-003 — Which spaces count as "rooms" in count/stack/wall questions?
 - **Status:** resolved (2026-10-24) · **Priority:** high · **Resolve by:** experiment on train+dev answers
@@ -169,11 +207,10 @@ Template:
   Are halls/balconies rooms for `wide_delivery_count`? Affects 18%+12%+6% of test.
   See [questions.md](../docs/kit/questions.md#ambiguities-we-must-resolve-empirically-against-traindev-answers).
 - **How to resolve:** implement variants, pick the one with 100% match on train+dev; record here.
-- **Answer:** `shared_walls_count` counts spaces with `type` ∈ {room, hall} (corridor, stair, lift, outdoor
-  excluded) → 143/143; `type == room` only gives 124/143, adding outdoor 90/143. Reachability counts
-  (`wide_delivery_count`, `step_free_reachable_count`) and `what_if_door` count `type == room` → 80/80, 2/2, 4/4.
-  Evidence: `uv run pytest tests/test_solvers.py -q -s`;
-  [solver-plan.md](../docs/architecture/solver-plan.md#rules-settled-empirically-2026-10-24).
+- **Answer:** the room definition is per kind — shared walls: `type` ∉ {corridor, stair, lift, outdoor} (halls
+  count); reachability/what-if counts: `type == "room"` (= manifest `rooms`); room_stacked: any space. Scores and
+  rejected variants in [solver-plan.md](../docs/architecture/solver-plan.md#room-definition-per-kind).
+
 
 <a id="q-007"></a>
 ### Q-007 — App/UI and voice stack

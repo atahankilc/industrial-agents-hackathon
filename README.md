@@ -46,7 +46,7 @@ uv run --env-file .env python -m benchmark.evaluate data/dev --agent agent.answe
 uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answer:answer --submission-csv submissions/team_jaRAG.csv
 
 # One-command benchmark run (building or split dir, questions file, answers .csv or .json)
-uv run --env-file .env run_benchmark <building_dir> <questions> <answers>
+uv run --env-file .env python -m agent.run_benchmark_v1 <building_dir> <questions> <answers>
 ```
 
 `benchmark/score.py` is the official scorer; never edit it. The benchmark command, formats and current scores are

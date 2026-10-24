@@ -1,4 +1,4 @@
-from agent.guide.grounding import fallback_text, grounded_tokens, ungrounded
+from agent.guide_v1.grounding import fallback_text, grounded_tokens, ungrounded
 
 G = grounded_tokens([{"optimal_length_m": 37.42, "ref": "1.14", "name": "Generic room 03.08.033", "options": [1, 2]}])
 

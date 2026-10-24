@@ -137,7 +137,10 @@ budget ([Q-012](../../memory-bank/open-questions.md#q-012)).
 ## Risks
 
 - **Sunday paraphrasing:** the templates are exact, so any rewording sends the question to the LLM fallback.
-  Keep the fallback tested, for example with a few hand-paraphrased dev questions.
+  **Measured live (2026-10-24):** `scripts/eval_llm_parser.py --per-kind 4 --paraphrase` (Claude rewords each
+  dev question, names and numbers kept): regex **0/31**, llm **31/31**, hybrid **31/31** across all 9 kinds
+  (kind + every `inputs` slot). Parser tokens: 4,970 in, 7,820 out, 328,984 cache read, 69,620 cache write on
+  Opus 5.5 ≈ $0.59 (+ the paraphrasing calls). Re-run after any change to the parser or its vocabulary.
 - **New kinds on Sunday:** the regex can't cover them; the LLM can only map them onto kinds we have solvers for.
 - **Name normalisation:** exact matching relies on the question text copying `space.name` verbatim. This holds
   in all 800 questions, but unicode such as "Büro" must stay NFC. Add `unicodedata.normalize` if a mismatch shows up.

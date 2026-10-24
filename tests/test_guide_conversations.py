@@ -4,10 +4,10 @@ The live run that talks to Claude is scripts/eval_guide.py."""
 import json
 from pathlib import Path
 
-from agent.guide.guide import Guide, TurnResult
+from agent.guide_v1.guide import Guide, TurnResult
 from agent.llm_parser import LlmUsage
 from core.building_map import BuildingMap
-from core.solvers import route as core_route
+from core.solvers_v1 import route as core_route
 from scripts.eval_guide import EXPECT_KEYS, check_turn, load_conversation
 
 FILES = sorted(Path("tests/guide_conversations").glob("*.json"))

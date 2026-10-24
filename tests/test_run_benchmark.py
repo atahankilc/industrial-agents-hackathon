@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from agent.run_benchmark import load_questions, run
+from agent.run_benchmark_v1 import load_questions, run
 from benchmark.score import score_reply
 
 BUILDING = Path(__file__).resolve().parent.parent / "data" / "dev" / "proc-campus-dev-001"

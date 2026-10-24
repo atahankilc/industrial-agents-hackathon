@@ -6,10 +6,10 @@ from types import SimpleNamespace
 import anthropic
 import httpx2
 
-from agent.guide.__main__ import repl
-from agent.guide.guide import Guide
-from agent.guide.prompt import system_blocks
-from agent.guide.tools import TOOLS
+from agent.guide_v1.__main__ import repl
+from agent.guide_v1.guide import Guide
+from agent.guide_v1.prompt import system_blocks
+from agent.guide_v1.tools import TOOLS
 from core.building_map import BuildingMap
 
 CAMPUS = Path("data/dev/proc-campus-dev-001")
@@ -148,7 +148,7 @@ def test_blank_turn_makes_no_call():
 def test_repl_ignores_blank_input_and_survives_api_errors(capsys):
     client = FakeClient(raises=anthropic.APIConnectionError(request=httpx2.Request("POST", "https://x")))
     guide = Guide(CAMPUS, client)
-    repl(guide, ["", "   ", "hi"])                      # agent.guide.__main__.repl
+    repl(guide, ["", "   ", "hi"])                      # agent.guide_v1.__main__.repl
     assert len(client.calls) == 1 and "error" in capsys.readouterr().out.lower()
     assert guide.messages == []        # failed turn rolled back, session still usable
 
@@ -186,7 +186,7 @@ def test_any_tool_exception_becomes_an_error_result(monkeypatch):
     def boom(*_args):
         raise RuntimeError("core blew up")
 
-    monkeypatch.setattr("agent.guide.guide.run_tool", boom)
+    monkeypatch.setattr("agent.guide_v1.guide.run_tool", boom)
     client = FakeClient(tool_reply("locate", {"thing": "3D printer"}), text_reply("Sorry, that failed."))
     result = Guide(CAMPUS, client).turn("Where is the 3D printer?")
     answer = client.calls[1]["messages"][-1]["content"][0]
@@ -198,7 +198,7 @@ def test_any_exception_rolls_the_turn_back(monkeypatch):
     client = FakeClient(tool_reply("update_session", {"position": "Main lobby", "step_free": True, "close": None,
                                                       "reopen": None}), text_reply("Noted."))
     g = Guide(CAMPUS, client)
-    monkeypatch.setattr("agent.guide.guide.ungrounded", lambda *_a: (_ for _ in ()).throw(RuntimeError("bug")))
+    monkeypatch.setattr("agent.guide_v1.guide.ungrounded", lambda *_a: (_ for _ in ()).throw(RuntimeError("bug")))
     try:
         g.turn("I'm in a wheelchair in the main lobby")
     except RuntimeError:
@@ -217,7 +217,7 @@ def test_repl_survives_any_exception(capsys):
 
 
 def test_prompt_rules_for_constraints_and_clarifying_questions():
-    from agent.guide.prompt import RULES
+    from agent.guide_v1.prompt import RULES
     text = " ".join(RULES.split())
     assert "only after update_session returned ok" in text.lower()
     assert "at most 3" in text and "door is closed" not in text

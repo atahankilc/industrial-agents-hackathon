@@ -8,11 +8,11 @@ import difflib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from agent.guide.resolve import describe, fan_out, nearest_names, resolve_elements, resolve_places, strip_leading
+from agent.guide_v1.resolve import describe, fan_out, nearest_names, resolve_elements, resolve_places, strip_leading
 from core.building_map import BuildingMap, MapError
 from core.question_parser import ParseError, Resolver, normalise
-from core.solvers import area, label, room_stacked, shared_walls, solve
-from core.solvers import route as core_route
+from core.solvers_v1 import area, label, room_stacked, shared_walls, solve
+from core.solvers_v1 import route as core_route
 
 MAX_HITS = 10
 MAX_ASSET_NAMES = 15

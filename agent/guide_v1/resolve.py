@@ -11,7 +11,7 @@ from collections.abc import Callable
 
 from core.building_map import BuildingMap, MapError
 from core.question_parser import ParseError, Resolver
-from core.solvers import label
+from core.solvers_v1 import label
 
 MAX_OPTIONS = 5
 LEADING_WORDS = ("the ", "a ", "room ")

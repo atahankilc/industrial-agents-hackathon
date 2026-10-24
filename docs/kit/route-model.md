@@ -10,6 +10,11 @@ related: [data-format.md, questions.md, starter-agent.md, ../architecture/solver
 
 # Route model (must match to the centimetre)
 
+> ⚠ **Sunday route scoring uses a different distance rule** (door-to-door inside each space, 15 cm off walls; stairs
+> 2 m per metre climbed; lift 15 m + 1 m per metre; production bays destination-only; forklift ≥ 3 m) — see
+> [Q-014](../../memory-bank/open-questions.md#q-014). This page stays correct for the kit's own answers (warm-up
+> routes, `errand`) until the organisers say otherwise.
+
 [Docs index](../README.md) · Data it is built from: [data-format.md](data-format.md)
 
 Expected route lengths in all answers come from this graph. `starter_agent/building_map.py` implements it
@@ -42,8 +47,15 @@ lengths should match to the cm.
 - **Step-free:** drop every opening and connector with `step_free: false`.
 - **Closures:** a closed opening/connector is dropped; a closed **space** removes its node
   (`building_map.py:182-196`).
-- **Min door width** (needed for `wide_delivery_count`): *not* in the starter code — filter openings with
-  `width_m < min_width`. Whether lifts have a width constraint is open → [Q-004](../../memory-bank/open-questions.md#q-004).
+- **Min door width** (needed for `wide_delivery_count`): *not* in the starter code — keep only openings (every
+  kind: door, opening, entrance) with `width_m >= min_width`; connectors have no width field, so lifts are not
+  width-limited. VERIFIED 80/80 → [solver-plan.md](../architecture/solver-plan.md#wide_delivery_count).
+
+## Equal-length ties
+
+10 warm-up legs have a second path of exactly equal length; we still match gold `space_path`/`element_path`
+because networkx Dijkstra breaks ties the same way — this depends on `BuildingMap.graph()` adding nodes and
+edges in its current order. **Don't refactor it.** (`scripts/validate_warmup.py` reports `tie`/`equal_alt`.)
 
 ## Path representations in answers
 
@@ -56,7 +68,8 @@ On parallel edges the cheaper one is used. Tours have `legs`, each with its own 
 `BuildingMap.route()` returns the same per leg (`RouteResult.legs`, `RouteResult.element_path`); verified exact
 (length, `space_path`, `element_path`, unreachable cases) on all 1,338 train+dev warm-up route / step-free /
 closure / tour questions: `uv run pytest tests/test_routes.py -q -s` (2026-10-24). The errand solver returns its
-two legs in this format; `run_benchmark` puts them under `route` (Sunday format: [Q-001](../../memory-bank/open-questions.md#q-001)).
+two legs in this format; the v1 runner `agent.run_benchmark_v1` (.json output) puts them under `route`, the
+canonical `agent.run_benchmark` has them in `evidence.legs` (`nodes`, `spaces`, `elements`) (Sunday format: [Q-001](../../memory-bank/open-questions.md#q-001)).
 
 ## Sunday scoring model (organisers' note, 2026-10-24)
 
@@ -105,8 +118,8 @@ schema (aisles, walkways, bays): [Q-015](../../memory-bank/open-questions.md#q-0
 ## Distances that are NOT the route model
 
 - `straight_line_3d` uses the polygon **centroid** (not representative point) + floor `elevation_m`.
-- "Nearest" in `errand` = route-model distance (UNVERIFIED — confirm against train answers, see
-  [solver-plan.md](../architecture/solver-plan.md#errand)).
+- "Nearest" in `errand` = route-model distance on the full graph, any floor — VERIFIED 93/93 against gold `via`
+  ([solver-plan.md](../architecture/solver-plan.md#errand)).
 
 ## Related
 

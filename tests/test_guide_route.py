@@ -3,9 +3,9 @@
 import functools
 from pathlib import Path
 
-from agent.guide.tools import TOOLS, Session, run_tool
+from agent.guide_v1.tools import TOOLS, Session, run_tool
 from core.building_map import BuildingMap
-from core.solvers import route as core_solver_route
+from core.solvers_v1 import route as core_solver_route
 
 CAMPUS = Path("data/dev/proc-campus-dev-001")
 FACTORY = Path("data/dev/proc-factory-dev-004")

@@ -1,4 +1,4 @@
-"""Terminal REPL for the Guide: `uv run --env-file .env python -m agent.guide <building_dir> [--show-tools]`.
+"""Terminal REPL for the Guide: `uv run --env-file .env python -m agent.guide_v1 <building_dir> [--show-tools]`.
 
 Prints each reply, optionally the tool calls behind it, and the turn's token use with an estimated cost. Any error
 (API or otherwise) is printed and the conversation continues (the failed turn is rolled back by Guide.turn)."""
@@ -8,7 +8,7 @@ import json
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
-from agent.guide.guide import Guide
+from agent.guide_v1.guide import Guide
 from agent.llm_parser import LlmUsage
 
 # USD per million tokens for the default model: input, output, cache read, cache write.

@@ -14,7 +14,7 @@ from pathlib import Path
 from agent.parsing import QuestionUnderstanding
 from core.building_map import BuildingMap
 from core.question_parser import ParsedQuestion, ParseError
-from core.solvers import solve
+from core.solvers_v1 import solve
 
 
 @cache

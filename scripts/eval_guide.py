@@ -18,9 +18,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from agent.guide.__main__ import cost  # noqa: E402
-from agent.guide.guide import Guide, TurnResult  # noqa: E402
-from core.solvers import route as core_route  # noqa: E402
+from agent.guide_v1.__main__ import cost  # noqa: E402
+from agent.guide_v1.guide import Guide, TurnResult  # noqa: E402
+from core.solvers_v1 import route as core_route  # noqa: E402
 
 EXPECT_KEYS = {"asked", "tools", "route_to", "no_route", "step_free", "space_ids_include", "grounded", "asset_total"}
 CONVERSATIONS = Path(__file__).resolve().parent.parent / "tests" / "guide_conversations"

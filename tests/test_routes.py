@@ -12,7 +12,7 @@ from collections import Counter
 from pathlib import Path
 
 from core.building_map import OUTSIDE, BuildingMap, MapError
-from core.solvers import solve
+from core.solvers_v1 import solve
 from tests.test_question_parser import DATA, building, labelled_questions
 
 ROUTE_KINDS = ("route", "route_step_free", "route_with_closure", "tour")

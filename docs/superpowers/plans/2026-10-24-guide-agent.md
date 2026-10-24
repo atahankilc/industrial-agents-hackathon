@@ -7,6 +7,10 @@ related: [../specs/2026-10-24-guide-agent-design.md, ../../architecture/ai-agent
 
 # Building Guide Agent Implementation Plan
 
+> **Since the merge of `origin/main` (2026-10-24):** this Guide lives at `agent/guide_v1/` (REPL:
+> `python -m agent.guide_v1`) and its solvers at `core/solvers_v1.py`; `agent/guide/` and `core/solvers.py` below
+> are the names at the time of writing. The canonical Guide used by the backend is `agent/guide.py`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A multi-turn, terminal-testable Building Guide that answers building questions and gives directions using only facts from `core/`, asks back only when the answer depends on it, and never states an ungrounded number or ref.

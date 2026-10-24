@@ -10,11 +10,151 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
-## 2026-10-24 — D-011: transcript rewriter for voice input (Utku)
+## 2026-10-24 — Merge `origin/main` into `1-agentic-yarag` (Utku's session)
+
+- **Why:** Vercel build failed on the branch (no `vercel.json`, `frontend/app/`, `backend/`). Main and the branch had
+  built two parallel stacks; main's is broader (edits, profiles, voice, backend + UI), benchmark scores are equal.
+- **Did:** main's stack stays canonical (`agent/guide.py`, `agent/tools.py`, `core/solvers/`, `agent/run_benchmark.py`,
+  backend, frontend, `vercel.json`). The branch's modules moved beside it: `agent/guide/` → `agent/guide_v1/`,
+  `core/solvers.py` → `core/solvers_v1.py`, `agent/run_benchmark.py` → `agent/run_benchmark_v1.py` (the same names
+  would have shadowed each other: a package wins over a module). Text conflicts: main's text kept, branch content
+  added as "v1" sections.
+- **Decisions / questions:** branch D-010 / D-011 renumbered to [D-012](decisions.md#d-012) /
+  [D-013](decisions.md#d-013) (main's D-010 guardrails, D-011 monochrome keep their ids). Both sides opened Q-014 for
+  the same organiser note: merged into main's entry; branch Q-015 (factory schema) keeps its id; next free Q-016.
+- **Next:** port v1 strengths (name resolution / candidate fan-out, grounding fallback, voice transcript rewriter)
+  into `agent/guide.py`; then retire one stack.
+
+## 2026-10-24 — Vercel deploy config
+
+- **Did:** `vercel.json` (services `web` = Vite `frontend/app/` and `api` = FastAPI `backend.app:app`, `/api/(.*)`
+  rewrite, `excludeFiles`, `maxDuration` 300); `StripPrefix` ASGI middleware and `CORS_ORIGINS` in `backend/app.py`;
+  `tests/test_deploy.py`; deploy section in [commands.md](../docs/guides/commands.md#deploy-vercel).
+- **Learned:** the Vercel rewrite keeps the `/api` prefix, so the backend strips it; the backend reads only
+  `building.json` + `manifest.csv` from `data/` (bundle about 49 MB of code+data).
+- **Changed docs:** [commands.md](../docs/guides/commands.md#deploy-vercel), [project-state.md](project-state.md#next-priorities).
+- **Next:** Atahan imports the repo into Vercel and sets the env vars; pushing `dev` needs Atahan's OK.
+
+## 2026-10-24 — Organiser route-scoring rules (Discord) → Q-014; session handoff
+
+- **Did:** Analysed the organisers' Discord note on how route answers are scored and compared it with our model
+  and the data → [Q-014](open-questions.md#q-014) (door-to-door geodesic distance, height-based stair/lift costs,
+  production bays destination-only, forklift ≥ 3 m, likely no `outside` shortcut, score = best ÷ ours). Warning added
+  to [route-model.md](../docs/kit/route-model.md). Wrote the handoff in
+  [project-state.md](project-state.md#-start-here-handoff-for-the-next-session-2026-10-24-1530).
+- **Learned:** under the new costs the stairs-vs-lift choice can flip; any route through a production bay would
+  score 0; whether `errand` distances change too is the key question for the organisers.
+- **Next:** Q-014 implementation (see project-state).
+
+## 2026-10-24 — Conversation persistence on Supabase
+
+- **Did:** `backend/persistence.py`: conversation ⇄ JSON (profile, applied changes replayed from the base building,
+  pending, events, Guide history + system blocks), Memory and Postgres backends with optimistic `version` saves.
+  `SessionStore` uses it when `SUPABASE_DB_URL` is set; `/chat` and switch-building save, conflict → 409. Migration
+  `supabase/migrations/20261024120000_conversations.sql` applied (RLS on, no policies). `tests/test_persistence.py`.
+- **Learned:** the Supabase direct host is IPv6-only (doesn't resolve on our network; Vercel is IPv4) → use the
+  Transaction pooler (6543, no prepared statements). Restored history is accepted by the real API (Sonnet, two
+  stores, wheelchair profile honoured on the second; cache reads hit). Anon key on `/rest/v1/conversations` → 0 rows.
+- **Changed docs:** [commands.md](../docs/guides/commands.md#conversation-persistence-supabase-postgres), `.env.example`.
+- **Next:** Vercel config ([project-state.md](project-state.md#next-priorities)).
+
+## 2026-10-24 — Sunday hardening: paraphrases, Swiss frames, end-to-end checks
+
+- **Did:** Live paraphrase eval of the parser (31 dev questions, all kinds): regex 0/31, llm 31/31, hybrid 31/31.
+  Checked the Swiss `straight_line_3d` risk: every train/dev/test question of that kind is procedural/OSM; 84 of 108
+  multi-floor Swiss buildings have every floor's space-bbox centre within 2 m of the origin on each axis (82 with a
+  Euclidean 2 m radius) → `room_facts` no longer reports above/below on Swiss buildings. Full train run 515/517 (unchanged, the 2 known Q-006 cases). Real-Claude conversation through
+  the app proxy (`/api/chat`): preset, route with 15 vertices, closure → change event with 4 lift-shaft spaces,
+  re-route via Lift 2; all grounded. Browser re-check not possible (Chrome extension disconnected).
+- **Budget:** parser eval ≈ $0.59 + paraphrasing + 3 app turns on Opus ≈ $0.8 → ≈ $1.4 total.
+- **Next:** [project-state.md](project-state.md#next-priorities).
+
+## 2026-10-24 — Voice-ready replies
+
+- **Did:** `agent/speech.py` (`speakable`: markdown, list markers, ids, symbols → plain sentences, units spelled
+  out, never adds numbers); `Guide.reply(channel="voice")` with `VOICE_STYLE` as a mid-conversation system message
+  (models that support it) or a user-turn note; `/v1/chat/completions` speaks; `live_guide.py --channel voice`;
+  prompt: don't offer to show the map. Doc nits from the last review fixed.
+- **Learned:** Sonnet 5.5 low in voice mode answers in ~3 s with natural spoken steps; only nit was offering to
+  "put it on the map" (fixed in the prompt).
+- **Budget:** +$0.054 → ≈ $0.63 total.
+- **Next:** Sunday hardening (parser paraphrases, Swiss `straight_line_3d`, full train run).
+
+## 2026-10-24 — Frontend app (monochrome point cloud) + point-cloud API + profile presets
+
+- **Did:** Reviewed the teammate's gap check (routing-profiles TODO, personas P19–P26): accurate; fixed P21's Q-004
+  link. Built `frontend/app/` (Vite/React/r3f): monochrome cloud with emergence + scan plane, route comets,
+  highlight/closure/lost-access per-space states, floor solo + separation, camera rig, chat panel, light/dark.
+  Subagents: `core/pointcloud.py` + `GET /sessions/{id}/points` + enriched route/change events; `set_profile`
+  presets + cue safety net. Route events now carry `element_path`, `length_m`, `profile`.
+- **Learned:** the route only reads well when off-route rooms step back; overlapping event polls replayed events
+  (now chained); port 5173 is taken by another local project (we use 5181).
+- **Decisions:** D-011 accepted (monochrome, Atahan).
+- **Budget:** +$0.058 (one live Sonnet regression run) → ≈ $0.58 total.
+- **Next:** [project-state.md](project-state.md#next-priorities).
+
+## 2026-10-24 — Preference-extraction gap check + new personas
+
+- **Did:** Compared the profile plan in routing-profiles.md with `agent/tools.py`; wrote the gap list as a TODO.
+  Added personas P19–P26.
+- **Learned:** `RoutingProfile` has only `step_free`, `min_door_width_m`, `avoid_lifts`; it is session-only; it
+  depends on the model calling `set_profile` (no presets, no safety net).
+- **Changed docs:** [routing-profiles.md](../docs/product/routing-profiles.md#todo-preference-extraction),
+  [personas.md](../docs/product/personas.md#added-personas-2026-10-24), project-state priority 4.
+- **Next:** [project-state.md](project-state.md#next-priorities).
+
+
+## 2026-10-24 — Live Guide check (API key set)
+
+- **Did:** `scripts/live_guide.py` (7-turn tricky user against the real API: tools, replies, ungrounded, cache,
+  seconds, $). Runs: Opus 5.5 medium ×2, Opus 5.5 low, Sonnet 5.5 low ×2. Fixed what the runs exposed:
+  `compare_routes` capped lost rooms at 15 → `lost_access_by_floor` with counts, uncapped; `propose_change` now
+  includes the impact (Sonnet had called `compare_routes` in parallel with a guessed id); id errors list valid
+  ids; two prompt sentences (no unsupported general claims; change ids only from tool results).
+- **Learned:** all models handled the conversation correctly with 0 ungrounded replies and working caching;
+  Sonnet 5.5 low is ~1.5–2.2× faster (3.3–3.9 vs 5.9–7.3 s/turn) and ~2.5× cheaper than Opus 5.5 medium;
+  Opus low gave no clear speed gain (6.8 s/turn, one pre-fix run; not directly comparable). The first Opus medium
+  run had one failed `find_route` (invalid via id `proc-campus-train-000-V04`, "No place matches") that the
+  model recovered from.
+  Replies use markdown (bad for TTS).
+- **Budget:** ≈ $0.52 API spent (5 live runs: 0.157 + 0.055 + 0.118 + 0.061 + 0.129).
+- **Next:** [project-state.md](project-state.md#next-priorities).
+
+## 2026-10-24 — Building Guide loop + backend skeleton (offline)
+
+- **Did:** `agent/guide.py` (manual Claude tool-use loop over `agent/tools.py`, cached overview, model via
+  `GUIDE_MODEL`), `agent/offline_llm.py` (rule-based client when no key), `compare_routes` tool (pending or applied
+  change: lost access, longer routes, `extra_m`), `tests/test_guide.py` (scripted tricky user). A subagent built
+  `backend/` (FastAPI: sessions, `/chat`, `/events`, OpenAI-compatible SSE `/v1/chat/completions`) +
+  `tests/test_backend.py`; fixed after its review: predictions no longer touch `session.events` (a poll could see
+  phantom routes), `llm_mode()` shared with `/health`. Fixed the `run_benchmark` usage in the
+  `agent/benchmark_agent.py` docstring.
+- **Learned:** with a step-free profile Main lobby → Meeting room 3.07 (train campus 000) is 124.24 m via Lift 1,
+  132.2 m via Lift 2 after closing Lift 1; closing both lifts cuts every upper-floor room for a wheelchair user.
+  Grounding by rounding is strict enough to catch invented numbers but accepts "about 124 m".
+- **Decisions:** D-010 proposed (guardrails in code).
+- **Budget:** $0 API (no key yet; all tests offline).
+- **Next:** [project-state.md](project-state.md#next-priorities).
+
+## 2026-10-24 — Deterministic core: all solvers verified, benchmark runner, navigation, agent tools
+
+- **Did:** Scaffolding (`core/solvers` registry + `SolverResult`, `core/formatter.py`, `scripts/validate_solvers.py`),
+  then 5 parallel subagents: geometry (4 kinds), shared walls, reachability, routing (errand, what_if_door),
+  warm-up navigation + parser. I wrote the pipeline (`agent/benchmark_agent.py`, `agent/run_benchmark.py`,
+  `BENCHMARK.md`) and the Guide tool layer (`agent/tools.py`).
+- **Learned:** "room" differs per kind (walls: not corridor/stair/lift/outdoor, halls count; counts: `type ==
+  room` = manifest `rooms`); every opening kind is width-checked; errand via is on any floor with stairs;
+  what-if uses full graph + `type == room`; formatter labels spaces `<ref> (<name>)` (repeated OSM names);
+  Dijkstra tie-breaking matches gold only while `BuildingMap.graph()` order is unchanged.
+- **Scores:** solvers 655/655; text pipeline dev 138/138, train 515/517; warm-up 2120/2130.
+- **Questions:** Q-003, Q-004 resolved; Q-005, Q-006 progressed. Spend: $0 API.
+- **Next:** [project-state.md](project-state.md#next-priorities).
+
+## 2026-10-24 — D-013 (was D-011 on the branch): transcript rewriter for voice input (Utku)
 
 - **Decided:** Phase 4 voice path gets a transcript rewriter (STT → rewriter → Guide) that only normalises names and
   numbers to the building vocabulary; the original transcript is passed along; typed chat stays rewriter-free.
-  [D-011](decisions.md#d-011).
+  [D-013](decisions.md#d-013).
 
 ## 2026-10-24 — Guide: final review fixes (branch `1-agentic-yarag`)
 

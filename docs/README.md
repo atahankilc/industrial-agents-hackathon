@@ -40,9 +40,9 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 ### Architecture (ours)
 - [architecture/overview.md](architecture/overview.md) — what we need (frontend, backend, DB, realtime, voice, CI), topology, collaboration flow, build order.
 - [architecture/ai-agents.md](architecture/ai-agents.md) — Building Guide, benchmark pipeline, Builder; shared tools; voice path.
-- [superpowers/specs/2026-10-24-guide-agent-design.md](superpowers/specs/2026-10-24-guide-agent-design.md) — Phase 3 design: Building Guide brain (terminal, multi-turn, grounded, clarifies only what matters).
-- [superpowers/plans/2026-10-24-guide-agent.md](superpowers/plans/2026-10-24-guide-agent.md) — Phase 3 implementation plan (6 tasks).
-- [architecture/solver-plan.md](architecture/solver-plan.md) — one deterministic function per benchmark kind.
+- [superpowers/specs/2026-10-24-guide-agent-design.md](superpowers/specs/2026-10-24-guide-agent-design.md) — design of the v1 Guide (`agent/guide_v1/`, branch `1-agentic-yarag`): terminal, multi-turn, grounded, clarifies only what matters.
+- [superpowers/plans/2026-10-24-guide-agent.md](superpowers/plans/2026-10-24-guide-agent.md) — v1 Guide implementation plan (6 tasks).
+- [architecture/solver-plan.md](architecture/solver-plan.md) — one deterministic function per benchmark kind — all VERIFIED 655/655, with the rules the data settled.
 
 ### Product (ours)
 - [product/personas.md](product/personas.md) — 18 ranked personas with needs, data feasibility, what to ask / never ask.

@@ -12,6 +12,7 @@ from agent.guide.resolve import describe, fan_out, nearest_names, resolve_elemen
 from core.building_map import BuildingMap, MapError
 from core.question_parser import ParseError, Resolver, normalise
 from core.solvers import area, label, room_stacked, shared_walls, solve
+from core.solvers import route as core_route
 
 MAX_HITS = 10
 MAX_ASSET_NAMES = 15
@@ -55,6 +56,18 @@ TOOLS = [
           "direction": {"anyOf": [{"type": "string", "enum": ["above", "below"]}, {"type": "null"}]},
           "min_width_m": {"anyOf": [{"type": "number"}, {"type": "null"}]}, "closed": NULLABLE_TEXT,
           "step_free": {"anyOf": [{"type": "boolean"}, {"type": "null"}]}}),
+    tool("route",
+         "Shortest route to a place. `from` null uses the user's current position; step_free null uses the session "
+         "setting. Session closures are applied. via lists stops to pass through in order.",
+         {"to": {"type": "string"}, "from": NULLABLE_TEXT,
+          "via": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]},
+          "step_free": {"anyOf": [{"type": "boolean"}, {"type": "null"}]}}),
+    tool("update_session",
+         "Remember what the user tells you: where they are, whether they need step-free access, and lifts, stairs "
+         "or doors that are closed (close) or open again (reopen). Later routes use this state.",
+         {"position": NULLABLE_TEXT, "step_free": {"anyOf": [{"type": "boolean"}, {"type": "null"}]},
+          "close": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]},
+          "reopen": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]}}),
 ]
 
 
@@ -316,11 +329,115 @@ def building_fact(bmap: BuildingMap, session: Session, args: dict) -> dict:
     return finish(bmap, out, text, "place", unwrap)
 
 
+# ---------- route / update_session ----------
+
+def route_summary(bmap: BuildingMap, combo: dict[str, str], step_free: bool, result: dict, closed: list[str]) -> str:
+    start, end = named(bmap, combo["from"]), named(bmap, combo["to"])
+    if not result["reachable"]:
+        kind = "step-free " if step_free else ""
+        suffix = " with the current closures" if closed else ""
+        return f"No {kind}route from {start} to {end}{suffix}."
+    extras = (", step-free" if step_free else "") + (f", avoiding {', '.join(closed)}" if closed else "")
+    return f"{start} → {end}: {round(result['optimal_length_m'])} m{extras}."
+
+
+def route(bmap: BuildingMap, session: Session, args: dict) -> dict:
+    start_text, end = args.get("from"), need(args, "to")
+    if not start_text and not session.position:
+        return {"status": "need_start", "summary": "Ask where the user is starting from."}
+    step_free = session.step_free if args.get("step_free") is None else bool(args["step_free"])
+    via_texts = list(args.get("via") or [])
+    slots = {"from": resolve_places(bmap, start_text) if start_text else [session.position],
+             "to": resolve_places(bmap, end),
+             **{f"via{i}": resolve_places(bmap, t) for i, t in enumerate(via_texts)},
+             **{f"closure{i}": ids for i, ids in enumerate(session.closures)}}
+    texts = {"from": start_text, "to": end, **{f"via{i}": t for i, t in enumerate(via_texts)}}
+    saved = set(bmap.closed)
+
+    def run(combo: dict[str, str]) -> dict:
+        bmap.closed = saved | {v for k, v in combo.items() if k.startswith("closure")}
+        try:
+            vias = [combo[f"via{i}"] for i in range(len(via_texts))]
+            return {"result": core_route(bmap, combo["from"], combo["to"], step_free=step_free, via=vias or None)}
+        finally:
+            bmap.closed = saved
+
+    def closed_names(choices: dict) -> list[str]:
+        """Each closure by the name it is known by: the chosen reading, else every candidate it could be."""
+        return [describe(bmap, choices[slot]["id"])["name"] if slot in choices else
+                " / ".join(describe(bmap, i)["name"] for i in candidates)
+                for slot, candidates in slots.items() if slot.startswith("closure")]
+
+    def full(choices: dict) -> dict[str, str]:
+        return {slot: choices[slot]["id"] if slot in choices else candidates[0] for slot, candidates in slots.items()}
+
+    out = fan_out(bmap, slots, run)
+    if out["status"] == "ok":
+        combo = full({})
+        out.update({"summary": route_summary(bmap, combo, step_free, out["result"], closed_names({})), "from": describe(bmap, combo["from"]),
+                    "to": describe(bmap, combo["to"]), "step_free": step_free,
+                    "closed": closed_names({})})
+        return out
+    if out["status"] == "not_found":
+        return not_found(bmap, texts[out["slot"]], "place")
+    out = finish(bmap, out, end, "place",
+                 lambda choices, payload: (route_summary(bmap, full(choices), step_free, payload["result"], closed_names(choices)),
+                                payload["result"]))
+    if not out.get("truncated") and all(k.startswith("closure") for o in out["options"] for k in o["choices"]):
+        out["summary"] = f"A closed lift, stairs or door is unclear: {len(out['options'])} readings give different routes."
+    return out
+
+
+def state_names(bmap: BuildingMap, session: Session) -> dict:
+    return {"position": describe(bmap, session.position) if session.position else None,
+            "step_free": session.step_free,
+            "closed": [[describe(bmap, i)["name"] for i in ids] for ids in session.closures]}
+
+
+def state_summary(bmap: BuildingMap, session: Session) -> str:
+    where = named(bmap, session.position) if session.position else "unknown"
+    closed = "; ".join(" or ".join(names) for names in state_names(bmap, session)["closed"]) or "none"
+    return f"Position: {where}. Step-free: {'yes' if session.step_free else 'no'}. Closed: {closed}."
+
+
+def update_session(bmap: BuildingMap, session: Session, args: dict) -> dict:
+    position = args.get("position")
+    reopening = []
+    for phrase in args.get("reopen") or []:
+        ids = set(resolve_elements(bmap, phrase))
+        if not ids:
+            return not_found(bmap, phrase, "lift, stairs or door")
+        if not any(ids & set(c) for c in session.closures):
+            return {"status": "not_closed", "summary": f"'{phrase}' is not among the closures I know about, so there is nothing to reopen."}
+        reopening.append(ids)
+    if position:
+        out = fan_out(bmap, {"position": resolve_places(bmap, position)}, lambda c: {"result": {"position": c["position"]}})
+        if out["status"] != "ok":
+            return finish(bmap, out, position, "place", lambda choices, payload: (
+                f"Position could be {named(bmap, choices['position']['id'])}.", payload["result"]))
+    closing = []
+    for phrase in args.get("close") or []:
+        ids = resolve_elements(bmap, phrase)
+        if not ids:
+            return not_found(bmap, phrase, "lift, stairs or door")
+        closing.append(ids)
+    if position:
+        session.position = out["result"]["position"]
+    if args.get("step_free") is not None:
+        session.step_free = bool(args["step_free"])
+    for ids in reopening:
+        session.closures = [c for c in session.closures if not ids & set(c)]
+    session.closures.extend(closing)
+    return {"status": "ok", "session": state_names(bmap, session), "summary": state_summary(bmap, session)}
+
+
 HANDLERS: dict[str, Callable[[BuildingMap, Session, dict], dict]] = {
     "locate": locate,
     "find_places": find_places,
     "place_info": place_info,
     "building_fact": building_fact,
+    "route": route,
+    "update_session": update_session,
 }
 
 

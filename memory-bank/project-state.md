@@ -36,6 +36,7 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   full suite 44 passed.
 - `agent/guide/tools.py` — Session, TOOLS, run_tool; locate / find_places / place_info / building_fact (strict
   schemas); 12 tests in `tests/test_guide_tools.py`; full suite 56 passed.
+- `route` + `update_session` tools in `agent/guide/tools.py` (session position / step-free / closures feed routes; closures fan out as slots and never leak into `bmap.closed`); 13 tests in `tests/test_guide_route.py`; full suite 69 passed.
 - Knowledge base: [docs/](../docs/README.md) incl. architecture, agents, personas, routing profiles, research.
 - Point-cloud 3D prototype: `frontend/prototypes/pointcloud/` (exporter + three.js viewer), see
   [visualization.md](../docs/product/visualization.md).

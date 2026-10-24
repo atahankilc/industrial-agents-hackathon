@@ -10,6 +10,13 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Guide Task 3: route + update_session tools (branch `1-agentic-yarag`)
+
+- **Did:** Added `route` and `update_session` to `agent/guide/tools.py`; session closures are fan-out slots
+  (ambiguous "the lift" only asks when routes differ), `bmap.closed` restored after each call;
+  `tests/test_guide_route.py` (13 tests); full suite 69 passed.
+- **Next:** Task 4+ (agent loop / fallback reading `result.space_path`, `steps`, `options`).
+
 ## 2026-10-24 — Guide Task 2: lookup tools (branch `1-agentic-yarag`)
 
 - **Did:** Added `agent/guide/tools.py` (`Session`, `TOOLS`, `run_tool`; tools locate, find_places, place_info,

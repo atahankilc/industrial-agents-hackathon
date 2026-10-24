@@ -192,6 +192,19 @@ Template:
   meanwhile make the router take a rule set (allowed space predicate, min opening width, no-pass-through
   predicate) so it can be wired to new fields without code changes elsewhere.
 
+<a id="q-016"></a>
+### Q-016 — Level 3 "several buildings": what format, and how do walkways link them?
+- **Status:** open · **Priority:** high · **Resolve by:** ask organisers / wait for Sunday building
+- **Context:** Brief: "several floors, then several buildings; stairs, lifts, walkways between buildings"
+  ([brief.md](../docs/challenge/brief.md)). Several floors work end to end (174/280 datasets multi-floor, up to 10;
+  routes over stairs/lifts verified). Several buildings exist nowhere: every `building.json` holds one `building`,
+  every `group_id` in `data/manifest.csv` is unique, no data names a walkway/bridge, `BuildingMap`,
+  `BuildingSession`, the backend session and the UI each hold one building, and `no_outside` makes `outside` an
+  endpoint only (scan 2026-10-24).
+- **How to resolve:** ask whether Sunday brings one file with several buildings, several files plus links, or
+  outdoor travel via `outside`; meanwhile a site layer (several `BuildingMap`s + typed links: walkway / outdoor
+  path with length) is the smallest change (starter README idea, [starter-agent.md](../docs/kit/starter-agent.md)).
+
 ## Resolved
 
 <a id="q-004"></a>

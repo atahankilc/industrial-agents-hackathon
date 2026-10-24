@@ -152,16 +152,21 @@ exclude globs as Vercel applies them, cold-start time.
 
 ## v1 Guide and pipeline (terminal)
 
+Scripted conversations (`tests/guide_conversations/*.json`) run against the canonical Guide (`agent/guide.py`):
+
+```bash
+# live API: PASS/FAIL per turn + seconds + cost, exit 1 on a failure; --model / --effort override GUIDE_MODEL / GUIDE_EFFORT
+uv run --env-file .env python scripts/eval_guide.py [tests/guide_conversations/lift_closure.json ...] [--model claude-sonnet-5-5 --effort low]
+# offline checks of the conversation files and of the checker (no API)
+uv run pytest tests/test_guide_conversations.py -q
+```
+
 The second Guide (`agent/guide_v1/`, branch `1-agentic-yarag`) and its benchmark pipeline (`agent/answer.py` →
 `core/solvers_v1.py`) sit beside the canonical ones; the backend and UI use `agent/guide.py`.
 
 ```bash
 # terminal REPL (multi-turn, remembers position / step-free / closures); --show-tools prints each tool call
 uv run --env-file .env python -m agent.guide_v1 data/dev/proc-campus-dev-001 --show-tools
-# scripted conversations (tests/guide_conversations/*.json) against the live API: PASS/FAIL per turn + cost, exit 1 on a failure
-uv run --env-file .env python scripts/eval_guide.py [tests/guide_conversations/lift_closure.json ...]
-# offline checks of the conversation files and of the checker (no API)
-uv run pytest tests/test_guide_conversations.py -q
 # v1 benchmark run: .csv (submission) or .json (reply + ids + solver result + route) out
 uv run --env-file .env python -m agent.run_benchmark_v1 <building_dir> <questions> <answers.csv|answers.json>
 ```

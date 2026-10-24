@@ -10,6 +10,26 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Guide eval ported to the canonical Guide
+
+- **Did:** `scripts/eval_guide.py` and `tests/test_guide_conversations.py` now test `agent/guide.py` (they tested
+  `agent/guide_v1` before, so the 16/16 below was v1's score). Same expect keys; `route_to` compares the turn's last
+  reachable `find_route` with a fresh `core.navigation.find_route` under the session's profile, applied changes and
+  route rules after the turn. Per-turn seconds + cost, `--model` / `--effort`. `lift_closure.json` gained two
+  "Yes, go ahead." turns (propose → confirm → apply), `update_session` → `set_profile`/`propose_change`.
+- **First live run (Opus 5.5 medium):** 14/18 PASS, 95 s, ~$0.24. Failures: `lift_closure` t6 repeated the earlier
+  route without calling `find_route` (reply correct); `printers_two_rooms` t1 ended with an offer question; t2 routed
+  to the nearer printer instead of asking (against the prompt and D-012), so t3 had no route.
+- **Fixes:** `route_to` falls back to the conversation's last route (still checked against the current state, so a
+  stale route fails); `asked` = a question anywhere in the reply; Guide prompt: ask which room when items of the
+  kind sit in several rooms, even if one is nearer, and no closing offers; `lift_closure` user now uses a wheelchair
+  (step-free route goes via Lift 1 at 101.64 m, via Lift 2 at 109.63 m once Lift 1 is closed — the scenario now
+  tests something).
+- **Second live run:** 17/18, 89 s, ~$0.22; the miss asked mid-reply (checker bug, fixed); `printers_two_rooms`
+  re-run 3/3, ~$0.03.
+- **Learned:** Level 3 "several buildings" is unsupported in data and code → [Q-016](open-questions.md#q-016).
+- **Next:** LLM judge + simulated tricky user on top of this suite; Q-016.
+
 ## 2026-10-24 — Merge `origin/dev` into `1-agentic-yarag` (Utku's session)
 
 - **Did:** merged dev's 3 commits (Sunday geodesic route model + route rules, handoff, AI layer: live steps, cards,

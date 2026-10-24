@@ -95,6 +95,11 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
     grounding check with one repair then a code fallback; REPL `uv run --env-file .env python -m agent.guide_v1
     <building_dir> [--show-tools]`. 9 scripted conversations (`tests/guide_conversations/`, `scripts/eval_guide.py`):
     16/16 turns PASS live (single run, ~$0.32).
+  - 2026-10-24: `scripts/eval_guide.py` + `tests/test_guide_conversations.py` ported to the canonical Guide
+    (`agent/guide.py`; `route_to` checked with `core.navigation.find_route` under the session's state after the
+    turn). Conversations updated to its tools (`set_profile`; closures as `propose_change` → "Yes" → `apply_change`).
+    First live run 14/18; after the fixes (log 2026-10-24) Opus 5.5 medium **17/18** (89 s, ~$0.22), the one miss
+    was the checker's `asked` rule, fixed and re-run 3/3 (~$0.03).
   - Ported into the canonical Guide (2026-10-24): place resolution + described candidates + typo suggestions +
     route fan-out over an ambiguous destination (`agent/places.py`, `BuildingSession.resolve`), and grounding
     (unit-glued numbers, list lengths, clock times, half-up rounding) in `agent/guide.py`; `tests/test_places.py`.

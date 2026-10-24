@@ -6,7 +6,7 @@
       "expect": {
         "step_free": true,
         "tools": [
-          "update_session"
+          "set_profile"
         ],
         "grounded": true
       }

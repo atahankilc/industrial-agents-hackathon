@@ -201,8 +201,8 @@ Edit mode design (step 1 of the Builder): [builder-edit-mode-design](../superpow
 new UI, merged from `dev`); drag corners (shared walls stay shared), doors along walls and assets on a 2D plan with
 the 3D `PlanView` of the draft as a live inset; undo; validator issues
 in red (pre-existing issues of the original are warnings); save as `user/<slug>`, then the Guide routes in it.
-Code: `core/edits.py`, `core/validate.py`, `backend/drafts.py` + `/drafts`, `frontend/app/src/edit/`. Not yet:
-prompt edits (Builder agent, milestone 2), deployed store (Supabase, milestone 3), plan images (project 2).
+Code: `core/edits.py`, `core/validate.py`, `backend/drafts.py` + `/drafts`, `frontend/app/src/edit/`. In progress:
+prompt edits (Builder agent, milestone 2 — `move_edge` op and `agent/builder_tools.py` done). Not yet: deployed store (Supabase, milestone 3), plan images (project 2).
 
 1. Upload plan image (PNG/PDF page) or describe changes by conversation.
 2. Claude vision drafts `floors`/`spaces`/`openings` in our schema (scale from a known dimension the user gives

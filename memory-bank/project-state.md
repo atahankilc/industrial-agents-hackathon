@@ -58,8 +58,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   grow when a room shrinks, per-draft lock + client gating. M2 plan written
   ([m2](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m2.md)). `origin/dev` merged (`ebcdb3d`, Atahan's new
   UI); Edit mode re-homed: ruler-pencil button in `BuildingScreen` → `EditMode` full screen, 3D inset = `PlanView`
-  of `GET /drafts/{id}/plan`, Save opens `user/<slug>` via `Root`; verified in headless Chrome. Next: M2 (prompt
-  edits via a Builder agent).
+  of `GET /drafts/{id}/plan`, Save opens `user/<slug>` via `Root`; verified in headless Chrome.
+- **Builder M2 (prompt edits), in progress:** Task 1 `move_edge` op + `edge_sides` (walls with compass sides),
+  malformed op arguments → EditError (422); Task 2 `agent/builder_tools.py` (overview, find, space_info,
+  floor_plan, propose_edit — dry run + effect + new problems, never applies). Next: Task 3 Builder loop.
 
 - **Solvers** `core/solvers/` (geometry, walls, reachability, routing): **655/655** train+dev on gold inputs
   (`scripts/validate_solvers.py`); rules + rejected variants in [solver-plan.md](../docs/architecture/solver-plan.md).

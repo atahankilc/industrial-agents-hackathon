@@ -9,7 +9,7 @@ import pytest
 from shapely.geometry import Point, Polygon
 
 from core.building_map import BuildingMap
-from core.edits import EditError, apply_op, apply_steps, space_at
+from core.edits import EditError, apply_op, apply_steps, edge_sides, space_at
 from core.solvers.walls import WALL_TOLERANCE_M, shared_wall_neighbours
 
 FIXTURE = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000" / "building.json"
@@ -314,3 +314,74 @@ def test_corner_moved_away_from_corridor_leaves_no_hole(base):
     before = sum(Polygon(by_id(base, "spaces", space)["polygon"]).area for space in involved)
     after = sum(Polygon(by_id(changed, "spaces", space)["polygon"]).area for space in involved)
     assert abs(after - before) < 0.01  # the corridor grows into what the rooms gave up
+
+
+# ---------- M2 Task 1: move_edge, edge_sides, malformed arguments ----------
+
+
+def shared_edge(building: dict, a: str, b: str) -> list[list[float]]:
+    """The edge of A whose two corners both lie on B's outline."""
+    ring = Polygon(by_id(building, "spaces", b)["polygon"]).exterior
+    polygon = by_id(building, "spaces", a)["polygon"]
+    for index, start in enumerate(polygon):
+        end = polygon[(index + 1) % len(polygon)]
+        if ring.distance(Point(start)) < 0.01 and ring.distance(Point(end)) < 0.01:
+            return [start, end]
+    raise AssertionError("no shared edge")
+
+
+def area_of(building: dict, space_id: str) -> float:
+    return Polygon(by_id(building, "spaces", space_id)["polygon"]).area
+
+
+def test_move_edge_widens_room_and_shrinks_neighbour(base):
+    a, b = neighbour_rooms(base)
+    edge = shared_edge(base, a, b)
+    length = math.dist(*edge)
+    changed = apply_op(base, {"op": "move_edge", "space_id": a, "edge": edge, "offset_m": 1.0})
+    assert abs(area_of(changed, a) - (area_of(base, a) + length)) < 0.05
+    assert abs(area_of(changed, b) - (area_of(base, b) - length)) < 0.05
+    first, second = (Polygon(by_id(changed, "spaces", space)["polygon"]) for space in (a, b))
+    assert first.intersection(second).area < 0.01
+
+
+def test_move_edge_negative_offset_narrows(base):
+    a, b = neighbour_rooms(base)
+    edge = shared_edge(base, a, b)
+    changed = apply_op(base, {"op": "move_edge", "space_id": a, "edge": edge, "offset_m": -0.5})
+    assert abs(area_of(changed, a) - (area_of(base, a) - 0.5 * math.dist(*edge))) < 0.05
+    assert abs(area_of(changed, b) - (area_of(base, b) + 0.5 * math.dist(*edge))) < 0.05
+
+
+def test_move_edge_moves_corners_in_neighbours_on_both_ends(base):
+    a, b = neighbour_rooms(base)
+    edge = shared_edge(base, a, b)
+    changed = apply_op(base, {"op": "move_edge", "space_id": a, "edge": list(reversed(edge)), "offset_m": 1.0})
+    moved = [point for point in by_id(changed, "spaces", a)["polygon"] if point not in by_id(base, "spaces", a)["polygon"]]
+    assert len(moved) == 2
+    ring = Polygon(by_id(changed, "spaces", b)["polygon"]).exterior
+    assert all(ring.distance(Point(point)) < 0.01 for point in moved)
+
+
+def test_move_edge_rejects_non_edge(base):
+    a, _ = neighbour_rooms(base)
+    polygon = by_id(base, "spaces", a)["polygon"]
+    with pytest.raises(EditError, match="edge"):
+        apply_op(base, {"op": "move_edge", "space_id": a, "edge": [polygon[0], polygon[2]], "offset_m": 1.0})
+
+
+def test_edge_sides_of_rectangle():
+    sides = edge_sides([[0, 0], [4, 0], [4, 3], [0, 3]])
+    assert [side["side"] for side in sides] == ["south", "east", "north", "west"]
+    assert [side["length_m"] for side in sides] == [4.0, 3.0, 4.0, 3.0]
+    assert [side["side"] for side in edge_sides([[0, 0], [0, 3], [4, 3], [4, 0]])] == ["west", "north", "east", "south"]
+
+
+def test_malformed_arguments_are_edit_errors(base):
+    asset = base["assets"][0]
+    opening = base["openings"][0]
+    for operation in ({"op": "move_asset", "asset_id": asset["id"], "position": [1]},
+                      {"op": "move_opening", "opening_id": opening["id"], "position": ["a", "b"]},
+                      {"op": "set_asset", "asset_id": asset["id"], "footprint": {"width_m": "x"}}):
+        with pytest.raises(EditError):
+            apply_op(base, operation)

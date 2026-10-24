@@ -11,6 +11,7 @@ the highest n already used with that prefix. Coordinates written by ops are roun
 always snapped onto the wall their two spaces share (the outer wall for entrances)."""
 
 import copy
+import math
 import re
 from collections.abc import Callable
 
@@ -52,8 +53,10 @@ def apply_op(building: dict, operation: dict) -> dict:
     changed = copy.deepcopy(building)
     try:
         OPS[name](changed, **arguments)
-    except TypeError as error:  # wrong / missing arguments
-        raise EditError(f"{name}: {error}") from None
+    except EditError:
+        raise
+    except (TypeError, ValueError, IndexError, KeyError) as error:  # wrong / missing / malformed arguments
+        raise EditError(f"{name}: bad arguments ({type(error).__name__}: {error})") from None
     return changed
 
 
@@ -350,3 +353,67 @@ def move_vertex(building: dict, floor_id: str, from_xy: list[float], to_xy: list
     if not changed:
         raise EditError(f"no corner at {rounded(from_xy)} on this floor")
     settle(before, building, floor_id, changed)
+
+
+# ---------- walls: sides and moving a whole wall ----------
+
+SIDE_TOLERANCE_DEG = 10.0
+
+
+def outward_normals(polygon: list[list[float]]) -> list[tuple[float, float]]:
+    """Unit outward normal of each edge i → i+1 (x east, y north), from the ring's orientation."""
+    twice_area = sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(polygon, polygon[1:] + polygon[:1]))
+    sign = 1.0 if twice_area > 0 else -1.0  # counter-clockwise: outward is to the right of each edge
+    normals = []
+    for a, b in zip(polygon, polygon[1:] + polygon[:1]):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        length = math.hypot(dx, dy) or 1.0
+        normals.append((sign * dy / length, -sign * dx / length))
+    return normals
+
+
+def compass(normal: tuple[float, float]) -> str:
+    angle = math.degrees(math.atan2(normal[1], normal[0])) % 360
+    for centre, name in ((0.0, "east"), (90.0, "north"), (180.0, "west"), (270.0, "south"), (360.0, "east")):
+        if abs(angle - centre) <= SIDE_TOLERANCE_DEG:
+            return name
+    return "other"
+
+
+def edge_sides(polygon: list[list[float]]) -> list[dict]:
+    """Each edge with the compass side it faces: `{"side", "from", "to", "length_m"}` (the Builder's walls)."""
+    return [{"side": compass(normal), "from": list(a), "to": list(b), "length_m": round(math.dist(a, b), 2)}
+            for (a, b), normal in zip(zip(polygon, polygon[1:] + polygon[:1]), outward_normals(polygon))]
+
+
+@op("move_edge")
+def move_edge(building: dict, space_id: str, edge: list[list[float]], offset_m: float) -> None:
+    """Move one wall of a space along its outward normal (negative = inward), corners moving in every space that
+    has them; neighbours are fitted once afterwards (`settle`)."""
+    space = find(building, "spaces", space_id)
+    polygon = space["polygon"]
+    first, second = edge
+
+    def same(a: list[float], b: list[float]) -> bool:
+        return math.dist(a, b) <= VERTEX_MATCH_M
+
+    for index, start in enumerate(polygon):
+        end = polygon[(index + 1) % len(polygon)]
+        if (same(start, first) and same(end, second)) or (same(start, second) and same(end, first)):
+            break
+    else:
+        raise EditError(f"{edge} is not an edge of {space['name']}; take one from space_info's edges")
+    nx, ny = outward_normals(polygon)[index]
+    moves = [(Point(corner), rounded([corner[0] + nx * offset_m, corner[1] + ny * offset_m]))
+             for corner in (start, end)]
+    before = copy.deepcopy(building)
+    changed = set()
+    for other in building["spaces"]:
+        if other["floor_id"] != space["floor_id"]:
+            continue
+        moved = [next((target for origin, target in moves if Point(point).distance(origin) <= VERTEX_MATCH_M), point)
+                 for point in other["polygon"]]
+        if moved != other["polygon"]:
+            other["polygon"] = checked_outline(moved, other["name"])
+            changed.add(other["id"])
+    settle(before, building, space["floor_id"], changed)

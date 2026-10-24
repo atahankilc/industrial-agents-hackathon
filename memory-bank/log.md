@@ -10,6 +10,14 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 20:42 — Builder M2 Tasks 1–2: move_edge, Builder tools
+
+- **Did:** `move_edge` (moves one wall along its outward normal in every room that has its corners, then `settle`),
+  `edge_sides`; `apply_op` turns ValueError/IndexError/KeyError from malformed arguments into EditError (M1 review
+  minor). `agent/builder_tools.py` with `BuilderTools`, `Proposal`, `BUILDER_TOOLS`; `tests/test_builder_tools.py`
+  12 passed, `tests/test_edits.py` 30 passed; full suite green.
+- **Next:** Task 3 — Builder loop (`agent/builder.py`) + offline client.
+
 ## 2026-10-24 20:32 — Edit mode re-homed in the new UI
 
 - **Did:** Edit button (ruler-pencil) in `BuildingScreen`'s controls opens `EditMode` full screen; its 3D inset is now

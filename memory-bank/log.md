@@ -11,6 +11,22 @@ related: [project-state.md, decisions.md, open-questions.md]
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
 
+## 2026-10-24 — Live Guide check (API key set)
+
+- **Did:** `scripts/live_guide.py` (7-turn tricky user against the real API: tools, replies, ungrounded, cache,
+  seconds, $). Runs: Opus 5.5 medium ×2, Opus 5.5 low, Sonnet 5.5 low ×2. Fixed what the runs exposed:
+  `compare_routes` capped lost rooms at 15 → `lost_access_by_floor` with counts, uncapped; `propose_change` now
+  includes the impact (Sonnet had called `compare_routes` in parallel with a guessed id); id errors list valid
+  ids; two prompt sentences (no unsupported general claims; change ids only from tool results).
+- **Learned:** all models handled the conversation correctly with 0 ungrounded replies and working caching;
+  Sonnet 5.5 low is ~1.5–2.2× faster (3.3–3.9 vs 5.9–7.3 s/turn) and ~2.5× cheaper than Opus 5.5 medium;
+  Opus low gave no clear speed gain (6.8 s/turn, one pre-fix run; not directly comparable). The first Opus medium
+  run had one failed `find_route` (invalid via id `proc-campus-train-000-V04`, "No place matches") that the
+  model recovered from.
+  Replies use markdown (bad for TTS).
+- **Budget:** ≈ $0.52 API spent (5 live runs: 0.157 + 0.055 + 0.118 + 0.061 + 0.129).
+- **Next:** [project-state.md](project-state.md#next-priorities).
+
 ## 2026-10-24 — Building Guide loop + backend skeleton (offline)
 
 - **Did:** `agent/guide.py` (manual Claude tool-use loop over `agent/tools.py`, cached overview, model via

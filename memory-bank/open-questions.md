@@ -87,7 +87,11 @@ Template:
   [log.md](log.md).
 - **Guide (2026-10-24):** `agent/guide.py` defaults to `claude-opus-5-5` at effort `medium`; switch with
   `GUIDE_MODEL` / `GUIDE_EFFORT` (e.g. `claude-sonnet-5-5`, `low` for voice latency). `guide.usage` counts tokens
-  incl. cache reads. Compare once a key is set: same scripted conversation, cost + latency per turn.
+  incl. cache reads.
+- **Live evidence (2026-10-24, `scripts/live_guide.py`, 7 tricky-user turns):** Opus 5.5 medium ~5.9–7.3 s/turn
+  (7.3 pre-fix, 5.9 post-fix), $0.13–0.16; Opus 5.5 low ~6.8 s/turn (one pre-fix run), $0.12; Sonnet 5.5 low
+  ~3.3–3.9 s/turn (3.3 pre-fix, 3.9 post-fix), $0.06 — all correct, 0 ungrounded. Proposal:
+  Opus 5.5 medium for text chat, Sonnet 5.5 low for voice (latency). Needs Atahan's call; default unchanged.
 
 <a id="q-013"></a>
 ### Q-013 — May we redistribute the kit's code (scorer, starter agent) in our public repo?

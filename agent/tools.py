@@ -244,12 +244,17 @@ class BuildingSession:
             return {"error": "action must be close, reopen or add_door"}
         change.effect.update(self.predict(change))
         self.pending[change.id] = change
+        try:
+            comparison, _ = self.comparison(change.id)
+            change.effect.update({key: comparison[key] for key in IMPACT_KEYS})
+        except MapError:  # no last route and no entrance to compare from: the route prediction is all we have
+            pass
         return {"change_id": change.id, "summary": summary, "effect": change.effect, "needs_confirmation": True}
 
     def tool_apply_change(self, change_id: str) -> dict:
         change = self.pending.pop(change_id, None)
         if change is None:
-            return {"error": f"No pending change '{change_id}'"}
+            return {"error": f"No pending change '{change_id}'; pending: {sorted(self.pending) or 'none'}"}
         before = self.building
         self.building = self.changed_building(change)
         self.snapshots[change.id] = (before, self.building)
@@ -280,6 +285,13 @@ class BuildingSession:
     def tool_compare_routes(self, change_id: str, start: str | None = None) -> dict:
         """Before → after a pending or applied change, from `start` under the user's profile: rooms that lost (or
         gained) access and the routes that got longer, in route-model metres."""
+        result, lost = self.comparison(change_id, start)
+        if lost:
+            self.events.append({"type": "highlight", "space_ids": lost, "style": "lost_access"})
+        return result
+
+    def comparison(self, change_id: str, start: str | None = None) -> tuple[dict, list[str]]:
+        """compare_routes without UI events: (result, ids of rooms that lost access)."""
         if change_id in self.pending:
             before, after = self.building, self.changed_building(self.pending[change_id])
             status = "pending"
@@ -287,7 +299,8 @@ class BuildingSession:
             before, after = self.snapshots[change_id]
             status = "applied"
         else:
-            return {"error": f"No pending or applied change '{change_id}'"}
+            known = sorted(self.pending) + [change.id for change in self.applied]
+            return {"error": f"No pending or applied change '{change_id}'; known: {known or 'none'}"}, []
         if start is None:
             start = self.last_route["start"] if self.last_route else self.main_entrance_space()
         start_id = self.resolve(start)
@@ -311,8 +324,8 @@ class BuildingSession:
             "profile": self.profile.describe(),
             "reachable_rooms_before": len(old),
             "reachable_rooms_after": len(new),
-            "lost_access": [self.space_summary(room) for room in lost[:MAX_RESULTS]],
             "lost_access_count": len(lost),
+            "lost_access_by_floor": self.names_by_floor(lost),
             "gained_access_count": len(gained),
             "longer_routes_count": len(longer),
             "max_extra_m": longer[0]["extra_m"] if longer else 0.0,
@@ -320,9 +333,17 @@ class BuildingSession:
         }
         if self.last_route and start == self.last_route["start"]:
             result["last_route"] = self.predict_between(before, after)
-        if lost:
-            self.events.append({"type": "highlight", "space_ids": lost, "style": "lost_access"})
-        return result
+        return result, lost
+
+    def names_by_floor(self, space_ids: list[str]) -> dict[str, dict]:
+        """Floor name → {"count", "rooms": names}, floors bottom-up: complete, compact, counts from code."""
+        grouped: dict[str, dict] = {}
+        for floor in sorted(self.building.floors.values(), key=lambda floor: floor["level"]):
+            names = sorted(self.building.spaces[space]["name"] for space in space_ids
+                           if self.building.spaces[space]["floor_id"] == floor["id"])
+            if names:
+                grouped[floor["name"]] = {"count": len(names), "rooms": names}
+        return grouped
 
     def room_distances(self, building: BuildingMap, start_id: str) -> dict[str, float]:
         """Route-model metres from `start_id` to every reachable room under the profile in `building`."""
@@ -375,6 +396,9 @@ class BuildingSession:
         return {"shown": resolved}
 
 
+# What propose_change adds from compare_routes, so a proposal already says who loses access and how much longer.
+IMPACT_KEYS = ("from", "reachable_rooms_before", "reachable_rooms_after", "lost_access_count",
+               "lost_access_by_floor", "longer_routes_count", "max_extra_m")
 PLACE = {"type": "string", "description": "Space id, room ref, exact room name, or asset name/id"}
 TOOL_DEFINITIONS: list[dict] = [
     {"name": "building_overview", "description": "Floors, stairs/lifts, entrances, the user's routing profile and "
@@ -409,7 +433,8 @@ TOOL_DEFINITIONS: list[dict] = [
     {"name": "set_profile", "description": "Remember the user's mobility constraints for every later route.",
      "input_schema": {"type": "object", "properties": {"step_free": {"type": "boolean"},
                       "min_door_width_m": {"type": "number"}, "avoid_lifts": {"type": "boolean"}}}},
-    {"name": "propose_change", "description": "Prepare (not apply) a building change and predict its effect. "
+    {"name": "propose_change", "description": "Prepare (not apply) a building change and predict its effect: the "
+     "last route before/after and, from that route's start, rooms that lose access and routes that get longer. "
      "Show the summary to the user and apply only after they confirm.", "input_schema": {
          "type": "object", "properties": {"action": {"type": "string", "enum": ["close", "reopen", "add_door"]},
                                           "targets": {"type": "array", "items": {"type": "string"}}},

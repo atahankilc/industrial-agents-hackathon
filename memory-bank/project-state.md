@@ -11,7 +11,7 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 ## Phase
 
-**Phase 1 ✅ · Phase 2 ✅ (dev 138/138) · Phase 3 — Agent + interaction: loop + backend done offline; live run needs an API key**
+**Phase 1 ✅ · Phase 2 ✅ (dev 138/138) · Phase 3 — Agent + interaction ✅ (offline tests + live check on Opus/Sonnet) → Phase 4 UI + voice**
 
 Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
@@ -20,7 +20,7 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 | 0 Foundation | docs, memory bank, CLAUDE.md | ✅ 2026-10-24 |
 | 1 Core + solvers | per-kind solvers verified on train+dev `inputs` | ✅ 2026-10-24 — 655/655 |
 | 2 Benchmark runner | question text → solver → `Answer:` reply; dev score via `benchmark.evaluate`; test CSV | ✅ 2026-10-24 — dev 138/138, `agent.run_benchmark`, [BENCHMARK.md](../BENCHMARK.md) |
-| 3 Agent + interaction | conversational agent with clarifications, directions, closures, edits | scripted tricky-user conversation works — ✅ offline 2026-10-24 (`tests/test_guide.py`); live model UNVERIFIED |
+| 3 Agent + interaction | conversational agent with clarifications, directions, closures, edits | scripted tricky-user conversation works — ✅ 2026-10-24 offline (`tests/test_guide.py`) + live (`scripts/live_guide.py`) |
 | 4 App/UI + voice | 2D view with route, then stacked floors; voice | demoable |
 | 5 Build + extend | plan → building (L4), one add-in (L5) | demoable |
 | 6 Submission | `BENCHMARK.md`, Sunday run, video, tech explanation | submitted before code freeze |
@@ -56,7 +56,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `tests/test_guide.py`: scripted tricky-user conversation passes offline.
 - **Backend** `backend/` (FastAPI): sessions per conversation + building choice, `POST /chat`, `GET /events`,
   OpenAI-compatible streaming `/v1/chat/completions`; runs with `GUIDE_LLM=offline uv run uvicorn backend.app:app`
-  ([commands.md](../docs/guides/commands.md#backend-guide-api)). `uv run pytest` **86 passed**.
+  ([commands.md](../docs/guides/commands.md#backend-guide-api)). `uv run pytest` **87 passed**.
+- **Live Guide** (API key set 2026-10-24): 7-turn tricky-user conversation correct on Opus 5.5 medium (~5.9–7.3 s/turn,
+  ~$0.15) and Sonnet 5.5 low (~3.3–3.9 s/turn, ~$0.06), 0 ungrounded replies — table in
+  [ai-agents.md](../docs/architecture/ai-agents.md#implementation--agentguidepy-2026-10-24).
 
 - `uv sync` at root; starter oracle on dev **369/369**; `core.building_map` reproduces 120/120 dev warm-up routes < 1 cm.
 - `core/question_parser.py`: 655/655 train+dev params match `inputs`; 145/145 test questions parse (`uv run pytest`).
@@ -70,19 +73,18 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## ▶ Start here (handoff for the next session, 2026-10-24)
 
-- Guide loop + backend run offline and are tested. **Next:** (1) with an API key: run the tricky-user script
-  live (`uv run --env-file .env uvicorn backend.app:app`), check grounding repairs and cost per turn
-  (Q-012); (2) frontend 2D plan view polling `GET /events` and drawing `space_path`; (3) ElevenLabs Custom LLM
-  wiring — ask Atahan before creating anything in the ElevenLabs account.
+- Guide verified live. **Next:** (1) frontend 2D plan view polling `GET /events` and drawing `space_path` +
+  chat box; (2) voice-friendly step text (no bracketed ids, no markdown); (3) model per channel (Q-012, Atahan);
+  (4) ElevenLabs Custom LLM wiring — needs a public deploy; ask Atahan before creating anything in any account.
 - Test submission: `PARSER_MODE=regex uv run python -m agent.run_benchmark data/test data/test/questions.csv
   agent_output/test_answers.json --csv team_<name>.csv` — team name needed from Atahan before submitting.
 - **Ways of working:** keep `.claude/worklog/PENDING.md` current; commit only via `/ship`.
 
 ## Next priorities
 
-1. Live Guide check once `ANTHROPIC_API_KEY` is set: tricky-user script, grounding repairs, model/effort cost (Q-012).
-2. Frontend 2D plan with route overlay on top of `backend/` (`/events`); voice-friendly step text (steps still
-   contain bracketed ids, which TTS would read aloud).
+1. Frontend 2D plan with route overlay + chat on top of `backend/` (`/chat`, `/events`).
+2. Voice-friendly replies: step text still contains bracketed ids; replies use markdown bullets/bold.
+   Decide model per channel (Q-012).
 3. (Atahan) Vercel + Supabase accounts and API key → [stack checklist](../docs/research/stack-options.md#7-day-one-setup-checklist-human-actions--ask-before-creating-anything).
 4. Sunday hardening: wording robustness (LLM parser fallback measured with a key), Swiss per-floor frames for
    `straight_line_3d` (UNVERIFIED risk), output format once Q-001 is announced.

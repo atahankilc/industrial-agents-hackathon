@@ -85,6 +85,21 @@ def test_compare_routes_pending_and_applied(session):
     session.call("propose_change", {"action": "close", "targets": ["Lift 2"]})
     both = session.call("compare_routes", {"change_id": "C2", "start": "Main lobby"})
     assert both["lost_access_count"] == both["reachable_rooms_before"] - both["reachable_rooms_after"] > 0
-    assert all(room["floor"] != "Ground floor" for room in both["lost_access"])
+    lost = both["lost_access_by_floor"]
+    assert "Ground floor" not in lost and sum(floor["count"] for floor in lost.values()) == both["lost_access_count"]
+    assert all(floor["count"] == len(floor["rooms"]) for floor in lost.values())
     assert session.events[-1]["style"] == "lost_access"
     assert "error" in session.call("compare_routes", {"change_id": "C9"})
+
+
+def test_proposal_reports_who_loses_access(session):
+    session.call("set_profile", {"step_free": True})
+    session.call("find_route", {"start": "Main lobby", "destination": "Meeting room 3.07"})
+    session.call("apply_change", {"change_id": session.call(
+        "propose_change", {"action": "close", "targets": ["Lift 1"]})["change_id"]})
+    events = list(session.events)
+    effect = session.call("propose_change", {"action": "close", "targets": ["Lift 2"]})["effect"]
+    assert effect["still_reachable"] is False and effect["lost_access_count"] > 0
+    assert sum(floor["count"] for floor in effect["lost_access_by_floor"].values()) == effect["lost_access_count"]
+    assert session.events == events  # a proposal highlights nothing
+    assert "C2" in session.call("apply_change", {"change_id": "pending"})["error"]  # lists the real ids

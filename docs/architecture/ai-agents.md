@@ -52,9 +52,11 @@ Tests: `tests/test_agent_tools.py`.
 `compare_routes(change_id, start?)` works on a **pending** change (current building vs the building with the
 change) or an **applied** one (snapshot before vs after `apply_change`). From `start` (default: the last route's
 start, else the main step-free entrance) under the user's profile it returns rooms reachable before/after, the
-rooms that **lost access** (also emitted as a `highlight` event with `style: "lost_access"`), the routes that got
-longer with `before_m`/`after_m`/`extra_m` (route-model metres, longest first) and the last route's before/after.
-`propose_change`'s predicted effect also carries `extra_m`, so the model never subtracts metres itself.
+rooms that **lost access** as `lost_access_by_floor` (`{floor: {count, rooms}}`, uncapped; also emitted as a
+`highlight` event with `style: "lost_access"`), the routes that got longer with `before_m`/`after_m`/`extra_m`
+(route-model metres, longest first) and the last route's before/after. `propose_change`'s effect carries the same
+impact (lost access by floor, longer routes, `max_extra_m`) plus the last route's `extra_m`, without emitting
+events — so one call answers "what happens if…", and the model never counts or subtracts itself.
 
 `propose_change` → user sees an "I understood: close *Office lift*; 3 routes get 40 m longer. Apply?" card →
 `apply_change`. That is the brief's "show what it understood before it changes a plan"
@@ -94,8 +96,20 @@ Tests: `tests/test_guide.py` — a scripted fake client plays the tricky user (v
 ambiguous "the meeting room" → search → ≤ 3 options with floors; "I use a wheelchair" → `set_profile`, remembered
 on the next route; "the lift is broken" → propose, same-turn apply refused, apply after "yes"; route after the
 closure 124.24 m → 132.2 m via Lift 2, `compare_routes` +7.96 m), plus request shape (cached system, env model,
-append-only history, every tool_use answered), the repair round, and the offline client. Live behaviour with a
-real model is **UNVERIFIED** until an API key is set.
+append-only history, every tool_use answered), the repair round, and the offline client.
+
+**Live check (2026-10-24, `scripts/live_guide.py`, same 7 turns, train campus 000):**
+
+| Model · effort | s / turn | $ / 7 turns | Behaviour |
+|---|---|---|---|
+| Opus 5.5 · medium (default) | ~5.9–7.3 (7.3 pre-fix, 5.9 post-fix) | 0.13–0.16 | all turns correct; inferred "the lift" = Lift 1 on the route; most thorough, longest replies |
+| Opus 5.5 · low | ~6.8 (one pre-fix run) | 0.12 | same quality, no clear speed gain (one pre-fix run; not directly comparable) |
+| Sonnet 5.5 · low | ~3.3–3.9 (3.3 pre-fix, 3.9 post-fix) | 0.06 | correct and shortest (best for voice); applied the routing-profiles wheelchair default 0.8 m door width and said so |
+
+All runs: 0 ungrounded replies, no same-turn apply, cache reads on every request after the first. Fixed from
+the first runs: lost-room list was capped at 15; a parallel `compare_routes` guessed a change id; an
+unsupported "nothing upstairs" claim → impact moved into `propose_change`, two prompt sentences added. Model
+choice stays open ([Q-012](../../memory-bank/open-questions.md#q-012)).
 
 ## Voice path
 

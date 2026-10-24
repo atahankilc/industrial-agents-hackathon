@@ -31,6 +31,9 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - Repo root is the build root ([D-004](decisions.md#d-004)): `core/` (building_map from the kit + question_parser),
   `benchmark/` (official scorer), `data/` (committed, [D-005](decisions.md#d-005)), `tests/`, `pyproject.toml` (uv,
   pytest dev dep). Kit remainder in `archive/initial-repo/`.
+- Phase 3 in progress ([plan](../docs/superpowers/plans/2026-10-24-guide-agent.md)): `agent/guide/resolve.py` —
+  resolve_places / resolve_elements / nearest_names / describe / fan_out; 11 tests in `tests/test_guide_resolve.py`;
+  full suite 44 passed.
 - Knowledge base: [docs/](../docs/README.md) incl. architecture, agents, personas, routing profiles, research.
 - Point-cloud 3D prototype: `frontend/prototypes/pointcloud/` (exporter + three.js viewer), see
   [visualization.md](../docs/product/visualization.md).

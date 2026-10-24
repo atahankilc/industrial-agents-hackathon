@@ -10,6 +10,12 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Guide Task 1: place resolution + candidate fan-out (branch `1-agentic-yarag`)
+
+- **Did:** Added `agent/guide/resolve.py` (`resolve_places`, `resolve_elements`, `nearest_names`, `describe`,
+  `fan_out`) and `tests/test_guide_resolve.py` (11 tests); full suite 44 passed.
+- **Next:** plan Tasks 2-6 ([plan](../docs/superpowers/plans/2026-10-24-guide-agent.md)).
+
 ## 2026-10-24 — Phase 3 Guide agent: design + plan (Utku's session, branch `1-agentic-yarag`)
 
 - **Did:** Brainstormed the Phase 3 "brain" with Utku: terminal-first, multi-turn Q&A + directions, no building

@@ -10,6 +10,27 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Vercel deploy config
+
+- **Did:** `vercel.json` (services `web` = Vite `frontend/app/` and `api` = FastAPI `backend.app:app`, `/api/(.*)`
+  rewrite, `excludeFiles`, `maxDuration` 300); `StripPrefix` ASGI middleware and `CORS_ORIGINS` in `backend/app.py`;
+  `tests/test_deploy.py`; deploy section in [commands.md](../docs/guides/commands.md#deploy-vercel).
+- **Learned:** the Vercel rewrite keeps the `/api` prefix, so the backend strips it; the backend reads only
+  `building.json` + `manifest.csv` from `data/` (bundle about 49 MB of code+data).
+- **Changed docs:** [commands.md](../docs/guides/commands.md#deploy-vercel), [project-state.md](project-state.md#next-priorities).
+- **Next:** Atahan imports the repo into Vercel and sets the env vars; pushing `dev` needs Atahan's OK.
+
+## 2026-10-24 — Organiser route-scoring rules (Discord) → Q-014; session handoff
+
+- **Did:** Analysed the organisers' Discord note on how route answers are scored and compared it with our model
+  and the data → [Q-014](open-questions.md#q-014) (door-to-door geodesic distance, height-based stair/lift costs,
+  production bays destination-only, forklift ≥ 3 m, likely no `outside` shortcut, score = best ÷ ours). Warning added
+  to [route-model.md](../docs/kit/route-model.md). Wrote the handoff in
+  [project-state.md](project-state.md#-start-here-handoff-for-the-next-session-2026-10-24-1530).
+- **Learned:** under the new costs the stairs-vs-lift choice can flip; any route through a production bay would
+  score 0; whether `errand` distances change too is the key question for the organisers.
+- **Next:** Q-014 implementation (see project-state).
+
 ## 2026-10-24 — Conversation persistence on Supabase
 
 - **Did:** `backend/persistence.py`: conversation ⇄ JSON (profile, applied changes replayed from the base building,

@@ -9,6 +9,11 @@ related: [data-format.md, questions.md, starter-agent.md, ../architecture/solver
 
 # Route model (must match to the centimetre)
 
+> ⚠ **Sunday route scoring uses a different distance rule** (door-to-door inside each space, 15 cm off walls; stairs
+> 2 m per metre climbed; lift 15 m + 1 m per metre; production bays destination-only; forklift ≥ 3 m) — see
+> [Q-014](../../memory-bank/open-questions.md#q-014). This page stays correct for the kit's own answers (warm-up
+> routes, `errand`) until the organisers say otherwise.
+
 [Docs index](../README.md) · Data it is built from: [data-format.md](data-format.md)
 
 Expected route lengths in all answers come from this graph. `starter_agent/building_map.py` implements it

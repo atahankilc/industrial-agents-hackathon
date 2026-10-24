@@ -122,6 +122,30 @@ cd frontend/app && npm run build                                # type-check + p
 Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8765`). Design and data path:
 [visualization.md](../product/visualization.md#app-and-data-path).
 
+## Deploy (Vercel)
+
+One Vercel project, two [Services](https://vercel.com/docs/services) in [`vercel.json`](../../vercel.json) (D-006):
+`web` = the Vite app in `frontend/app/`, `api` = FastAPI `backend.app:app` from the repo root. The rewrite
+`/api/(.*)` → `api` keeps the `/api` prefix in the path, so `backend/app.py` strips it (`StripPrefix`); everything
+else goes to `web`. The function excludes everything the backend doesn't read (kept: code, `data/**/building.json`,
+`data/manifest.csv`, about 49 MB plus packages). `maxDuration` is 300 s, the Hobby maximum.
+
+Atahan (once): Vercel → *Add New → Project* → import the GitHub repo. Leave Root Directory at the repo root
+(`vercel.json` defines the services). Add the env vars below under *Settings → Environment Variables*. Deploy.
+
+| Var | Value |
+|---|---|
+| `ANTHROPIC_API_KEY` | key (without it the Guide runs the offline rules) |
+| `SUPABASE_DB_URL` | Transaction pooler URI (port 6543), same as `.env` |
+| `GUIDE_MODEL` / `GUIDE_EFFORT` | optional (defaults `claude-opus-5-5` / `medium`; Sonnet + `low` is cheaper and faster) |
+| `CORS_ORIGINS` | optional; the frontend is same-origin, so it isn't needed |
+
+Smoke test after a deploy: `curl -s https://<deployment>/api/health` → `{"ok":true,"llm":"anthropic"}`. Then
+in the app, say "I use a wheelchair" and ask for a route in the next message: the route must be step-free (proof
+that persistence works across instances). `uv run pytest -q tests/test_deploy.py` checks the config locally.
+UNVERIFIED until the first deploy: Services (beta) with a service root of `./` next to `frontend/app/`, the
+exclude globs as Vercel applies them, cold-start time.
+
 ## Sunday benchmark
 
 `agent.run_benchmark <building_dir> <questions file> <answers.json> [--csv …]` — documented in

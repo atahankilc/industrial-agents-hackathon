@@ -1,0 +1,24 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "web": {
+      "root": "frontend/app/",
+      "framework": "vite"
+    },
+    "api": {
+      "root": "./",
+      "framework": "fastapi",
+      "entrypoint": "backend.app:app",
+      "functions": {
+        "backend/app.py": {
+          "maxDuration": 300,
+          "excludeFiles": "{.claude/**,.idea/**,archive/**,docs/**,frontend/**,memory-bank/**,scripts/**,supabase/**,tests/**,agent_output/**,*.pdf,data/**/*.png,data/**/*.svg,data/**/*.jsonl,data/**/equipment.csv}"
+        }
+      }
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": { "service": "api" } },
+    { "source": "/(.*)", "destination": { "service": "web" } }
+  ]
+}

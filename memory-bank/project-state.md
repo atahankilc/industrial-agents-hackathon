@@ -80,14 +80,39 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - none (D-006 zero-cost stack accepted 2026-10-24).
 - [Q-002](open-questions.md#q-002) times — Atahan will provide.
 
-## ▶ Start here (handoff for the next session, 2026-10-24)
+## ▶ Start here (handoff for the next session, 2026-10-24 ~15:30)
 
-- Guide verified live. **Next:** (1) frontend 2D plan view polling `GET /events` and drawing `space_path` +
-  chat box; (2) voice-friendly step text (no bracketed ids, no markdown); (3) model per channel (Q-012, Atahan);
-  (4) ElevenLabs Custom LLM wiring — needs a public deploy; ask Atahan before creating anything in any account.
-- Test submission: `PARSER_MODE=regex uv run python -m agent.run_benchmark data/test data/test/questions.csv
-  agent_output/test_answers.json --csv team_<name>.csv` — team name needed from Atahan before submitting.
-- **Ways of working:** keep `.claude/worklog/PENDING.md` current; commit only via `/ship`.
+**Git (`dev`, not pushed — ask Atahan before pushing; never commit on `main`):** latest commits
+`188abd3` conversation persistence · `dc058f8` Sunday hardening · `46321b5` voice-ready replies · `89070ba` frontend app + point-cloud API + profile
+presets · `ed5f6c1` live Guide check · `a4e3efb` Guide loop + backend. All via `/ship` (verifier PASS).
+
+**Deployment work (no longer uncommitted):** the conversation persistence on Supabase (`backend/persistence.py`,
+`supabase/`, `tests/test_persistence.py`, …) was committed as `188abd3`. The Vercel deploy config (`vercel.json`,
+`StripPrefix` / `CORS_ORIGINS` in `backend/app.py`, `tests/test_deploy.py`, the commands.md deploy section) lands in
+the commit after it, and this handoff (Q-014 in `open-questions.md`, the warning in `docs/kit/route-model.md`, this
+section and its `log.md` entry) ships together with that deploy commit.
+
+**What works:** benchmark dev 138/138, train 515/517 (2 irreducible Q-006); parser hybrid 31/31 on paraphrases;
+Guide live on Opus 5.5 / Sonnet 5.5 (grounding check, confirm-before-apply, profile presets + cue safety net, voice
+channel); FastAPI backend (`/chat`, `/events`, `/sessions/{id}/points`, OpenAI-compatible streaming
+`/v1/chat/completions` speaking); React app `frontend/app/` (monochrome point cloud, D-011). `uv run pytest` 147
+passed (+ Atahan's persistence tests). API spend ≈ $1.4 of $150.
+
+**Running locally (may still be up):** backend `uvicorn backend.app:app --port 8765` (real Claude), Vite on
+`:5181` (port 5173 is another local project). Restart commands: [commands.md](../docs/guides/commands.md#frontend-app).
+
+**▶ Do next, in order:**
+1. **[Q-014](open-questions.md#q-014) — new Sunday route scoring rule (HIGH).** Send Atahan the 5 organiser
+   questions (draft in Q-014), then build the second route model + production-bay / forklift / no-outside rules and
+   measure sequence differences on train/dev. Stays in `core/` + `agent/` (not his deploy files).
+2. Help finish the deploy if Atahan asks (Vercel: Vite frontend + FastAPI, `/api` rewrite or `VITE_API_BASE`).
+3. ElevenLabs Custom LLM wiring once there is a public URL (ask before creating anything in any account).
+4. Frontend: phone-layout check, demo GIF (needs the Chrome extension; it was disconnected), bundle split.
+5. Open for Atahan: model per channel (Q-012; proposal Opus 5.5 medium for text, Sonnet 5.5 low for voice), team
+   name for the test CSV, push `dev`.
+
+**Ways of working:** session protocol in CLAUDE.md; keep `.claude/worklog/PENDING.md` current; commit only via
+`/ship`, staging/stamp/commit as separate commands; subagents get disjoint files.
 
 ## Next priorities
 
@@ -96,9 +121,11 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 2. Frontend polish: phone layout check, closure ripple for edits, narrow doors for the active profile, run against
    the real Guide (key set) and record a demo GIF/video.
 3. Deploy: Supabase ✅ (project created, `conversations` table applied, sessions persisted via
-   `backend/persistence.py`, live round trip incl. real Claude verified 2026-10-24). Next: Vercel config (Vite
-   frontend + FastAPI, `/api` rewrite, `excludeFiles`, CORS) → Atahan imports the repo and sets env vars
-   ([commands.md](../docs/guides/commands.md#conversation-persistence-supabase-postgres)).
+   `backend/persistence.py`, live round trip incl. real Claude verified 2026-10-24). Vercel config ✅ (`vercel.json`
+   with services `web` + `api`, `/api` rewrite, `excludeFiles`, `maxDuration` 300; `StripPrefix` and `CORS_ORIGINS`
+   in `backend/app.py`; `tests/test_deploy.py`; `uv run pytest` 162 passed, 1 skipped). Next: Atahan imports the repo
+   into Vercel and sets the env vars (`ANTHROPIC_API_KEY`, `SUPABASE_DB_URL`), then smoke-test; the first-deploy
+   UNVERIFIED items are listed in [commands.md](../docs/guides/commands.md#deploy-vercel).
 4. Preference extraction, remaining TODO: group composition (P20), profile lifetime/reset scope, persistence,
    soft penalties → [TODO](../docs/product/routing-profiles.md#todo-preference-extraction).
 5. Sunday hardening: wording robustness ✅ (hybrid 31/31 on paraphrases), Swiss `straight_line_3d` ✅ (generator

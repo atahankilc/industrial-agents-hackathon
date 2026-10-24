@@ -8,7 +8,11 @@ carry `vertices`, change events `space_ids`) and the OpenAI-compatible /v1/chat/
 (backend/openai_compat.py).
 Guide turns are blocking (tool loop + LLM calls), so those endpoints are plain `def` and run in FastAPI's
 threadpool; each conversation's lock serialises its turns. With persistence on (backend/persistence.py) every turn
-is saved when it ends; a turn that lost a save race to another instance answers 409 and must be resent."""
+is saved when it ends; a turn that lost a save race to another instance answers 409 and must be resent.
+
+On Vercel (vercel.json) the app is the `api` service behind the rewrite `/api/(.*)`, which passes the original path
+through, so every route is also reachable under `/api` (StripPrefix). CORS_ORIGINS (comma-separated) restricts
+cross-origin callers; the default `*` is for local development, the deployed frontend is same-origin."""
 
 import os
 
@@ -22,10 +26,28 @@ from agent.guide import llm_mode
 from backend import openai_compat, persistence
 from backend.sessions import DEFAULT_SESSION, Conversation, SessionStore, UnknownBuilding, summary
 
+API_PREFIX = "/api"
+
+
+class StripPrefix:
+    """ASGI middleware: serve `/api/x` as `/x`, so the same routes work behind the Vercel rewrite and locally."""
+
+    def __init__(self, app: object, prefix: str = API_PREFIX) -> None:
+        self.app, self.prefix = app, prefix
+
+    async def __call__(self, scope: dict, receive: object, send: object) -> None:
+        path = scope.get("path", "")
+        if scope["type"] in ("http", "websocket") and (path == self.prefix or path.startswith(self.prefix + "/")):
+            scope = {**scope, "path": path[len(self.prefix):] or "/",
+                     "raw_path": scope.get("raw_path", b"")[len(self.prefix):] or b"/"}
+        await self.app(scope, receive, send)
+
+
+origins = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "*").split(",") if origin.strip()]
 app = FastAPI(title="Talk to Your Building")
-# Local dev only: restrict allow_origins to the deployed frontend before deploying.
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
 app.add_middleware(GZipMiddleware, minimum_size=1000)  # the point-cloud export is ~4 MB of JSON
+app.add_middleware(StripPrefix)  # added last = outermost: routes see the path without /api
 store = SessionStore()
 
 

@@ -6,7 +6,7 @@ related: [decisions.md, project-state.md, ../docs/kit/questions.md]
 
 # Open questions
 
-[Memory bank](README.md) · Next free id: **Q-014**
+[Memory bank](README.md) · Next free id: **Q-015**
 
 Template:
 
@@ -30,6 +30,38 @@ Template:
   [scoring.md](../docs/challenge/scoring.md#-conflict-pdf-vs-readme).
 - **How to resolve:** ask organisers; meanwhile make solvers return structured results (ids, node path, length)
   *and* prose.
+
+<a id="q-014"></a>
+### Q-014 — Sunday route scoring uses a different distance rule than the kit route model
+- **Status:** open · **Priority:** HIGH · **Resolve by:** ask organisers + implement a second route model
+- **Source:** organiser message on Discord, pasted by Atahan 2026-10-24 (summary, not verbatim):
+  - Distance is measured inside each space **from door to door, ~15 cm off the walls, around corners** (never
+    through walls). Furniture/machines are not obstacles. A route to an item ends in the room/bay that holds it.
+  - **Stairs = 2 m per metre climbed; lift = 15 m + 1 m per metre of height.**
+  - Without stairs: lifts, ramps, doors only. **Forklift: forklift aisles and openings ≥ 3 m only; pedestrian
+    walkways don't count.** Closed areas avoided. **Factory production bays are destinations only — never driven
+    through as a shortcut.** No route under the rules → the correct answer is to say so.
+  - Scoring: the answer is the **ordered list of spaces**; each step must go through a real door/opening/stair/
+    lift and obey the rules (else **score 0**); the route is re-measured with their rule; score = best length ÷
+    our length, within 1 % = full marks. Our own distance numbers don't matter.
+- **Gap vs our code** (`core/building_map.py`, [route-model.md](../docs/kit/route-model.md)): we use the kit model
+  (anchor `representative_point` → door straight lines; stairs 12 m/floor; lift 15 + 6 m/floor). Floor heights in
+  the data are 3.0–8.0 m, so stair/lift costs change per building and the stairs-vs-lift choice can flip (3 floors
+  of 3 m: kit picks the lift 33 vs 36 m; new rule picks stairs 18 vs 24 m). We have **no production-bay rule**
+  (factory halls `production_zone` 78, also assembly/logistics/warehouse/additive zones — routing through them would
+  score 0), **no forklift profile** (1,065 openings ≥ 3 m; no aisle/walkway spaces in our data → Sunday likely adds
+  them), and our `space_path` can pass through `outside` between two entrances (probably invalid under their check).
+- **Ask organisers:** (1) does the new rule also replace the kit model for numeric distances (`errand` total walking
+  distance, warm-up `length_m`) or only for Sunday route questions? (2) where does a route start/end inside the first
+  and last space (door or centre)? (3) space ids or names in the list; may it contain "outside"? (4) how are forklift
+  aisles, pedestrian walkways and production bays marked (type/room_type/name/new field)? (5) "metre climbed" = the
+  `elevation_m` difference between floors?
+- **Plan (no API cost, stays in `core/` + `agent/`):** (a) a second route model selectable per question:
+  door-to-door geodesic inside each space polygon shrunk by 0.15 m (visibility graph over the polygon's reflex
+  vertices), height-based stair/lift costs; keep the kit model as default until (1) is answered; (b) measure how often
+  the two models pick different space sequences on train/dev warm-up routes; (c) rules: production bays = destination
+  only, forklift profile (≥ 3 m, exclude walkway-like spaces), no route through `outside`; (d) benchmark "no route"
+  answer wording checked.
 
 <a id="q-002"></a>
 ### Q-002 — When is code freeze and when is the Sunday building released?

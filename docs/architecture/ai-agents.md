@@ -68,6 +68,8 @@ interruptions and TTS; its **Custom LLM** points at our backend's OpenAI-compati
 wraps the same Building Guide (one brain for text and voice). Map actions reach the browser as ElevenLabs
 **client tools** and/or our own realtime channel. Fallback: Scribe Realtime → Guide → TTS WebSocket.
 Per-building **keyterms** (room names, machine names) go to Scribe for accurate recognition.
+A **transcript rewriter** normalises each STT transcript to the building's vocabulary before the Guide sees it
+(original transcript passed along too); typed chat has no rewriter ([D-011](../../memory-bank/decisions.md#d-011)).
 
 ## Benchmark pipeline
 

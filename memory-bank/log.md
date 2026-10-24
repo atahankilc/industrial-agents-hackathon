@@ -10,6 +10,12 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — D-011: transcript rewriter for voice input (Utku)
+
+- **Decided:** Phase 4 voice path gets a transcript rewriter (STT → rewriter → Guide) that only normalises names and
+  numbers to the building vocabulary; the original transcript is passed along; typed chat stays rewriter-free.
+  [D-011](decisions.md#d-011).
+
 ## 2026-10-24 — Guide: final review fixes (branch `1-agentic-yarag`)
 
 - **Did:** Grounding now checks numbers glued to a unit ("999m", "45m²", "37.4m"; "3D", "2nd" still ignored);

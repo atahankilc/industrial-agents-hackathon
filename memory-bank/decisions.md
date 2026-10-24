@@ -6,7 +6,7 @@ related: [open-questions.md, project-state.md, ../docs/architecture/overview.md]
 
 # Decisions
 
-[Memory bank](README.md) · Next free id: **D-010**
+[Memory bank](README.md) · Next free id: **D-012**
 
 Template:
 
@@ -140,3 +140,18 @@ Template:
   candidate and answer if they agree; otherwise answer with the first and say so in the reply.
 - **Consequences:** benchmark misses on such texts are accepted; the Guide needs a candidate-describing tool
   (ref, floor, area, neighbours). Contract: [ai-agents.md](../docs/architecture/ai-agents.md#building-guide--behaviour-contract).
+
+<a id="d-011"></a>
+### D-011 — Voice input gets a transcript rewriter before the Guide (Phase 4)
+- **Status:** accepted · **Date:** 2026-10-24 · **By:** Utku
+- **Context:** Speech-to-text transcripts are messy ("Lab two twenty", filler words, misheard machine names). For
+  typed input we rely on the Guide model plus code-side name resolution and add no rewriter (extra latency/cost,
+  risk of dropping nuance). The Guide's grounding check covers the model's *output*, not the user's input.
+- **Decision:** In the voice path (ElevenLabs STT → Guide), add a transcript rewriter step that only normalises the
+  transcript — names and numbers to the building's vocabulary (e.g. "Lab two twenty" → "Lab 2.20"), no
+  interpretation, no answering. The building's room/asset names are its vocabulary (same list as the Scribe
+  keyterms). The Guide receives both the rewritten and the original transcript so a dropped nuance stays visible.
+- **Consequences:** One extra (small, fast) model call per voice turn; text chat stays rewriter-free. Must be
+  measured on voice latency in Phase 4.
+- **Evidence:** conversation 2026-10-24 (branch `1-agentic-yarag`); voice path in
+  [ai-agents.md](../docs/architecture/ai-agents.md#voice-path).

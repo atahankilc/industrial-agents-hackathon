@@ -1,0 +1,10 @@
+{
+  "building": "data/dev/proc-campus-dev-001",
+  "channel": "text",
+  "persona": "First day at work, a bit nervous, knows no room names in this building.",
+  "goal": "Get directions you can follow to somewhere you can get a coffee.",
+  "knows": [
+    "You are standing in the main lobby, just came in through the entrance.",
+    "Any coffee machine or kitchen is fine; nearest is best."
+  ]
+}

@@ -100,6 +100,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
     turn). Conversations updated to its tools (`set_profile`; closures as `propose_change` → "Yes" → `apply_change`).
     First live run 14/18; after the fixes (log 2026-10-24) Opus 5.5 medium **17/18** (89 s, ~$0.22), the one miss
     was the checker's `asked` rule, fixed and re-run 3/3 (~$0.03).
+  - 2026-10-24: **Interaction eval** `scripts/interaction_eval.py` — Claude plays a tricky user from
+    `tests/interaction_scenarios/*.json` (6: first day/coffee, wheelchair two trips, facility manager + lift, voice
+    technician in the factory, typo + change of mind, Turkish trolley), an LLM judge scores the brief's rubric 1–5.
+    All Opus 5.5: asks 4.17 · shows 4.17 · **directions 3.33** · remembers 4.83 · goal 5/6, ~$0.62 per run (log).
   - Ported into the canonical Guide (2026-10-24): place resolution + described candidates + typo suggestions +
     route fan-out over an ambiguous destination (`agent/places.py`, `BuildingSession.resolve`), and grounding
     (unit-glued numbers, list lengths, clock times, half-up rounding) in `agent/guide.py`; `tests/test_places.py`.

@@ -10,6 +10,27 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Interaction eval: simulated tricky users + LLM judge
+
+- **Did:** `scripts/interaction_eval.py`: a simulated user (Claude, structured JSON `message/done/goal_reached`,
+  roles flipped) plays a scenario (persona, goal, facts it shares only when asked) against the Guide, text or voice;
+  a judge (Claude, JSON schema) scores asks_only_needed / shows_understanding / followable_directions /
+  remembers_context 1–5 + goal_reached + issues, seeing the transcript with each tool call's result (route steps,
+  search hits; cut at 1,500 chars). `--repeat`, `--model/--effort`, `--user-model/--judge-model`; transcripts in
+  `agent_output/interaction_eval/`. 6 scenarios in `tests/interaction_scenarios/`; offline tests with a fake client
+  and the offline Guide (`tests/test_interaction_eval.py`).
+- **Live (all Opus 5.5, single runs):** run 1 (judge saw only a few result keys → many "unsupported value" false
+  alarms) asks 4.33 · shows 4.17 · directions 3.50 · remembers 5.00 · goal 6/6. Run 2 (full results): asks 4.17 ·
+  shows 4.17 · directions 3.33 · remembers 4.83 · goal 5/6, guide $0.31 + eval $0.31, ~4 min.
+- **Learned (judge issues, run 2):** directions are the weak spot — no left/right or landmarks, unrounded
+  metres ("148.38 m"), distance placed on the wrong leg; voice reads codes aloud ("H-A2"); internal ids leak
+  ("change C1"); a few claims beyond tool results (entrances with steps, outside doors). Factory
+  `proc-factory-dev-004`: with the Guide's route rules (bays destination-only) the Locker room → Production zone
+  H-A2 (press brakes) has **no route** (kit model without rules: 61.56 m via Assembly zone H-A1), so the voice
+  technician scenario fails — ties to Q-014/Q-015.
+- **Next:** better step text (landmarks/turns, rounding) in `core/directions.py`/prompt; check the factory bay
+  rule against Q-015; judge variance with `--repeat 3`.
+
 ## 2026-10-24 — Guide eval ported to the canonical Guide
 
 - **Did:** `scripts/eval_guide.py` and `tests/test_guide_conversations.py` now test `agent/guide.py` (they tested

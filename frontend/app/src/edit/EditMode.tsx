@@ -96,11 +96,16 @@ export function EditMode({ base, palette, onSaved, onExit }: Props) {
       setMessage(null)
     } catch (error) {
       setMessage(reason(error))
+      // 409: the draft moved on elsewhere (another tab or server instance) — show where it is now.
+      if (draftId && String(error).includes('409 ')) {
+        const latest = await api.draft(draftId).catch(() => null)
+        if (latest) setState(latest)
+      }
     } finally {
       setBusy(false)
       setRevision((value) => value + 1)
     }
-  }, [])
+  }, [draftId])
 
   // A hand edit makes an open proposal stale (the backend would refuse it), so it is dropped.
   const onOps = useCallback((ops: Op[]) => {

@@ -141,8 +141,9 @@ class MemoryConversations:
             return version + 1
 
 
-class PostgresConversations:
-    """The `conversations` table over one reused connection (reopened if it drops)."""
+class PostgresConnection:
+    """One reused connection to SUPABASE_DB_URL (reopened if it drops); shared by the stores in this module and
+    backend/drafts.py."""
 
     def __init__(self, dsn: str) -> None:
         self.dsn = dsn
@@ -164,6 +165,10 @@ class PostgresConversations:
                     if attempt:
                         raise
         raise AssertionError("unreachable")
+
+
+class PostgresConversations(PostgresConnection):
+    """The `conversations` table."""
 
     def version(self, conversation_id: str) -> int | None:
         rows = self.execute("select version from conversations where id = %s", (conversation_id,))
@@ -189,8 +194,14 @@ class PostgresConversations:
         return rows[0][0]
 
 
-def from_env() -> PostgresConversations | None:
+def db_url() -> str | None:
+    """SUPABASE_DB_URL unless GUIDE_PERSIST=off: the database the deployed backend keeps its state in."""
     url = os.environ.get("SUPABASE_DB_URL")
     if not url or os.environ.get("GUIDE_PERSIST", "on") == "off":
         return None
-    return PostgresConversations(url)
+    return url
+
+
+def from_env() -> PostgresConversations | None:
+    url = db_url()
+    return PostgresConversations(url) if url else None

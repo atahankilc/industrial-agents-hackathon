@@ -13,7 +13,7 @@ related: [../plans/2026-10-24-builder-edit-mode-m1.md, ../plans/2026-10-24-build
 
 # Builder · Edit mode — design
 
-Implementation plans: [milestone 1](../plans/2026-10-24-builder-edit-mode-m1.md) (drag edit, done) · [milestone 2](../plans/2026-10-24-builder-edit-mode-m2.md) (prompt edits, done) · [milestone 3](../plans/2026-10-24-builder-edit-mode-m3.md) (deployed store — owner Atahan).
+Implementation plans: [milestone 1](../plans/2026-10-24-builder-edit-mode-m1.md) (drag edit, done) · [milestone 2](../plans/2026-10-24-builder-edit-mode-m2.md) (prompt edits, done) · [milestone 3](../plans/2026-10-24-builder-edit-mode-m3.md) (deployed store — built 2026-10-24, deploy pending; see "Milestone 3 decisions").
 
 ## Intent
 
@@ -152,7 +152,7 @@ suite pins this: validating every dataset building yields **zero errors**.
 ### 3. Drafts and saved buildings — `backend/drafts.py` (new)
 
 - `Draft {id, base, name, ops, version}` → materialised `BuildingMap` (cached per version) + issues.
-- Store: Supabase table `buildings` (new migration under `supabase/migrations/`) when `SUPABASE_DB_URL` is set;
+- Store: Supabase tables `builder_drafts` + `saved_buildings` (`supabase/migrations/20261025120000_builder_drafts.sql`, milestone 3) when `SUPABASE_DB_URL` is set;
   otherwise a local directory `data/user/<slug>/building.json` (+ `draft.json` with base + ops), **gitignored**.
   Same optimistic-version pattern as conversations.
 - Saved buildings join the catalogue as `user/<slug>` (`load_catalogue` + the Supabase rows), so
@@ -222,6 +222,20 @@ The agent asks only what it needs (e.g. "which wall?" when ambiguous) and states
 - How the Builder phrases proposals and how big `floor_plan` output may get (keep tool results compact).
 - PlanEditor internals (pan/zoom, hit testing), visual styling within the existing monochrome theme (D-011).
 - Whether `/drafts` reuses `Conversation` or has its own session object.
+
+## Milestone 3 decisions (Utku, 2026-10-24)
+
+- We build M3 ourselves (it was Atahan's; he had not started).
+- Goal: the Edit mode demonstrably works on the public URL for the jury, and is a real persistent system that several
+  people can use at the same time.
+- Each person edits their own draft; no live co-editing (nobody sees another person's drags appear). Concurrent
+  requests on one draft (two tabs, two serverless instances) must never overwrite each other: optimistic versions,
+  409 → the Edit mode reloads the draft.
+- Saved buildings are visible to everyone (shared in the catalogue, openable with the Guide) — sharing is part of the
+  demo.
+- Calls made by Claude: tables `builder_drafts` / `saved_buildings` (not the old `buildings` name in §3); a draft
+  change is redone up to 3 times against other instances' saves before 409; the catalogue of saved buildings is at
+  most 5 s stale per instance (forced reload for an unknown id).
 
 ## Calls made by Claude (check these)
 

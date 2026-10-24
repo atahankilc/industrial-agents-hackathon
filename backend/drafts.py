@@ -1,22 +1,36 @@
-"""Edit-mode drafts and saved buildings, local store (docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md §3).
+"""Edit-mode drafts and saved buildings (docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md §3).
 
-A draft is a base catalogue building + steps of edit ops (core/edits.py); it is persisted as
-`<root>/.drafts/<id>.json` after every change, so it survives a restart. Saving writes the materialised building
-to `<root>/<slug>/building.json` (+ `draft.json` with base, name and steps) and adds `user/<slug>` to the shared
-catalogue, so sessions, the Guide and the point cloud use it like any dataset building. Saved buildings in `root`
-are registered in the catalogue when the store starts. Draft ids are uuid4 hex and checked against a regex before
-any path is built from them; slugs are built from the name by us, never taken as a path.
+A draft is a base catalogue building + steps of edit ops (core/edits.py), stored after every change, so it survives
+a restart. Saving stores the materialised building as `user/<slug>` and adds it to the shared catalogue, so
+sessions, the Guide and the plan view use it like any dataset building. Saved buildings are visible to everyone.
 
-The root defaults to `data/user/` (gitignored). The dataset under `data/train|dev|test` is only ever read."""
+Where it lives (a `DraftBackend`): Postgres (`PostgresDraftBackend`, tables in supabase/migrations/) when
+SUPABASE_DB_URL is set and GUIDE_PERSIST is not `off` — the deployed app, where serverless instances share no memory
+and the filesystem is read-only; otherwise files under `data/user/` (`FileDraftBackend`): `.drafts/<id>.json`,
+`.drafts/<id>.builder.json` and `<slug>/{building.json,draft.json}`. `MemoryDraftBackend` is the Postgres contract in
+one process, for tests: several DraftStores on one instance behave like serverless instances on one database.
+
+Every change is *reload if the stored version moved → apply → save if the version is still the one loaded*
+(optimistic, like backend/persistence.py); a lost race is redone on the new state up to SAVE_ATTEMPTS times in all,
+then raises `Conflict` (HTTP 409). Saved slugs are claimed atomically (`insert_building` returns False when taken → `-2`, `-3`, …). The
+catalogue picks up buildings saved by other instances on `refresh` (at most CATALOGUE_TTL_S old, forced when an
+unknown id is asked for). Draft ids are uuid4 hex checked against a regex; slugs are built from the name by us; both
+are only ever SQL parameters or path parts after those checks. The dataset under `data/train|dev|test` is only read."""
 
 import copy
 import json
 import re
 import threading
+import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Protocol
 
+import psycopg
+from psycopg.types.json import Jsonb
+
+from backend.persistence import Conflict, PostgresConnection, db_url
 from core.building_map import BuildingMap
 from core.edits import EditError, apply_op, apply_steps
 from core.floorplan import export_plan
@@ -24,6 +38,8 @@ from core.validate import validate
 
 DRAFT_ID = re.compile(r"^[0-9a-f]{32}$")
 USER_SPLIT = "user"
+SAVE_ATTEMPTS = 3  # tries of one draft change against other instances' saves before Conflict
+CATALOGUE_TTL_S = 5.0  # how stale this instance's list of saved buildings may get before /buildings reloads it
 
 
 @dataclass
@@ -40,69 +56,313 @@ def slugify(name: str) -> str:
     return slug[:60].strip("-") or "building"
 
 
-class DraftStore:
-    def __init__(self, root: Path, catalogue: dict[str, dict]) -> None:
+# ---------- where drafts live ----------
+
+
+class DraftBackend(Protocol):
+    def draft_version(self, draft_id: str) -> int | None: ...
+    def load_draft(self, draft_id: str) -> Draft | None: ...
+    def insert_draft(self, draft: Draft) -> None: ...
+    def save_draft(self, draft: Draft, loaded_version: int) -> None: ...  # raises Conflict
+    def builder_version(self, draft_id: str) -> int: ...  # 0 = no Builder stored
+    def load_builder(self, draft_id: str) -> tuple[dict | None, int]: ...
+    def save_builder(self, draft_id: str, state: dict, loaded_version: int) -> int: ...  # raises Conflict
+    def insert_building(self, slug: str, name: str, base: str, building: dict, steps: list) -> bool: ...  # False = taken
+    def saved_buildings(self) -> list[dict]: ...  # [{"slug", "name"}]
+    def load_building(self, slug: str) -> dict | None: ...
+    def building_path(self, slug: str) -> Path | None: ...  # directory of a saved building, if it is a file
+
+
+class FileDraftBackend:
+    """Local directory (default data/user/, gitignored); one process, so a lock makes the version checks atomic."""
+
+    def __init__(self, root: Path) -> None:
         self.root = Path(root)
+        self.lock = threading.Lock()
+
+    def draft_file(self, draft_id: str, suffix: str = "") -> Path:
+        return self.root / ".drafts" / f"{draft_id}{suffix}.json"
+
+    def write(self, file: Path, data: object) -> None:
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(json.dumps(data), encoding="utf-8")
+
+    def draft_version(self, draft_id: str) -> int | None:
+        draft = self.load_draft(draft_id)
+        return None if draft is None else draft.version
+
+    def load_draft(self, draft_id: str) -> Draft | None:
+        file = self.draft_file(draft_id)
+        return Draft(**json.loads(file.read_text(encoding="utf-8"))) if file.exists() else None
+
+    def insert_draft(self, draft: Draft) -> None:
+        self.write(self.draft_file(draft.id), asdict(draft))
+
+    def save_draft(self, draft: Draft, loaded_version: int) -> None:
+        with self.lock:
+            if self.draft_version(draft.id) != loaded_version:
+                raise Conflict(draft.id)
+            self.write(self.draft_file(draft.id), asdict(draft))
+
+    def builder_version(self, draft_id: str) -> int:
+        return self.load_builder(draft_id)[1]
+
+    def load_builder(self, draft_id: str) -> tuple[dict | None, int]:
+        file = self.draft_file(draft_id, ".builder")
+        if not file.exists():
+            return None, 0
+        stored = json.loads(file.read_text(encoding="utf-8"))
+        return stored["state"], stored["version"]
+
+    def save_builder(self, draft_id: str, state: dict, loaded_version: int) -> int:
+        with self.lock:
+            if self.builder_version(draft_id) != loaded_version:
+                raise Conflict(draft_id)
+            self.write(self.draft_file(draft_id, ".builder"), {"state": state, "version": loaded_version + 1})
+            return loaded_version + 1
+
+    def insert_building(self, slug: str, name: str, base: str, building: dict, steps: list) -> bool:
+        try:
+            (self.root / slug).mkdir(parents=True)
+        except FileExistsError:
+            return False
+        (self.root / slug / "building.json").write_text(json.dumps(building, indent=1), encoding="utf-8")
+        (self.root / slug / "draft.json").write_text(json.dumps({"base": base, "name": name, "steps": steps}),
+                                                     encoding="utf-8")
+        return True
+
+    def saved_buildings(self) -> list[dict]:
+        return [{"slug": file.parent.name, "name": json.loads(file.read_text(encoding="utf-8"))["building"]["name"]}
+                for file in sorted(self.root.glob("*/building.json"))]
+
+    def load_building(self, slug: str) -> dict | None:
+        file = self.root / slug / "building.json"
+        return json.loads(file.read_text(encoding="utf-8")) if file.exists() else None
+
+    def building_path(self, slug: str) -> Path | None:
+        return self.root / slug
+
+
+class MemoryDraftBackend:
+    """Same contract as PostgresDraftBackend, in one process; rows go through JSON like they would in the DB."""
+
+    def __init__(self) -> None:
+        self.drafts: dict[str, str] = {}
+        self.builders: dict[str, tuple[str, int]] = {}
+        self.buildings: dict[str, tuple[str, str]] = {}  # slug → (name, building JSON)
+        self.lock = threading.Lock()
+
+    def draft_version(self, draft_id: str) -> int | None:
+        draft = self.load_draft(draft_id)
+        return None if draft is None else draft.version
+
+    def load_draft(self, draft_id: str) -> Draft | None:
+        row = self.drafts.get(draft_id)
+        return None if row is None else Draft(**json.loads(row))
+
+    def insert_draft(self, draft: Draft) -> None:
+        with self.lock:
+            self.drafts[draft.id] = json.dumps(asdict(draft))
+
+    def save_draft(self, draft: Draft, loaded_version: int) -> None:
+        with self.lock:
+            if self.draft_version(draft.id) != loaded_version:
+                raise Conflict(draft.id)
+            self.drafts[draft.id] = json.dumps(asdict(draft))
+
+    def builder_version(self, draft_id: str) -> int:
+        return self.builders.get(draft_id, (None, 0))[1]
+
+    def load_builder(self, draft_id: str) -> tuple[dict | None, int]:
+        state, version = self.builders.get(draft_id, (None, 0))
+        return (None if state is None else json.loads(state)), version
+
+    def save_builder(self, draft_id: str, state: dict, loaded_version: int) -> int:
+        with self.lock:
+            if draft_id not in self.drafts or self.builder_version(draft_id) != loaded_version:
+                raise Conflict(draft_id)
+            self.builders[draft_id] = (json.dumps(state), loaded_version + 1)
+            return loaded_version + 1
+
+    def insert_building(self, slug: str, name: str, base: str, building: dict, steps: list) -> bool:
+        with self.lock:
+            if slug in self.buildings:
+                return False
+            self.buildings[slug] = (name, json.dumps(building))
+            return True
+
+    def saved_buildings(self) -> list[dict]:
+        return [{"slug": slug, "name": name} for slug, (name, _) in list(self.buildings.items())]
+
+    def load_building(self, slug: str) -> dict | None:
+        row = self.buildings.get(slug)
+        return None if row is None else json.loads(row[1])
+
+    def building_path(self, slug: str) -> Path | None:
+        return None
+
+
+class PostgresDraftBackend(PostgresConnection):
+    """Tables `builder_drafts` and `saved_buildings` (supabase/migrations/20261025120000_builder_drafts.sql)."""
+
+    def draft_version(self, draft_id: str) -> int | None:
+        rows = self.execute("select version from builder_drafts where id = %s", (draft_id,))
+        return rows[0][0] if rows else None
+
+    def load_draft(self, draft_id: str) -> Draft | None:
+        rows = self.execute("select id, base, name, steps, version from builder_drafts where id = %s", (draft_id,))
+        return Draft(*rows[0]) if rows else None
+
+    def insert_draft(self, draft: Draft) -> None:
+        self.execute("insert into builder_drafts (id, base, name, steps, version) values (%s, %s, %s, %s, %s)",
+                     (draft.id, draft.base, draft.name, Jsonb(draft.steps), draft.version))
+
+    def save_draft(self, draft: Draft, loaded_version: int) -> None:
+        rows = self.execute(
+            "update builder_drafts set name = %s, steps = %s, version = %s, updated_at = now() "
+            "where id = %s and version = %s returning version",
+            (draft.name, Jsonb(draft.steps), draft.version, draft.id, loaded_version))
+        if not rows:
+            raise Conflict(draft.id)
+
+    def builder_version(self, draft_id: str) -> int:
+        rows = self.execute("select builder_version from builder_drafts where id = %s", (draft_id,))
+        return rows[0][0] if rows else 0
+
+    def load_builder(self, draft_id: str) -> tuple[dict | None, int]:
+        rows = self.execute("select builder, builder_version from builder_drafts where id = %s", (draft_id,))
+        return (rows[0][0], rows[0][1]) if rows else (None, 0)
+
+    def save_builder(self, draft_id: str, state: dict, loaded_version: int) -> int:
+        rows = self.execute(
+            "update builder_drafts set builder = %s, builder_version = builder_version + 1, updated_at = now() "
+            "where id = %s and builder_version = %s returning builder_version",
+            (Jsonb(state), draft_id, loaded_version))
+        if not rows:
+            raise Conflict(draft_id)
+        return rows[0][0]
+
+    def insert_building(self, slug: str, name: str, base: str, building: dict, steps: list) -> bool:
+        rows = self.execute(
+            "insert into saved_buildings (slug, name, base, building, steps) values (%s, %s, %s, %s, %s) "
+            "on conflict (slug) do nothing returning slug", (slug, name, base, Jsonb(building), Jsonb(steps)))
+        return bool(rows)
+
+    def saved_buildings(self) -> list[dict]:
+        rows = self.execute("select slug, name from saved_buildings order by created_at, slug", ())
+        return [{"slug": slug, "name": name} for slug, name in rows]
+
+    def load_building(self, slug: str) -> dict | None:
+        rows = self.execute("select building from saved_buildings where slug = %s", (slug,))
+        return rows[0][0] if rows else None
+
+    def building_path(self, slug: str) -> Path | None:
+        return None
+
+
+def backend_from_env(root: Path) -> DraftBackend:
+    url = db_url()
+    return PostgresDraftBackend(url) if url else FileDraftBackend(root)
+
+
+# ---------- the store ----------
+
+
+class DraftStore:
+    def __init__(self, source: Path | DraftBackend, catalogue: dict[str, dict]) -> None:
+        """`source`: a directory (FileDraftBackend) or any DraftBackend."""
+        self.backend: DraftBackend = FileDraftBackend(source) if isinstance(source, (str, Path)) else source
         self.catalogue = catalogue
         self.lock = threading.Lock()  # the dicts and the catalogue
-        self.draft_locks: dict[str, threading.Lock] = {}  # one per draft: a change reads and writes it atomically
+        self.draft_locks: dict[str, threading.Lock] = {}  # one per draft: serialises this instance's changes
         self.drafts: dict[str, Draft] = {}
         self.cache: dict[tuple[str, int], dict] = {}
         self.bases: dict[str, dict] = {}
-        for file in sorted(self.root.glob("*/building.json")):
-            name = json.loads(file.read_text(encoding="utf-8"))["building"]["name"]
-            self.register(file.parent.name, name)
+        self.refreshed = float("-inf")
+        self.refresh(quiet=True)  # the database being down must not stop the app from starting
 
     # ---------- lookup ----------
 
     def register(self, slug: str, name: str) -> str:
         building_id = f"{USER_SPLIT}/{slug}"
-        self.catalogue[building_id] = {"id": building_id, "split": USER_SPLIT, "name": name, "path": self.root / slug}
+        entry = {"id": building_id, "split": USER_SPLIT, "name": name, "source": "saved"}
+        if (path := self.backend.building_path(slug)) is not None:
+            entry["path"] = path
+        self.catalogue[building_id] = entry
         return building_id
 
+    def refresh(self, max_age: float = CATALOGUE_TTL_S, quiet: bool = False) -> None:
+        """Add buildings saved since the last refresh (by any instance) to the catalogue. `quiet`: a database error
+        leaves the catalogue as it is instead of raising (the dataset buildings keep working)."""
+        if time.monotonic() - self.refreshed < max_age:
+            return
+        try:
+            saved = self.backend.saved_buildings()
+        except psycopg.Error:
+            if quiet:
+                return
+            raise
+        with self.lock:
+            for item in saved:
+                if f"{USER_SPLIT}/{item['slug']}" not in self.catalogue:
+                    self.register(item["slug"], item["name"])
+        self.refreshed = time.monotonic()
+
+    def known(self, building_id: str) -> bool:
+        if building_id not in self.catalogue:
+            self.refresh(max_age=0)
+        return building_id in self.catalogue
+
     def base_building(self, base: str) -> dict:
+        """A catalogue building's data (cached: dataset files and saved buildings never change)."""
         if base not in self.bases:
-            path = Path(self.catalogue[base]["path"]) / "building.json"
-            self.bases[base] = json.loads(path.read_text(encoding="utf-8"))
+            entry = self.catalogue[base]
+            if "path" in entry:
+                data = json.loads((Path(entry["path"]) / "building.json").read_text(encoding="utf-8"))
+            else:
+                data = self.backend.load_building(base.removeprefix(f"{USER_SPLIT}/"))
+                if data is None:
+                    raise KeyError(base)
+            self.bases[base] = data
         return self.bases[base]
 
     def draft_lock(self, draft_id: str) -> threading.Lock:
         with self.lock:
             return self.draft_locks.setdefault(draft_id, threading.Lock())
 
-    def draft_file(self, draft_id: str) -> Path:
-        return self.root / ".drafts" / f"{draft_id}.json"
-
     def get(self, draft_id: str) -> Draft | None:
         if not DRAFT_ID.match(draft_id):
             return None
-        with self.lock:
-            if draft_id in self.drafts:
-                return self.drafts[draft_id]
-            file = self.draft_file(draft_id)
-            if not file.exists():
+        with self.draft_lock(draft_id):
+            cached = self.drafts.get(draft_id)
+            if cached is not None:
+                self.sync(cached)
+                return cached
+            draft = self.backend.load_draft(draft_id)
+            if draft is None or not self.known(draft.base):
                 return None
-            draft = Draft(**json.loads(file.read_text(encoding="utf-8")))
-            if draft.base not in self.catalogue:
-                return None
-            self.drafts[draft_id] = draft
+            with self.lock:
+                self.drafts[draft_id] = draft
             return draft
+
+    def sync(self, draft: Draft) -> None:
+        """Bring `draft` (in place) to the stored version if another instance changed it. Hold its draft lock."""
+        if self.backend.draft_version(draft.id) == draft.version:
+            return
+        stored = self.backend.load_draft(draft.id)
+        if stored is not None:
+            adopt(draft, stored)
 
     # ---------- changes ----------
 
     def create(self, base: str) -> Draft:
-        if base not in self.catalogue:
+        if not self.known(base):
             raise KeyError(base)
         draft = Draft(uuid.uuid4().hex, base, self.base_building(base)["building"]["name"])
-        self.store(draft)
-        return draft
-
-    def store(self, draft: Draft) -> None:
-        file = self.draft_file(draft.id)
-        file.parent.mkdir(parents=True, exist_ok=True)
-        file.write_text(json.dumps(asdict(draft)), encoding="utf-8")
+        self.backend.insert_draft(draft)
         with self.lock:
             self.drafts[draft.id] = draft
+        return draft
 
     def building(self, draft: Draft) -> dict:
         key = (draft.id, draft.version)
@@ -124,48 +384,67 @@ class DraftStore:
     def issues(self, draft: Draft) -> list[dict]:
         return validate(self.building(draft), base=self.base_building(draft.base))
 
+    def change(self, draft: Draft, edit) -> Draft:
+        """Run `edit(draft) -> (steps, building or None)` on the latest stored draft and store the result as the next
+        version. A save that loses a race to another instance is redone on the new state; the last loss raises
+        Conflict."""
+        with self.draft_lock(draft.id):  # overlapping requests (fast drags) each build on the latest state
+            for attempt in range(SAVE_ATTEMPTS):
+                self.sync(draft)
+                steps, building = edit(draft)
+                changed = Draft(draft.id, draft.base, draft.name, steps, draft.version + 1)
+                try:
+                    self.backend.save_draft(changed, draft.version)
+                except Conflict:
+                    if attempt == SAVE_ATTEMPTS - 1:
+                        raise
+                    continue
+                adopt(draft, changed)
+                if building is not None:
+                    self.cache[(draft.id, draft.version)] = building
+                return draft
+        raise AssertionError("unreachable")
+
     def apply(self, draft: Draft, ops: list[dict], expected_version: int | None = None) -> Draft:
         """Apply `ops` as one undo step; raises EditError (and stores nothing) if any op fails, or if the draft is no
         longer at `expected_version` (a proposal made against an older draft)."""
         if not ops:
             raise EditError("no ops given")
-        with self.draft_lock(draft.id):  # overlapping requests (fast drags) each build on the latest state
-            if expected_version is not None and draft.version != expected_version:
+
+        def edit(current: Draft) -> tuple[list, dict]:
+            if expected_version is not None and current.version != expected_version:
                 raise EditError("the draft changed since this proposal; ask again")
-            building = self.building(draft)
+            building = self.building(current)
             for operation in ops:
                 building = apply_op(building, operation)
-            draft.steps.append(copy.deepcopy(ops))
-            draft.version += 1
-            self.cache[(draft.id, draft.version)] = building
-            self.store(draft)
-        return draft
+            return [*current.steps, copy.deepcopy(ops)], building
+
+        return self.change(draft, edit)
 
     def undo(self, draft: Draft) -> Draft:
-        with self.draft_lock(draft.id):
-            if not draft.steps:
+        def edit(current: Draft) -> tuple[list, None]:
+            if not current.steps:
                 raise EditError("nothing to undo")
-            draft.steps.pop()
-            draft.version += 1
-            self.store(draft)
-        return draft
+            return current.steps[:-1], None
+
+        return self.change(draft, edit)
 
     def save(self, draft: Draft, name: str) -> str:
-        """Write the draft as a new building `user/<slug>` and return its catalogue id."""
+        """Store the draft as a new building `user/<slug>` (a free slug: `-2`, `-3`, … if taken) and return its id."""
         name = name.strip() or draft.name
-        with self.lock:
-            stem = slugify(name)
-            slug, n = stem, 1
-            while f"{USER_SPLIT}/{slug}" in self.catalogue or (self.root / slug).exists():
-                n += 1
-                slug = f"{stem}-{n}"
-            (self.root / slug).mkdir(parents=True)
-        building = copy.deepcopy(self.building(draft))
-        building["building"].update({"id": slug, "name": name, "source": "edited", "source_ref": {"base": draft.base},
-                                     "split": USER_SPLIT})
-        (self.root / slug / "building.json").write_text(json.dumps(building, indent=1), encoding="utf-8")
-        (self.root / slug / "draft.json").write_text(
-            json.dumps({"base": draft.base, "name": name, "steps": draft.steps}), encoding="utf-8")
+        with self.draft_lock(draft.id):
+            self.sync(draft)
+            building, steps = copy.deepcopy(self.building(draft)), copy.deepcopy(draft.steps)
+        stem = slugify(name)
+        slug, n = stem, 1
+        while True:
+            if f"{USER_SPLIT}/{slug}" not in self.catalogue:
+                building["building"].update({"id": slug, "name": name, "source": "edited",
+                                             "source_ref": {"base": draft.base}, "split": USER_SPLIT})
+                if self.backend.insert_building(slug, name, draft.base, building, steps):
+                    break
+            n += 1
+            slug = f"{stem}-{n}"
         with self.lock:
             return self.register(slug, name)
 
@@ -173,3 +452,8 @@ class DraftStore:
         with self.draft_lock(draft.id):
             return {"draft": {"id": draft.id, "base": draft.base, "name": draft.name, "steps": len(draft.steps)},
                     "building": self.building(draft), "issues": self.issues(draft)}
+
+
+def adopt(draft: Draft, other: Draft) -> None:
+    """Make `draft` (the object Builders and requests hold) equal to `other`."""
+    draft.base, draft.name, draft.steps, draft.version = other.base, other.name, other.steps, other.version

@@ -10,6 +10,23 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 22:30 — Builder M3: drafts, saved buildings and Builder history in Supabase
+
+- **Did:** Utku took M3 back from Atahan (not started) and decided with Claude: public-URL demo + real persistent
+  multi-user system; own draft per person, no live co-editing; saved buildings visible to everyone. Built plan Tasks
+  1–5: `DraftBackend` (`FileDraftBackend` / `MemoryDraftBackend` / `PostgresDraftBackend`) in `backend/drafts.py`,
+  `PostgresConnection` + `db_url()` shared in `backend/persistence.py`, migration
+  `20261025120000_builder_drafts.sql` (applied to Supabase), `SessionStore.user_buildings` / `known` /
+  `load_session`, `Builder.dump` / `Builder.restore` (proposal numbers stored as `BuilderTools.next_id`), app:
+  Builder loaded / stored per request, 409 / 503 handlers, `/buildings` refreshes quietly; Edit mode reloads the
+  draft after a 409. Tests: `tests/test_draft_backends.py` (17 + 1 live).
+- **Learned:** one retry is not enough when two instances hammer one draft → `SAVE_ATTEMPTS = 3`, and a request
+  that still loses gets 409 (never a silent loss). Supabase also has an empty `building_edits` table from the early
+  architecture docs — unused, left alone.
+- **Changed docs:** M3 plan (status, as-built), spec (M3 decisions, table names), ai-agents.md, commands.md,
+  docs/README.md, project-state.
+- **Next:** Task 6 — deploy, public smoke test.
+
 ## 2026-10-24 21:38 — Edit mode restyled in the new UI's design
 
 - **Did:** pushed `2-builder-edit` to origin (Utku). Restyled the Edit mode to Atahan's building-screen design

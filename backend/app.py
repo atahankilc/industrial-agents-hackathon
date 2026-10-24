@@ -7,7 +7,9 @@ export of the session's current building, gzipped), /chat, /chat/stream (the sam
 then the reply), /events (polling cursor for the map UI; route events
 carry `vertices`, change events `space_ids`), the OpenAI-compatible /v1/chat/completions for ElevenLabs
 (backend/openai_compat.py), and the Edit mode's /drafts (create, get, points, plan, ops, undo, save, chat/stream for the Builder agent, proposals/{pid}/apply — backend/drafts.py;
-saved buildings appear in /buildings as `user/<slug>`, stored under GUIDE_USER_DIR, default data/user/).
+saved buildings appear in /buildings as `user/<slug>`; stored in Postgres with SUPABASE_DB_URL, else under
+GUIDE_USER_DIR, default data/user/). A draft change or Builder turn that lost a race to another instance answers 409;
+a database error 503.
 Guide turns are blocking (tool loop + LLM calls), so those endpoints are plain `def` and run in FastAPI's
 threadpool; each conversation's lock serialises its turns. With persistence on (backend/persistence.py) every turn
 is saved when it ends; a turn that lost a save race to another instance answers 409 and must be resent.
@@ -22,16 +24,17 @@ import queue
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI, Header, HTTPException, Query
+import psycopg
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from agent.guide import PHOTO_TYPES, llm_mode
 from backend import openai_compat, persistence
 from agent.builder import Builder
-from backend.drafts import Draft, DraftStore
+from backend.drafts import Draft, DraftStore, backend_from_env
 from backend.sessions import DATA_DIR, DEFAULT_SESSION, Conversation, SessionStore, UnknownBuilding, summary
 from core.building_map import BuildingMap
 from core.edits import EditError
@@ -60,7 +63,21 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], a
 app.add_middleware(GZipMiddleware, minimum_size=1000)  # the point-cloud export is ~4 MB of JSON
 app.add_middleware(StripPrefix)  # added last = outermost: routes see the path without /api
 store = SessionStore()
-drafts = DraftStore(Path(os.environ.get("GUIDE_USER_DIR", DATA_DIR / "user")), store.catalogue)
+drafts = DraftStore(backend_from_env(Path(os.environ.get("GUIDE_USER_DIR", DATA_DIR / "user"))), store.catalogue)
+store.user_buildings = drafts
+
+UPDATED_ELSEWHERE = "this draft was updated elsewhere meanwhile; try again"
+DB_DOWN = "the database is unavailable right now; try again in a moment"
+
+
+@app.exception_handler(persistence.Conflict)
+def conflict_409(request: Request, error: persistence.Conflict) -> JSONResponse:
+    return JSONResponse({"detail": UPDATED_ELSEWHERE}, status_code=409)
+
+
+@app.exception_handler(psycopg.Error)
+def database_503(request: Request, error: psycopg.Error) -> JSONResponse:
+    return JSONResponse({"detail": DB_DOWN}, status_code=503)
 
 
 class NewSession(BaseModel):
@@ -130,6 +147,7 @@ def health() -> dict:
 
 @app.get("/buildings")
 def buildings() -> list[dict]:
+    drafts.refresh(quiet=True)  # buildings saved on other instances; dataset buildings even if the database is down
     return [{"id": item["id"], "split": item["split"], "name": item["name"]} for item in store.catalogue.values()]
 
 
@@ -286,7 +304,7 @@ def draft_ops(draft_id: str, body: DraftOps) -> dict:
         drafts.apply(draft, body.ops)
     except EditError as error:
         raise HTTPException(422, str(error)) from None
-    tell_builder(draft_id, "The user changed the draft by hand (dragging on the plan); look again before proposing.")
+    tell_builder(draft, "The user changed the draft by hand (dragging on the plan); look again before proposing.")
     return drafts.state(draft)
 
 
@@ -297,7 +315,7 @@ def draft_undo(draft_id: str) -> dict:
         drafts.undo(draft)
     except EditError as error:
         raise HTTPException(409, str(error)) from None
-    tell_builder(draft_id, "The user undid the last change to the draft; look again before proposing.")
+    tell_builder(draft, "The user undid the last change to the draft; look again before proposing.")
     return drafts.state(draft)
 
 
@@ -309,25 +327,62 @@ def draft_save(draft_id: str, body: SaveDraft) -> dict:
 
 
 # ---------- Edit mode: the Builder agent (agent/builder.py) — prompt edits ----------
-# One Builder per draft, in memory (lost on restart; milestone 3 persists it), behind a per-draft turn lock.
+# One Builder per draft behind a per-draft turn lock. The dict is only a cache: the conversation is stored with the
+# draft after every turn / apply / cancel / hand-edit note (drafts.backend) and restored when the stored version is
+# newer than ours — another instance moved it on, or this one never saw it.
 
 builders: dict[str, Builder] = {}
 builder_locks: dict[str, threading.Lock] = {}
 builders_guard = threading.Lock()
 
 
-def builder_for(draft: Draft) -> tuple[Builder, threading.Lock]:
+def builder_lock(draft_id: str) -> threading.Lock:
     with builders_guard:
-        if draft.id not in builders:
-            builders[draft.id] = Builder(drafts, draft)
-            builder_locks[draft.id] = threading.Lock()
-        return builders[draft.id], builder_locks[draft.id]
+        return builder_locks.setdefault(draft_id, threading.Lock())
 
 
-def tell_builder(draft_id: str, note: str) -> None:
-    builder = builders.get(draft_id)
-    if builder is not None:
-        builder.drafted_by_hand(note)
+def load_builder(draft: Draft) -> Builder:
+    """The draft's Builder as last stored. Hold its builder_lock."""
+    cached = builders.get(draft.id)
+    if cached is not None and cached.draft is draft and cached.version == drafts.backend.builder_version(draft.id):
+        return cached
+    state, version = drafts.backend.load_builder(draft.id)
+    builder = Builder.restore(drafts, draft, state) if state is not None else Builder(drafts, draft)
+    builder.version = version
+    builders[draft.id] = builder
+    return builder
+
+
+def store_builder(builder: Builder) -> None:
+    """Persist after a change; raises persistence.Conflict (and forgets our copy) if another instance stored first."""
+    try:
+        builder.version = drafts.backend.save_builder(builder.draft.id, builder.dump(), builder.version)
+    except persistence.Conflict:
+        builders.pop(builder.draft.id, None)
+        raise
+
+
+def tell_builder(draft: Draft, note: str) -> None:
+    """A hand edit / undo: tell the draft's Builder (if it has talked yet), closing its open proposal."""
+    lock = builder_lock(draft.id)
+    if not lock.acquire(blocking=False):  # a turn is running here; it stores the note with its own state
+        if (builder := builders.get(draft.id)) is not None:
+            builder.drafted_by_hand(note)
+        return
+    try:
+        for attempt in range(2):
+            if draft.id not in builders and drafts.backend.builder_version(draft.id) == 0:
+                return  # no conversation yet: nothing to tell
+            builder = load_builder(draft)
+            builder.drafted_by_hand(note)
+            try:
+                store_builder(builder)
+                return
+            except persistence.Conflict:
+                if attempt:  # the edit itself is stored; the Builder just misses one note
+                    return
+    finally:
+        lock.release()
 
 
 def proposal_payload(draft: Draft, proposal: object | None) -> dict | None:
@@ -346,17 +401,23 @@ def draft_chat_stream(draft_id: str, body: BuilderMessage) -> StreamingResponse:
     """One Builder turn as NDJSON: {"type": "step", …} while it works, then {"type": "reply", "reply", "tool_calls",
     "proposal" (or null), "applied" (summary when a "yes" applied the open proposal), "state"} or {"type": "error"}."""
     draft = draft_or_404(draft_id)
-    builder, lock = builder_for(draft)
     lines: queue.Queue[dict | None] = queue.Queue()
 
     def work() -> None:
         try:
-            with lock:
+            with builder_lock(draft.id):
+                builder = load_builder(draft)
                 builder.on_step = lambda step: lines.put({"type": "step", **step})
                 try:
                     turn = builder.reply(body.message)
                 finally:
                     builder.on_step = None
+                try:
+                    store_builder(builder)
+                except persistence.Conflict:
+                    lines.put({"type": "error", "detail": "this conversation was updated elsewhere meanwhile; "
+                                                          "send the message again"})
+                    return
                 lines.put({"type": "reply", "reply": turn.text,
                            "tool_calls": [{"name": call["name"], "input": call["input"]} for call in turn.tool_calls],
                            "proposal": proposal_payload(draft, turn.proposal), "applied": turn.applied,
@@ -377,21 +438,23 @@ def draft_chat_stream(draft_id: str, body: BuilderMessage) -> StreamingResponse:
 @app.post("/drafts/{draft_id}/proposals/{proposal_id}/cancel")
 def cancel_proposal(draft_id: str, proposal_id: str) -> dict:
     draft = draft_or_404(draft_id)
-    builder, lock = builder_for(draft)
-    with lock:
+    with builder_lock(draft.id):
+        builder = load_builder(draft)
         builder.cancel(proposal_id)
+        store_builder(builder)
     return {"cancelled": proposal_id}
 
 
 @app.post("/drafts/{draft_id}/proposals/{proposal_id}/apply")
 def apply_proposal(draft_id: str, proposal_id: str) -> dict:
     draft = draft_or_404(draft_id)
-    builder, lock = builder_for(draft)
-    with lock:
+    with builder_lock(draft.id):
+        builder = load_builder(draft)
         try:
             builder.apply(proposal_id)
         except EditError as error:
             raise HTTPException(409, str(error)) from None
+        store_builder(builder)
     return drafts.state(draft)
 
 

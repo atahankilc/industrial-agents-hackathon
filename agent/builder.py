@@ -7,24 +7,28 @@ The tools (agent/builder_tools.py) can only look and *propose*; a proposal enter
 it — the Apply button (`Builder.apply`, via the backend) or a plain "yes" while exactly one proposal is open, which
 is applied here without a model call. A proposal is open for one exchange only: the next message (or Apply);
 any other turn, a Cancel, or a hand edit closes it. Proposals made against an older draft are refused ("changed since").
-Offline (no key or GUIDE_LLM=offline) the rule-based agent/builder_offline.py stands in for the model."""
+Offline (no key or GUIDE_LLM=offline) the rule-based agent/builder_offline.py stands in for the model.
+`dump` / `Builder.restore` carry the conversation through the draft store (milestone 3), so any backend instance can
+continue it; the system blocks are kept, like Guide conversations (backend/persistence.py), for the cache prefix."""
 
 import json
 import os
 import re
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 import anthropic
 
 from agent.builder_tools import BUILDER_TOOLS, BuilderTools, Proposal
 from agent.guide import FALLBACK_BETA, MAX_TOKENS, Usage, llm_mode, ungrounded
 from backend.drafts import Draft, DraftStore
+from backend.persistence import StateError, plain_messages
 from core.edits import EditError
 
 DEFAULT_MODEL = "claude-opus-5-5"  # override with BUILDER_MODEL
 DEFAULT_EFFORT = "medium"  # override with BUILDER_EFFORT
 MAX_TOOL_ROUNDS = 10
+STATE_FORMAT = 1  # Builder.dump layout
 MAX_REPAIRS = 2  # failed propose_edit calls per turn before the loop is told to stop proposing
 # Only a message that is nothing but a confirmation applies the open proposal without the model ("yes, but call it
 # Library" must reach the model).
@@ -101,6 +105,40 @@ class Builder:
         self.closed: dict[str, str] = {}  # proposal id → why it can no longer be applied (for the Apply button's 409)
         self.usage = Usage()
         self.on_step: Callable[[dict], None] | None = None
+        self.version = 0  # stored version this object reflects (0 = never stored); kept by the backend app
+
+    # ---------- storing ----------
+
+    def dump(self) -> dict:
+        """Everything another instance needs to continue this conversation, as JSON. Open proposals keep their ops
+        and draft version; their preview (a whole building, only shown with the turn that made it) is dropped."""
+        state = {
+            "format": STATE_FORMAT,
+            "system": self.system,
+            "messages": plain_messages(self.messages),
+            "corpus": self.corpus,
+            "notes": self.notes,
+            "closed": self.closed,
+            "pending": [{**asdict(proposal), "preview": None} for proposal in self.tools.pending.values()],
+            "next_id": self.tools.next_id,
+            "usage": asdict(self.usage),
+        }
+        return json.loads(json.dumps(state, ensure_ascii=False))
+
+    @classmethod
+    def restore(cls, store: DraftStore, draft: Draft, state: dict, client: object | None = None) -> "Builder":
+        if state.get("format") != STATE_FORMAT:
+            raise StateError(f"stored Builder format {state.get('format')!r}, expected {STATE_FORMAT}")
+        builder = cls(store, draft, client=client)
+        builder.system = state["system"]
+        builder.messages = state["messages"]
+        builder.corpus = state["corpus"]
+        builder.notes = state["notes"]
+        builder.closed = state["closed"]
+        builder.tools.pending = {item["id"]: Proposal(**item) for item in state["pending"]}
+        builder.tools.next_id = state["next_id"]
+        builder.usage = Usage(**state["usage"])
+        return builder
 
     # ---------- applying ----------
 

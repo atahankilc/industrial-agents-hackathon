@@ -9,7 +9,18 @@ related: [../specs/2026-10-24-builder-edit-mode-design.md, 2026-10-24-builder-ed
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Owner:** Atahan (Utku, 2026-10-24). Written by the M1/M2 session; not implemented there.
+**Owner:** was Atahan; Utku took it back on 2026-10-24 (not started) and Claude built Tasks 1–5 the same day — see
+the spec's "Milestone 3 decisions". **Status:** Tasks 1–5 done (offline tests + live Supabase tests + a two-instance
+end-to-end run against Supabase); Task 6 (deploy + public smoke test) pending.
+
+**As built (differs from the text below):** `DraftStore(source, catalogue)` keeps its old argument order — `source`
+is a directory (→ `FileDraftBackend`) or any backend, so existing tests are untouched; the backend also has
+`draft_version`, `builder_version` and `building_path` (saved buildings keep a `path` in file mode); a change is
+redone up to `SAVE_ATTEMPTS = 3` times before 409 (one retry lost under a two-instance stress test); the
+SessionStore finds saved buildings through `SessionStore.user_buildings` (the DraftStore); `/buildings` refreshes
+quietly (database down → dataset buildings still listed); app-wide handlers map `Conflict` → 409 and `psycopg.Error`
+→ 503; the Edit mode reloads the draft after a 409. Migration: `supabase/migrations/20261025120000_builder_drafts.sql`
+(applied to the Supabase project 2026-10-24). Tests: `tests/test_draft_backends.py`.
 
 **Goal:** The Edit mode (drag edits, prompt edits, save) works on the deployed app: drafts, saved buildings
 (`user/<slug>`) and the Builder's conversation live in Supabase Postgres, so any serverless instance can serve any
@@ -73,7 +84,7 @@ order", calls 5, 10, 11.
 
 ---
 
-### Task 1: Storage backend interface; move today's file code behind it
+### ✅ Task 1: Storage backend interface; move today's file code behind it
 
 **Files:** Modify `backend/drafts.py` · Test: `tests/test_drafts.py` (unchanged, must stay green), new
 `tests/test_draft_backends.py`
@@ -98,9 +109,9 @@ class DraftBackend(Protocol):
 - [ ] Step 2: run → fail. Step 3: implement, `DraftStore` delegates all I/O. Step 4: `uv run pytest -q` all green
   (behaviour unchanged). Step 5: ship.
 
-### Task 2: Postgres backend + migration
+### ✅ Task 2: Postgres backend + migration
 
-**Files:** Create `supabase/migrations/2026102513xxxx_builder_drafts.sql`; modify `backend/drafts.py`
+**Files:** Create `supabase/migrations/20261025120000_builder_drafts.sql`; modify `backend/drafts.py`
 (`PostgresDraftBackend`, `MemoryDraftBackend` for tests), `backend/app.py` (choose backend; 503 on DB errors) ·
 Test: `tests/test_draft_backends.py`
 
@@ -124,7 +135,7 @@ version` → no row → `Conflict`.
 - [ ] Step 2–4: implement; apply the migration with the command in
   [commands.md](../../guides/commands.md#conversation-persistence-supabase-postgres); green. Step 5: ship.
 
-### Task 3: Catalogue and sessions read saved buildings from the backend
+### ✅ Task 3: Catalogue and sessions read saved buildings from the backend
 
 **Files:** Modify `backend/sessions.py`, `backend/drafts.py`, `backend/app.py` · Test: `tests/test_drafts.py`,
 `tests/test_backend.py`
@@ -139,7 +150,7 @@ version` → no row → `Conflict`.
 - [ ] Steps: test "save on store A, list + open session on a fresh store B sharing the backend" → fail → implement →
   green → ship.
 
-### Task 4: Cross-instance correctness for drafts
+### ✅ Task 4: Cross-instance correctness for drafts
 
 **Files:** Modify `backend/drafts.py`, `backend/app.py` · Test: `tests/test_draft_backends.py`
 
@@ -151,7 +162,7 @@ version` → no row → `Conflict`.
 - [ ] Steps: test two `DraftStore`s on one `MemoryDraftBackend` interleaving applies (Review Focus 1) → fail →
   implement → green → ship.
 
-### Task 5: Persist the Builder's conversation
+### ✅ Task 5: Persist the Builder's conversation
 
 **Files:** Modify `agent/builder.py` (`dump() -> dict`, `Builder.restore(store, draft, state, client) -> Builder`),
 `backend/app.py` (`builder_for` restores from `load_builder`; after each turn / apply → `save_builder`;

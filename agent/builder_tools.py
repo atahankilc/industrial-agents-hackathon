@@ -5,7 +5,6 @@ their effect and the problems they would add (core/validate.py), and parks a `Pr
 proposal enters the draft only when the user applies it (backend, `Builder.apply`). Results are compact JSON for
 the model; `call` never raises — bad input comes back as `{"error": ...}`."""
 
-import itertools
 from dataclasses import dataclass, field
 
 from shapely.geometry import LineString, Polygon
@@ -50,7 +49,7 @@ class BuilderTools:
         self.store = store
         self.draft = draft
         self.pending: dict[str, Proposal] = {}
-        self._ids = itertools.count(1)
+        self.next_id = 1  # proposal numbers P1, P2, … (stored with the Builder, so they never repeat)
 
     def building(self) -> dict:
         return self.store.building(self.draft)
@@ -149,8 +148,9 @@ class BuilderTools:
         for operation in ops:
             after = apply_op(after, operation)
         new_problems = [issue for issue in validate(after, base=current) if issue["severity"] == "error"]
-        proposal = Proposal(f"P{next(self._ids)}", summary, ops, self.draft.version, new_problems,
+        proposal = Proposal(f"P{self.next_id}", summary, ops, self.draft.version, new_problems,
                             effect(current, after), preview=after)
+        self.next_id += 1
         self.pending = {proposal.id: proposal}  # only the newest proposal stays open
         return {"proposal_id": proposal.id, "summary": summary, "effect": proposal.effect,
                 "new_problems": [issue["message"] for issue in new_problems], "needs_confirmation": True}

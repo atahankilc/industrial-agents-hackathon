@@ -140,8 +140,12 @@ or `GUIDE_USER_DIR`) and opens it as a new building (fresh Guide session, a note
 The chat on the right edits by prompt (the Builder agent): it proposes, the plan shows the proposal dashed in
 blue with its area changes and new problems, **Apply** (or typing "yes") applies, **Cancel** drops it. Live check of
 the agent: `uv run --env-file .env python scripts/live_builder.py [building_id] [--model …] [--effort …]`.
-The draft id is kept in `localStorage` per building. Local store only for now — on the
-deployed app `/drafts` can't write (milestone 3).
+The draft id is kept in `localStorage` per building. Without `SUPABASE_DB_URL` drafts and saved buildings are files
+under `data/user/`; with it (`uv run --env-file .env uvicorn …`, and on Vercel) they live in Postgres — tables from
+`supabase/migrations/20261025120000_builder_drafts.sql`, applied with the command in
+[Conversation persistence](#conversation-persistence-supabase-postgres) (milestone 3). Tests:
+`uv run pytest -q tests/test_draft_backends.py` (two instances, one fake DB); live:
+`PERSIST_LIVE_TEST=1 uv run --env-file .env pytest -q tests/test_draft_backends.py -k live`.
 
 Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8765`). Design and data path:
 [visualization.md](../product/visualization.md#app-and-data-path).
@@ -166,7 +170,10 @@ Atahan (once): Vercel → *Add New → Project* → import the GitHub repo. Leav
 
 Smoke test after a deploy: `curl -s https://<deployment>/api/health` → `{"ok":true,"llm":"anthropic"}`. Then
 in the app, say "I use a wheelchair" and ask for a route in the next message: the route must be step-free (proof
-that persistence works across instances). `uv run pytest -q tests/test_deploy.py` checks the config locally.
+that persistence works across instances). Edit mode: open a building → Edit → drag a corner → reload (the draft
+resumes) → prompt "make <room> 1 m wider to the <side>" → Apply → Save → the saved building opens and the Guide
+routes in it; `/drafts` needs the database on Vercel (read-only filesystem). `uv run pytest -q tests/test_deploy.py`
+checks the config locally.
 UNVERIFIED until the first deploy: Services (beta) with a service root of `./` next to `frontend/app/`, the
 exclude globs as Vercel applies them, cold-start time.
 

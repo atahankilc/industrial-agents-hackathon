@@ -86,15 +86,28 @@
 /* ---------- plan ---------- */
 
 /* The stage behind the model: a warm-to-cool wash and a fixed film grain (the grid is drawn on the ground plane
-   in the 3D scene, so it moves with the building). */
-.plan {
+   in the 3D scene, so it moves with the building). Over the map (.on-map) the screen itself is see-through: the
+   stage covers the map only when the building is shown alone, once the model is there (.ready: the fly-in stays
+   visible), and fades in and out with that choice. */
+.screen.on-map { background: transparent; }
+.screen.leaving { opacity: 0; pointer-events: none; transition: opacity 0.35s var(--ease); }
+
+.screen-stage {
   position: absolute;
   inset: 0;
-  touch-action: none;
   background:
     radial-gradient(120% 90% at 8% 92%, var(--stage-warm), transparent 60%),
     radial-gradient(110% 90% at 92% 10%, var(--stage-cool), transparent 60%),
     var(--stage-mid);
+  transition: opacity 0.45s var(--ease);
+}
+.screen.on-map .screen-stage { opacity: 0; }
+.screen.on-map.alone.ready .screen-stage { opacity: 1; }
+
+.plan {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
 }
 
 .plan::after {
@@ -107,15 +120,25 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.4 -0.2'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+.plan::after { transition: opacity 0.45s var(--ease); }
+.screen.on-map:not(.alone) .plan::after { opacity: 0; }
+
 .plan-labels {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
+  animation: plan-in 0.4s var(--ease) 0.6s both; /* after the model has risen (PlanView Reveal) */
 }
 
+/* over the map the fly-in is the wait: the status only shows if the building is still not there after it */
+.screen.on-map .screen-status { animation-delay: 2.4s; }
+
+@keyframes plan-in { from { opacity: 0; } }
+
 .screen-status {
+  animation: plan-in 0.3s var(--ease) 0.9s both; /* a quick open never shows it */
   position: absolute;
   inset: 0;
   display: grid;
@@ -131,6 +154,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .spin { animation-duration: 2.4s; }
+  .screen.leaving, .screen-stage { transition: none; }
+  .plan-labels, .screen-status { animation: none; }
 }
 
 /* ---------- pins (map-style markers over the model) ---------- */

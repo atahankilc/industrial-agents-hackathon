@@ -35,6 +35,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `backend/locations.json`) + list view for all 280 (`src/search/`); building = vector plan view
   (`frontend/app/src/plan/`, `core/floorplan.py`); the point-cloud prototype and
   scene moved to the gitignored `.viz-archive/`, see [visualization.md](../docs/product/visualization.md).
+- Map → building (2026-10-25): the map stays under the building screen, flies in, then follows the model's camera
+  (`src/map/bridge.ts`); plan preloaded on the tap (`src/building/opening.ts`), model rises in; menu toggle "in the
+  city" (default, neighbour pins tappable) / "alone"; buildings with a model drawn as blue blocks on the map; new
+  light map palette ([visualization.md](../docs/product/visualization.md#current-vector-plan-view-2026-10-24)).
 - Licensing: `LICENSE` (MIT, our code only), `NOTICE.md` (third-party paths + terms), `data/README.md`
   (per-source data licences) — [D-009](decisions.md#d-009) accepted.
 - Verified-commit workflow in `.claude/` (verifier + fixer agents, `/ship` skill, commit-gate hook, worklog) —

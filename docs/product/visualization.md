@@ -4,6 +4,7 @@ summary: App visuals — the current vector plan view (core/floorplan.py, GET /s
 sources:
   - core/floorplan.py, backend/sessions.py (MapView.plan), frontend/app/src/plan/, frontend/app/src/building/ (verified 2026-10-24)
   - frontend/app/src/dev/, backend/devtools.py, core/routeline.py (dev panel, verified 2026-10-24)
+  - frontend/app/src/map/bridge.ts, src/building/opening.ts, src/Root.tsx (map → building transition, verified headless 2026-10-24)
   - https://threejs.org/docs/ (three.js r160)
   - https://r3f.docs.pmnd.rs/ (react-three-fiber)
 related: [../architecture/overview.md, personas.md, routing-profiles.md, ../architecture/ai-agents.md]
@@ -41,6 +42,25 @@ place card) with a floating Guide conversation.
   The building's back pill returns to whichever of the two it was opened from. "All floors" stacks the cutaway
   floors at their real `elevation_m`. (An outside "shell" view of the closed building was tried and removed the
   same day: the data has no windows, and Atahan preferred the map.)
+- **Map → building (2026-10-24):** the map stays mounted under the building screen (`src/Root.tsx`). A tap flies
+  the map in to the building (`MapLanding` focus, 1.5 s) while the session and plan load (`src/building/opening.ts`,
+  started on the tap, one session per visit); the model then takes over from the map's own camera and eases to its
+  first framing while it rises out of the ground (`PlanView` `Reveal`, 0.9 s; also for buildings with no position).
+  From then on the map follows the model's camera every frame (`src/map/bridge.ts`): the kit frame is metres x east,
+  y north from `location.origin` (the fitted kit (0, 0) from `georef.py`, added to `backend/locations.json`), and
+  the map narrows its field of view to 4° so its perspective matches the orthographic model. The building's own
+  OSM blocks are hidden by matching block centres inside the plan outline (the tile ids are not the kit's way ids).
+  Back fades the model out (0.35 s) while the map flies out to every pin.
+- **Buildings with a model on the map:** drawn as accent-blue blocks (`MapLanding` `models` source): the kit
+  footprint (`location.outline`: union of the kit's spaces on every floor, outset 0.6 m for the exterior walls,
+  placed by `origin`), as tall as the kit (`location.height_m`) or the OSM block it stands in, whichever is taller,
+  so the blue wraps the grey block. Tinting the tiles' own blocks does not work: the TUM main building is one tile
+  polygon around the whole block, its kit buildings are wings of it. Light mode got its own palette (2026-10-25):
+  stronger greens and water, white roads with grey casings, brighter side light on the blocks.
+- **Two ways to show a building with a position** (menu, remembered per browser, `ttyb-building-showing`): **in the
+  city** (default, the neighbours and their pins around the model; tapping a pin flies over and opens that building)
+  or **alone** (the plan's own stage and grid cover the map once the model is there; meant for building managers).
+  Buildings without a position only have the alone view.
 - **Not built yet:** Guide events on the plan (focus, route line, closures, lost access), 3D, maintainer edits.
 
 ## Dev panel

@@ -59,14 +59,20 @@
 
 .ml .maplibregl-ctrl-attrib { font-size: 10px; }
 
+/* a building open on top: the panel and controls step aside, the map stays as its city */
+.ml-panel, .ml .maplibregl-ctrl-bottom-right { transition: opacity 0.45s var(--ease), transform 0.45s var(--ease); }
+.ml-open .ml-panel { opacity: 0; transform: translateX(-12px); pointer-events: none; }
+.ml-open .maplibregl-ctrl-bottom-right { opacity: 0; pointer-events: none; }
+
 /* narrow screens: a bottom sheet, the list capped so the map stays the main thing */
 @media (max-width: 899px) {
   .ml-panel { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 42vh; }
+  .ml-open .ml-panel { transform: translateY(12px); }
   .ml-panel header { padding: 14px 16px 8px; }
   .ml .maplibregl-ctrl-bottom-right { bottom: calc(42vh + 24px); }
   .ml-locate { left: 16px; width: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ml-list button, .ml-more, .ml-locate-actions button { transition: none; }
+  .ml-list button, .ml-more, .ml-locate-actions button, .ml-panel, .ml .maplibregl-ctrl-bottom-right { transition: none; }
   .ml-locate { animation: none; }
 }

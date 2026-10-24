@@ -41,7 +41,8 @@ LOCATIONS = Path(__file__).resolve().parent / "locations.json"  # real positions
 
 def load_catalogue(data_dir: Path = DATA_DIR) -> dict[str, dict]:
     """building id → {"id", "split", "name", "path", "location"} for every split directory that holds a
-    building.json; `location` is {"lat", "lon", "address"} for a building with a known real position, else None."""
+    building.json; `location` is {"lat", "lon", "address"} plus optional "origin", "outline", "height_m" (see the "about" field
+    of backend/locations.json) for a building with a known real position, else None."""
     names: dict[str, str] = {}
     manifest = data_dir / "manifest.csv"
     if manifest.exists():

@@ -1,6 +1,7 @@
 """The HTTP backend in offline mode (GUIDE_LLM=offline): sessions, chat, event cursor, OpenAI-compatible SSE."""
 
 import json
+import math
 
 import pytest
 from fastapi.testclient import TestClient
@@ -47,6 +48,12 @@ def test_buildings_carry_a_location_only_where_one_is_known(client):
     assert located and all("/osm-way" in building_id for building_id in located)  # only OSM buildings have one
     main = items["train/osm-way10053349"]["location"]  # TUM main building, Arcisstraße 21
     assert abs(main["lat"] - 48.1489) < 0.001 and abs(main["lon"] - 11.5680) < 0.001
+    # where the kit's metres start, which puts the model on the map: within 20 m of the outline's centre
+    for b in located:
+        loc = items[b]["location"]
+        north = (loc["origin"]["lat"] - loc["lat"]) * 111320
+        east = (loc["origin"]["lon"] - loc["lon"]) * 111320 * math.cos(math.radians(loc["lat"]))
+        assert math.hypot(north, east) < 20, b
 
 
 @pytest.mark.parametrize("building", ["train/nope", "../pyproject.toml", "/etc", "train/../dev/x"])

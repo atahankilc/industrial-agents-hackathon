@@ -2,12 +2,23 @@
 
 const BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
-/** `location`: real position (centre of the OSM outline) for the kit's OpenStreetMap buildings, else null. */
+/** `location`: real position (centre of the OSM outline) for the kit's OpenStreetMap buildings, else null;
+ * `origin` is where the building's own metres start (x east, y north from it), which puts the model on the map;
+ * `outline` its footprint, which marks its block on the map. */
 export type Building = {
   id: string
   split: string
   name: string | null
-  location: { lat: number; lon: number; address: string | null } | null
+  location: {
+    lat: number
+    lon: number
+    address: string | null
+    origin?: { lat: number; lon: number }
+    /** footprint rings, [lon, lat] */
+    outline?: [number, number][][]
+    /** from the lowest floor to the top of the highest */
+    height_m?: number
+  } | null
 }
 
 /** core/floorplan.py export: building metres (x right, y up). `center` centres the y-up scene:

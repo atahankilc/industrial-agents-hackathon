@@ -4,9 +4,10 @@
 // as footprints that rise into 3D blocks (OSM `render_height`). Farmland stays ground colour, so the countryside
 // reads calm instead of patchy. Labels use the tile server's Noto glyphs.
 
-import type { ExpressionSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl'
+import type { ExpressionSpecification, FilterSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl'
 
 export const BUILDINGS_FROM_ZOOM = 14 // OpenMapTiles carries buildings from z14
+export const BUILDINGS_3D_FILTER: FilterSpecification = ['!=', ['get', 'hide_3d'], true] // outlines split into parts draw as their parts
 
 type Palette = {
   land: string
@@ -28,6 +29,9 @@ type Palette = {
   footprintLine: string
   wall: string
   roof: string
+  /** blocks of the buildings that have a model in the app (drawn by MapLanding from their kit footprints) */
+  ours: string
+  oursRoof: string
   label: string
   labelMuted: string
   labelWater: string
@@ -57,6 +61,8 @@ const PALETTE: Record<'light' | 'dark', Palette> = {
     footprintLine: '#1E2026',
     wall: '#15161B',
     roof: '#262830',
+    ours: '#1F3A5C',
+    oursRoof: '#3A6FA8',
     label: '#A2A6AE',
     labelMuted: '#6E727A',
     labelWater: '#4F7894',
@@ -64,32 +70,36 @@ const PALETTE: Record<'light' | 'dark', Palette> = {
     halo: '#0F1013',
     fog: '#0F1013',
   },
+  // light: paper ground with a hint of warmth, clear greens and blues, white roads drawn by their grey casing, and
+  // blocks lit from one side so their faces separate (the flat greys before read as fog)
   light: {
-    land: '#F2F2EF',
-    urban: '#ECECE8',
-    park: '#DAE8D6',
-    wood: '#D1E3CD',
-    grass: '#DEEBDA',
-    water: '#C6DBEA',
-    waterLine: '#B3CFE3',
-    casing: '#DCDCD6',
+    land: '#F1F0EC',
+    urban: '#EAE9E4',
+    park: '#CFE6C6',
+    wood: '#C6DEBD',
+    grass: '#D6EACE',
+    water: '#A9CDEB',
+    waterLine: '#93BFE4',
+    casing: '#D3D1CA',
     minor: '#FFFFFF',
     mid: '#FFFFFF',
     major: '#FFFFFF',
     motorway: '#FFFFFF',
-    motorwayCasing: '#C9C9C2',
-    path: '#D6D6D0',
-    rail: '#CFCFC9',
-    footprint: '#E4E4DF',
-    footprintLine: '#D8D8D2',
-    wall: '#DCDCD6',
-    roof: '#F4F4F1',
-    label: '#3F4249',
-    labelMuted: '#8D9199',
-    labelWater: '#5A84A3',
-    labelGreen: '#5D8A66',
-    halo: '#F2F2EF',
-    fog: '#F2F2EF',
+    motorwayCasing: '#BDB9B0',
+    path: '#C9C7C0',
+    rail: '#C2C0B9',
+    footprint: '#E3E2DD',
+    footprintLine: '#D6D4CE',
+    wall: '#D9D7D1',
+    roof: '#FBFBF9',
+    ours: '#9FC2EC',
+    oursRoof: '#D6E6F8',
+    label: '#2E3136',
+    labelMuted: '#73777F',
+    labelWater: '#3F709A',
+    labelGreen: '#4C7F57',
+    halo: '#F1F0EC',
+    fog: '#F1F0EC',
   },
 }
 
@@ -114,7 +124,8 @@ function layers(p: Palette, dark: boolean): LayerSpecification[] {
   return [
     { id: 'land', type: 'background', paint: { 'background-color': p.land } },
     { id: 'urban', type: 'fill', ...src, 'source-layer': 'landuse', filter: ['all', AREAS, ['match', ['get', 'class'], ['residential', 'suburb', 'neighbourhood', 'commercial', 'retail', 'industrial', 'railway', 'school', 'university', 'college', 'hospital'], true, false]], paint: { 'fill-color': p.urban, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0, 11, 1] } },
-    { id: 'wood', type: 'fill', ...src, 'source-layer': 'landcover', filter: ['all', AREAS, ['==', ['get', 'class'], 'wood']], paint: { 'fill-color': p.wood, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 11, 1] } },
+    // woods fade in with zoom: at city scale they are only a soft tint, not a patchwork
+    { id: 'wood', type: 'fill', ...src, 'source-layer': 'landcover', filter: ['all', AREAS, ['==', ['get', 'class'], 'wood']], paint: { 'fill-color': p.wood, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 6, dark ? 0.5 : 0.25, 12, 1] } },
     { id: 'grass', type: 'fill', ...src, 'source-layer': 'landcover', filter: ['all', AREAS, ['==', ['get', 'class'], 'grass']], paint: { 'fill-color': p.grass, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0, 12, 1] } },
     { id: 'green-use', type: 'fill', ...src, 'source-layer': 'landuse', filter: ['all', AREAS, ['match', ['get', 'class'], ['cemetery', 'pitch', 'playground', 'garden', 'stadium'], true, false]], paint: { 'fill-color': p.grass } },
     { id: 'park', type: 'fill', ...src, 'source-layer': 'park', filter: AREAS, paint: { 'fill-color': p.park, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.6, 10, 1] } },
@@ -137,7 +148,7 @@ function layers(p: Palette, dark: boolean): LayerSpecification[] {
       ...src,
       'source-layer': 'building',
       minzoom: BUILDINGS_FROM_ZOOM,
-      filter: ['!=', ['get', 'hide_3d'], true],
+      filter: BUILDINGS_3D_FILTER,
       paint: {
         // taller blocks catch more light, so a skyline reads at a glance
         'fill-extrusion-color': ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 6], 0, p.wall, 45, p.roof],
@@ -158,6 +169,12 @@ function layers(p: Palette, dark: boolean): LayerSpecification[] {
   ]
 }
 
+/** the accent the buildings with a model are drawn in: walls at the ground, lighter towards the roof */
+export const modelColours = (dark: boolean) => {
+  const p = PALETTE[dark ? 'dark' : 'light']
+  return { wall: p.ours, roof: p.oursRoof }
+}
+
 export function mapStyle(dark: boolean): StyleSpecification {
   const p = PALETTE[dark ? 'dark' : 'light']
   return {
@@ -166,7 +183,7 @@ export function mapStyle(dark: boolean): StyleSpecification {
     glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
     // the far ground fades into the background colour when the map is tilted, so the horizon stays quiet
     sky: { 'sky-color': p.fog, 'horizon-color': p.fog, 'fog-color': p.fog, 'fog-ground-blend': 0.6, 'horizon-fog-blend': 0.8, 'sky-horizon-blend': 1, 'atmosphere-blend': 0 },
-    light: { anchor: 'viewport', color: '#FFFFFF', intensity: dark ? 0.45 : 0.25, position: [1.2, 210, 40] },
+    light: { anchor: 'viewport', color: '#FFFFFF', intensity: dark ? 0.45 : 0.42, position: [1.2, 210, 40] },
     layers: layers(p, dark),
   }
 }

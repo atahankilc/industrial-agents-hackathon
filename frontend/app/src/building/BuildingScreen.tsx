@@ -2,8 +2,12 @@
 // a floor chip (with "all floors" stacked) and a menu (edit, fit, theme, dev tools). Bottom: the Guide, voice first —
 // captions and the Core (src/building/Guide.tsx). One backend session per building; the plan comes from
 // GET /sessions/{id}/plan.
+// A building with a place on the map (`origin`) sits on the landing map, which follows the model's camera
+// (src/map/bridge.ts): shown in its city (neighbours and their pins around it, a tap on a pin opens that one) or
+// alone (the map faded out, the model on its own stage). The model takes over from the map's camera when it
+// arrives and rises out of the ground; leaving fades it out.
 
-import { Check, ChevronLeft, ChevronsUpDown, Ellipsis, Layers, Moon, PencilRuler, Scan, Sun, SunMoon, Wrench } from 'lucide-react'
+import { Box, Check, ChevronLeft, ChevronsUpDown, Ellipsis, Layers, Map as MapIcon, Moon, PencilRuler, Scan, Sun, SunMoon, Wrench } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, type Plan } from '../api'
 import { EditMode } from '../edit/EditMode'
@@ -15,12 +19,14 @@ import { devApi, type DevEvent } from '../dev/devApi'
 import { routeRuns } from '../dev/StoryLayer'
 import { applyEvents, EMPTY_STORY, type Story } from '../dev/story'
 import { addStep, settle, type Step } from '../ui/guideSteps'
+import { follow, hideBlocks, mapView, pinAt, settled, showBlocks, type Origin } from '../map/bridge'
 import { useTheme } from '../theme'
 import { useVoice, voiceSupported } from '../voice/useVoice'
 import { Guide, type InfoCard, type Message, type Suggestion } from './Guide'
 import { CameraWalk } from './CameraWalk'
 import { grabFrame } from './frame'
 import { NextMove } from './NextMove'
+import { take } from './opening'
 import { routeTrack } from './tracking'
 import { askForMotion, useTracking } from './useTracking'
 import './screen.css'
@@ -56,9 +62,22 @@ const THEME_LABEL = { system: 'Theme: system', light: 'Theme: light', dark: 'The
 /** Shown once as the first chat line when a building opens right after it was saved in the Edit mode. */
 const noteKey = (buildingId: string) => `note:${buildingId}`
 
-type ScreenProps = { buildingId: string; onBack: () => void; onOpen: (buildingId: string) => void }
+/** how a building with a place on the map is shown: in its city, or on its own */
+export type Showing = 'city' | 'alone'
 
-export function BuildingScreen({ buildingId, onBack, onOpen }: ScreenProps) {
+type ScreenProps = {
+  buildingId: string
+  /** where the building's metres start on the map, when the map is under this screen */
+  origin: Origin | null
+  showing: Showing
+  onShowing: (showing: Showing) => void
+  /** fading out (another building, or the landing, is coming) */
+  leaving: boolean
+  onBack: () => void
+  onOpen: (buildingId: string) => void
+}
+
+export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving, onBack, onOpen }: ScreenProps) {
   const theme = useTheme()
   const palette = theme.dark ? DARK : LIGHT
   const viewport = useViewport()
@@ -138,12 +157,12 @@ export function BuildingScreen({ buildingId, onBack, onOpen }: ScreenProps) {
 
   useEffect(() => {
     let cancelled = false
-    api
-      .createSession(buildingId)
-      .then(async ({ session_id }) => {
-        const next = await api.plan(session_id)
+    // fetched since the tap (./opening.ts); shown once the map's fly-in has landed, so the model takes over from it
+    const opening = take(buildingId)
+    Promise.all([opening.promise, settled()])
+      .then(([{ sessionId: id, plan: next }]) => {
         if (cancelled) return
-        setSessionId(session_id)
+        setSessionId(id)
         setPlan(next)
         const ground = next.floors.findIndex((item) => item.level === 0)
         setFloor(ground >= 0 ? ground : 0)
@@ -151,8 +170,23 @@ export function BuildingScreen({ buildingId, onBack, onOpen }: ScreenProps) {
       .catch((reason) => !cancelled && setError(String(reason)))
     return () => {
       cancelled = true
+      opening.release()
     }
   }, [buildingId])
+
+  // the map's own block of this building gives way to the model while this screen is up
+  useEffect(() => {
+    if (!origin || !plan) return
+    hideBlocks(buildingId, origin, (plan.outlines ?? []).flatMap((floor) => floor.map((polygon) => polygon[0] ?? [])))
+  }, [buildingId, origin, plan])
+  useEffect(() => () => showBlocks(buildingId), [buildingId])
+
+  // the map under the model: where the model's camera starts, and the camera the map follows
+  const alone = !origin || showing === 'alone'
+  const mapCamera = useMemo(
+    () => (origin ? { intro: () => mapView(origin), follow: leaving ? undefined : (view: Parameters<typeof follow>[1]) => follow(origin, view) } : undefined),
+    [origin, leaving],
+  )
 
   const routeSteps = useMemo(() => story.route?.steps ?? [], [story.route])
   const moving = routeSteps.length > 0
@@ -294,7 +328,8 @@ export function BuildingScreen({ buildingId, onBack, onOpen }: ScreenProps) {
     )
 
   return (
-    <main className={`screen${devOpen && wide ? ' dev-open' : ''}`}>
+    <main className={`screen${devOpen && wide ? ' dev-open' : ''}${origin ? ' on-map' : ''}${alone ? ' alone' : ''}${plan ? ' ready' : ''}${leaving ? ' leaving' : ''}`}>
+      <div className="screen-stage" aria-hidden="true" />
       {plan && (
         <PlanView
           plan={plan}
@@ -313,6 +348,13 @@ export function BuildingScreen({ buildingId, onBack, onOpen }: ScreenProps) {
           spread={look === '3d'}
           settings={settings}
           story={shownStory}
+          ground={alone}
+          camera={mapCamera}
+          onMiss={alone ? undefined : (x, y) => {
+            const id = pinAt(x, y)
+            if (id && id !== buildingId) onOpen(id)
+            return Boolean(id)
+          }}
         />
       )}
       {!plan && (
@@ -407,6 +449,12 @@ export function BuildingScreen({ buildingId, onBack, onOpen }: ScreenProps) {
             <Scan size={17} strokeWidth={2} />
             Show it all
           </button>
+          {origin && (
+            <button type="button" role="menuitem" onClick={() => { onShowing(showing === 'city' ? 'alone' : 'city'); setPopover(null) }}>
+              {showing === 'city' ? <Box size={17} strokeWidth={2} /> : <MapIcon size={17} strokeWidth={2} />}
+              {showing === 'city' ? 'Show the building alone' : 'Show it in the city'}
+            </button>
+          )}
           <button type="button" role="menuitem" onClick={theme.cycle}>
             <ThemeIcon size={17} strokeWidth={2} />
             {THEME_LABEL[theme.mode]}

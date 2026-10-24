@@ -5,6 +5,9 @@
 // Tap a room or a piece of furniture to select it. Renders on demand only: a frame is drawn when the camera or
 // the drawing changes, never in idle. Labels (rooms, or floor names when stacked) are painted on a 2D canvas over
 // the WebGL one after every frame.
+// The model rises out of the ground when it first appears (Reveal). Over the landing map (src/map/bridge.ts) the
+// camera starts from the map's own camera and eases to the first framing, and every frame hands the camera to the
+// map so the city stays in register under the model.
 
 import { MapControls } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
@@ -12,6 +15,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import * as THREE from 'three'
 import type { MapControls as MapControlsImpl } from 'three-stdlib'
 import type { Plan, PlanSpace } from '../api'
+import type { View } from '../map/bridge'
 import { assetAt, paintAsset } from './furniture'
 import { buildFloors, contains, fillOf, fromScene, paintSpace, toScene, WALL_CUT_M, type FloorGeometry } from './geometry'
 import type { PlanPalette } from './palette'
@@ -41,10 +45,18 @@ type Props = {
   settings: PlanSettings
   /** dev tool: the current answer drawn over the plan (src/dev/StoryLayer.tsx) */
   story: Story
+  /** draw the model's own ground grid (off when the map is the ground) */
+  ground?: boolean
+  /** the map under the model: its camera now (where the model's camera starts), and the model's camera on every frame */
+  camera?: { intro: () => View | null; follow?: (view: View) => void }
+  /** a tap that hit nothing of the building; true when it was used (a pin on the map around it) */
+  onMiss?: (x: number, y: number) => boolean
 }
 
 const FIT_MARGIN_PX = 24
 const MOVE_SECONDS = 0.55
+const INTRO_SECONDS = 1.1 // from the map's camera to the first framing
+const REVEAL_SECONDS = 0.9 // the model rising out of the ground
 const TAP_SLOP_PX = 8
 const MAX_ZOOM = 220
 const CAMERA_DISTANCE = 400
@@ -58,7 +70,8 @@ const TILTED = { polar: 0.98, azimuth: Math.PI / 4 } // ~34° above the horizon,
 // "All floors" stacks every floor at its real elevation (from the lowest floor), so the building keeps its proportions
 const floorLift = (plan: Plan, index: number) => (plan.floors[index]?.elevation_m ?? 0) - (plan.floors[0]?.elevation_m ?? 0)
 export function PlanView(props: Props) {
-  const { plan, floor, stacked, palette, selected, insets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story } = props
+  const { plan, floor, stacked, palette, selected, insets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, camera, onMiss } = props
+  const groundRef = useRef<THREE.Mesh>(null)
   const labels = useRef<HTMLCanvasElement>(null)
   const { wallHeight, colours } = settings
   const floors = useMemo(() => buildFloors(plan, palette, { wallHeight, colours }), [plan, palette, wallHeight, colours])
@@ -103,6 +116,7 @@ export function PlanView(props: Props) {
         if (!start || event.button !== 0 || Math.hypot(event.clientX - start.x, event.clientY - start.y) > TAP_SLOP_PX) return
         const rect = event.currentTarget.getBoundingClientRect()
         const hit = pick.current(event.clientX - rect.left, event.clientY - rect.top)
+        if (!hit && onMiss?.(event.clientX, event.clientY)) return
         // a tap on another floor steps onto it; on the current floor it selects what is there
         if (hit && (stacked || hit.floor !== floor)) onPickFloor(hit.floor)
         else onSelect(hit?.selected ?? null)
@@ -119,8 +133,9 @@ export function PlanView(props: Props) {
         onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
       >
         <Lights plan={plan} floors={shown} palette={palette} lift={lift} />
+        <Reveal>
         <Slide floor={floor} mode={mode} lift={lift} heightOf={spreading ? elevation : stackLift}>
-          <Ground plan={plan} palette={palette} y={(spreading || stacked ? lift(groundIndex(plan)) : 0) - GROUND_BELOW_M} />
+          <Ground plan={plan} palette={palette} y={(spreading || stacked ? lift(groundIndex(plan)) : 0) - GROUND_BELOW_M} visible={ground} mesh={groundRef} />
           {shown.map((index) => (
             <group key={index} position={[0, lift(index), 0]}>
               <FloorModel
@@ -143,7 +158,9 @@ export function PlanView(props: Props) {
           )}
           <StoryLayer plan={plan} story={story} palette={palette} shown={shown} floor={floor} stacked={stacked} lift={lift} markers={markers} markerElements={markerElements} />
         </Slide>
-        <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} insets={insets} fitKey={fitKey} onTilt={onTilt} />
+        </Reveal>
+        <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} insets={insets} fitKey={fitKey} onTilt={onTilt} intro={camera?.intro} ground={groundRef} />
+        <Follow plan={plan} ground={groundRef} follow={camera?.follow} />
         <Picker plan={plan} floors={stacked ? shown : shown.filter((i) => i <= floor)} lift={lift} stacked={stacked} geometries={floors} pick={pick} />
         <LabelPainter plan={plan} floor={floor} stacked={stacked} rooms={mode === 'floor'} palette={palette} canvas={labels} selected={selected} skip={pinnedSpaces} />
         <PinTracker plan={plan} pins={pinList} elements={pinElements} />
@@ -323,7 +340,7 @@ function Slide({ floor, mode, lift, heightOf, children }: {
 
 /** A wide ground plane with a fine grid that belongs to the world, so it turns, tilts and pans with the building
  * and fades out towards the horizon. */
-function Ground({ plan, palette, y }: { plan: Plan; palette: PlanPalette; y: number }) {
+function Ground({ plan, palette, y, visible, mesh }: { plan: Plan; palette: PlanPalette; y: number; visible: boolean; mesh: React.RefObject<THREE.Mesh | null> }) {
   const centre = useMemo(() => floorBox(plan, plan.floors.map((_, i) => i)).getCenter(new THREE.Vector2()), [plan])
   const material = useMemo(
     () =>
@@ -353,7 +370,7 @@ function Ground({ plan, palette, y }: { plan: Plan; palette: PlanPalette; y: num
   )
   useEffect(() => () => material.dispose(), [material])
   return (
-    <mesh position={[centre.x, y, centre.y]} rotation={[-Math.PI / 2, 0, 0]} material={material} renderOrder={-2}>
+    <mesh ref={mesh} position={[centre.x, y, centre.y]} rotation={[-Math.PI / 2, 0, 0]} material={material} renderOrder={-2} visible={visible}>
       <planeGeometry args={[600, 600]} />
     </mesh>
   )
@@ -591,13 +608,65 @@ function frame(plan: Plan, floors: number[], lift: (index: number) => number, vi
   return { target, zoom }
 }
 
+/** The model rising out of the ground the first time it is drawn (the walls grow up from the floor). */
+function Reveal({ children }: { children: React.ReactNode }) {
+  const group = useRef<THREE.Group>(null)
+  const t = useRef(matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 0)
+  const invalidate = useThree((state) => state.invalidate)
+  useLayoutEffect(() => {
+    if (group.current && t.current < 1) group.current.scale.y = 0.001
+  }, [])
+  useFrame((_, delta) => {
+    const node = group.current
+    if (!node || t.current >= 1) return
+    t.current = Math.min(1, t.current + Math.min(delta, 1 / 30) / REVEAL_SECONDS)
+    node.scale.y = Math.max(0.001, 1 - Math.pow(1 - t.current, 3))
+    invalidate()
+  })
+  return <group ref={group}>{children}</group>
+}
+
+/** Hands the camera to the map under the model on every frame that moved it: the ground point at the centre of
+ * the screen (on the model's own ground), the zoom as pixels per metre, the tilt and the turn. */
+function Follow({ plan, ground, follow }: { plan: Plan; ground: React.RefObject<THREE.Mesh | null>; follow?: (view: View) => void }) {
+  const camera = useThree((state) => state.camera) as THREE.OrthographicCamera
+  const invalidate = useThree((state) => state.invalidate)
+  const sent = useRef('')
+  const scratch = useMemo(() => ({ ground: new THREE.Vector3(), look: new THREE.Vector3(), at: new THREE.Vector3() }), [])
+  useEffect(() => {
+    sent.current = ''
+    invalidate()
+  }, [follow, invalidate])
+  useFrame(() => {
+    if (!follow) return
+    const { look, at } = scratch
+    const groundY = ground.current?.getWorldPosition(scratch.ground).y ?? 0
+    camera.getWorldDirection(look)
+    if (Math.abs(look.y) < 1e-6) return
+    at.copy(camera.position).addScaledVector(look, (groundY - camera.position.y) / look.y)
+    const [x, y] = fromScene(plan, at.x, at.z)
+    const view: View = {
+      x,
+      y,
+      scale: camera.zoom,
+      pitch: THREE.MathUtils.radToDeg(Math.acos(THREE.MathUtils.clamp(-look.y, -1, 1))),
+      bearing: THREE.MathUtils.radToDeg(Math.atan2(look.x, -look.z)),
+    }
+    const key = `${x.toFixed(3)},${y.toFixed(3)},${view.scale.toFixed(4)},${view.pitch.toFixed(3)},${view.bearing.toFixed(3)}`
+    if (key === sent.current) return
+    sent.current = key
+    follow(view)
+  })
+  return null
+}
+
 type Pose = { target: THREE.Vector3; zoom: number; polar: number; azimuth: number }
-type Move = { t: number; from: Pose; to: Pose }
+type Move = { t: number; from: Pose; to: Pose; seconds?: number }
 
 /** Frames the shown floors (tilted, or flat if the user went flat on one floor) whenever they or fitKey change, easing there. Tilting is free in between
  * (0 = straight down … MAX_POLAR); a nearly flat tilt snaps flat when the gesture ends, and the current look
  * (flat or tilted) is reported so a flat view can stop spreading the floors. */
-function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt }: {
+function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt, intro, ground }: {
   plan: Plan
   floor: number
   floors: number[]
@@ -605,6 +674,9 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt }: {
   insets: Insets
   fitKey: number
   onTilt: (mode: ViewMode) => void
+  /** the camera to start from (the map's), eased from to the first framing */
+  intro?: () => View | null
+  ground: React.RefObject<THREE.Mesh | null>
 }) {
   const camera = useThree((state) => state.camera) as THREE.OrthographicCamera
   const size = useThree((state) => state.size)
@@ -674,6 +746,18 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt }: {
     const to = { target: fit.target, zoom: fit.zoom, polar, azimuth }
     if (first.current) {
       first.current = false
+      const start = intro?.()
+      if (start && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        // the map's camera, on the map's ground under the model
+        const [X, Z] = toScene(plan, start.x, start.y)
+        const y = ground.current?.getWorldPosition(new THREE.Vector3()).y ?? 0
+        const from = { target: new THREE.Vector3(X, y, Z), zoom: start.scale, polar: Math.max(FLAT_POLAR, THREE.MathUtils.degToRad(start.pitch)), azimuth: -THREE.MathUtils.degToRad(start.bearing) }
+        place(from)
+        controls.update()
+        move.current = { t: 0, from, to, seconds: INTRO_SECONDS }
+        invalidate()
+        return
+      }
       place(to)
       controls.update()
       report(to.polar)
@@ -691,7 +775,7 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt }: {
     const current = move.current
     if (!current || !controls) return
     // on-demand rendering: the first frame's delta is the whole idle time before it, so cap the step
-    current.t = Math.min(1, current.t + Math.min(delta, 1 / 30) / MOVE_SECONDS)
+    current.t = Math.min(1, current.t + Math.min(delta, 1 / 30) / (current.seconds ?? MOVE_SECONDS))
     const k = 1 - Math.pow(1 - current.t, 3)
     const { from, to } = current
     const turn = Math.atan2(Math.sin(to.azimuth - from.azimuth), Math.cos(to.azimuth - from.azimuth)) // the short way round

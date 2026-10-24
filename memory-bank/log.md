@@ -22,6 +22,23 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   (1,338/1,338 exact) → v1 is the submission pipeline. Dev 138/138 with v1 (regex).
 - **Next:** Sunday building → rerun the one command into `SUBMISSION/answers.json`; video + tech explanation.
 
+## 2026-10-25 — Map → building transition, city / alone views (branch `map-transition`)
+
+- **Did:** the landing map stays mounted under the building screen and follows the model's camera
+  (`src/map/bridge.ts`); fly-in on tap with the plan preloaded meanwhile (`src/building/opening.ts`), camera hand-off
+  from the map and a rise-out-of-the-ground reveal (`PlanView` `Reveal`, `Follow`, Rig intro); fade-out + fly-out on
+  back. Menu toggle: building in its city (neighbour pins tappable) or alone. `location.origin` (kit (0, 0)) added
+  to `backend/locations.json` from the archived georef.json; the building's own OSM blocks hidden by outline.
+- **Learned:** backend session + plan is ~0.4 s; the rest of the old wait was React's dev double mount (two
+  sessions) and building the plan geometry (~0.3 s for N3). OpenFreeMap tile building ids are not way ids (N3 is
+  drawn as its parts). `setVerticalFieldOfView` fires moveend on each call, so "flight done" waits for `!isMoving()`.
+- **Checked:** `tsc -b`, oxlint (no new warnings), `pytest tests/test_backend.py` 22 passed; headless Chrome flows
+  (city, alone, pin switch, direct URL, building with no position, back).
+- **Next:** decide whether the view toggle deserves a visible control instead of the menu.
+- **Then (same branch):** buildings with a model drawn as blue blocks on the map (kit footprint + height into
+  `backend/locations.json`, height matched to the OSM block); new light map palette. Tile building ids/polygons do
+  not match kit buildings (campus wings are one tile polygon), so we draw our own blocks instead of tinting theirs.
+
 ## 2026-10-25 — Pulled `origin/dev` twice (kit 1.1.0 route model, Builder Edit mode) into the uncommitted HUD work
 
 - **Did:** stash → fast-forward → stash apply, twice (26b908f, then b352e83). Text conflicts: `log.md` (all entries

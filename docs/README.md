@@ -40,7 +40,7 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 ### Architecture (ours)
 - [architecture/overview.md](architecture/overview.md) — what we need (frontend, backend, DB, realtime, voice, CI), topology, collaboration flow, build order.
 - [architecture/ai-agents.md](architecture/ai-agents.md) — Building Guide, benchmark pipeline, Builder; shared tools; voice path.
-- [architecture/solver-plan.md](architecture/solver-plan.md) — one deterministic function per benchmark kind.
+- [architecture/solver-plan.md](architecture/solver-plan.md) — one deterministic function per benchmark kind — all VERIFIED 655/655, with the rules the data settled.
 
 ### Product (ours)
 - [product/personas.md](product/personas.md) — 18 ranked personas with needs, data feasibility, what to ask / never ask.

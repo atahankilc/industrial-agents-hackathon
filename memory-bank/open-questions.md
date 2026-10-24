@@ -37,25 +37,15 @@ Template:
 - **Context:** PDF says "TODO: exact time". Drives the whole plan in [project-state.md](project-state.md).
 - **Owner:** Atahan will provide the times — don't chase this.
 
-<a id="q-003"></a>
-### Q-003 — Which spaces count as "rooms" in count/stack/wall questions?
-- **Status:** open · **Priority:** high · **Resolve by:** experiment on train+dev answers
-- **Context:** `type` ∈ room/corridor/stair/lift/hall/outdoor and `room_type` (incl. balcony, stairwell, lift,
-  corridor). `shared_walls_count` says "corridors, stairwells and lifts don't count" — by `type` or `room_type`?
-  Are halls/balconies rooms for `wide_delivery_count`? Affects 18%+12%+6% of test.
-  See [questions.md](../docs/kit/questions.md#ambiguities-we-must-resolve-empirically-against-traindev-answers).
-- **How to resolve:** implement variants, pick the one with 100% match on train+dev; record here.
 
-<a id="q-004"></a>
-### Q-004 — Door-width rule details for `wide_delivery_count`
-- **Status:** open · **Priority:** med · **Resolve by:** experiment
-- **Context:** Do `opening` (no leaf) and entrances also need `width_m ≥ min_width`? Are lifts width-limited?
-  Is `≥` or `>`? Is the arrival entrance itself checked?
-- **How to resolve:** variants vs 80 train+dev answers.
 
 <a id="q-005"></a>
 ### Q-005 — Exact semantics of `what_if_door` (and `step_free_reachable_count`)
 - **Status:** open · **Priority:** med · **Resolve by:** experiment (only 4 / 2 labelled examples)
+- **Progress (2026-10-24):** what_if_door 4/4 and step_free_reachable_count 2/2 with the rules in
+  [solver-plan.md](../docs/architecture/solver-plan.md#what_if_door) (full graph, `type == room`, > 1 m, longest
+  shared stretch midpoint; robustness sweep over 1044 pairs). Stays open only because labelled examples are few
+  and the closure never changes the count in the 2 step-free examples.
 - **Context:** New door width/step-free? "Middle of the shared wall" when the shared boundary is multiple
   segments? Which rooms on the target floor are counted; is improvement measured strictly > 1 m? Unreachable
   rooms? See [solver-plan.md](../docs/architecture/solver-plan.md#what_if_door).
@@ -67,7 +57,9 @@ Template:
   (Floor 2)". OSM names repeat ("WC"). Train/dev `inputs` give the gold mapping to test a resolver.
 - **Progress (2026-10-24):** resolver in `core/question_parser.py` handles all train/dev/test; 7 train/dev
   questions are inherently ambiguous (same OSM name twice on one floor, e.g. "Büro (Ground floor)") — returns all
-  candidates. Remaining: solver policy for candidates (run all, answer if they agree). See
+  candidates. Solver policy implemented in `agent/benchmark_agent.py`: run every candidate, keep the answer when they
+  agree, else first candidate (sorted id). Costs 2 train questions (osm-way37850565-H02/H03 are identical text
+  with different gold answers, H04) — irreducible without more context. See
   [question-parsing.md](../docs/research/question-parsing.md).
 
 <a id="q-008"></a>
@@ -102,6 +94,29 @@ Template:
   no: delete `archive/initial-repo/starter_agent`, keep `benchmark/` out of git and fetch it from upstream in CI.
 
 ## Resolved
+
+<a id="q-004"></a>
+### Q-004 — Door-width rule details for `wide_delivery_count`
+- **Status:** resolved (2026-10-24) · **Priority:** med · **Resolve by:** experiment
+- **Context:** Do `opening` (no leaf) and entrances also need `width_m ≥ min_width`? Are lifts width-limited?
+  Is `≥` or `>`? Is the arrival entrance itself checked?
+- **How to resolve:** variants vs 80 train+dev answers.
+- **Answer:** every opening kind (door, opening, entrance) needs `width_m >= min_width`; lifts unlimited (no width
+  field); start counts if it is a room. 80/80 — [solver-plan.md](../docs/architecture/solver-plan.md#wide_delivery_count).
+
+
+<a id="q-003"></a>
+### Q-003 — Which spaces count as "rooms" in count/stack/wall questions?
+- **Status:** resolved (2026-10-24) · **Priority:** high · **Resolve by:** experiment on train+dev answers
+- **Context:** `type` ∈ room/corridor/stair/lift/hall/outdoor and `room_type` (incl. balcony, stairwell, lift,
+  corridor). `shared_walls_count` says "corridors, stairwells and lifts don't count" — by `type` or `room_type`?
+  Are halls/balconies rooms for `wide_delivery_count`? Affects 18%+12%+6% of test.
+  See [questions.md](../docs/kit/questions.md#ambiguities-we-must-resolve-empirically-against-traindev-answers).
+- **How to resolve:** implement variants, pick the one with 100% match on train+dev; record here.
+- **Answer:** the room definition is per kind — shared walls: `type` ∉ {corridor, stair, lift, outdoor} (halls
+  count); reachability/what-if counts: `type == "room"` (= manifest `rooms`); room_stacked: any space. Scores and
+  rejected variants in [solver-plan.md](../docs/architecture/solver-plan.md#room-definition-per-kind).
+
 
 <a id="q-007"></a>
 ### Q-007 — App/UI and voice stack

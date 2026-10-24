@@ -41,8 +41,15 @@ lengths should match to the cm.
 - **Step-free:** drop every opening and connector with `step_free: false`.
 - **Closures:** a closed opening/connector is dropped; a closed **space** removes its node
   (`building_map.py:182-196`).
-- **Min door width** (needed for `wide_delivery_count`): *not* in the starter code — filter openings with
-  `width_m < min_width`. Whether lifts have a width constraint is open → [Q-004](../../memory-bank/open-questions.md#q-004).
+- **Min door width** (needed for `wide_delivery_count`): *not* in the starter code — keep only openings (every
+  kind: door, opening, entrance) with `width_m >= min_width`; connectors have no width field, so lifts are not
+  width-limited. VERIFIED 80/80 → [solver-plan.md](../architecture/solver-plan.md#wide_delivery_count).
+
+## Equal-length ties
+
+10 warm-up legs have a second path of exactly equal length; we still match gold `space_path`/`element_path`
+because networkx Dijkstra breaks ties the same way — this depends on `BuildingMap.graph()` adding nodes and
+edges in its current order. **Don't refactor it.** (`scripts/validate_warmup.py` reports `tie`/`equal_alt`.)
 
 ## Path representations in answers
 
@@ -53,8 +60,8 @@ have `legs`, each with its own paths. Example in [questions.md](questions.md#war
 ## Distances that are NOT the route model
 
 - `straight_line_3d` uses the polygon **centroid** (not representative point) + floor `elevation_m`.
-- "Nearest" in `errand` = route-model distance (UNVERIFIED — confirm against train answers, see
-  [solver-plan.md](../architecture/solver-plan.md#errand)).
+- "Nearest" in `errand` = route-model distance on the full graph, any floor — VERIFIED 93/93 against gold `via`
+  ([solver-plan.md](../architecture/solver-plan.md#errand)).
 
 ## Related
 

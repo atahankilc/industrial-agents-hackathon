@@ -41,6 +41,14 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 | `apply_change(change_id)` | committed edit event, broadcast to all clients | **yes** |
 | `show_on_map(ids, route?)` | UI event (highlight / fly to / switch floor) | no |
 
+**Implemented (2026-10-24):** `agent/tools.py` — `BuildingSession` (private building copy, routing profile,
+pending/applied changes, UI events) + `TOOL_DEFINITIONS` (Anthropic tool schemas) for building_overview, search,
+locate, count_assets, room_facts, find_route, tour, reachable_rooms, solve (every benchmark kind), set_profile,
+propose_change, apply_change, show_on_map. Errors come back as `{"error": …}` so the model can search or ask.
+Profile → constraints: `min_door_width_m` and `avoid_lifts` act as closures of narrow openings / lifts. Built on
+`core/navigation.py` (locate, count, find_route, tour; gold path format) and `core/solvers/`. Tests:
+`tests/test_agent_tools.py`. Not built yet: the LLM conversation loop (no API key) and `compare_routes`.
+
 `propose_change` → user sees an "I understood: close *Office lift*; 3 routes get 40 m longer. Apply?" card →
 `apply_change`. That is the brief's "show what it understood before it changes a plan"
 ([brief.md](../challenge/brief.md#directions-from-the-organisers)).
@@ -74,6 +82,11 @@ question text ─► template parser ──ok──► solver(kind, params) ─�
                      │ fail                        ▲
                      └► LLM extractor (strict schema) ┘  (resolved + validated in code)
 ```
+
+Implemented: `agent/benchmark_agent.py` (`answer()` for `benchmark.evaluate --agent`) and `agent/run_benchmark.py`
+(Sunday/test CLI, [BENCHMARK.md](../../BENCHMARK.md)). Dev 138/138 end to end. Warm-up kinds (locate, count,
+route, step-free, closure, tour) parse via `core/basic_parser.py` → `core/navigation.py`: 2120/2130 train+dev
+from text, 100% with gold ids (`scripts/validate_warmup.py`).
 
 Parser evidence and accuracy: [question-parsing.md](../research/question-parsing.md) ([Q-008](../../memory-bank/open-questions.md#q-008)).
 Solvers: [solver-plan.md](solver-plan.md). The same solvers back the Guide's `room_facts` / `find_route` tools,

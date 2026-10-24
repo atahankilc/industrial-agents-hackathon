@@ -49,9 +49,18 @@ uv run --env-file .env python -m benchmark.evaluate data/test --agent my_agent:a
 
 Format rules: [scoring.md](../challenge/scoring.md#submission-format).
 
+## Our deterministic pipeline
+
+```bash
+uv run python scripts/validate_solvers.py [--kinds errand] [-v]          # solvers on gold inputs, train+dev
+PARSER_MODE=regex uv run python -m benchmark.evaluate data/dev --agent agent.benchmark_agent:answer --name dev
+PARSER_MODE=regex uv run python -m agent.run_benchmark data/test data/test/questions.csv agent_output/test_answers.json --csv team_<name>.csv
+```
+
 ## Sunday benchmark
 
-Single command to be defined in `BENCHMARK.md` once the input format is known →
+`agent.run_benchmark <building_dir> <questions file> <answers.json> [--csv …]` — documented in
+[`BENCHMARK.md`](../../BENCHMARK.md). Output format still unannounced →
 [Q-001](../../memory-bank/open-questions.md#q-001).
 
 ## Related

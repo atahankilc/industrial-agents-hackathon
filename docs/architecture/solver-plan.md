@@ -1,79 +1,101 @@
 ---
 id: arch-solver-plan
-summary: PROPOSED deterministic algorithm per benchmark question kind, with the definition it implements, open questions, and validation method.
-status: proposed — algorithms must be validated against train/dev answers before being marked VERIFIED
-sources: [../kit/questions.md, ../kit/route-model.md, ../challenge/scoring.md]
+summary: Deterministic algorithm per benchmark question kind — every kind VERIFIED against all train+dev answers (655/655), with the exact rules the data settled and the variants it rejected.
+status: verified 2026-10-24
+sources: [../kit/questions.md, ../kit/route-model.md, ../challenge/scoring.md, ../../core/solvers/, ../../scripts/validate_solvers.py]
 related: [overview.md, ../kit/questions.md, ../../memory-bank/open-questions.md]
 ---
 
-# Solver plan per question kind — PROPOSED
+# Solver plan per question kind — VERIFIED
 
 [Docs index](../README.md) · Definitions: [questions.md](../kit/questions.md#precise-definitions) ·
 Tolerances: [scoring.md](../challenge/scoring.md#tolerances-per-kind)
 
-Status legend: `TODO` not built · `BUILT` implemented · `VERIFIED` matches train+dev answers (record score).
-Keep the status column current; mirror it in [project-state.md](../../memory-bank/project-state.md).
+Code: `core/solvers/` — one `@solver(kind)` function per kind, `fn(building, **inputs) -> SolverResult`
+(`value`, `unit`, `explanation`, JSON `evidence`, `area_m2`). Solvers never mutate the building (what-ifs work
+on a copy). `core/formatter.py` writes the reply + `Answer:` line ([D-003](../../memory-bank/decisions.md#d-003)).
 
-Validation method for every kind: run the solver on train+dev `inputs` (no LLM), compare to `answer` with
-`benchmark.score` logic. Only then hook up text parsing.
+Validation: `uv run python scripts/validate_solvers.py [--kinds …] [-v]` runs each solver on the gold `inputs`
+of every train+dev question and scores the formatted reply with the official `benchmark/score.py`.
+Per-module tests: `tests/test_solvers_{geometry,walls,reachability,routing}.py`.
 
-| Kind | Test share | Status | Dev score |
-|---|---|---|---|
-| floor_area_total | 23% | TODO | – |
-| shared_walls_count | 18% | TODO | – |
-| largest_room | 14% | TODO | – |
-| errand | 14% | TODO | – |
-| wide_delivery_count | 12% | TODO | – |
-| straight_line_3d | 10% | TODO | – |
-| room_stacked | 6% | TODO | – |
-| what_if_door | 2% | TODO | – |
-| step_free_reachable_count | 0% (Sunday?) | TODO | – |
+| Kind | Test share | Status | train+dev (gold inputs) | Module |
+|---|---|---|---|---|
+| floor_area_total | 23% | VERIFIED | 181/181 | geometry.py |
+| shared_walls_count | 18% | VERIFIED | 143/143 | walls.py |
+| largest_room | 14% | VERIFIED | 96/96 | geometry.py |
+| errand | 14% | VERIFIED | 93/93 (incl. gold `via`/`target`) | routing.py |
+| wide_delivery_count | 12% | VERIFIED | 80/80 | reachability.py |
+| straight_line_3d | 10% | VERIFIED | 30/30 | geometry.py |
+| room_stacked | 6% | VERIFIED | 26/26 | geometry.py |
+| what_if_door | 2% | VERIFIED (4 examples) | 4/4 | routing.py |
+| step_free_reachable_count | 0% (Sunday?) | VERIFIED (2 examples, weak) | 2/2 | reachability.py |
+
+End-to-end from question **text** (`agent/benchmark_agent.py`, regex parser): dev **138/138**, train **515/517** —
+the 2 misses are inherently ambiguous names ([Q-006](../../memory-bank/open-questions.md#q-006)).
+
+## Room definition per kind
+
+Resolves [Q-003](../../memory-bank/open-questions.md#q-003): "room" means something different per kind.
+
+| Kind | Counted / candidate spaces | Evidence |
+|---|---|---|
+| shared_walls_count | `type` ∉ {corridor, stair, lift, outdoor} — **halls count**, balconies (`outdoor`) don't | 143 vs 124 (excl. hall) vs 90 (incl. balcony) |
+| wide_delivery_count, step_free_reachable_count, what_if_door | `type == "room"` — equals the manifest `rooms` column in all 280 buildings | 80 vs 61 (room+hall) vs 49 |
+| room_stacked | any space on the adjacent floor (a lobby→lobby winner exists) | `type == room` only fails osm-way13507441-H06 |
+| floor_area_total, largest_room | exact `floor_id` + `room_type` match | 277/277 |
 
 ## floor_area_total
-Sum `Polygon(s.polygon).area` over spaces with `floor_id == F` and `room_type == T`. Answer: one number, ±5%.
+Sum of shapely `Polygon.area` over spaces with `floor_id == F` and `room_type == T`. Number, ±5%.
 
 ## largest_room
-Max area among spaces with `floor_id == F`, `room_type == T`. Answer line: `<ref or name>, <area> m²` — winner
-first, no runner-ups before it.
+Argmax area among the same set. Answer line: `<ref> (<name>), <area> m²` — the ref is in `accept` for all 122
+space answers and disambiguates repeated OSM names.
 
 ## straight_line_3d
-`c1 = Polygon(p1).centroid`, `c2 = …`; `z = floor.elevation_m`; Euclidean 3D distance. **Centroid, not
-anchor.** Watch Swiss per-floor centring (probably not used for this kind — check).
+`Polygon.centroid` (`buffer(0)` if invalid) at floor `elevation_m`; 3D Euclidean. No frame correction: train+dev
+use only OSM/procedural here. ⚠ Swiss floors are centred per floor, so a Swiss cross-floor question would be
+unreliable (UNVERIFIED — none in data).
 
 ## room_stacked
-Next floor up/down by `level`; pick the space whose polygon intersection area with this room is largest
-("covers most of this room's outline"). Answer: ref/name. Open: normalise by this room's area or the other's?
-Same argmax either way for intersection area. Restrict candidates to some `type`? → [Q-003](../../memory-bank/open-questions.md#q-003).
+Next existing `level` up/down (gaps skipped, e.g. swiss-460 levels 0,2,3,4); winner = largest intersection area
+with the start room (dividing by the candidate's area fails 2/26). Winner covers ≥ 0.652 of the start room;
+runner-up ≤ 0.191.
 
 ## shared_walls_count
-For each other space on the same floor, excluding corridors, stairwells and lifts: length of this room's
-boundary within 0.35 m of the other polygon ≥ 1 m. Candidate implementation:
-`ring_a.intersection(Polygon(b).buffer(0.35)).length >= 1.0` — direction (A's outline vs B's) and exclusion rule
-(`type` vs `room_type`) unverified → [Q-003](../../memory-bank/open-questions.md#q-003).
+`Polygon(A).exterior.intersection(Polygon(B).buffer(0.35)).length >= 1.0`, same floor, type filter above.
+Direction (A/B/max/min) and `>=`/`>` never change the score; tolerance 0.3–0.5 m and threshold 0.5–1.5 m all
+score 143/143 (no borderline cases). Helpers: `shared_wall_neighbours`, `shared_wall_length`,
+`shared_wall_segment` (midpoint for doors).
 
 ## wide_delivery_count
-Graph with step-free only (stairs excluded, lifts allowed) **and** openings with `width_m >= min_width`;
-start = the stated entrance space; count reachable "rooms" on target floor. Lift width handling →
-[Q-004](../../memory-bank/open-questions.md#q-004); room definition → [Q-003](../../memory-bank/open-questions.md#q-003).
+BFS from `start` over step-free openings/connectors whose opening `width_m >= min_width` — **every opening kind**
+(door, leafless opening, entrance) is width-checked; connectors have no width field, so lifts pass. Start
+counts if it is a room on the target floor. Rejected: doors only 77, doors+entrances 78, strict `>` 73,
+excluding start 38. ([Q-004](../../memory-bank/open-questions.md#q-004))
 
 ## step_free_reachable_count
-Close the named connector, step-free graph, BFS from start, count rooms on target floor.
+Same BFS, step-free, with the named connector closed. Weak evidence: in both examples the closure doesn't change
+the count ([Q-005](../../memory-bank/open-questions.md#q-005)).
 
 ## errand
-1. From start, route-model distance to every space containing an asset of `asset_type` (any floor?) → nearest
-   = `via`. 2. Target = largest `room_type` room on `floor_id`. 3. Total = d(start, via) + d(via, target).
-   "I can carry it on the stairs" → non-step-free allowed; variants may require step-free. Validate with
-   `answer.via` / `answer.target` stored in train answers.
+Full graph (stairs allowed: "I can carry it on the stairs" is the only carry phrase in train/dev/test; step-free
+scored 34/93). `via` = room holding an asset of that type with the shortest route distance from start, **any
+floor** (same-floor only: 90/93); `target` = largest `room_type` room on `floor_id`; total = d(start,via) +
+d(via,target). Min nearest-vs-runner-up gap in data 0.62 m. Evidence: per-leg ordered nodes/spaces/elements.
 
 ## what_if_door
-1. For each room on target floor, route-model distance to `outside` (nearest entrance) — baseline.
-2. Add a door between first/second at the **middle of their shared wall** (midpoint of the shared boundary
-   segment — not starter `add_door` nearest points). Width/step_free of new door: assume 0.9 m, step-free.
-3. Recompute; count rooms with improvement > 1 m. Only 4 labelled examples → [Q-005](../../memory-bank/open-questions.md#q-005).
+Copy the building; add a 0.9 m step-free door at the middle of the longest merged shared-wall stretch (halfway
+between both rooms' outline midpoints; fallback: nearest points). For each `type == "room"` space on the target
+floor: route distance to `outside` (full graph) before/after; count improvements **> 1 m**; rooms with no route
+out are skipped. Step-free distance rejected (21 vs 6). Robustness sweep over 1044 random wall-sharing pairs:
+midpoint variant changes the count in ≤ 3 pairs; no improvement falls within 0.8–1.2 m.
 
 ## Answer formatting (all kinds)
-Solver returns a structured result; a formatter writes 1–3 explanation lines + `Answer: …` in exactly the
-template the question asks for ([D-003](../../memory-bank/decisions.md#d-003)).
+`core/formatter.py`: explanation lines, then `Answer: <number>[ unit]` (integers bare, else 2 decimals) or
+`Answer: <ref> (<name>)[, <area> m²]`. Never a ref on a number line
+([scoring.md](../challenge/scoring.md#formatting-pitfalls-cost-real-points)).
 
 ## Related
-- [overview.md](overview.md) · [questions.md](../kit/questions.md) · [route-model.md](../kit/route-model.md)
+- [overview.md](overview.md) · [questions.md](../kit/questions.md) · [route-model.md](../kit/route-model.md) ·
+  [ai-agents.md](ai-agents.md#benchmark-pipeline)

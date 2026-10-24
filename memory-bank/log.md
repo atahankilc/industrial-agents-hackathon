@@ -10,6 +10,20 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Deterministic core: all solvers verified, benchmark runner, navigation, agent tools
+
+- **Did:** Scaffolding (`core/solvers` registry + `SolverResult`, `core/formatter.py`, `scripts/validate_solvers.py`),
+  then 5 parallel subagents: geometry (4 kinds), shared walls, reachability, routing (errand, what_if_door),
+  warm-up navigation + parser. I wrote the pipeline (`agent/benchmark_agent.py`, `agent/run_benchmark.py`,
+  `BENCHMARK.md`) and the Guide tool layer (`agent/tools.py`).
+- **Learned:** "room" differs per kind (walls: not corridor/stair/lift/outdoor, halls count; counts: `type ==
+  room` = manifest `rooms`); every opening kind is width-checked; errand via is on any floor with stairs;
+  what-if uses full graph + `type == room`; formatter labels spaces `<ref> (<name>)` (repeated OSM names);
+  Dijkstra tie-breaking matches gold only while `BuildingMap.graph()` order is unchanged.
+- **Scores:** solvers 655/655; text pipeline dev 138/138, train 515/517; warm-up 2120/2130.
+- **Questions:** Q-003, Q-004 resolved; Q-005, Q-006 progressed. Spend: $0 API.
+- **Next:** [project-state.md](project-state.md#next-priorities).
+
 ## 2026-10-24 — Zero-cost cloud stack
 
 - **Did:** Re-checked free tiers (Vercel Python runtime, Supabase, Render, Modal, HF Spaces, Koyeb); wrote

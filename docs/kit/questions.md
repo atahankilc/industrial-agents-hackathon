@@ -102,8 +102,8 @@ actually changes the answer, and the largest room is never simply the room with 
 
 ### Ambiguities we must resolve empirically (against train/dev answers)
 
-- What counts as a "room" in counts (`type == "room"`? include `hall`? exclude balconies/outdoor?) →
-  [Q-003](../../memory-bank/open-questions.md#q-003)
+- What counts as a "room" in counts — resolved 2026-10-24: `type == "room"` for reachability/what-if counts,
+  `type` ∈ {room, hall} for shared walls → [Q-003](../../memory-bank/open-questions.md#q-003)
 - Lift width / door width rule in `wide_delivery_count` → [Q-004](../../memory-bank/open-questions.md#q-004)
 - How names in question text map to spaces when OSM names repeat (e.g. "Büro") → [Q-006](../../memory-bank/open-questions.md#q-006)
 

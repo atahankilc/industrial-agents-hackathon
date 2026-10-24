@@ -11,15 +11,16 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 ## Phase
 
-**Phase 0 — Foundation ✅ → Phase 1 — Deterministic core + solvers (next)**
+**Phase 0 — Foundation ✅ · Phase 1 — Deterministic core + solvers ✅ · Phase 2 — Benchmark runner ✅ → next:
+Phase 3 — Agent + interaction and Phase 4 — App/UI + voice (see [Next priorities](#next-priorities) 3–4)**
 
 Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 | Phase | Goal | Done when |
 |---|---|---|
 | 0 Foundation | docs, memory bank, CLAUDE.md | ✅ 2026-10-24 |
-| 1 Core + solvers | per-kind solvers verified on train+dev `inputs` | every row in [solver-plan](../docs/architecture/solver-plan.md) is VERIFIED |
-| 2 Benchmark runner | question text → solver → `Answer:` reply; dev score via `benchmark.evaluate`; test CSV | dev ≥ target score; `team_<name>.csv` written |
+| 1 Core + solvers | per-kind solvers verified on train+dev `inputs` | ✅ 2026-10-24, all rows VERIFIED in [solver-plan](../docs/architecture/solver-plan.md) |
+| 2 Benchmark runner | question text → solver → `Answer:` reply; dev score via `benchmark.evaluate`; test CSV | ✅ 2026-10-24: dev 138/138; test CSV at `submissions/test_submission.csv` (renaming to `team_<name>.csv` waits on the team name) |
 | 3 Agent + interaction | conversational agent with clarifications, directions, closures, edits | scripted tricky-user conversation works |
 | 4 App/UI + voice | 2D view with route, then stacked floors; voice | demoable |
 | 5 Build + extend | plan → building (L4), one add-in (L5) | demoable |
@@ -44,7 +45,18 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 - `uv sync` at root; starter oracle on dev **369/369**; `core.building_map` reproduces 120/120 dev warm-up routes < 1 cm.
 - `core/question_parser.py`: 655/655 train+dev params match `inputs`; 145/145 test questions parse (`uv run pytest`).
-- `agent/parsing.py` modes + `agent/llm_parser.py`: offline tests pass (21 total); live LLM accuracy not yet measured (no API key).
+- `agent/parsing.py` modes + `agent/llm_parser.py`: offline tests pass; live (2026-10-24, `scripts/eval_llm_parser.py --per-kind 3`, 24 dev
+  questions): original text regex/llm/hybrid 24/24 each; `--paraphrase` regex **0/24**, llm 24/24, hybrid 24/24.
+  Parser-only cost ≈ $0.42 (cold cache) and ≈ $0.19 (warm) per 24-question run. `.env` now has `ANTHROPIC_API_KEY`.
+- `core/solvers.py`: every benchmark kind; 655/655 train+dev on gold `inputs`; via text → parser → solver
+  648/648 plus 7 ambiguous texts the test skips (`uv run pytest tests/test_solvers.py -q -s`); 145/145 test questions parse and solve without error.
+- `agent/answer.py` (`answer(building_dir, text)` for `benchmark.evaluate --agent agent.answer:answer`): parser →
+  solver → deterministic `Answer:` line. Official scorer: dev **138/138**, train 515/517, train+dev 653/655
+  (`uv run pytest tests/test_answer.py -q -s`); the 2 misses are ambiguous duplicate names (H02, H04 of
+  osm-way37850565) whose text cannot identify the room. Test: 145/145 replies, none fail.
+- `run_benchmark <building_dir> <questions> <answers>` (`agent/run_benchmark.py`, `[project.scripts]`): .jsonl/.json/.csv
+  in; .csv (submission) or .json (reply + ids + solver result) out. Test CSV = 145 rows, same ids as
+  `submission_template.csv`, replies identical to `benchmark.evaluate --submission-csv` (`tests/test_run_benchmark.py`).
 - `benchmark/score.py` parsing behaviour checked ([scoring.md](../docs/challenge/scoring.md#formatting-pitfalls-cost-real-points)).
 
 ## Pending decisions (Atahan)
@@ -55,20 +67,20 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 ## ▶ Start here (handoff for the next session, 2026-10-24)
 
 - **Focus now: implementing the app.** Atahan handles the cloud accounts (Vercel, Supabase) later — don't block on it.
-- **First task:** benchmark solvers in `core/` ([solver-plan.md](../docs/architecture/solver-plan.md)), each verified
-  on train+dev `inputs` with tests, then formatter + `answer()` + `run_benchmark` + `BENCHMARK.md` + test CSV.
+- **Benchmark pipeline is done:** solvers, formatter, `answer()`, `run_benchmark`, [BENCHMARK.md](../BENCHMARK.md),
+  test CSV in `submissions/`. Next: structured route output for Sunday ([Q-001](open-questions.md#q-001)), then the app.
 - **Ways of working:** keep `.claude/worklog/PENDING.md` current; commit only via `/ship`
   ([dev-workflow.md](../docs/guides/dev-workflow.md)). Parallel subagents are welcome (Atahan: quota is fine).
-- **No API keys yet** in `.env` → LLM paths can only be tested offline.
+- `.env` has `ANTHROPIC_API_KEY` (Utku's machine); no ElevenLabs key yet.
 
 ## Next priorities
 
 1. (Later, Atahan) Accounts per the zero-cost [stack checklist](../docs/research/stack-options.md#7-day-one-setup-checklist-human-actions--ask-before-creating-anything):
    Atahan signs up for Vercel + Supabase (free) and puts keys in `.env`; Claude then configures Vercel (frontend +
    FastAPI as Services) and the Supabase schema. First commit is pushed (`3300e6c`).
-2. Solvers in test-share order (floor_area_total → shared_walls_count → largest_room → errand →
-   wide_delivery_count → straight_line_3d → room_stacked → what_if_door), verified on train+dev → resolves
-   [Q-003](open-questions.md#q-003)–[Q-005](open-questions.md#q-005). Then formatter + `answer()` + test CSV + `run_benchmark`.
+2. Benchmark: done — `run_benchmark` ([BENCHMARK.md](../BENCHMARK.md)), `submissions/test_submission.csv` (145/145
+   answered). Open: route node ids in the structured output once the Sunday format is known ([Q-001](open-questions.md#q-001)).
+   Solvers are done; [Q-004](open-questions.md#q-004)/[Q-005](open-questions.md#q-005) stay open (rules match, few labels).
 3. In parallel: FastAPI skeleton + frontend skeleton (2D plan + route) deployed; Supabase schema.
 4. Routing profiles ([routing-profiles.md](../docs/product/routing-profiles.md)) + Guide agent + voice.
 

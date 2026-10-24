@@ -12,7 +12,7 @@ related: [../kit/data-format.md, ../kit/route-model.md]
 | Term | Meaning | See |
 |---|---|---|
 | **Space** | any polygon in `spaces`: room, corridor, stair, lift, hall, outdoor (`type`) | [data-format](../kit/data-format.md#buildingjson) |
-| **Room** (in questions) | a space counted by count questions — exact rule open | [Q-003](../../memory-bank/open-questions.md#q-003) |
+| **Room** (in questions) | reachability / what-if counts: `type == room`; shared walls: `type` ∈ {room, hall} (verified 2026-10-24) | [Q-003](../../memory-bank/open-questions.md#q-003) |
 | **`type` vs `room_type`** | coarse class (6 values) vs fine class (~31 values) | [data-format](../kit/data-format.md#room-types) |
 | **Ref** | room number string, e.g. `"2.03"`; unique per building except some OSM | [data-format](../kit/data-format.md#field-notes) |
 | **Opening** | door / opening (no leaf) / entrance joining exactly two spaces (or one + `"outside"`) | [data-format](../kit/data-format.md#buildingjson) |

@@ -30,6 +30,9 @@ Template:
   [scoring.md](../docs/challenge/scoring.md#-conflict-pdf-vs-readme).
 - **How to resolve:** ask organisers; meanwhile make solvers return structured results (ids, node path, length)
   *and* prose.
+- **Progress (2026-10-24):** `run_benchmark <building_dir> <questions> <answers>` exists
+  ([BENCHMARK.md](../BENCHMARK.md)); `.json` output has reply, `Answer:` text, kind, resolved ids and solver
+  result. Missing: route as ordered node ids.
 
 <a id="q-002"></a>
 ### Q-002 — When is code freeze and when is the Sunday building released?
@@ -37,21 +40,15 @@ Template:
 - **Context:** PDF says "TODO: exact time". Drives the whole plan in [project-state.md](project-state.md).
 - **Owner:** Atahan will provide the times — don't chase this.
 
-<a id="q-003"></a>
-### Q-003 — Which spaces count as "rooms" in count/stack/wall questions?
-- **Status:** open · **Priority:** high · **Resolve by:** experiment on train+dev answers
-- **Context:** `type` ∈ room/corridor/stair/lift/hall/outdoor and `room_type` (incl. balcony, stairwell, lift,
-  corridor). `shared_walls_count` says "corridors, stairwells and lifts don't count" — by `type` or `room_type`?
-  Are halls/balconies rooms for `wide_delivery_count`? Affects 18%+12%+6% of test.
-  See [questions.md](../docs/kit/questions.md#ambiguities-we-must-resolve-empirically-against-traindev-answers).
-- **How to resolve:** implement variants, pick the one with 100% match on train+dev; record here.
-
 <a id="q-004"></a>
 ### Q-004 — Door-width rule details for `wide_delivery_count`
 - **Status:** open · **Priority:** med · **Resolve by:** experiment
 - **Context:** Do `opening` (no leaf) and entrances also need `width_m ≥ min_width`? Are lifts width-limited?
   Is `≥` or `>`? Is the arrival entrance itself checked?
 - **How to resolve:** variants vs 80 train+dev answers.
+- **Progress (2026-10-24):** applying `width_m >= min_width` to every opening kind (door, opening, entrance),
+  lifts unrestricted, matches 80/80 (`core/solvers.py:reachable_rooms`). Alternatives not tested, so we do not
+  know which of them the data would also accept; keep open until a failing case appears.
 
 <a id="q-005"></a>
 ### Q-005 — Exact semantics of `what_if_door` (and `step_free_reachable_count`)
@@ -59,6 +56,9 @@ Template:
 - **Context:** New door width/step-free? "Middle of the shared wall" when the shared boundary is multiple
   segments? Which rooms on the target floor are counted; is improvement measured strictly > 1 m? Unreachable
   rooms? See [solver-plan.md](../docs/architecture/solver-plan.md#what_if_door).
+- **Progress (2026-10-24):** 0.9 m step-free door at the midpoint of the longest shared-boundary piece, rooms with
+  `type == room`, gain strictly > 1 m → 4/4 `what_if_door`; step-free BFS with the connector closed → 2/2. Too few
+  labels to rule out alternatives; stays open.
 
 <a id="q-006"></a>
 ### Q-006 — How to resolve names in question text to space ids robustly
@@ -102,6 +102,20 @@ Template:
   no: delete `archive/initial-repo/starter_agent`, keep `benchmark/` out of git and fetch it from upstream in CI.
 
 ## Resolved
+
+<a id="q-003"></a>
+### Q-003 — Which spaces count as "rooms" in count/stack/wall questions?
+- **Status:** resolved (2026-10-24) · **Priority:** high · **Resolve by:** experiment on train+dev answers
+- **Context:** `type` ∈ room/corridor/stair/lift/hall/outdoor and `room_type` (incl. balcony, stairwell, lift,
+  corridor). `shared_walls_count` says "corridors, stairwells and lifts don't count" — by `type` or `room_type`?
+  Are halls/balconies rooms for `wide_delivery_count`? Affects 18%+12%+6% of test.
+  See [questions.md](../docs/kit/questions.md#ambiguities-we-must-resolve-empirically-against-traindev-answers).
+- **How to resolve:** implement variants, pick the one with 100% match on train+dev; record here.
+- **Answer:** `shared_walls_count` counts spaces with `type` ∈ {room, hall} (corridor, stair, lift, outdoor
+  excluded) → 143/143; `type == room` only gives 124/143, adding outdoor 90/143. Reachability counts
+  (`wide_delivery_count`, `step_free_reachable_count`) and `what_if_door` count `type == room` → 80/80, 2/2, 4/4.
+  Evidence: `uv run pytest tests/test_solvers.py -q -s`;
+  [solver-plan.md](../docs/architecture/solver-plan.md#rules-settled-empirically-2026-10-24).
 
 <a id="q-007"></a>
 ### Q-007 — App/UI and voice stack

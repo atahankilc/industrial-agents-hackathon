@@ -41,6 +41,8 @@ Template:
 - **Decision:** Reuse/extend `BuildingMap` (add width filter, reachability, geometry) instead of rewriting.
 - **Consequences:** Must keep anchor = `representative_point()`, MultiGraph, stair/lift costs unchanged.
 - **Evidence:** [route-model.md](../docs/kit/route-model.md). To accept: oracle run on dev matches.
+  2026-10-24: acceptance criterion met — all solvers build on `core.building_map` and match 655/655 train+dev
+  answers (`tests/test_solvers.py`). Status left for the team to flip.
 
 <a id="d-003"></a>
 ### D-003 — LLM for language, code for facts; deterministic `Answer:` line

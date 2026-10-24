@@ -10,6 +10,9 @@ dependencies = [
     "shapely>=2.2.0",
 ]
 
+[project.scripts]
+run_benchmark = "agent.run_benchmark:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

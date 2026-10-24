@@ -1,12 +1,12 @@
 ---
 id: arch-solver-plan
-summary: PROPOSED deterministic algorithm per benchmark question kind, with the definition it implements, open questions, and validation method.
-status: proposed — algorithms must be validated against train/dev answers before being marked VERIFIED
+summary: Deterministic algorithm per benchmark question kind, with the definition it implements, open questions, and validation method.
+status: verified — every kind implemented in core/solvers.py and matches all train+dev answers (2026-10-24)
 sources: [../kit/questions.md, ../kit/route-model.md, ../challenge/scoring.md]
 related: [overview.md, ../kit/questions.md, ../../memory-bank/open-questions.md]
 ---
 
-# Solver plan per question kind — PROPOSED
+# Solver plan per question kind
 
 [Docs index](../README.md) · Definitions: [questions.md](../kit/questions.md#precise-definitions) ·
 Tolerances: [scoring.md](../challenge/scoring.md#tolerances-per-kind)
@@ -17,17 +17,32 @@ Keep the status column current; mirror it in [project-state.md](../../memory-ban
 Validation method for every kind: run the solver on train+dev `inputs` (no LLM), compare to `answer` with
 `benchmark.score` logic. Only then hook up text parsing.
 
-| Kind | Test share | Status | Dev score |
+| Kind | Test share | Status | Score (train+dev) |
 |---|---|---|---|
-| floor_area_total | 23% | TODO | – |
-| shared_walls_count | 18% | TODO | – |
-| largest_room | 14% | TODO | – |
-| errand | 14% | TODO | – |
-| wide_delivery_count | 12% | TODO | – |
-| straight_line_3d | 10% | TODO | – |
-| room_stacked | 6% | TODO | – |
-| what_if_door | 2% | TODO | – |
-| step_free_reachable_count | 0% (Sunday?) | TODO | – |
+| floor_area_total | 23% | VERIFIED | 181/181 train+dev |
+| shared_walls_count | 18% | VERIFIED | 143/143 train+dev |
+| largest_room | 14% | VERIFIED | 96/96 train+dev |
+| errand | 14% | VERIFIED | 93/93 train+dev |
+| wide_delivery_count | 12% | VERIFIED | 80/80 train+dev |
+| straight_line_3d | 10% | VERIFIED | 30/30 train+dev |
+| room_stacked | 6% | VERIFIED | 26/26 train+dev |
+| what_if_door | 2% | VERIFIED | 4/4 (few labels) train+dev |
+| step_free_reachable_count | 0% (Sunday?) | VERIFIED | 2/2 (few labels) train+dev |
+
+Code: `core/solvers.py` (`solve(bmap, kind, params)` takes the parser's params). Tests:
+`uv run pytest tests/test_solvers.py -q -s` checks the solver on gold `inputs` and the full pipeline
+question text → `core.question_parser` → solver; both 655/655 on train+dev (7 texts are ambiguous OSM names
+and are counted by the parser test instead). All 145 test questions parse and solve without error.
+
+### Rules settled empirically (2026-10-24)
+
+| Kind | Rule that matches every train+dev answer | Variants rejected |
+|---|---|---|
+| shared_walls_count | Count spaces with `type` ∈ {room, hall}; ≥ 1 m of outline within 0.35 m (either direction, same result) | `type == room` only: 124/143; + outdoor: 90/143 |
+| wide_delivery_count / step_free_reachable_count | Step-free graph (lifts ok); drop every opening (door, opening, entrance) with `width_m < min_width`; count `type == room` spaces on the floor reachable from the start | not tested |
+| errand | "Nearest" = shortest route-model distance from start (stairs allowed) to a space holding the asset type; then on to the largest room of the type | – |
+| room_stacked | Next level up/down; space with the largest polygon intersection area | – |
+| what_if_door | New 0.9 m step-free door at the midpoint of the shared boundary (longest piece); rooms (`type == room`) whose distance to `outside` drops by > 1 m | only 4 labels |
 
 ## floor_area_total
 Sum `Polygon(s.polygon).area` over spaces with `floor_id == F` and `room_type == T`. Answer: one number, ±5%.
@@ -43,13 +58,12 @@ anchor.** Watch Swiss per-floor centring (probably not used for this kind — ch
 ## room_stacked
 Next floor up/down by `level`; pick the space whose polygon intersection area with this room is largest
 ("covers most of this room's outline"). Answer: ref/name. Open: normalise by this room's area or the other's?
-Same argmax either way for intersection area. Restrict candidates to some `type`? → [Q-003](../../memory-bank/open-questions.md#q-003).
+Same argmax either way for intersection area. Verified with every space as a candidate (26/26).
 
 ## shared_walls_count
-For each other space on the same floor, excluding corridors, stairwells and lifts: length of this room's
-boundary within 0.35 m of the other polygon ≥ 1 m. Candidate implementation:
-`ring_a.intersection(Polygon(b).buffer(0.35)).length >= 1.0` — direction (A's outline vs B's) and exclusion rule
-(`type` vs `room_type`) unverified → [Q-003](../../memory-bank/open-questions.md#q-003).
+Other spaces on the same floor with `type` ∈ {room, hall}: ≥ 1 m of one outline within 0.35 m of the other
+(`ring.intersection(other_ring.buffer(0.35)).length`; both directions give 143/143). Resolved
+[Q-003](../../memory-bank/open-questions.md#q-003).
 
 ## wide_delivery_count
 Graph with step-free only (stairs excluded, lifts allowed) **and** openings with `width_m >= min_width`;

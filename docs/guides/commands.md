@@ -1,7 +1,7 @@
 ---
 id: guide-commands
 summary: Setup and every command for chatting, evaluating on dev, scoring and producing the test submission.
-sources: [archive/initial-repo/README.md §5-6, archive/initial-repo/starter_agent/README.md, benchmark/evaluate.py]
+sources: [archive/initial-repo/README.md §5-6, archive/initial-repo/starter_agent/README.md, benchmark/evaluate.py, agent/run_benchmark.py, BENCHMARK.md]
 related: [../kit/starter-agent.md, ../challenge/scoring.md]
 ---
 
@@ -33,10 +33,10 @@ PYTHONPATH=archive/initial-repo uv run --env-file .env python -m starter_agent d
 PYTHONPATH=archive/initial-repo uv run python -m starter_agent.evaluate data/dev --oracle
 # benchmark questions with the starter agent (~$0.10–0.25/question):
 PYTHONPATH=archive/initial-repo uv run --env-file .env python -m benchmark.evaluate data/dev --per-kind 3
-# our agent (function answer(building_directory: Path, question_text: str) -> str):
-uv run --env-file .env python -m benchmark.evaluate data/dev --agent my_agent:answer
+# our agent, agent/answer.py (verified 138/138 on 2026-10-24):
+uv run --env-file .env python -m benchmark.evaluate data/dev --agent agent.answer:answer
 # only some kinds:
-uv run --env-file .env python -m benchmark.evaluate data/dev --agent my_agent:answer --kinds errand what_if_door
+uv run --env-file .env python -m benchmark.evaluate data/dev --agent agent.answer:answer --kinds errand what_if_door
 ```
 
 Results: `agent_output/benchmark/<--name, default results>.jsonl` (question, expected answer, reply, correct).
@@ -44,14 +44,17 @@ Results: `agent_output/benchmark/<--name, default results>.jsonl` (question, exp
 ## Produce the test submission
 
 ```bash
-uv run --env-file .env python -m benchmark.evaluate data/test --agent my_agent:answer --submission-csv team_<name>.csv
+uv run --env-file .env run_benchmark data/test data/test/questions.csv submissions/test_submission.csv
+# same replies via the kit evaluator (checked identical on 2026-10-24):
+uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answer:answer --submission-csv team_<name>.csv
 ```
 
 Format rules: [scoring.md](../challenge/scoring.md#submission-format).
 
 ## Sunday benchmark
 
-Single command to be defined in `BENCHMARK.md` once the input format is known →
+`uv run --env-file .env run_benchmark <building_dir> <questions> <answers>` — inputs, outputs and scores in
+[BENCHMARK.md](../../BENCHMARK.md). The exact Sunday format is still open →
 [Q-001](../../memory-bank/open-questions.md#q-001).
 
 ## Related

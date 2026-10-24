@@ -1,0 +1,91 @@
+{
+ "about": "Real-world position (centre of the OSM outline) of the kit's OpenStreetMap buildings, from the OSM API via the archived twin-lab georef.py (kit frame fitted to the way, median error 0.05-6.6 m). Other sources have no position.",
+ "attribution": "© OpenStreetMap contributors (ODbL)",
+ "buildings": {
+  "osm-way10053349": {
+   "lat": 48.148855,
+   "lon": 11.567934,
+   "address": "Arcisstraße 21"
+  },
+  "osm-way13507441": {
+   "lat": 48.064973,
+   "lon": 11.665538,
+   "address": "Rathausplatz 2 Ottobrunn"
+  },
+  "osm-way19183732": {
+   "lat": 48.147371,
+   "lon": 11.567018,
+   "address": "Arcisstraße 17 München"
+  },
+  "osm-way22744230": {
+   "lat": 48.15111,
+   "lon": 11.567738,
+   "address": "Theresienstraße 90"
+  },
+  "osm-way27326387": {
+   "lat": 48.395716,
+   "lon": 11.726706,
+   "address": "Alte Akademie 16 Freising"
+  },
+  "osm-way27917482": {
+   "lat": 48.262554,
+   "lon": 11.667977,
+   "address": "Boltzmannstraße 3 Garching bei München"
+  },
+  "osm-way360544293": {
+   "lat": 48.354214,
+   "lon": 11.791344,
+   "address": "Freising"
+  },
+  "osm-way363805324": {
+   "lat": 48.137927,
+   "lon": 11.552935,
+   "address": "Schwanthalerstraße 80 München"
+  },
+  "osm-way37850565": {
+   "lat": 48.077089,
+   "lon": 11.662425,
+   "address": null
+  },
+  "osm-way43035346": {
+   "lat": 48.150618,
+   "lon": 11.569576,
+   "address": "Theresienstraße 90"
+  },
+  "osm-way476929995": {
+   "lat": 48.266829,
+   "lon": 11.670135,
+   "address": "Lichtenbergstraße 3 Garching bei München"
+  },
+  "osm-way50299584": {
+   "lat": 48.149873,
+   "lon": 11.566909,
+   "address": "Arcisstraße 21"
+  },
+  "osm-way50299720": {
+   "lat": 48.149182,
+   "lon": 11.566261,
+   "address": "Arcisstraße 21"
+  },
+  "osm-way50300147": {
+   "lat": 48.148031,
+   "lon": 11.567594,
+   "address": "Arcisstraße 21"
+  },
+  "osm-way52060470": {
+   "lat": 48.14781,
+   "lon": 11.463879,
+   "address": "Pasinger Bahnhofsplatz 5 München"
+  },
+  "osm-way58216509": {
+   "lat": 48.150289,
+   "lon": 11.568299,
+   "address": "Theresienstraße 90 München"
+  },
+  "osm-way61408163": {
+   "lat": 48.148466,
+   "lon": 11.566297,
+   "address": "Arcisstraße 21"
+  }
+ }
+}

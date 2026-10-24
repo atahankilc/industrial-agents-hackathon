@@ -29,6 +29,14 @@ const chair = (seat: Material = 'fabric') => [
   box(L + 0.06, R - 0.06, 0.32, R - 0.04, 0.47, 0.86, seat),
 ]
 const cabinet = (height: number, m: Material, top: Material = m) => [box(L, R, L, R, 0, height - 0.02, m), box(L, R, L, R, height - 0.02, height, top)]
+/** Drawer fronts on a cabinet's front (-z) between y0 and y1: a dark seam under each drawer and a handle on it. */
+const drawers = (y0: number, y1: number, count: number, handle: Material = 'steel') => {
+  const step = (y1 - y0) / count
+  return Array.from({ length: count }, (_, i) => y0 + i * step).flatMap((y) => [
+    box(L + 0.04, R - 0.04, L - 0.01, L, y, y + 0.012, 'dark'),
+    box(-0.15, 0.15, L - 0.025, L, y + step * 0.62, y + step * 0.62 + 0.025, handle),
+  ])
+}
 const shelves = (height: number, levels: number, frame: Material, fill: Material) => {
   const parts: Part[] = [box(L, L + 0.06, L, R, 0, height, frame), box(R - 0.06, R, L, R, 0, height, frame), box(L, R, 0.42, R, 0, height, frame)]
   for (let i = 0; i <= levels; i++) {
@@ -64,7 +72,6 @@ const MODELS: Record<string, Part[]> = {
   armchair: [box(L, R, L, R, 0.12, 0.42, 'cushion'), box(L, R, 0.28, R, 0.42, 0.8, 'cushion'), box(L, L + 0.16, L, R, 0.42, 0.6, 'cushion'), box(R - 0.16, R, L, R, 0.42, 0.6, 'cushion')],
   sofa: [box(L, R, L, R, 0.1, 0.42, 'cushion'), box(L, R, 0.24, R, 0.42, 0.8, 'cushion'), box(L, L + 0.08, L, R, 0.42, 0.62, 'cushion'), box(R - 0.08, R, L, R, 0.42, 0.62, 'cushion')],
   bench: [box(L, R, L, R, 0.4, 0.45, 'oak'), ...legs(0.4, 'steel', 0.04)],
-  lecture_seating_row: [box(L, R, L, 0.1, 0.42, 0.47, 'fabric'), box(L, R, 0.1, 0.22, 0.47, 0.82, 'fabric'), box(L, R, 0.3, R, 0.72, 0.76, 'oak'), box(L, R, 0.22, 0.3, 0, 0.76, 'steel')],
   desk: [box(L, R, L, R, 0.7, 0.74, 'oak'), box(L, L + 0.05, L + 0.05, R - 0.05, 0, 0.7, 'steel'), box(R - 0.05, R, L + 0.05, R - 0.05, 0, 0.7, 'steel'), box(L + 0.3, R - 0.3, 0.3, 0.36, 0.74, 1.05, 'screen')],
   reception_desk: [box(L, R, L, R, 0, 1.05, 'oak'), box(L, R, L - 0.02, L + 0.08, 1.0, 1.1, 'oak')],
   seminar_table: table(0.74),
@@ -84,16 +91,23 @@ const MODELS: Record<string, Part[]> = {
   single_bed: bed('cushion'),
   nightstand: cabinet(0.5, 'oak'),
   tv_stand: [...cabinet(0.5, 'oak'), box(L + 0.1, R - 0.1, 0.1, 0.18, 0.5, 1.1, 'screen')],
-  wardrobe: cabinet(1.9, 'wood'),
-  built_in_wardrobe: cabinet(2.0, 'linen'),
   bookshelf: shelves(1.8, 5, 'oak', 'books'),
   shelf: shelves(1.6, 4, 'wood', 'books'),
   paper_shelf: shelves(1.6, 5, 'steel', 'linen'),
   pallet_rack: shelves(2.2, 3, 'rack', 'cardboard'),
-  filing_cabinet: cabinet(1.2, 'steel'),
-  tool_cabinet: cabinet(1.1, 'red', 'steel'),
+  filing_cabinet: [...cabinet(1.2, 'steel'), ...drawers(0.04, 1.16, 4, 'dark')],
+  tool_cabinet: [
+    ...[[L + 0.04, L + 0.12], [R - 0.12, R - 0.04]].flatMap(([x0, x1]) => [box(x0, x1, L + 0.04, L + 0.14, 0, 0.1, 'dark'), box(x0, x1, R - 0.14, R - 0.04, 0, 0.1, 'dark')]),
+    box(L, R, L, R, 0.1, 1.05, 'red'),
+    box(L, R, L, R, 1.05, 1.1, 'steel'),
+    ...drawers(0.12, 1.03, 6),
+  ],
   chemical_cabinet: cabinet(1.8, 'rack'),
-  locker: cabinet(1.8, 'steel'),
+  locker: [
+    ...cabinet(1.8, 'steel'),
+    box(-0.01, 0.01, L - 0.01, L, 0.05, 1.75, 'dark'),
+    ...[L + 0.12, 0.12].flatMap((x) => [0, 1, 2].map((i) => box(x, x + 0.25, L - 0.01, L, 1.45 + i * 0.07, 1.47 + i * 0.07, 'dark'))),
+  ],
   shoe_cabinet: cabinet(1.0, 'oak'),
   coat_rack: [cyl(L + 0.2, R - 0.2, L + 0.2, R - 0.2, 0, 0.05, 'dark'), cyl(-0.05, 0.05, -0.05, 0.05, 0, 1.7, 'dark')],
   plant: [cyl(L + 0.2, R - 0.2, L + 0.2, R - 0.2, 0, 0.32, 'pot'), cyl(L, R, L, R, 0.32, 0.75, 'leaf'), cyl(L + 0.15, R - 0.15, L + 0.15, R - 0.15, 0.75, 1.0, 'leaf')],
@@ -102,7 +116,6 @@ const MODELS: Record<string, Part[]> = {
   sink: [box(L, R, L, R, 0, 0.78, 'linen'), box(L, R, L, R, 0.78, 0.86, 'ceramic')],
   shower: [box(L, R, L, R, 0, 0.08, 'ceramic'), box(L, L + 0.03, L, R, 0.08, 1.1, 'glass'), box(L, R, R - 0.03, R, 0.08, 1.1, 'glass')],
   bathtub: [box(L, R, L, R, 0, 0.56, 'ceramic'), box(L + 0.08, R - 0.08, L + 0.08, R - 0.08, 0.5, 0.57, 'glass')],
-  kitchen_counter: [box(L, R, L, R, 0, 0.86, 'linen'), box(L, R, L, R, 0.86, 0.9, 'dark')],
   serving_counter: [box(L, R, L, R, 0, 0.92, 'oak'), box(L, R, L, R, 0.92, 0.96, 'steel')],
   internal_stairs: [0, 1, 2, 3, 4, 5].map((i) => box(L, R, L + i / 6, L + (i + 1) / 6, 0, 0.18 * (i + 1), 'oak')),
   fridge: cabinet(1.8, 'ceramic'),
@@ -134,16 +147,176 @@ const MODELS: Record<string, Part[]> = {
   fume_hood: [box(L, R, L, R, 0, 0.9, 'ceramic'), box(L, R, 0.0, R, 0.9, 2.2, 'steel'), box(L + 0.05, R - 0.05, L, L + 0.04, 1.0, 1.7, 'glass')],
   pallet_jack: [box(L, R, -0.1, R, 0, 0.1, 'rack'), cyl(-0.06, 0.06, L, -0.3, 0.1, 1.1, 'dark')],
   forklift: [box(L, R, -0.1, R, 0, 1.0, 'rack'), box(L + 0.1, R - 0.1, -0.1, 0.35, 1.0, 2.1, 'glass'), box(L + 0.1, L + 0.2, L, -0.1, 0, 2.2, 'dark'), box(R - 0.2, R - 0.1, L, -0.1, 0, 2.2, 'dark')],
-  forklift_charging_station: [box(L, R, L, R, 0, 1.4, 'leaf')],
+  forklift_charging_station: [
+    box(L, R, -0.1, R, 0, 1.4, 'leaf'),
+    box(L, R, -0.1, R, 1.4, 1.45, 'dark'),
+    box(L + 0.2, R - 0.2, -0.12, -0.1, 0.9, 1.2, 'screen'),
+    box(R - 0.12, R - 0.04, L + 0.05, -0.1, 0.2, 0.3, 'dark'),
+    box(R - 0.14, R - 0.02, L, L + 0.08, 0, 0.3, 'dark'),
+  ],
   conveyor: [box(L, R, L, R, 0.7, 0.85, 'dark'), ...legs(0.7, 'steel')],
   '3d_printer': [box(L, R, L, R, 0, 0.6, 'dark'), box(L + 0.05, R - 0.05, L + 0.05, R - 0.05, 0.6, 1.2, 'glass')],
   hvac_unit: machine(2.0),
   boiler: [cyl(L, R, L, R, 0, 2.0, 'steel')],
   compressor: [box(L, R, L, R, 0, 0.9, 'rack'), cyl(L + 0.1, R - 0.1, L + 0.1, 0.0, 0.9, 1.3, 'steel')],
+  // production machines: the operator stands at the front (-z), service side and cabling at the back (+z)
+  drill_press: [
+    box(L + 0.1, R - 0.1, L + 0.05, R, 0, 0.08, 'dark'),
+    cyl(-0.09, 0.09, 0.15, 0.35, 0.08, 1.75, 'steel'),
+    box(L + 0.2, R - 0.2, L + 0.1, 0.15, 0.78, 0.84, 'dark'),
+    box(L + 0.12, R - 0.12, L + 0.08, R - 0.05, 1.35, 1.65, 'machine'),
+    cyl(-0.12, 0.12, 0.1, 0.38, 1.65, 1.85, 'red'),
+    cyl(-0.04, 0.04, -0.12, -0.04, 1.15, 1.35, 'steel'),
+  ],
+  milling_machine: [
+    box(L + 0.1, R - 0.1, 0.0, R, 0, 0.12, 'dark'),
+    box(L + 0.25, R - 0.25, 0.15, R - 0.05, 0.12, 1.75, 'machine'),
+    box(L + 0.3, R - 0.3, L + 0.1, 0.15, 0.45, 0.8, 'machine'),
+    box(L, R, L + 0.12, 0.05, 0.8, 0.88, 'steel'),
+    box(L + 0.3, R - 0.3, -0.25, R - 0.05, 1.75, 1.95, 'machine'),
+    box(L + 0.36, R - 0.36, -0.3, -0.1, 1.3, 1.75, 'machineTop'),
+    box(R - 0.12, R, L + 0.15, L + 0.25, 1.1, 1.5, 'screen'),
+  ],
+  cnc_mill: [
+    box(L, R, L, R, 0, 0.85, 'machine'),
+    box(L, R - 0.22, L, R - 0.05, 0.85, 2.2, 'machineTop'),
+    box(L + 0.1, R - 0.35, L - 0.015, L + 0.02, 1.0, 1.95, 'glass'),
+    box(L + 0.2, R - 0.45, -0.1, 0.25, 2.2, 2.55, 'machine'),
+    box(R - 0.2, R, L - 0.02, L + 0.15, 0.85, 1.75, 'dark'),
+    box(R - 0.18, R - 0.02, L - 0.03, L, 1.2, 1.65, 'screen'),
+    box(R - 0.22, R, 0.15, R, 0, 1.9, 'dark'),
+  ],
+  cnc_lathe: [
+    box(L, R, L + 0.05, R, 0, 0.8, 'machine'),
+    box(L + 0.12, R - 0.16, L + 0.05, R - 0.05, 0.8, 1.9, 'machineTop'),
+    box(L + 0.2, R - 0.3, L + 0.04, L + 0.07, 0.95, 1.7, 'glass'),
+    box(L + 0.12, L + 0.24, -0.1, 0.25, 1.0, 1.55, 'steel'),
+    box(R - 0.16, R, L, L + 0.25, 0.8, 1.8, 'dark'),
+    box(R - 0.14, R - 0.02, L - 0.01, L, 1.2, 1.6, 'screen'),
+    box(L, L + 0.12, L, L + 0.35, 0, 1.0, 'dark'),
+  ],
+  injection_moulding_machine: [
+    box(L, R, L + 0.1, R - 0.1, 0, 1.0, 'machine'),
+    box(L, -0.05, L + 0.08, R - 0.08, 1.0, 1.95, 'machineTop'),
+    box(L + 0.05, -0.1, L + 0.06, L + 0.09, 1.1, 1.8, 'glass'),
+    box(-0.05, R - 0.02, -0.12, 0.12, 1.15, 1.45, 'steel'),
+    box(0.05, 0.3, -0.18, 0.18, 1.0, 1.15, 'machine'),
+    cyl(0.12, 0.26, -0.22, 0.22, 1.45, 2.3, 'rack'),
+    box(-0.05, 0.08, L, L + 0.08, 1.0, 1.75, 'dark'),
+    box(-0.03, 0.06, L - 0.01, L, 1.25, 1.65, 'screen'),
+  ],
+  press_brake: [
+    box(L, L + 0.08, L + 0.1, R, 0, 2.7, 'machine'),
+    box(R - 0.08, R, L + 0.1, R, 0, 2.7, 'machine'),
+    box(L + 0.08, R - 0.08, L + 0.15, 0.1, 0, 0.95, 'machine'),
+    box(L + 0.05, R - 0.05, L + 0.18, 0.05, 0.95, 1.0, 'steel'),
+    box(L + 0.08, R - 0.08, L + 0.15, 0.15, 1.3, 2.4, 'machineTop'),
+    box(L + 0.06, R - 0.06, L + 0.18, 0.05, 1.1, 1.3, 'steel'),
+    cyl(L + 0.1, L + 0.2, 0.05, R - 0.05, 2.4, 2.85, 'rack'),
+    cyl(R - 0.2, R - 0.1, 0.05, R - 0.05, 2.4, 2.85, 'rack'),
+    box(R - 0.08, R, L, L + 0.1, 1.0, 1.7, 'dark'),
+  ],
+  coordinate_measuring_machine: [
+    box(L + 0.05, R - 0.05, L + 0.05, R - 0.05, 0, 0.5, 'machine'),
+    box(L, R, L, R, 0.5, 0.82, 'dark'),
+    box(L + 0.06, L + 0.14, -0.15, 0.15, 0.82, 2.05, 'ceramic'),
+    box(R - 0.14, R - 0.06, -0.15, 0.15, 0.82, 2.05, 'ceramic'),
+    box(L + 0.06, R - 0.06, -0.12, 0.12, 2.05, 2.25, 'ceramic'),
+    box(-0.06, 0.06, -0.1, 0.1, 1.4, 2.05, 'steel'),
+    box(-0.15, 0.1, -0.15, 0.15, 0.82, 0.92, 'steel'),
+  ],
+  laser_cutter: [
+    box(L, R, L, R, 0, 0.88, 'ceramic'),
+    box(L, R, L + 0.02, R, 0.88, 0.92, 'dark'),
+    box(L + 0.02, R - 0.22, L + 0.04, R - 0.02, 0.92, 1.12, 'rack'),
+    box(R - 0.2, R, L + 0.02, R, 0.92, 1.12, 'ceramic'),
+    box(R - 0.17, R - 0.03, L + 0.06, L + 0.3, 1.12, 1.13, 'screen'),
+  ],
+  waterjet_cutter: [
+    box(L, R - 0.14, L, R, 0, 0.85, 'steel'),
+    box(L + 0.03, R - 0.17, L + 0.03, R - 0.03, 0.85, 0.87, 'glass'),
+    box(L, L + 0.04, L, R, 0.85, 1.2, 'dark'),
+    box(R - 0.18, R - 0.14, L, R, 0.85, 1.2, 'dark'),
+    box(L, R - 0.14, -0.08, 0.08, 1.2, 1.4, 'rack'),
+    box(-0.12, -0.02, -0.12, 0.12, 0.95, 1.7, 'machineTop'),
+    box(R - 0.1, R, L, L + 0.12, 0, 1.6, 'dark'),
+    box(R - 0.09, R - 0.01, L - 0.01, L, 1.1, 1.5, 'screen'),
+  ],
+  robot_cell: [
+    // waist-high see-through safety fence on yellow posts with a top rail; the front has an opening for the operator
+    ...([[L, R, R - 0.01, R], [L, L + 0.01, L, R], [R - 0.01, R, L, R], [L, -0.15, L, L + 0.01], [0.15, R, L, L + 0.01]] as const).flatMap(([x0, x1, z0, z1]) => [
+      box(x0, x1, z0, z1, 0.1, 1.1, 'glass'),
+      box(x0, x1, z0, z1, 1.45, 1.5, 'rack'),
+    ]),
+    ...[[L, L], [R - 0.02, L], [L, R - 0.02], [R - 0.02, R - 0.02], [-0.17, L], [0.15, L], [L, -0.01], [R - 0.02, -0.01], [-0.01, R - 0.02]].map(([x, z]) => box(x, x + 0.02, z, z + 0.02, 0, 1.5, 'rack')),
+    // the robot: dark plinth, orange turret, upper arm, forearm reaching over the work table, dark gripper
+    box(-0.1, 0.1, 0.05, 0.25, 0, 0.3, 'dark'),
+    cyl(-0.08, 0.08, 0.07, 0.23, 0.3, 0.7, 'rack'),
+    box(-0.04, 0.04, 0.1, 0.2, 0.7, 1.75, 'rack'),
+    box(-0.035, 0.035, -0.22, 0.2, 1.6, 1.8, 'rack'),
+    box(-0.04, 0.04, -0.28, -0.2, 1.15, 1.75, 'dark'),
+    box(-0.2, 0.2, -0.4, -0.16, 0, 0.85, 'steel'),
+    box(-0.08, 0.06, -0.34, -0.22, 0.85, 1.0, 'cardboard'),
+    box(R - 0.2, R - 0.05, 0.3, R - 0.05, 0, 1.7, 'dark'),
+  ],
+  curing_oven: [
+    box(L, R, L, R, 0, 0.12, 'dark'),
+    box(L, R, L + 0.04, R, 0.12, 1.95, 'steel'),
+    box(L + 0.05, R - 0.22, L, L + 0.04, 0.2, 1.85, 'metal'),
+    box(L + 0.2, R - 0.4, L - 0.01, L, 1.1, 1.5, 'screen'),
+    box(R - 0.18, R - 0.04, L - 0.01, L + 0.04, 1.3, 1.75, 'dark'),
+    box(R - 0.12, R - 0.06, L - 0.03, L, 0.8, 1.1, 'steel'),
+  ],
+  industrial_3d_printer: [
+    box(L, R, L, R, 0, 0.75, 'ceramic'),
+    box(L, R, L + 0.04, R, 0.75, 1.75, 'dark'),
+    box(L + 0.06, R - 0.3, L, L + 0.04, 0.85, 1.65, 'glass'),
+    box(R - 0.26, R - 0.06, L - 0.01, L + 0.04, 1.2, 1.5, 'screen'),
+    box(L, R, L, R, 1.75, 1.9, 'ceramic'),
+  ],
+  powder_station: [
+    box(L, R, L, R, 0, 0.85, 'ceramic'),
+    box(L, R, L, R, 0.85, 0.9, 'steel'),
+    box(L + 0.03, R - 0.03, -0.1, R - 0.02, 0.9, 1.7, 'glass'),
+    box(L + 0.03, R - 0.03, R - 0.06, R - 0.02, 0.9, 1.7, 'dark'),
+    cyl(L + 0.2, L + 0.36, -0.12, -0.08, 1.15, 1.4, 'dark'),
+    cyl(R - 0.36, R - 0.2, -0.12, -0.08, 1.15, 1.4, 'dark'),
+    box(L, R, -0.12, R, 1.7, 1.85, 'steel'),
+  ],
 }
 
-/** Model for a piece: its type's model, else a generic block by category (machines get a control panel). */
-function model(asset: PlanAsset): Part[] {
+/** Width of one seat or one cabinet door/module. The kit's own pieces fix it: a chair is 0.50 m wide, and a
+ * wardrobe (1.20 m), stove, dishwasher and fridge (0.60 m) are whole multiples of 0.60 m. */
+const SEAT_M = 0.5
+const MODULE_M = 0.6
+const count = (width: number, unit: number) => Math.max(1, Math.round(width / unit))
+/** Dark seams on the front (-z) between `n` equal doors or modules, from y0 to y1; `width` turns 1 cm into frame units. */
+const seams = (width: number, n: number, y0: number, y1: number) =>
+  Array.from({ length: n - 1 }, (_, i) => L + (i + 1) / n).map((x) => box(x - 0.005 / width, x + 0.005 / width, L - 0.01, L, y0, y1, 'dark'))
+
+/** Pieces whose length in the data varies (or spans several units): their detail is laid out from the real width
+ * (metres, after placement) instead of being stretched with the footprint. */
+const SIZED: Record<string, (width: number) => Part[]> = {
+  // one seat and back per chair width, on a shared rail with the writing tablet of the row behind
+  lecture_seating_row: (width) => {
+    const n = count(width, SEAT_M)
+    const gap = 0.02 / width
+    const seats = Array.from({ length: n }, (_, i) => [L + i / n + gap, L + (i + 1) / n - gap]).flatMap(([x0, x1]) => [
+      box(x0, x1, L, 0.1, 0.42, 0.47, 'fabric'),
+      box(x0, x1, 0.1, 0.22, 0.47, 0.82, 'fabric'),
+    ])
+    return [...seats, box(L, R, 0.3, R, 0.72, 0.76, 'oak'), box(L, R, 0.22, 0.3, 0, 0.76, 'steel')]
+  },
+  kitchen_counter: (width) => [box(L, R, L, R, 0, 0.86, 'linen'), box(L, R, L, R, 0.86, 0.9, 'dark'), ...seams(width, count(width, MODULE_M), 0.08, 0.84)],
+  wardrobe: (width) => [...cabinet(1.9, 'wood'), ...seams(width, count(width, MODULE_M), 0.05, 1.85)],
+  built_in_wardrobe: (width) => [...cabinet(2.0, 'linen'), ...seams(width, count(width, MODULE_M), 0.05, 1.95)],
+}
+
+/** Model for a piece of `width` metres: its type's model, else a generic block by category (machines get a
+ * control panel). */
+function model(asset: PlanAsset, width: number): Part[] {
+  const sized = SIZED[asset.type]
+  if (sized) return sized(width)
   const known = MODELS[asset.type]
   if (known) return known
   if (asset.category === 'machine') return machine(1.9)
@@ -259,7 +432,7 @@ export function furnitureGeometry(
     const depth = Math.max(0.15, fit.depth - 0.03)
     matrix.compose(new THREE.Vector3(X, 0, Z), new THREE.Quaternion().setFromAxisAngle(up, fit.angle), new THREE.Vector3(width, 1, depth))
     if (!OFF_FLOOR.has(asset.type)) contactShadow(shadow, X, Z, fit.angle, width, depth)
-    for (const part of model(asset)) {
+    for (const part of model(asset, width)) {
       color.set(colors[part.m])
       const corners = part.shape === 'box' ? boxTriangles(part) : prismTriangles(part)
       for (const [x, y, z] of corners) {

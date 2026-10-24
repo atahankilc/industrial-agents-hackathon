@@ -127,13 +127,6 @@ def test_draft_of_saved_building(client):
     assert again.json()["draft"]["base"] == saved
 
 
-def test_points_endpoint(client):
-    draft_id = new_draft(client)["draft"]["id"]
-    response = client.get(f"/drafts/{draft_id}/points")
-    assert response.status_code == 200
-    assert "points" in response.json()
-
-
 def test_draft_survives_a_new_store(client, tmp_path):
     draft_id = new_draft(client)["draft"]["id"]
     fresh = DraftStore(tmp_path, dict(backend_app.store.catalogue))

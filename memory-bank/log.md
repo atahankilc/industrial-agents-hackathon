@@ -10,6 +10,79 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Pulled `origin/dev` twice (kit 1.1.0 route model, Builder Edit mode) into the uncommitted HUD work
+
+- **Did:** stash → fast-forward → stash apply, twice (26b908f, then b352e83). Text conflicts: `log.md` (all entries
+  kept, by time), `backend/app.py` (docstring, imports: Builder/drafts + `devtools`; `/buildings` keeps
+  `drafts.refresh` and `location`), `Root.tsx` (`go(…, landing)` + `onOpen`), `BuildingScreen.tsx` ("Edit this
+  building" moved into the "…" menu; the old round Fit/Theme buttons stay replaced by the menu), `commands.md`.
+  Semantic conflicts: `core/routeline.py` used the deleted `core/geodesic.py` → its in-space walk now uses
+  `core/building_map.py`'s `outline` / `door_landing` / `visibility_matrix` (same 15 cm clearance as the route
+  model); `EditMode` renders `PlanView` without the now-required `story` → passes `EMPTY_STORY`; the Builder's
+  `GET /drafts/{id}/points` (+ `api.draftPoints`, `test_points_endpoint`) dropped: `core/pointcloud.py` is removed
+  here and the endpoint was unused by the UI.
+- **Checked:** `uv run pytest` 753 passed, 2 skipped; `npm run build` passes; check_links OK. Edit mode not looked at
+  in the browser.
+- **Changed docs:** commands.md (drafts rows, no `/points`), visualization.md (route line walk).
+
+## 2026-10-25 01:30 — Building screen HUD, step 5: live tracking (no positioning hardware)
+
+- **Did:** `building/tracking.ts` maps metres walked to a point on the route line (walking legs spread over the line
+  by their metres, rides take none) plus the direction ahead and the step. `building/useTracking.ts` does dead
+  reckoning between fixes: a step = an acceleration peak (DeviceMotion; iOS asks from the Track tap), 0.7 m stride
+  (UNVERIFIED, not calibrated), never counted past a ride (stairs or lift are confirmed with "next"). Fixes are the
+  start, a door you confirm (›, "next", a tapped segment), or a room of the route the Guide highlights (e.g. "Where
+  am I?" from the camera: the route stays, you are where it enters that room). Past 30 counted metres since a fix
+  the position is "unsure" (amber, asks for a sign). `?walk=sim` walks at a steady pace for demos and checks.
+  On the plan: a "you" marker (dot, accuracy ring, cone towards the route ahead) in `dev/StoryLayer.tsx`'s DOM
+  markers via `story.you` (set by BuildingScreen, `PlanView.tsx` untouched). The card counts the metres down and
+  says where the position comes from and how old it is; Track toggle on the card. Prev/next chevrons now show only
+  in the camera view (on the plan: tap the card, or a segment).
+- **Checked:** `tsc` + oxlint clean for src/building; screenshots of a simulated walk: start (green, 4 s ago),
+  after 40 s (step 3 by counting, amber "Unsure: 50 m counted"), and a tapped step 4 (green, door fix, just now).
+  Not checked on a real phone; the camera fix path needs the real Claude Guide (offline can't read photos).
+- **Next:** the plan doesn't follow the dot yet (needs PlanView's camera rig); calibrate the stride.
+
+## 2026-10-25 00:50 — Building screen HUD, step 4: walking with the camera
+
+- **Did:** `building/CameraWalk.tsx` (full-screen rear camera, floor chevrons that bend with the step's turn, the
+  next room + metres floating ahead, the next-move card inline at the bottom, the Core, "Where am I?"). It shares
+  the step index with the plan's card, so card, camera and voice can't disagree. In camera mode `BuildingScreen`'s
+  voice handler takes "next / back / repeat" (EN/DE/TR words, as in the old CameraGuide) and sends anything else to
+  the Guide with the current frame (`building/frame.ts`, `chatStream` `photo`); each step is read aloud unless muted.
+  A "Camera view checked · N s ago" chip appears after a frame was sent. Entry: the "Camera" button on the card.
+  The old `ui/CameraGuide.tsx` (not wired in, and it uses the anchor-based leg turns) is left unused.
+- **Checked:** `tsc` + oxlint clean for src/building; screenshots with a stand-in camera feed (a canvas stream of
+  the corridor drawing) on a phone (step 1, step 5 turn left) and desktop. The offline Guide can't read photos
+  ("Where am I?" answers "Sorry, I can only repeat…"); that needs the real Claude Guide.
+- **Next:** step 5 (live tracking) needs a positioning plan; highlight the current step on the plan (StoryLayer).
+
+## 2026-10-25 00:20 — Building screen HUD, step 3: the next-move card
+
+- **Did:** Found that a route event's `legs` turn at the room anchor (`route_legs`) while the Guide's text turns
+  where a person makes the turn (`guidance_steps`): leg "Corridor 0130" says right, the Guide says "Turn left …
+  into Corridor 0110C". So the card uses the Guide's steps: `core/directions.guidance()` now returns them as data
+  ({kind, turn, metres, to, floor, door, landmark, via, via_kind, up, floors, text}), `guidance_steps` formats from
+  it, and `backend/sessions.enrich` adds `steps` to every route event. Frontend: `GuideStep` type, `StoryRoute.steps`
+  and `profile`, `building/NextMove.tsx` (arrow, metres, "Turn left into Corridor 0110C · by the fire
+  extinguisher", one segment per step; tap / ‹ › / segment to move; ✕ ends the directions; the floor follows the
+  step). The caption leaves out the numbered lines of the answer that drew the route.
+- **Checked:** full pytest 328 passed (new: `test_guidance_is_the_same_steps_as_data`,
+  `test_route_event_has_the_guides_steps`); `tsc` clean; screenshots of step 1, 5 (turn left) and 7 (arrived) on
+  a phone and the desktop layout.
+- **Changed docs:** `docs/guides/commands.md` (`/events` route fields).
+- **Next:** highlight the current step's stretch on the plan (StoryLayer); step 4, camera wayfinding restyle.
+
+## 2026-10-24 23:50 — Building screen HUD, step 2: the Guide's work trail
+
+- **Did:** The live Guide message now keeps the streamed tool steps (`addStep`/`settle` from `ui/guideSteps.ts`,
+  the labels from `stepLabel`) instead of only the latest label. While it works, `Guide.tsx` shows them as a mono
+  trail: ✓ done, ✕ "no result" (crossed out), a spinner plus seconds on the running one. After the answer the
+  trail folds into one "✓ N checks" button that opens it again.
+- **Checked:** `tsc` clean; screenshots of a slowed, replayed 4-step stream (dark + light; the offline Guide is too
+  fast to catch mid-run) and the folded trail after a real offline answer.
+- **Next:** step 3, the next-move card for routes.
+
 ## 2026-10-24 23:50 — Merge `origin/dev` (kit 1.1.0 route model) into `2-builder-edit`
 
 - **Did:** merged `origin/dev` at `26b908f` (kit 1.1.0 answers + route-model port) into `2-builder-edit`. Only
@@ -17,6 +90,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   incl. `docs/guides/commands.md` and `project-state.md`. Merged tree: pytest 742 passed, 2 skipped; frontend build
   ok; links ok. Builder M3 pushed earlier; its branch preview is behind Vercel Authentication (bypass secret pending).
 - **Next:** push to `origin/dev` (fast-forward) when Utku says so; then Builder project 2.
+
 
 ## 2026-10-24 — Kit 1.1.0 route model ported (D-014)
 
@@ -33,6 +107,39 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Numbers:** warm-up routes 1,338/1,338 exact (paths too), `validate_warmup` 99.53 % from text, same as before 1.1.0 (misses = duplicate
   names), solvers 655/655, dev benchmark 138/138, `uv run pytest` green.
 - **Next:** push `dev`, merge into the feature branches; Q-014 (3), (4).
+
+## 2026-10-24 23:30 — Building screen HUD, step 1: voice-first Guide ("Quiet HUD")
+
+- **Did:** Showed Atahan two rounds of UI mockups (local galleries, not in the repo). He rejected the Apple-Maps-style
+  chrome and approved round 2: an AI-centric, dark "Quiet HUD". Step 1 of 5 is now in the app: `building/Core.tsx`
+  (the voice control: a ring with ticks that follow `useVoice().level`; tap or hold to talk, tap to stop speaking),
+  `building/Guide.tsx` (captions instead of a chat thread: live transcript, the current Guide step, the reply; a
+  greeting plus 3 intents; typing as a fallback; the room card), and `building/hud.css` (glass tokens, light + dark).
+  `BuildingScreen` has a new top line (back, name, floor chip popover, "…" menu with fit / theme / dev tools) and uses
+  `useVoice` (hands-free off) instead of `hearOnce`/`say`. `Conversation.tsx` was removed. Geist font is loaded in
+  `index.html`. The theme defaults to dark when nothing is stored. `PlanView.tsx` was not touched.
+- **Checked:** `tsc` clean; oxlint clean for the changed files; screenshots of idle, typed route answer, floor popover,
+  menu (phone) and desktop.
+- **Next:** step 2, the agent's work trail (live steps as "Found … ✓" lines); step 3, the next-move card for routes;
+  step 4, camera wayfinding restyle; step 5 (live tracking) needs a positioning plan first.
+
+## 2026-10-24 23:00 — No paper-thin walls where OSM rooms almost touch
+
+- **Did:** `core/floorplan.py` `wall_solids`: rooms closer than `TOUCH_M` (3 cm) now get the 10 cm partition too.
+  Before, the wall fell from 10 cm to the gap's few mm wherever the gap exceeded the 1 cm merge (FMI Bistro /
+  MI Magistrale in `dev/osm-way27917482`, 0–0.9 cm over ~5 m). Test: `test_rooms_that_almost_touch_keep_a_full_partition`.
+- **Learned:** gaps under 10 cm: OSM almost all drift ≤ 2.5 cm; Swiss Dwellings has real 3–9 cm drawn walls, so the
+  threshold stays at 3 cm (a 10 cm one made Swiss walls cover bathrooms).
+- **Next:** nothing open.
+
+## 2026-10-24 22:30 — Furniture laid out from the real width
+
+- **Did:** Scanned all assets: the kit has no heights; `generated` types have one fixed size each, `dataset` (Swiss)
+  fixtures vary. `furniture.ts` now draws lecture seating rows as one seat per 0.50 m and kitchen counters /
+  wardrobes / built-in wardrobes with a seam per 0.60 m module, from the placed width.
+- **Learned:** kitchen sinks are almost absent (8) — counters carry them implicitly, position unknown, so not drawn.
+  `internal_stairs` sizes include junk (0.17×0.06 m) and no ascent direction. SVG/PNG floor files add nothing.
+- **Next:** check the look in the app (browser extension was not connected).
 
 ## 2026-10-24 — Kit 1.1.0: corrected answers (new route model)
 
@@ -81,6 +188,32 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   docs/README.md, project-state.
 - **Next:** Task 6 — deploy, public smoke test.
 
+## 2026-10-24 22:10 — No phantom walls around nested open spaces
+
+- **Did:** `core/floorplan.py` `open_zones`: an open space (`hall`/`corridor`) mapped inside a bigger space gets no
+  wall where its outline runs through that space (wall solids and `walls` segments); nested stairwells, lifts and
+  rooms keep theirs. Frontend lifts a nested space's floor fill 2 mm (`NESTED_LIFT_M`) so coplanar fills don't
+  z-fight. Tests in `tests/test_floorplan.py`.
+- **Then:** overlaps are striped: `export_plan` → `overlaps` per floor (`core/floorplan.py` `overlaps`: each pairwise
+  overlap ≥ 0.5 m² as 0.5 m diagonal stripes, owners alternating; stairwells/lifts left out as shafts). Frontend
+  draws them in the fill geometry; `ranges` is now a list per space so selection recolours a space's stripes too.
+- **Then:** open stairs: a stair with no door, only doorless openings (`is_open`), counts as open like a lobby (no
+  wall through the space holding it). Nested stairs in corridors/lobbies are all linked by one *synthetic* 0.9 m
+  opening (OSM maps no door there); walled stairwells (e.g. in Festsaal, osm-way13507441) have a door. Lifts always
+  keep their walls.
+- **Learned:** OSM maps Lobby 0.22 (osm-way27917482, G) as a zone inside the Friedrich L. Bauer Hörsaal; its curved
+  edge drew a wall through a seating row. Nesting is common in the data (stairs/lifts in corridors: real walls);
+  only 3 open-in-bigger cases (that lobby, Lobby 0.12/0.13 in Corridor 0.09 of osm-way360544293).
+
+## 2026-10-24 21:45 — Dev panel merged into the app
+
+- **Did:** moved the dev tool into `frontend/app/src/dev/` (hooks in `PlanView` + `BuildingScreen`; shown in the
+  Vite dev server or with `?dev`) and its endpoints into `backend/devtools.py` (mounted in `backend/app.py`);
+  route events now carry `line` from `MapView.enrich`. Removed `frontend/devtool/` and `backend/dev_app.py` (no
+  more :5190 / :8766). `tests/test_devtools.py`. Coordinated file ownership with the parallel map-landing session.
+- **Changed docs:** [commands.md](../docs/guides/commands.md#dev-panel),
+  [visualization.md](../docs/product/visualization.md#dev-panel).
+
 ## 2026-10-24 21:38 — Edit mode restyled in the new UI's design
 
 - **Did:** pushed `2-builder-edit` to origin (Utku). Restyled the Edit mode to Atahan's building-screen design
@@ -90,6 +223,16 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   save sheet as `--surface` cards with `--shadow-float`; user bubbles in the accent; `--danger` for problems.
   `edit.css` rewritten on the screen tokens. Headless Chrome flow unchanged (0 → 1 → 2 → 3 changes, no errors).
 - **Next:** push this commit too if Utku wants; then project 2 (build from PDF / image) or polish.
+
+## 2026-10-24 21:25 — Dev tool only (concepts dropped)
+
+- **Did:** Atahan didn't want the less colourful plan: dropped all visual concepts. `frontend/concepts/` →
+  `frontend/devtool/`, re-synced from the app (map landing included); the dev panel rewritten for ease of use
+  (place pickers, use-selected, plain-language results and impact, lifts/stairs list, examples, log with re-run);
+  answer overlays kept but drawn on top of the plan's own colours (`src/dev/StoryLayer.tsx`).
+- **Learned:** `compare_routes` defaults to the last route's start, which can be `outside` and then fails; the
+  panel measures impact from the entrance room (`/dev/.../state` `entrance_space`).
+- **Changed docs:** commands.md, visualization.md (later replaced by the merged dev panel, see the entry above).
 
 ## 2026-10-24 21:22 — Builder M2 review fixes; M3 plan for Atahan
 
@@ -131,6 +274,18 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Learned:** example numbers in an offline help text trip the grounding check — keep canned text digit-free.
 - **Decided (Utku):** M3 goes to Atahan; we write its plan only.
 - **Next:** Task 5 — Builder chat, ghost overlay, Apply / Cancel in the Edit mode; live check.
+
+## 2026-10-24 20:55 — Concepts port :5190 + dev panel
+
+- **Did:** `frontend/concepts/` (copy of the app on :5190) with four visual concepts behind `?c=` flags — answer
+  on the plan (focus + rest, route band with floor-change badges, closure hatch, lost access), corridors as
+  streets, semantic zoom, quiet furniture — and a dev panel that runs every Guide tool by hand. `backend/dev_app.py`
+  (:8766, offline LLM, no persistence) adds `/dev/*` and route `line`s; `core/routeline.py` + `tests/test_routeline.py`.
+  Nothing in `frontend/app/` or the existing backend files changed.
+- **Learned:** the route model's anchor walk detours to each corridor's centre; drawing door to door where the
+  segment stays inside the space reads right. Fit zoom ranges ~20–37 px/m across buildings, so LOD tiers at 8 / 50.
+  Another session was editing `frontend/app/` at the same time: the concepts copy is a snapshot (~20:35).
+- **Changed docs:** commands.md, visualization.md (sections replaced by the dev tool, see the entry above).
 
 ## 2026-10-24 20:42 — Builder M2 Tasks 1–2: move_edge, Builder tools
 
@@ -218,6 +373,83 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   Swiss / ResPlan have pre-existing overlaps and doors off the shared wall, Swiss walls up to ~2 m thick → the
   validator must separate pre-existing from newly introduced issues, and snapping must tolerate thick walls.
 - **Next:** M1 Task 2 (`move_vertex`, `set_polygon` with neighbour fitting).
+
+## 2026-10-24 — Map landing + list view; stacked floors at real height; outside view tried and dropped
+
+- **Did:** "All floors" stacks floors at their real `elevation_m` (was a fixed 5.5 m gap). Built and then, on
+  Atahan's call, removed an outside "shell" view of the closed building (glass ribbon, roofs, gallery storeys).
+  New landing: `frontend/app/src/map/MapLanding.tsx` (MapLibre `maplibre-gl` 5.24, OpenFreeMap positron/dark,
+  pins as map layers, panel list) for the 17 buildings with a position; `?view=list` = the search, now with a "No
+  location" filter and "on map" tags; back pill returns to map or list. `GET /buildings` gains `location` from new
+  `backend/locations.json` (from `.viz-archive/app-public/map/twins.json`). `export_plan` gains `outlines` (per
+  floor, for the stacked view's floor-name signs, whose author is not this session). Tests: `test_backend.py`
+  (location), `test_floorplan.py` (outlines). Then 3D: the map is tilted and extrudes every OSM building from the
+  OpenFreeMap tiles' `render_height` (no download, no key).
+- **Learned:** the kit has no windows anywhere (openings are door / opening / entrance). Swiss Dwellings and
+  ResPlan sources do have windows, but Atahan does not want downloads. Only the 17 OSM buildings can be placed on a
+  map. The data gives every floor one storey height; a double-height hall shows only as a gallery floor (StudiTUM
+  floor 1 covers ~200 of ~450 m²). MapLibre's `isStyleLoaded()` stays false while tiles load, after `style.load`
+  has fired: add layers with try/retry on `idle`.
+- **Changed docs:** [visualization.md](../docs/product/visualization.md), NOTICE.md (locations.json, ODbL).
+- **Next:** none planned for the map; possible: show a building's outline on the map, mobile check of the panel.
+
+## 2026-10-24 — Plan view: models for every machine type
+
+- **Learned:** 13 of the 96 asset types in `data/` had no model in `frontend/app/src/plan/furniture.ts` and fell
+  back to one generic grey block: all production machines (drill_press 78, industrial_3d_printer 71, cnc_mill 57,
+  injection_moulding_machine 50, cnc_lathe 47, milling_machine 46, press_brake 41, coordinate_measuring_machine 26,
+  laser_cutter 23, robot_cell 16, waterjet_cutter 12, curing_oven 8) plus powder_station 6.
+- **Did:** rough box/prism models for all 13 (front = -z: glass doors, control pendants with screens; robot cell =
+  waist-high glass fence on yellow posts around an orange arm and work table). Plain cubes got detail:
+  tool_cabinet (drawers, casters), filing_cabinet (drawers), locker (door split, vents), forklift_charging_station
+  (screen, cable). Checked in headless Chromium on `dev/proc-factory-dev-005` and `-008`; `npm run build` passes.
+- **Did (openings):** doorless `kind == "opening"` (2,155 in `data/`, median 2.5 m; mostly kitchen↔living room,
+  corridor↔living room, stairwell↔stairwell, corridor↔corridor) no longer get the blue threshold strip that made
+  corridors look outlined: cut into a wall (a wall within `WALL_M` past either end) → dashed hairline across the
+  gap; an open-plan split → nothing; closed → red strip as before (`frontend/app/src/plan/geometry.ts`).
+- **Next:** the user reviews the look; cnc_mill still reads as a big box from its back side.
+
+## 2026-10-24 — Plan view: doors as threshold strips, no leaves
+
+- **Learned:** `building.json` has no swing or hinge data (openings carry only `id, floor_id, space_ids, kind,
+  position, width_m, step_free, synthetic`). The old swing went into `space_ids[0]`, whose order is arbitrary
+  (Swiss room→corridor 3,714 vs corridor→room 3,381). A convention-based swing was tried and rejected by Atahan:
+  invented swings mean nothing.
+- **Did:** door leaves and swing arcs removed. Every opening is a flat threshold strip across the wall gap, as wide
+  as the door: soft blue (`palette.door`), entrances accent blue (`palette.entrance`), doors in `plan.closed` red.
+  `core/floorplan.py` `door_geometry` returns only `angle` + `space` (no `side`); `wall_edge` helper shared with the
+  wall cuts.
+- **Changed docs:** visualization.md, project-state.md.
+
+## 2026-10-24 — Point cloud removed entirely
+
+- **Learned:** opening a building was slow because `MapView.plan` ran `export_points` (~180 k sampled points,
+  0.1–1.3 s) only to read its `center`, on every new session; the plan itself took 0.01–0.05 s then.
+- **Did:** deleted `core/pointcloud.py`, `tests/test_pointcloud.py`, `GET /sessions/{id}/points`, route `vertices`
+  in `/chat` and `/events` (nothing read them), the unused `frontend/app/src/App.tsx` and the `src/scene/`
+  placeholder, `PointCloud` / `api.points` in `api.ts`. `door_gaps`, `sorted_floors`, `floor_indices`,
+  `SKIPPED_TYPES` moved into `core/floorplan.py`; `export_plan(building_map)` computes `center` from the space bounds
+  (optional argument kept). `MapView` caches only the plan; `enrich` adds `legs` + `space_ids`. Tests rewritten on
+  `/plan` (`test_plan_export`, `test_plan_is_gzipped`, `test_route_event_has_legs`,
+  `test_change_event_has_space_ids_and_plan_update`). /plan now 0.02–0.21 s (wall solids dominate).
+- **Changed docs:** visualization.md, commands.md (+ /plan row), docs/README.md, CLAUDE.md doc map, project-state.md.
+- **Next:** a route line on the plan needs a plan-frame polyline (`legs` has none).
+
+## 2026-10-24 — Plan view: solid walls at their real thickness
+
+- **Learned:** `building.json` has no walls, only room outlines. The gap between facing edges of neighbouring rooms
+  is the wall: procedural 0.00 m (100% of facing edge length), OSM 0.00 m (96%), ResPlan mostly 0.15–0.20 m, Swiss
+  0.10–0.50 m. Swiss gaps: same apartment median 0.14 m, between apartments 0.22 m, to corridor/stair 0.20 m. The
+  plan drew a 0.16 m box on every room edge, so drawn sources showed two parallel walls.
+- **Did:** `core/floorplan.py` `wall_solids` → plan field `wall_solids` (per floor, `{kind, rings}`): gaps between
+  rooms (closed up to 0.6 m) + a 0.10 m partition where rooms touch (0.20 m round stairs/lifts) + a 0.25 m exterior
+  shell outside the outline, doorways cut out, snapped to the mm grid (all 280 buildings valid, slowest 1.8 s,
+  cached per session). Kind by morphological opening: `structural` ≥ 0.18 m, else `partition`; `exterior` shell.
+  `frontend/app/src/plan/geometry.ts` extrudes them (tone per kind, `WALL_TONE`); room outlines still drive ghost
+  lines and contact shadows. Tests: `tests/test_floorplan.py` (3). Checked in headless Chrome on swiss-1075 and
+  proc-campus-dev-001. Display only — solvers and route model unchanged.
+- **Next:** OSM/procedural thickness is synthetic; exterior thickness of drawn sources is unknown (0.25 m guess).
+
 ## 2026-10-24 — Directions: turns, landmarks, rounded metres
 
 - **Did:** `core/directions.py`: `about_m` (whole metres < 10, steps of 5 < 100, then 10, half up), `landmark` (the

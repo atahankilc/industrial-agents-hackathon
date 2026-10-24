@@ -2,27 +2,16 @@
 
 const BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
-export type Building = { id: string; split: string; name: string | null }
-
-export type Space = { id: string; name: string; ref: string; floor: number; anchor: [number, number] }
-export type Floor = { level: number; name: string; elevation_m: number }
-export type Connector = { id: string; name: string; kind: string; spaces: number[] }
-
-/** core/pointcloud.py export: viewer frame is y-up, building (x, y, elevation) → (x, elevation, -y), centred. */
-export type PointCloud = {
-  building: { id: string; name: string; source: string; attribution: string }
-  kinds: string[]
-  floors: Floor[]
-  spaces: Space[]
-  connectors?: Connector[]
-  center: [number, number]
-  count: number
-  points: { position_cm: number[]; kind: number[]; floor: number[]; space: number[]; reveal: number[] }
-  closed?: string[]
+/** `location`: real position (centre of the OSM outline) for the kit's OpenStreetMap buildings, else null. */
+export type Building = {
+  id: string
+  split: string
+  name: string | null
+  location: { lat: number; lon: number; address: string | null } | null
 }
 
-/** core/floorplan.py export: building metres (x right, y up). `center` maps viewer-frame route vertices back:
- * x = vx + center[0], y = -(vz + center[1]). */
+/** core/floorplan.py export: building metres (x right, y up). `center` centres the y-up scene:
+ * X = x - center[0], Z = -y - center[1]. */
 export type PlanFloor = { id: string; level: number; name: string; elevation_m: number; height_m: number }
 export type PlanSpace = {
   id: string
@@ -45,9 +34,10 @@ export type PlanOpening = {
   step_free: boolean
   spaces: string[]
   entrance: boolean
+  /** wall direction (degrees) at the opening; the data has no swing side or hinge */
   angle: number
+  /** first drawn space (an entrance's indoor space) */
   space: string | null
-  side: 1 | -1
 }
 export type PlanConnector = { id: string; name: string; kind: 'stairs' | 'lift'; spaces: string[]; step_free: boolean }
 export type PlanAsset = {
@@ -61,6 +51,8 @@ export type PlanAsset = {
   size: [number, number]
   rotation_deg: number
 }
+/** A solid wall piece, outline first then holes (core/floorplan.py `wall_solids`). */
+export type PlanWall = { kind: 'exterior' | 'structural' | 'partition'; rings: [number, number][][] }
 export type Plan = {
   building: { id: string; name: string; source: string; attribution: string }
   floors: PlanFloor[]
@@ -68,6 +60,11 @@ export type Plan = {
   center: [number, number]
   spaces: PlanSpace[]
   walls: [number, number, number, number][][]
+  wall_solids: PlanWall[][]
+  /** per floor: the rooms with the wall gaps closed, polygons as [outer, ...holes] (core/floorplan.py `outline`) */
+  outlines?: [number, number][][][][]
+  /** per floor: where two spaces overlap, diagonal stripes owned alternately by each (core/floorplan.py `overlaps`) */
+  overlaps?: { space: string; rings: [number, number][][] }[][]
   openings: PlanOpening[]
   connectors: PlanConnector[]
   assets: PlanAsset[]
@@ -89,14 +86,32 @@ export type RouteLeg = {
   floors?: number
 }
 
+/** One followable step as the Guide says it (core/directions.guidance): the turn where a person makes it, rounded
+ * metres, the door and a landmark next to it; `text` is the Guide's sentence for it. */
+export type GuideStep = {
+  kind: RouteLeg['kind']
+  turn: RouteLeg['turn']
+  metres: number
+  to: string
+  to_id: string
+  floor: string | null
+  door?: string
+  landmark?: string | null
+  via?: string
+  via_kind?: string
+  up?: boolean
+  floors?: number
+  text: string
+}
+
 export type RouteEvent = {
   type: 'route'
   space_path: string[]
   element_path?: string[]
   length_m?: number
   profile?: string
-  vertices?: [number, number, number, number][] // x, y, z, floor index (viewer frame)
   legs?: RouteLeg[]
+  steps?: GuideStep[]
 }
 export type HighlightEvent = { type: 'highlight'; space_ids: string[]; style?: 'lost_access' }
 export type ChangeEvent = { type: 'change'; summary: string; targets: string[]; space_ids?: string[] }
@@ -188,14 +203,12 @@ export const api = {
   session: (id: string) => request<SessionSummary>(`/sessions/${id}`),
   switchBuilding: (id: string, building: string) =>
     request<SessionSummary>(`/sessions/${id}/building`, { method: 'PUT', body: JSON.stringify({ building }) }),
-  points: (id: string) => request<PointCloud>(`/sessions/${id}/points`),
   plan: (id: string) => request<Plan>(`/sessions/${id}/plan`),
   chat: (id: string, message: string) =>
     request<ChatReply>('/chat', { method: 'POST', body: JSON.stringify({ session_id: id, message }) }),
   chatStream,
   createDraft: (base: string) => request<DraftState>('/drafts', { method: 'POST', body: JSON.stringify({ base }) }),
   draft: (id: string) => request<DraftState>(`/drafts/${id}`),
-  draftPoints: (id: string) => request<PointCloud>(`/drafts/${id}/points`),
   draftPlan: (id: string) => request<Plan>(`/drafts/${id}/plan`),
   applyOps: (id: string, ops: Op[]) =>
     request<DraftState>(`/drafts/${id}/ops`, { method: 'POST', body: JSON.stringify({ ops }) }),

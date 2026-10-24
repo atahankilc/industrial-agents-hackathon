@@ -1,5 +1,5 @@
-// The plan canvas: the building as a matte clay cutaway model. One floor at a time, or every floor stacked and
-// spread apart so you can see how they sit on each other (tap one to step into it). The camera tilts freely
+// The plan canvas: the building as a matte clay cutaway model. One floor at a time, or every floor stacked at its
+// real height so you can see how they sit on each other (tap one to step into it). The camera tilts freely
 // between isometric and straight-down (a flat plan) like a map: right-drag, Ctrl/Shift + drag or a two-finger
 // drag tilts and turns, one finger or the mouse pans, pinch or wheel zooms.
 // Tap a room or a piece of furniture to select it. Renders on demand only: a frame is drawn when the camera or
@@ -17,6 +17,8 @@ import { buildFloors, contains, fillOf, fromScene, paintSpace, toScene, WALL_CUT
 import type { PlanPalette } from './palette'
 import { Pins, PinTracker, pinsFor, type Pin } from './pins'
 import type { PlanSettings } from './settings'
+import { StoryLayer, StoryMarkers, storyMarkers } from '../dev/StoryLayer'
+import type { Story } from '../dev/story'
 
 export type Insets = { top: number; right: number; bottom: number; left: number }
 export type ViewMode = '3d' | '2d'
@@ -37,6 +39,8 @@ type Props = {
   /** in 3D, show every floor spread apart around the current one so none hides another */
   spread: boolean
   settings: PlanSettings
+  /** dev tool: the current answer drawn over the plan (src/dev/StoryLayer.tsx) */
+  story: Story
 }
 
 const FIT_MARGIN_PX = 24
@@ -47,14 +51,14 @@ const CAMERA_DISTANCE = 400
 const FLAT_POLAR = 0.0001
 const MAX_POLAR = 1.2
 const FLAT_BELOW = 0.14 // a tilt this small snaps to straight-down when the gesture ends
-const STACK_GAP_M = 5.5
 const SLIDE_SECONDS = 0.5
 const GROUND_BELOW_M = 0.36 // just under the slab edge
 const TILTED = { polar: 0.98, azimuth: Math.PI / 4 } // ~34° above the horizon, looking from the south-east corner
 
-const floorLift = (index: number) => index * STACK_GAP_M
+// "All floors" stacks every floor at its real elevation (from the lowest floor), so the building keeps its proportions
+const floorLift = (plan: Plan, index: number) => (plan.floors[index]?.elevation_m ?? 0) - (plan.floors[0]?.elevation_m ?? 0)
 export function PlanView(props: Props) {
-  const { plan, floor, stacked, palette, selected, insets, fitKey, onSelect, onPickFloor, onTilt, spread, settings } = props
+  const { plan, floor, stacked, palette, selected, insets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story } = props
   const labels = useRef<HTMLCanvasElement>(null)
   const { wallHeight, colours } = settings
   const floors = useMemo(() => buildFloors(plan, palette, { wallHeight, colours }), [plan, palette, wallHeight, colours])
@@ -63,18 +67,21 @@ export function PlanView(props: Props) {
   const pinElements = useRef(new Map<string, HTMLElement>())
   const pinnedSpaces = useMemo(() => new Set(pinList.map((pin) => pin.space).filter((id): id is string => Boolean(id))), [pinList])
   // Single-floor 3D view: the current floor (at y = 0) plus the floors below it at their real height, nearly
-  // transparent, for context; floors above are not drawn at all. "All floors" is a plain fixed-gap stack.
-  // above and below that none ever covers it on screen. The "all floors" view keeps the plain fixed-gap stack.
+  // transparent, for context; floors above are not drawn at all. "All floors" stacks them at their real elevations.
   const spreading = spread && !stacked
+  const mode = stacked ? 'stacked' : 'floor'
   const elevation = useCallback((index: number) => plan.floors[index]?.elevation_m ?? 0, [plan])
+  const stackLift = useCallback((index: number) => floorLift(plan, index), [plan])
   const lift = useCallback(
-    (index: number) => (stacked ? floorLift(index) : spreading ? elevation(index) - elevation(floor) : 0),
-    [stacked, spreading, floor, elevation],
+    (index: number) => (stacked ? stackLift(index) : spreading ? elevation(index) - elevation(floor) : 0),
+    [stacked, spreading, floor, elevation, stackLift],
   )
   useEffect(() => () => floors.forEach(disposeFloor), [floors])
   const down = useRef<{ x: number; y: number } | null>(null)
   const pick = useRef<(x: number, y: number) => Hit | null>(() => null)
   const shown = stacked ? [...floors.keys()] : spreading ? [...floors.keys()].filter((i) => i <= floor) : [floor]
+  const markers = useMemo(() => storyMarkers(plan, story), [plan, story])
+  const markerElements = useRef(new Map<string, HTMLElement>())
 
   return (
     <div
@@ -112,7 +119,7 @@ export function PlanView(props: Props) {
         onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
       >
         <Lights plan={plan} floors={shown} palette={palette} lift={lift} />
-        <Slide floor={stacked ? -1 : floor} heightOf={spreading ? elevation : floorLift}>
+        <Slide floor={floor} mode={mode} lift={lift} heightOf={spreading ? elevation : stackLift}>
           <Ground plan={plan} palette={palette} y={(spreading || stacked ? lift(groundIndex(plan)) : 0) - GROUND_BELOW_M} />
           {shown.map((index) => (
             <group key={index} position={[0, lift(index), 0]}>
@@ -125,19 +132,151 @@ export function PlanView(props: Props) {
               />
             </group>
           ))}
-          {!stacked && <Selection plan={plan} selected={selected} palette={palette} floors={floors} colours={colours} />}
-          {!stacked && settings.hover && hovered && hovered !== selected?.id && (
+          {mode === 'stacked' && shown.map((index) => (
+            <group key={`tag-${index}`} position={[0, lift(index), 0]}>
+              <FloorTag plan={plan} floor={index} name={plan.floors[index]?.name ?? ''} height={wallHeight} palette={palette} current={index === floor} />
+            </group>
+          ))}
+          {mode === 'floor' && <Selection plan={plan} selected={selected} palette={palette} floors={floors} colours={colours} />}
+          {mode === 'floor' && settings.hover && hovered && hovered !== selected?.id && (
             <Hover plan={plan} id={hovered} palette={palette} floors={floors} colours={colours} />
           )}
+          <StoryLayer plan={plan} story={story} palette={palette} shown={shown} floor={floor} stacked={stacked} lift={lift} markers={markers} markerElements={markerElements} />
         </Slide>
         <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} insets={insets} fitKey={fitKey} onTilt={onTilt} />
         <Picker plan={plan} floors={stacked ? shown : shown.filter((i) => i <= floor)} lift={lift} stacked={stacked} geometries={floors} pick={pick} />
-        <LabelPainter plan={plan} floor={floor} stacked={stacked} tags={stacked} lift={lift} palette={palette} canvas={labels} selected={selected} skip={pinnedSpaces} />
+        <LabelPainter plan={plan} floor={floor} stacked={stacked} rooms={mode === 'floor'} palette={palette} canvas={labels} selected={selected} skip={pinnedSpaces} />
         <PinTracker plan={plan} pins={pinList} elements={pinElements} />
       </Canvas>
       <canvas ref={labels} className="plan-labels" aria-hidden="true" />
       <Pins pins={pinList} elements={pinElements} onPick={(pin: Pin) => pin.space && onSelect({ kind: 'space', id: pin.space })} />
+      <StoryMarkers markers={markers} elements={markerElements} onGoto={onPickFloor} />
     </div>
+  )
+}
+
+/** an outside wall run in floor-local scene metres, with its outward normal and length */
+type WallEdge = { a: THREE.Vector2; b: THREE.Vector2; normal: THREE.Vector2; length: number }
+/** where one inscription goes: the wall it is on and the point on it the name centres on, if it fits */
+type SignSpot = { edge: WallEdge; point: THREE.Vector2 }
+const TAG_LETTERS = 0.7 // letter block height, as a share of the wall height
+const TAG_OUT_M = 0.25 + 0.03 // the exterior wall's thickness outside the outline (core/floorplan.py EXTERIOR_M), plus a hair so the letters never flicker into its face
+
+/** The outer walls of a floor, from its outline (else its rooms' bounding box). */
+function wallEdges(plan: Plan, floor: number): WallEdge[] {
+  const outline = plan.outlines?.[floor] ?? []
+  let rings = outline.map((polygon) => polygon[0]?.map(([x, y]) => toScene(plan, x, y)) ?? []).filter((ring) => ring.length > 2)
+  if (!rings.length) {
+    const box = floorBox(plan, [floor])
+    rings = [[[box.min.x, box.min.y], [box.max.x, box.min.y], [box.max.x, box.max.y], [box.min.x, box.max.y]]]
+  }
+  const edges: WallEdge[] = []
+  for (const ring of rings) {
+    // winding decides which side of each edge is outside
+    let area = 0
+    ring.forEach(([x, z], i) => {
+      const [nx, nz] = ring[(i + 1) % ring.length]
+      area += x * nz - nx * z
+    })
+    const sign = area > 0 ? 1 : -1
+    ring.forEach(([x, z], i) => {
+      const [nx, nz] = ring[(i + 1) % ring.length]
+      const length = Math.hypot(nx - x, nz - z)
+      if (length < 1) return
+      edges.push({
+        a: new THREE.Vector2(x, z),
+        b: new THREE.Vector2(nx, nz),
+        normal: new THREE.Vector2((sign * (nz - z)) / length, (sign * -(nx - x)) / length),
+        length,
+      })
+    })
+  }
+  return edges
+}
+
+/** One inscription per side of the floor (east, north, west, south). On each side it sits on the outermost wall
+ * crossing the building's centre line, the same line for every floor, so the names stack in one column; a floor
+ * with no wall there falls back to its longest wall on that side. */
+function signSpots(edges: WallEdge[], centre: THREE.Vector2): SignSpot[] {
+  const spots: SignSpot[] = []
+  for (let side = 0; side < 4; side++) {
+    const facing = edges.filter((edge) => (Math.round(Math.atan2(edge.normal.y, edge.normal.x) / (Math.PI / 2)) & 3) === side)
+    if (!facing.length) continue
+    const across = side % 2 === 0 ? 'y' : 'x' // east/west walls run along z (Vector2 y), north/south along x
+    const out = side % 2 === 0 ? 'x' : 'y'
+    const outward = side < 2 ? 1 : -1
+    const line = centre[across]
+    let best: { point: THREE.Vector2; edge: WallEdge } | null = null
+    for (const edge of facing) {
+      const [p, q] = [edge.a[across], edge.b[across]]
+      if (line < Math.min(p, q) || line > Math.max(p, q) || p === q) continue
+      const point = edge.a.clone().lerp(edge.b, (line - p) / (q - p))
+      if (!best || point[out] * outward > best.point[out] * outward) best = { point, edge }
+    }
+    const longest = facing.reduce((a, b) => (b.length > a.length ? b : a))
+    spots.push(best ?? { point: longest.a.clone().lerp(longest.b, 0.5), edge: longest })
+  }
+  return spots
+}
+
+/** The stacked view's floor name, cut into the outside walls in big letters: once per side of the floor, all floors
+ * in one column (signSpots), readable only from outside (front faces only), so whichever walls face the camera carry it. */
+function FloorTag({ plan, floor, name, height, palette, current }: {
+  plan: Plan
+  floor: number
+  name: string
+  height: number
+  palette: PlanPalette
+  current: boolean
+}) {
+  const invalidate = useThree((state) => state.invalidate)
+  const centre = useMemo(() => floorBox(plan, plan.floors.map((_, i) => i)).getCenter(new THREE.Vector2()), [plan])
+  const spots = useMemo(() => signSpots(wallEdges(plan, floor), centre), [plan, floor, centre])
+  const { texture, aspect } = useMemo(() => {
+    const px = 128
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')!
+    const font = `800 ${px}px ${FONT}`
+    context.font = font
+    canvas.width = Math.ceil(context.measureText(name).width + px * 0.5)
+    canvas.height = Math.ceil(px * 1.35)
+    context.font = font
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.lineJoin = 'round'
+    const [x, y] = [canvas.width / 2, canvas.height / 2]
+    // label-coloured letters in a thick halo rim: readable on the clay wall, the slab or the ground behind
+    context.lineWidth = px * 0.2
+    context.strokeStyle = palette.halo
+    context.strokeText(name, x, y)
+    context.fillStyle = current ? palette.selectedEdge : palette.label
+    context.fillText(name, x, y)
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.anisotropy = 4
+    return { texture, aspect: canvas.width / canvas.height }
+  }, [name, palette, current])
+  useEffect(() => () => texture.dispose(), [texture])
+  useEffect(() => invalidate(), [texture, spots, invalidate])
+  if (!name) return null
+  return (
+    <>
+      {spots.map(({ edge, point }, i) => {
+        // as tall as the wall allows, narrowed only if the name is longer than the wall; slid along the wall
+        // (out of the column) only as far as it takes to keep clear of the wall's ends
+        const letters = Math.min(height * TAG_LETTERS, (edge.length * 0.9) / aspect)
+        const half = (letters * aspect) / 2 / edge.length
+        const t = THREE.MathUtils.clamp(point.distanceTo(edge.a) / edge.length, half + 0.05, 0.95 - half)
+        const on = edge.a.clone().lerp(edge.b, half + 0.05 > 0.95 - half ? 0.5 : t)
+        const at = new THREE.Vector3(on.x, height / 2, on.y).add(new THREE.Vector3(edge.normal.x, 0, edge.normal.y).multiplyScalar(TAG_OUT_M))
+        return (
+          <mesh key={i} position={at} rotation={[0, Math.atan2(edge.normal.x, edge.normal.y), 0]} renderOrder={3}>
+            <planeGeometry args={[letters * aspect, letters]} />
+            <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} />
+          </mesh>
+        )
+      })}
+    </>
   )
 }
 
@@ -148,18 +287,29 @@ function disposeFloor(floor: FloorGeometry) {
 const groundIndex = (plan: Plan) => Math.max(0, plan.floors.findIndex((item) => item.level === 0))
 
 /** Everything drawn relative to the current floor. When the floor changes, the whole stack starts where it was
- * and slides into place, so you see yourself going up or down. */
-function Slide({ floor, heightOf, children }: { floor: number; heightOf: (index: number) => number; children: React.ReactNode }) {
+ * and slides into place, so you see yourself going up or down. Stepping into or out of the stack works the same
+ * way: the floor you land on starts where it was drawn, so it never jumps. */
+function Slide({ floor, mode, lift, heightOf, children }: {
+  floor: number
+  mode: 'stacked' | 'floor'
+  lift: (index: number) => number
+  heightOf: (index: number) => number
+  children: React.ReactNode
+}) {
   const group = useRef<THREE.Group>(null)
-  const previous = useRef(floor)
+  const previous = useRef({ floor, mode, lift })
   const invalidate = useThree((state) => state.invalidate)
   useLayoutEffect(() => {
-    if (group.current && floor >= 0 && previous.current >= 0 && floor !== previous.current) {
-      group.current.position.y = heightOf(floor) - heightOf(previous.current)
-      invalidate()
-    }
-    previous.current = floor
-  }, [floor, heightOf, invalidate])
+    const node = group.current
+    const was = previous.current
+    previous.current = { floor, mode, lift }
+    if (!node) return
+    // keep any slide still in progress, so a quick second switch carries on from where things are on screen
+    if (mode !== was.mode) node.position.y += was.lift(floor) - lift(floor)
+    else if (mode === 'floor' && floor !== was.floor) node.position.y = heightOf(floor) - heightOf(was.floor)
+    else return
+    invalidate()
+  }, [floor, mode, lift, heightOf, invalidate])
   useFrame((_, delta) => {
     const node = group.current
     if (!node || node.position.y === 0) return
@@ -301,14 +451,14 @@ function FloorModel({ geometry, palette, floor, furniture, faded = false }: {
         <lineBasicMaterial color={palette.hairline} {...fade(0.8)} />
       </lineSegments>
       <mesh geometry={geometry.walls} castShadow={solid} receiveShadow={solid}>
-        <meshLambertMaterial color={palette.clay} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} {...fade()} />
+        <meshLambertMaterial vertexColors side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} {...fade()} />
       </mesh>
       <lineSegments geometry={geometry.wallEdges}>
         <lineBasicMaterial color={palette.edge} {...fade()} />
       </lineSegments>
       {solid && (
-        <mesh geometry={geometry.doors} castShadow>
-          <meshLambertMaterial color={palette.materials.oak} side={THREE.DoubleSide} />
+        <mesh geometry={geometry.doors} renderOrder={2}>
+          <meshBasicMaterial vertexColors side={THREE.DoubleSide} />
         </mesh>
       )}
       {/* floors above show only their shell: furniture of two see-through floors on top of each other is noise */}
@@ -444,7 +594,7 @@ function frame(plan: Plan, floors: number[], lift: (index: number) => number, vi
 type Pose = { target: THREE.Vector3; zoom: number; polar: number; azimuth: number }
 type Move = { t: number; from: Pose; to: Pose }
 
-/** Frames the shown floors (tilted) whenever they or fitKey change, easing there. Tilting is free in between
+/** Frames the shown floors (tilted, or flat if the user went flat on one floor) whenever they or fitKey change, easing there. Tilting is free in between
  * (0 = straight down … MAX_POLAR); a nearly flat tilt snaps flat when the gesture ends, and the current look
  * (flat or tilted) is reported so a flat view can stop spreading the floors. */
 function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt }: {
@@ -470,7 +620,9 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt }: {
   const move = useRef<Move | null>(null)
   const first = useRef(true)
   const reported = useRef<ViewMode | null>(null)
-  const key = floors.join(',')
+  // only what is framed: a single floor frames just itself, so dropping the spread floors (on going flat) must
+  // not refit and tip the camera back up
+  const key = stacked ? floors.join(',') : String(floor)
 
   const report = (polar: number) => {
     const mode: ViewMode = polar < FLAT_BELOW ? '2d' : '3d'
@@ -512,11 +664,12 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt }: {
     if (!controls) return
     // keep the user's own turn
     const azimuth = first.current ? TILTED.azimuth : controls.getAzimuthalAngle()
-    const polar = TILTED.polar
-    // the whole fixed-gap stack, or the floor you are on: the camera focuses on your floor; the others stay spread
+    // and the user's flat look on a single floor (the whole stack is only readable tilted)
+    const polar = !first.current && !stacked && reported.current === '2d' ? FLAT_POLAR : TILTED.polar
+    // the whole stack, or the floor you are on: the camera focuses on your floor; the others stay spread
     // above and below it, out of frame until you zoom out
     const framed = stacked ? floors : [floor]
-    const lift = (i: number) => (stacked ? floorLift(i) : 0)
+    const lift = (i: number) => (stacked ? floorLift(plan, i) : 0)
     const fit = frame(plan, framed, lift, { polar, azimuth }, size, insetsRef.current)
     const to = { target: fit.target, zoom: fit.zoom, polar, azimuth }
     if (first.current) {
@@ -658,10 +811,10 @@ function labelParts(space: PlanSpace): [string, string] {
   return [name, '']
 }
 
-function LabelPainter({ plan, floor, stacked, tags: showTags, lift, palette, canvas, selected, skip }: {
+function LabelPainter({ plan, floor, stacked, rooms, palette, canvas, selected, skip }: {
   skip: Set<string>
-  tags: boolean
-  lift: (index: number) => number
+  /** room names; off in the stacked view */
+  rooms: boolean
   plan: Plan
   floor: number
   stacked: boolean
@@ -679,17 +832,8 @@ function LabelPainter({ plan, floor, stacked, tags: showTags, lift, palette, can
         .map((space) => ({ space, free: spans(space.polygon, space.label) })),
     [plan, floor, selectedSpace, skip],
   )
-  // Floor name tags for the stacked view, at each floor's west corner.
-  const tags = useMemo(
-    () =>
-      plan.floors.map((item, index) => {
-        const box = floorBox(plan, [index])
-        return { name: item.name, index, at: new THREE.Vector3(box.min.x, lift(index) + WALL_CUT_M, box.max.y) }
-      }),
-    [plan, lift],
-  )
   const invalidate = useThree((state) => state.invalidate)
-  useEffect(() => invalidate(), [order, palette, stacked, tags, invalidate])
+  useEffect(() => invalidate(), [order, palette, stacked, rooms, invalidate])
 
   useFrame(() => {
     const element = canvas.current
@@ -711,23 +855,7 @@ function LabelPainter({ plan, floor, stacked, tags: showTags, lift, palette, can
       return [((p.x + 1) / 2) * size.width, ((1 - p.y) / 2) * size.height] as const
     }
 
-    if (showTags) {
-      context.textAlign = 'right'
-      for (const tag of tags) {
-        const [sx, sy] = toScreen(tag.at)
-        context.font = `700 13px ${FONT}`
-        // a pill right-aligned just left of the floor, never pushed off the left edge of the screen
-        const width = context.measureText(tag.name).width
-        const x = Math.max(width + 22, sx - 10)
-        context.fillStyle = palette.halo
-        context.beginPath()
-        context.roundRect(x - width - 10, sy - 12, width + 20, 24, 12)
-        context.fill()
-        context.fillStyle = tag.index === floor ? palette.selectedEdge : palette.label
-        context.fillText(tag.name, x, sy)
-      }
-      if (stacked) return
-    }
+    if (!rooms) return
 
     context.textAlign = 'center'
     // A tilted room looks shallower than it is (foreshortened by the cosine of the tilt) and turned, so unless the

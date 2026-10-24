@@ -3,6 +3,12 @@
 .bs { position: fixed; inset: 0; overflow: auto; background: var(--bg); }
 .bs-inner { max-width: 720px; margin: 0 auto; padding: 14vh 24px 64px; }
 
+.bs-map {
+  margin: 0 0 18px -10px; padding: 6px 10px; border: 0; border-radius: 999px; background: transparent;
+  color: var(--ink-2); font-size: 13px; cursor: pointer; transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.bs-map:hover, .bs-map:focus-visible { background: var(--fill); color: var(--ink); outline: none; }
+
 .bs-head h1 { margin: 0; font-size: 28px; font-weight: 500; letter-spacing: -0.02em; }
 .bs-head p { margin: 6px 0 0; color: var(--ink-3); font-size: 13px; }
 
@@ -47,5 +53,5 @@
   .bs-kind { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .bs-field, .bs-kinds button { transition: none; }
+  .bs-field, .bs-kinds button, .bs-map { transition: none; }
 }

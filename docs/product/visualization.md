@@ -3,7 +3,7 @@ id: product-visualization
 summary: App visuals — the current vector plan view (core/floorplan.py, GET /sessions/{id}/plan, frontend/app/src/plan/) and the superseded point-cloud visual language; three.js vs react-three-fiber, performance, judging fit.
 sources:
   - core/floorplan.py, backend/sessions.py (MapView.plan), frontend/app/src/plan/, frontend/app/src/building/ (verified 2026-10-24)
-  - core/pointcloud.py (point-cloud export, still served by /points)
+  - frontend/app/src/dev/, backend/devtools.py, core/routeline.py (dev panel, verified 2026-10-24)
   - https://threejs.org/docs/ (three.js r160)
   - https://r3f.docs.pmnd.rs/ (react-three-fiber)
 related: [../architecture/overview.md, personas.md, routing-profiles.md, ../architecture/ai-agents.md]
@@ -15,22 +15,68 @@ related: [../architecture/overview.md, personas.md, routing-profiles.md, ../arch
 
 ## Current: vector plan view (2026-10-24)
 
-Direction "Drawing Set" (`PRODUCT.md`, `.impeccable/surfaces/frontend-app.md`). Landing is a building search
-(`frontend/app/src/search/`); `Root.tsx` opens `BuildingScreen` (`src/building/`) over an orthographic r3f plan
-(`src/plan/`: rooms, walls with door gaps, door swings, furniture, labels that only show when they fit, tap a room →
+Direction "Drawing Set" (`PRODUCT.md`, `.impeccable/surfaces/frontend-app.md`). Landing is a map of the
+buildings with a real position plus a list view for the rest (see **Landing** below); `Root.tsx` opens `BuildingScreen` (`src/building/`) over an orthographic r3f plan
+(`src/plan/`: rooms, walls with door gaps, doorway threshold strips, furniture, labels that only show when they fit, tap a room →
 place card) with a floating Guide conversation.
 
-- **Data:** `core/floorplan.py` `export_plan(building_map, center)` → floors, spaces (polygon, label point), walls
-  per floor with door gaps cut, openings (wall angle, swing side), connectors, assets in drawn spaces, `closed`.
-  Served by `GET /sessions/{id}/plan`, cached in `MapView.plan` with the point-cloud export's `center` so route
-  vertices from `/events` map back onto the plan (`x = vx + cx`, `y = -(vz + cz)`).
+- **Furniture heights are ours:** the kit gives each asset only a footprint (width, depth, rotation), so heights and parts
+  are per-type models in `src/plan/furniture.ts`. Pieces whose length varies are laid out from the real width instead of
+  stretched: lecture seating rows get one seat per 0.50 m (the kit's chair width), kitchen counters and wardrobes one
+  front seam per 0.60 m module (the kit's wardrobe/appliance widths). No invented detail (no sink or hob on counters,
+  no stair direction: the kit has neither).
+- **Data:** `core/floorplan.py` `export_plan(building_map)` → floors, spaces (polygon, label point), walls
+  per floor with door gaps cut, openings (wall angle only: the kit has no swing data, so the plan draws no door leaves, just a threshold
+  strip per doorway: blue, entrances accent blue, closed doors red), connectors, assets in drawn spaces, `closed`,
+  and `center` (centre of the space bounds; the y-up scene uses `X = x - cx`, `Z = -y - cz`). Served by
+  `GET /sessions/{id}/plan`, cached in `MapView.plan` per building object. Route events from `/events` carry
+  turn-by-turn `legs` but no polyline: a route line on the plan still needs one in the plan frame.
+- **Landing:** a city map (`frontend/app/src/map/MapLanding.tsx`; MapLibre GL JS on OpenFreeMap's hosted
+  `positron` / `dark` styles, free, no key), tilted 50°, every building in the tiles extruded from zoom 14 to its
+  OSM height (`render_height` / `render_min_height`, streamed with the tiles), a pin per building that has a real
+  position, and a panel listing them; tap a pin or a row → `BuildingScreen`. Positions come from `GET /buildings` `location` ({lat, lon, address}
+  or null), read from `backend/locations.json`: the centre of the OSM outline of the 17 `osm-way*` buildings, made
+  by the archived twin-lab `georef.py` (OSM API; fit median 0.05–6.6 m). Swiss, ResPlan and procedural buildings
+  have no position; the list view (`?view=list`, `src/search/`) searches all 280 and has a "No location" filter.
+  The building's back pill returns to whichever of the two it was opened from. "All floors" stacks the cutaway
+  floors at their real `elevation_m`. (An outside "shell" view of the closed building was tried and removed the
+  same day: the data has no windows, and Atahan preferred the map.)
 - **Not built yet:** Guide events on the plan (focus, route line, closures, lost access), 3D, maintainer edits.
+
+## Dev panel
+
+`frontend/app/src/dev/` (merged into the app 2026-10-24): a panel to try every Guide capability by hand through
+the backend's `/dev` endpoints (`backend/devtools.py`), and the current answer drawn over the plan without
+changing the plan's colours. Shown in the Vite dev server or with `?dev`
+([commands.md](../guides/commands.md#dev-panel)). Verified in Chrome on `train/proc-campus-train-000` and
+`dev/proc-factory-dev-003`.
+
+- **Panel** (`DevPanel.tsx`): Find (rooms and items, one-tap examples from the building, count, "Route here"),
+  Route (searchable place pickers, "use selected" from the plan, stop on the way, ambiguous-destination picker,
+  reachable rooms, steps in words), Profile (presets with what they mean, fine-tune, rooms unreachable from the
+  entrance), Edits (lifts and stairs with open/closed state, close the selected room, add a door; impact in words
+  before Apply, measured from the entrance room; reset), View (furniture, room colours, pins, hover, wall height,
+  theme), Log (every call in words, run again, any tool by hand).
+- **On the plan** (`StoryLayer.tsx`, from map events via `story.ts`; Guide replies in the chat feed the same
+  story): route as an accent band drawn in once, start / destination / tappable floor-change badges; accent
+  outlines on the rooms an answer is about; a dot per item; red hatch on closed rooms, lifts and stairs; dashed
+  outlines on rooms that lost access. A new answer switches to its floor and fits it.
+- **Route line**: every route event now carries `line` ([[x, y, floor_index], …], `MapView.enrich` →
+  `core/routeline.py`: door to door along the shortest path inside each space (15 cm off the walls, round
+  corners, doors entered at their 30 cm landing: the walk `core/building_map.py` measures since kit 1.1.0), anchors kept only for the first and last space and stairs/lifts — so the line never overshoots to a
+  corridor's centre and turns back; drawing only, lengths unchanged).
+- An earlier visual-concepts experiment (streets, muted rooms, quiet furniture, semantic zoom) was dropped: it made
+  the plan less colourful.
+- **Not verified:** a Guide reply driving the plan end to end (the offline Guide answered neither question tried);
+  phone layout.
 
 ## Superseded: point-cloud scene
 
 Everything below describes the earlier point-cloud scene. Its code (`src/scene/*` shaders, BuildingCloud,
 RouteFlow) and the `frontend/prototypes/pointcloud/` prototype were moved out of the repo to the gitignored
-`.viz-archive/` on 2026-10-24; `src/scene/` is now a placeholder. Kept for the ideas, not as a description of the app.
+`.viz-archive/` on 2026-10-24; the rest (`core/pointcloud.py`, `GET /sessions/{id}/points`, route `vertices`, the old
+`App.tsx`, the `src/scene/` placeholder) was removed the same day and lives on in git history. Kept for the ideas,
+not as a description of the app.
 
 ## three.js vs react-three-fiber
 

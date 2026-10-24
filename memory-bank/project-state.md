@@ -1,13 +1,13 @@
 ---
 id: project-state
 summary: Current phase, what exists, what works, next priorities, blockers. Read first every session.
-updated: 2026-10-24
+updated: 2026-10-25
 related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-plan.md]
 ---
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-24** (`origin/dev` merged into `1-agentic-yarag`: Sunday route model, AI layer, plus the branch's place resolution, grounding and voice transcript rewriter)
+[Memory bank](README.md) · Last updated: **2026-10-25** (building screen "Quiet HUD" steps 1–5 committed on `dev` together with the pulls of `origin/dev` 26b908f + b352e83: kit 1.1.0 route model, Builder Edit mode)
 
 ## Phase
 
@@ -31,7 +31,9 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `benchmark/` (official scorer), `data/` (committed, [D-005](decisions.md#d-005)), `tests/`, `pyproject.toml` (uv,
   pytest dev dep). Kit remainder in `archive/initial-repo/`.
 - Knowledge base: [docs/](../docs/README.md) incl. architecture, agents, personas, routing profiles, research.
-- App visuals: vector plan view (`frontend/app/src/plan/`, `core/floorplan.py`); the point-cloud prototype and
+- App visuals: landing = map of the 17 buildings with a real position (`frontend/app/src/map/`, positions in
+  `backend/locations.json`) + list view for all 280 (`src/search/`); building = vector plan view
+  (`frontend/app/src/plan/`, `core/floorplan.py`); the point-cloud prototype and
   scene moved to the gitignored `.viz-archive/`, see [visualization.md](../docs/product/visualization.md).
 - Licensing: `LICENSE` (MIT, our code only), `NOTICE.md` (third-party paths + terms), `data/README.md`
   (per-source data licences) — [D-009](decisions.md#d-009) accepted.
@@ -57,7 +59,7 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `user/forschungsbau-edited`. **M1 done**; final review (opus) fixes: shared corner into a corridor, neighbours
   grow when a room shrinks, per-draft lock + client gating. M2 plan written
   ([m2](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m2.md)). `origin/dev` merged (`ebcdb3d`, Atahan's new
-  UI); Edit mode re-homed: ruler-pencil button in `BuildingScreen` → `EditMode` full screen, 3D inset = `PlanView`
+  UI); Edit mode re-homed: "Edit this building" in `BuildingScreen`'s "…" menu (2026-10-25, was a round button) → `EditMode` full screen, 3D inset = `PlanView`
   of `GET /drafts/{id}/plan`, Save opens `user/<slug>` via `Root`; verified in headless Chrome.
 - **Builder M2 (prompt edits), in progress:** Task 1 `move_edge` op + `edge_sides` (walls with compass sides),
   malformed op arguments → EditError (422); Task 2 `agent/builder_tools.py` (overview, find, space_info,
@@ -98,8 +100,16 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   ([commands.md](../docs/guides/commands.md#backend-guide-api)).
 - **Frontend app** `frontend/app/` (Vite + React + r3f): monochrome point cloud ([D-011](decisions.md#d-011)) with
   emergence + scan, route flow, highlight / closure / lost-access states, floor solo + separation, camera fly-to,
-  chat panel; light/dark. Backend serves `GET /sessions/{id}/points` (`core/pointcloud.py`) and enriches route /
-  change events. Verified in Chrome with the offline Guide ([commands.md](../docs/guides/commands.md#frontend-app)).
+  chat panel; light/dark. Backend enriched route /
+  change events. (Point-cloud scene and `core/pointcloud.py` removed 2026-10-24.) Verified in Chrome with the offline Guide ([commands.md](../docs/guides/commands.md#frontend-app)).
+- **Building screen "Quiet HUD"** (2026-10-24/25, approved mockup round 2): voice-first Guide (`building/Core.tsx`,
+  `Guide.tsx`, `hud.css`), the Guide's work trail, the next-move card from `core/directions.guidance()` steps
+  (`NextMove.tsx`, route events carry `steps`), camera walk (`CameraWalk.tsx`), live tracking by dead reckoning
+  (`tracking.ts`, `useTracking.ts`; 0.7 m stride UNVERIFIED, `?walk=sim`). Checked with `tsc` + screenshots; not on a
+  real phone, camera "Where am I?" needs the real Claude Guide. Next: the plan follows the dot; calibrate the stride.
+- **Dev panel** (2026-10-24): in the app (`frontend/app/src/dev/`, backend `/dev/*`) — try every
+  Guide capability by hand (find, directions, profiles, closures with impact, display switches, log), answers
+  drawn over the plan; route events carry a plan `line` ([visualization.md](../docs/product/visualization.md#dev-panel)).
 - **AI layer of the app** (2026-10-24): `POST /chat/stream` live tool steps, route/change cards, follow-up chips,
   voice mode with the orb (browser speech, `frontend/app/src/voice/useVoice.ts`), camera walk mode with turn-by-turn
   legs (`core/directions.py`) and "Where am I?" photo turns (`Guide.reply(photo=…)`, one turn only). Verified
@@ -181,9 +191,12 @@ the rules. `uv run pytest` 182 passed, 1 skipped (dev); 301 passed, 1 skipped af
 
 **Frontend (new UI, committed 2026-10-24):** landing = building search (`src/search/`), `Root.tsx` → `BuildingScreen`
 (`src/building/`) over a vector plan view (`src/plan/*`, data from `core/floorplan.py` via
-`GET /sessions/{id}/plan`, same `center` as `/points`). Direction "Drawing Set": `PRODUCT.md`,
-`.impeccable/surfaces/frontend-app.md`. Old point-cloud scene moved to gitignored `.viz-archive/`; `src/scene/` is a
-placeholder so the old `App.tsx` (unused, reference for porting) still compiles. Next: Guide events on the plan
+`GET /sessions/{id}/plan`; `center` from the plan bounds). Direction "Drawing Set": `PRODUCT.md`,
+`.impeccable/surfaces/frontend-app.md`. Point cloud removed entirely (2026-10-24): code in gitignored `.viz-archive/`, and
+`core/pointcloud.py`, `/points`, route `vertices`, old `App.tsx` + `src/scene/` deleted (old events → scene logic is
+in git history, e.g. 92f063a:frontend/app/src/App.tsx). /plan no longer samples ~180 k points first (was 0.1–1.3 s
+per building open). Doors (2026-10-24) are flat threshold strips (blue, entrances accent, closed red), no leaves: the kit
+has no swing info. Next: Guide events on the plan
 (focus + dim, route line, closures, lost access), then 3D, voice, camera, maintainer edit.
 
 **▶ Do next, in order (Atahan's call 2026-10-24: frontend polish next session; Q-014 and Q-001 parked):**

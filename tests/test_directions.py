@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from agent.tools import BuildingSession
-from core.directions import about_m, guidance_steps, heading_change, landmark, route_legs, turn_word
+from core.directions import about_m, guidance, guidance_steps, heading_change, landmark, route_legs, turn_word
 
 BUILDING = Path("data/train/proc-campus-train-000")
 
@@ -72,6 +72,18 @@ def test_guidance_steps_have_turns_landmarks_rounded_metres_and_no_ids(session):
     assert sum(step.startswith("Take Staircase") for step in steps) == 1  # one line for ground → floor 3
     assert not any("proc-campus" in step or "[" in step for step in steps)
     assert route["about_m"] == about_m(route["length_m"])
+
+
+def test_guidance_is_the_same_steps_as_data(session):
+    route = session.call("find_route", {"start": "Main lobby", "destination": "Meeting room 3.07"})
+    data = guidance(session.building, route["space_path"], route["element_path"])
+    assert [step["text"] for step in data] == route["steps"][1:]  # everything after the "Start in …" line
+    assert [step["kind"] for step in data] == [leg["kind"] for leg in route_legs(session.building, route["space_path"], route["element_path"])]
+    walked = [step for step in data if step["kind"] in ("door", "exit") and step["metres"]]
+    assert all(step["text"].startswith({"straight": "Walk", "left": "Turn left", "right": "Turn right", "back": "Turn around"}[step["turn"]])
+               for step in walked)
+    assert any(step["landmark"] == "reception desk" for step in data)
+    assert sum(step["kind"] == "connector" for step in data) == 1 and data[-1]["kind"] == "arrive"
 
 
 def test_landmark_is_a_recognisable_item_next_to_the_door(session):

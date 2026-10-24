@@ -30,6 +30,9 @@ export type PlanPalette = {
   halo: string
   selected: string
   selectedEdge: string
+  /** doorway threshold strips (no door leaves: the data has no swing) and building entrances */
+  door: string
+  entrance: string
   fills: Record<Category, string>
 }
 
@@ -99,6 +102,8 @@ export const LIGHT: PlanPalette = {
   halo: '#FFFFFF',
   selected: '#D7E8FF',
   selectedEdge: '#0A84FF',
+  door: '#9CC3F0',
+  entrance: '#0A84FF',
   fills: {
     walk: '#F7F6F2',
     core: '#DCE3EE',
@@ -139,6 +144,8 @@ export const DARK: PlanPalette = {
   halo: '#1C1C1E',
   selected: '#123A66',
   selectedEdge: '#409CFF',
+  door: '#4D78A8',
+  entrance: '#409CFF',
   fills: {
     walk: '#4A4A4F',
     core: '#3C4049',

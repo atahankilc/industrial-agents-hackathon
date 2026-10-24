@@ -15,17 +15,20 @@ const PATHS: Record<string, string> = {
   arrive: 'M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
 }
 
-export function legGlyph(leg: RouteLeg): string {
+/** What the glyph needs: a route leg, or one of the Guide's steps (api GuideStep). */
+type Turnable = Pick<RouteLeg, 'kind' | 'turn' | 'via_kind' | 'up'>
+
+export function legGlyph(leg: Turnable): string {
   if (leg.kind === 'arrive') return 'arrive'
   if (leg.kind === 'exit') return 'exit'
   if (leg.kind === 'connector') return `${leg.via_kind === 'lift' ? 'lift_' : ''}${leg.up ? 'up' : 'down'}`
   return leg.turn
 }
 
-export function TurnIcon({ leg, size = 18 }: { leg: RouteLeg; size?: number }) {
+export function TurnIcon({ leg, size = 18, stroke = 1.6 }: { leg: Turnable; size?: number; stroke?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" className="turn-icon">
-      <path d={PATHS[legGlyph(leg)]} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={PATHS[legGlyph(leg)]} fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

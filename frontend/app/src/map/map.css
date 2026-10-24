@@ -1,0 +1,72 @@
+/* Map landing. Uses the app's theme tokens from styles.css, so it follows light/dark like the search page. */
+
+.ml { position: fixed; inset: 0; background: var(--bg); }
+.ml-map { position: absolute; inset: 0; }
+
+.ml-panel {
+  position: absolute; top: 16px; left: 16px; bottom: 16px; width: 324px;
+  display: flex; flex-direction: column; min-height: 0;
+  border: 1px solid var(--hair); border-radius: var(--radius); background: var(--panel);
+  backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+.ml-panel header { padding: 18px 18px 10px; }
+.ml-panel h1 { margin: 0; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
+.ml-panel header p { margin: 2px 0 0; font-size: 13px; color: var(--ink-3); }
+
+.ml-list { flex: 1; min-height: 0; overflow: auto; list-style: none; margin: 0; padding: 0 8px; border-top: 1px solid var(--hair); }
+.ml-list button {
+  display: grid; width: 100%; padding: 10px 10px; border: 0; border-bottom: 1px solid var(--hair);
+  background: transparent; text-align: left; cursor: pointer; border-radius: 0;
+  transition: background-color 0.15s var(--ease);
+}
+.ml-list li:last-child button { border-bottom: 0; }
+.ml-list button:hover, .ml-list button:focus-visible { background: var(--fill); outline: none; }
+.ml-name { font-size: 14.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-address { font-size: 12px; color: var(--ink-3); }
+
+.ml-more {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex: none;
+  margin: 0; padding: 14px 18px; border: 0; border-top: 1px solid var(--hair);
+  background: transparent; color: var(--ink); font-size: 13.5px; text-align: left; cursor: pointer;
+  transition: background-color 0.15s var(--ease);
+}
+.ml-more span:last-child { color: var(--ink-2); white-space: nowrap; }
+.ml-more:hover:not(:disabled), .ml-more:focus-visible { background: var(--fill); outline: none; }
+.ml-more:disabled { color: var(--ink-3); cursor: default; }
+
+/* the location card: top right, clear of the list panel; a top banner on narrow screens */
+.ml-locate {
+  position: absolute; top: 16px; right: 16px; width: 300px; padding: 16px 16px 12px;
+  border: 1px solid var(--hair); border-radius: var(--radius); background: var(--panel);
+  backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.12);
+  animation: ml-locate-in 0.25s var(--ease);
+}
+.ml-locate p { margin: 0; font-size: 15px; font-weight: 500; color: var(--ink); }
+.ml-locate .ml-locate-sub { margin-top: 4px; font-size: 13px; font-weight: 400; color: var(--ink-2); line-height: 1.4; }
+.ml-locate-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.ml-locate-actions button {
+  padding: 8px 14px; border: 1px solid var(--hair-strong); border-radius: 999px;
+  background: transparent; color: var(--ink); font-size: 13.5px; cursor: pointer;
+  transition: background-color 0.15s var(--ease);
+}
+.ml-locate-actions button:hover, .ml-locate-actions button:focus-visible { background: var(--fill); outline: none; }
+.ml-locate-actions .ml-locate-allow { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+.ml-locate-actions .ml-locate-allow:hover, .ml-locate-actions .ml-locate-allow:focus-visible { background: var(--ink); opacity: 0.85; }
+@keyframes ml-locate-in { from { opacity: 0; transform: translateY(-6px); } }
+
+.ml .maplibregl-ctrl-attrib { font-size: 10px; }
+
+/* narrow screens: a bottom sheet, the list capped so the map stays the main thing */
+@media (max-width: 899px) {
+  .ml-panel { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 42vh; }
+  .ml-panel header { padding: 14px 16px 8px; }
+  .ml .maplibregl-ctrl-bottom-right { bottom: calc(42vh + 24px); }
+  .ml-locate { left: 16px; width: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ml-list button, .ml-more, .ml-locate-actions button { transition: none; }
+  .ml-locate { animation: none; }
+}

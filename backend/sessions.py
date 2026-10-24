@@ -11,12 +11,13 @@ history never sees two turns at once. `SessionStore` keeps conversations in a di
 stored version and restores the conversation if another instance saved it since, and every turn is saved after it
 ends. The lock only serialises turns within one process; across processes the version check does (Conflict).
 
-`MapView` derives what the map UI draws from a session: the point-cloud export of the session's *current*
-building (cached until the session's BuildingMap object is replaced, e.g. by apply_change or a building switch)
-and outgoing events enriched with route `vertices` and change `space_ids` (copies; session.events is untouched)."""
+`MapView` derives what the map UI draws from a session: the vector floor plan of the session's *current* building
+(cached until the session's BuildingMap object is replaced, e.g. by apply_change or a building switch) and outgoing
+events enriched with route `legs` and `line` and change `space_ids` (copies; session.events is untouched)."""
 
 import copy
 import csv
+import json
 import os
 import threading
 import uuid
@@ -27,88 +28,85 @@ from agent.guide import Guide, make_client
 from backend import persistence
 from agent.tools import BuildingSession
 from core.building_map import OUTSIDE, BuildingMap
-from core.directions import route_legs
+from core.directions import guidance, route_legs
 from core.floorplan import export_plan
-from core.pointcloud import export_points, route_vertices
+from core.routeline import route_line
 
 DATA_DIR = Path(os.environ.get("GUIDE_DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
 SPLITS = ("train", "dev", "test")
 DEFAULT_SESSION = "default"
 DEMO_BUILDING = "train/proc-campus-train-000"  # the offline client's example phrasings match this building
+LOCATIONS = Path(__file__).resolve().parent / "locations.json"  # real positions of the OSM buildings (see its "about")
 
 
 def load_catalogue(data_dir: Path = DATA_DIR) -> dict[str, dict]:
-    """building id → {"id", "split", "name", "path"} for every split directory that holds a building.json."""
+    """building id → {"id", "split", "name", "path", "location"} for every split directory that holds a
+    building.json; `location` is {"lat", "lon", "address"} for a building with a known real position, else None."""
     names: dict[str, str] = {}
     manifest = data_dir / "manifest.csv"
     if manifest.exists():
         with manifest.open(newline="", encoding="utf-8") as handle:
             names = {row["path"]: row["name"] for row in csv.DictReader(handle)}
+    located = json.loads(LOCATIONS.read_text(encoding="utf-8"))["buildings"] if LOCATIONS.exists() else {}
     catalogue = {}
     for split in SPLITS:
         for file in sorted((data_dir / split).glob("*/building.json")):
             building_id = f"{split}/{file.parent.name}"
             catalogue[building_id] = {"id": building_id, "split": split, "name": names.get(building_id),
-                                      "path": file.parent}
+                                      "path": file.parent, "location": located.get(file.parent.name)}
     return catalogue
 
 
 class MapView:
-    """Per-conversation cache of the point-cloud export, the vector floor plan and route polylines (by event index)."""
+    """Per-conversation cache of the vector floor plan of the session's current building."""
 
     def __init__(self) -> None:
-        self.lock = threading.Lock()  # own lock: /events and /points read while a Guide turn holds the turn lock
-        self.building: BuildingMap | None = None  # the object the caches were built from (identity, not equality)
-        self.export: dict | None = None
-        self.routes: dict[int, list[list[float]]] = {}
+        self.lock = threading.Lock()  # own lock: /events and /plan read while a Guide turn holds the turn lock
+        self.building: BuildingMap | None = None  # the object the plan was built from (identity, not equality)
         self.floor_plan: dict | None = None
 
-    def refresh(self, building: BuildingMap) -> dict:
-        if building is not self.building:
-            self.building, self.export, self.routes, self.floor_plan = building, export_points(building), {}, None
-        return self.export  # type: ignore[return-value]
-
-    def points(self, session: BuildingSession) -> dict:
-        with self.lock:
-            return self.refresh(session.building)
-
     def plan(self, session: BuildingSession) -> dict:
-        """Vector floor plan (core/floorplan.py) with the point-cloud export's centre, cached like the export."""
+        """Vector floor plan (core/floorplan.py), rebuilt whenever the session's BuildingMap object changes."""
         with self.lock:
-            export = self.refresh(session.building)
-            if self.floor_plan is None:
-                self.floor_plan = export_plan(session.building, export["center"])
+            if session.building is not self.building or self.floor_plan is None:
+                self.building, self.floor_plan = session.building, export_plan(session.building)
             return self.floor_plan
 
-    def enrich(self, session: BuildingSession, events: list[dict], first_index: int) -> list[dict]:
-        """Copies of `events` (session.events[first_index:...]) with route vertices + legs and change space ids.
-
-        Limitation: vertices are computed on the session's building as it is now, not the one current when the
-        route was emitted (changes only add doors or closures, so earlier paths still resolve); the route cache is
-        dropped together with the export whenever the building object changes."""
-        with self.lock:
-            building = session.building
-            enriched = []
-            for index, event in enumerate(events, start=first_index):
-                if event.get("type") == "route":
-                    export = self.refresh(building)
-                    if index not in self.routes:
-                        try:
-                            self.routes[index] = route_vertices(export, building, event.get("space_path") or [],
-                                                                event.get("element_path") or [])
-                        except (KeyError, StopIteration):  # path no longer valid on this building
-                            self.routes[index] = []
-                    event = {**event, "vertices": self.routes[index],
-                             "legs": safe_legs(building, event)}
-                elif event.get("type") == "change":
-                    event = {**event, "space_ids": affected_spaces(building, event.get("targets") or [])}
-                enriched.append(event)
-            return enriched
+    def enrich(self, session: BuildingSession, events: list[dict]) -> list[dict]:
+        """Copies of `events` (a slice of session.events) with route legs and change space ids, computed on
+        the session's building as it is now (changes only add doors or closures, so earlier paths still resolve)."""
+        building = session.building
+        enriched = []
+        for event in events:
+            if event.get("type") == "route":
+                event = {**event, "legs": safe_legs(building, event), "steps": safe_steps(building, event),
+                         "line": safe_line(building, event)}
+            elif event.get("type") == "change":
+                event = {**event, "space_ids": affected_spaces(building, event.get("targets") or [])}
+            enriched.append(event)
+        return enriched
 
 
 def safe_legs(building: BuildingMap, event: dict) -> list[dict]:
     try:
         return route_legs(building, event.get("space_path") or [], event.get("element_path") or [])
+    except (KeyError, StopIteration):  # path no longer valid on this building
+        return []
+
+
+def safe_steps(building: BuildingMap, event: dict) -> list[dict]:
+    """The Guide's followable steps (core/directions.guidance: turns where a person makes them, landmarks, rounded
+    metres) as data, for the app's next-move card; the same steps the Guide says."""
+    try:
+        return guidance(building, event.get("space_path") or [], event.get("element_path") or [])
+    except (KeyError, StopIteration):  # path no longer valid on this building
+        return []
+
+
+def safe_line(building: BuildingMap, event: dict) -> list[list[float]]:
+    """The route as a plan polyline [[x, y, floor_index], …] (core/routeline.py), for drawing it on the map."""
+    try:
+        return route_line(building, event.get("space_path") or [], event.get("element_path") or [])
     except (KeyError, StopIteration):  # path no longer valid on this building
         return []
 

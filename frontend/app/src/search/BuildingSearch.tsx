@@ -1,5 +1,6 @@
-// Landing page: one search field over every building in the catalogue (GET /buildings). Type to filter (name,
-// id, type; accents ignored, every word must match), narrow by type, ↑/↓ + Enter or click to open the twin.
+// List view: one search field over every building in the catalogue (GET /buildings), the ones without a real
+// position (not on the map) included. Type to filter (name, id, type; accents ignored, every word must match),
+// narrow by type or to the buildings with no location, ↑/↓ + Enter or click to open the twin.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { api, type Building } from '../api'
@@ -15,15 +16,17 @@ const KINDS = [
 type KindKey = (typeof KINDS)[number]['key']
 
 const kindOf = (id: string) => KINDS.find((k) => k.test(id))
+const NO_LOCATION = 'nolocation'
 const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 type Row = Building & { kind: string; kindKey: KindKey | null; haystack: string }
+type Filter = KindKey | typeof NO_LOCATION
 
-export function BuildingSearch({ onOpen }: { onOpen: (id: string) => void }) {
+export function BuildingSearch({ onOpen, onMap }: { onOpen: (id: string) => void; onMap: () => void }) {
   const [buildings, setBuildings] = useState<Row[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-  const [kind, setKind] = useState<KindKey | null>(null)
+  const [kind, setKind] = useState<Filter | null>(null)
   const [active, setActive] = useState(0)
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLOListElement>(null)
@@ -45,14 +48,18 @@ export function BuildingSearch({ onOpen }: { onOpen: (id: string) => void }) {
   }, [])
 
   const counts = useMemo(() => {
-    const c = new Map<KindKey, number>()
-    for (const b of buildings ?? []) if (b.kindKey) c.set(b.kindKey, (c.get(b.kindKey) ?? 0) + 1)
+    const c = new Map<Filter, number>()
+    for (const b of buildings ?? []) {
+      if (b.kindKey) c.set(b.kindKey, (c.get(b.kindKey) ?? 0) + 1)
+      if (!b.location) c.set(NO_LOCATION, (c.get(NO_LOCATION) ?? 0) + 1)
+    }
     return c
   }, [buildings])
 
   const results = useMemo(() => {
     const words = fold(query).split(/\s+/).filter(Boolean)
-    return (buildings ?? []).filter((b) => (!kind || b.kindKey === kind) && words.every((w) => b.haystack.includes(w)))
+    const matches = (b: Row) => !kind || (kind === NO_LOCATION ? !b.location : b.kindKey === kind)
+    return (buildings ?? []).filter((b) => matches(b) && words.every((w) => b.haystack.includes(w)))
   }, [buildings, query, kind])
 
   useEffect(() => {
@@ -76,6 +83,7 @@ export function BuildingSearch({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <main className="bs">
       <div className="bs-inner">
+        <button className="bs-map" onClick={onMap}>← Map</button>
         <header className="bs-head">
           <h1>Find a building</h1>
           <p>{buildings ? `${buildings.length} buildings` : error ? 'Could not load buildings' : 'Loading…'}</p>
@@ -105,6 +113,9 @@ export function BuildingSearch({ onOpen }: { onOpen: (id: string) => void }) {
               {k.label}<span>{counts.get(k.key) ?? 0}</span>
             </button>
           ))}
+          <button className={kind === NO_LOCATION ? 'on' : ''} onClick={() => { setKind(kind === NO_LOCATION ? null : NO_LOCATION); setActive(0) }}>
+            No location<span>{counts.get(NO_LOCATION) ?? 0}</span>
+          </button>
         </div>
 
         {error && <p className="bs-empty">{error}</p>}
@@ -116,7 +127,7 @@ export function BuildingSearch({ onOpen }: { onOpen: (id: string) => void }) {
                 <li key={b.id} id={`bs-${b.id}`} role="option" aria-selected={i === active}>
                   <button className={i === active ? 'on' : ''} onMouseEnter={() => setActive(i)} onClick={() => onOpen(b.id)}>
                     <span className="bs-name">{b.name}</span>
-                    <span className="bs-kind">{b.kind}</span>
+                    <span className="bs-kind">{b.location ? `${b.kind} · on map` : b.kind}</span>
                     <span className="bs-id">{b.id}</span>
                   </button>
                 </li>

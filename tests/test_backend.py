@@ -41,6 +41,14 @@ def test_health_and_buildings(client):
     assert BUILDING in ids and all(item.count("/") == 1 for item in ids)
 
 
+def test_buildings_carry_a_location_only_where_one_is_known(client):
+    items = {item["id"]: item for item in client.get("/buildings").json()}
+    located = {building_id for building_id, item in items.items() if item["location"]}
+    assert located and all("/osm-way" in building_id for building_id in located)  # only OSM buildings have one
+    main = items["train/osm-way10053349"]["location"]  # TUM main building, Arcisstraße 21
+    assert abs(main["lat"] - 48.1489) < 0.001 and abs(main["lon"] - 11.5680) < 0.001
+
+
 @pytest.mark.parametrize("building", ["train/nope", "../pyproject.toml", "/etc", "train/../dev/x"])
 def test_invalid_building_is_rejected(client, building):
     assert client.post("/sessions", json={"building": building}).status_code == 422
@@ -132,58 +140,57 @@ def test_session_header_persists_across_completions(client):
     assert client.get("/sessions/voice-call-1").json()["profile"]["step_free"] is True
 
 
-def test_points_export(client):
-    session_id = new_session(client)
-    response = client.get(f"/sessions/{session_id}/points")
-    assert response.status_code == 200
-    export = response.json()
-    assert export["count"] > 0 and len(export["points"]["kind"]) == export["count"]
-    assert export["connectors"] and export["openings"] and export["closed"] == []
-    assert client.get("/sessions/missing/points").status_code == 404
-
-
 def test_plan_export(client):
     session_id = new_session(client)
     plan = client.get(f"/sessions/{session_id}/plan").json()
-    points = client.get(f"/sessions/{session_id}/points").json()
-    assert plan["center"] == points["center"]  # route vertices from /events map back onto the plan
+    x0, y0, x1, y1 = plan["bounds"]
+    assert plan["center"] == [round((x0 + x1) / 2, 2), round(-(y0 + y1) / 2, 2)]  # the scene is centred on it
     assert len(plan["walls"]) == len(plan["floors"]) and all(plan["walls"])
     assert plan["spaces"] and all(len(space["polygon"]) >= 3 for space in plan["spaces"])
     door = next(opening for opening in plan["openings"] if opening["kind"] == "door")
-    assert door["side"] in (1, -1) and door["space"] in door["spaces"]
+    assert door["space"] in door["spaces"] and isinstance(door["angle"], float)
     assert plan["assets"] and all(len(asset["size"]) == 2 for asset in plan["assets"])
     assert client.get("/sessions/missing/plan").status_code == 404
 
 
-def test_points_are_gzipped(client):
+def test_plan_is_gzipped(client):
     session_id = new_session(client)
-    response = client.get(f"/sessions/{session_id}/points", headers={"Accept-Encoding": "gzip"})
+    response = client.get(f"/sessions/{session_id}/plan", headers={"Accept-Encoding": "gzip"})
     assert response.headers.get("content-encoding") == "gzip"
 
 
-def test_route_event_has_vertices(client):
+def test_route_event_has_legs(client):
     session_id = new_session(client)
     turn = say(client, session_id, ROUTE)
     route = next(event for event in turn["events"] if event["type"] == "route")
-    assert len(route["vertices"]) >= 2 and all(len(vertex) == 4 for vertex in route["vertices"])
+    assert route["legs"] and route["legs"][-1]["kind"] == "arrive"
     polled = client.get("/events", params={"session_id": session_id}).json()["events"]
-    assert next(event for event in polled if event["type"] == "route")["vertices"] == route["vertices"]
+    assert next(event for event in polled if event["type"] == "route")["legs"] == route["legs"]
 
 
-def test_change_event_has_space_ids_and_points_update(client):
+def test_route_event_has_the_guides_steps(client):
     session_id = new_session(client)
-    before = client.get(f"/sessions/{session_id}/points").json()
+    turn = say(client, session_id, ROUTE)
+    route = next(event for event in turn["events"] if event["type"] == "route")
+    steps = route["steps"]
+    assert len(steps) == len(route["legs"]) and steps[-1]["kind"] == "arrive"
+    assert all(step["text"] and "[" not in step["text"] for step in steps)
+
+
+def test_change_event_has_space_ids_and_plan_update(client):
+    session_id = new_session(client)
+    before = client.get(f"/sessions/{session_id}/plan").json()
     say(client, session_id, ROUTE)
     say(client, session_id, "Lift 1 is broken")
     turn = say(client, session_id, "yes")
     change = next(event for event in turn["events"] if event["type"] == "change")
     lift = next(item for item in before["connectors"] if item["name"] == "Lift 1")
-    assert change["space_ids"] == [before["spaces"][index]["id"] for index in lift["spaces"]]
-    assert client.get(f"/sessions/{session_id}/points").json()["closed"] == [lift["id"]]
+    assert change["space_ids"] == lift["spaces"]
+    assert client.get(f"/sessions/{session_id}/plan").json()["closed"] == [lift["id"]]
     polled = client.get("/events", params={"session_id": session_id}).json()["events"]
     assert next(event for event in polled if event["type"] == "change")["space_ids"] == change["space_ids"]
     raw = store.get(session_id).session.events  # the enrichment works on copies
-    assert all("vertices" not in event and "space_ids" not in event for event in raw if event["type"] != "highlight")
+    assert all("legs" not in event and "space_ids" not in event for event in raw if event["type"] != "highlight")
 
 
 def test_chat_stream_steps_then_reply(client):

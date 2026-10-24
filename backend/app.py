@@ -2,11 +2,12 @@
 
   GUIDE_LLM=offline uv run uvicorn backend.app:app --port 8765
 
-Endpoints: /health, /buildings, /sessions (create, inspect, switch building), /sessions/{id}/points (point-cloud
-export of the session's current building, gzipped), /chat, /chat/stream (the same turn as NDJSON: live tool steps,
+Endpoints: /health, /buildings, /sessions (create, inspect, switch building), /sessions/{id}/plan (vector floor
+plan of the session's current building, gzipped), /chat, /chat/stream (the same turn as NDJSON: live tool steps,
 then the reply), /events (polling cursor for the map UI; route events
-carry `vertices`, change events `space_ids`), the OpenAI-compatible /v1/chat/completions for ElevenLabs
-(backend/openai_compat.py), and the Edit mode's /drafts (create, get, points, plan, ops, undo, save, chat/stream for the Builder agent, proposals/{pid}/apply — backend/drafts.py;
+carry turn-by-turn `legs` and a plan `line`, change events `space_ids`), /dev/* (the dev panel: Guide tools run by
+hand, backend/devtools.py), the OpenAI-compatible /v1/chat/completions for ElevenLabs
+(backend/openai_compat.py), and the Edit mode's /drafts (create, get, plan, ops, undo, save, chat/stream for the Builder agent, proposals/{pid}/apply — backend/drafts.py;
 saved buildings appear in /buildings as `user/<slug>`; stored in Postgres with SUPABASE_DB_URL, else under
 GUIDE_USER_DIR, default data/user/). A draft change or Builder turn that lost a race to another instance answers 409;
 a database error 503.
@@ -32,13 +33,11 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from agent.guide import PHOTO_TYPES, llm_mode
-from backend import openai_compat, persistence
+from backend import devtools, openai_compat, persistence
 from agent.builder import Builder
 from backend.drafts import Draft, DraftStore, backend_from_env
 from backend.sessions import DATA_DIR, DEFAULT_SESSION, Conversation, SessionStore, UnknownBuilding, summary
-from core.building_map import BuildingMap
 from core.edits import EditError
-from core.pointcloud import export_points
 
 API_PREFIX = "/api"
 
@@ -60,7 +59,7 @@ class StripPrefix:
 origins = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "*").split(",") if origin.strip()]
 app = FastAPI(title="Talk to Your Building")
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
-app.add_middleware(GZipMiddleware, minimum_size=1000)  # the point-cloud export is ~4 MB of JSON
+app.add_middleware(GZipMiddleware, minimum_size=1000)  # the floor plan export is up to ~0.5 MB of JSON
 app.add_middleware(StripPrefix)  # added last = outermost: routes see the path without /api
 store = SessionStore()
 drafts = DraftStore(backend_from_env(Path(os.environ.get("GUIDE_USER_DIR", DATA_DIR / "user"))), store.catalogue)
@@ -129,12 +128,10 @@ def save_or_409(conversation: Conversation) -> None:
 
 
 def turn_payload(conversation: Conversation, turn: object) -> dict:
-    # turn.events is the tail of session.events, so its first index is len(log) - len(turn.events).
-    first_index = len(conversation.session.events) - len(turn.events)
     return {
         "reply": turn.text,
         "tool_calls": [{"name": call["name"], "input": call["input"]} for call in turn.tool_calls],
-        "events": conversation.view.enrich(conversation.session, turn.events, first_index),
+        "events": conversation.view.enrich(conversation.session, turn.events),
         "ungrounded": turn.ungrounded,
         "spoken": turn.spoken,
     }
@@ -148,7 +145,8 @@ def health() -> dict:
 @app.get("/buildings")
 def buildings() -> list[dict]:
     drafts.refresh(quiet=True)  # buildings saved on other instances; dataset buildings even if the database is down
-    return [{"id": item["id"], "split": item["split"], "name": item["name"]} for item in store.catalogue.values()]
+    return [{"id": item["id"], "split": item["split"], "name": item["name"], "location": item.get("location")}
+            for item in store.catalogue.values()]
 
 
 @app.post("/sessions")
@@ -248,13 +246,7 @@ def events(session_id: str, after: int = Query(0, ge=0)) -> dict:
     conversation = conversation_or_404(session_id)
     log = conversation.session.events
     end = len(log)  # snapshot: a running turn may append meanwhile
-    return {"events": conversation.view.enrich(conversation.session, log[after:end], after), "next": end}
-
-
-@app.get("/sessions/{session_id}/points")
-def points(session_id: str) -> dict:
-    conversation = conversation_or_404(session_id)
-    return conversation.view.points(conversation.session)
+    return {"events": conversation.view.enrich(conversation.session, log[after:end]), "next": end}
 
 
 @app.get("/sessions/{session_id}/plan")
@@ -285,11 +277,6 @@ def create_draft(body: NewDraft) -> dict:
 @app.get("/drafts/{draft_id}")
 def get_draft(draft_id: str) -> dict:
     return drafts.state(draft_or_404(draft_id))
-
-
-@app.get("/drafts/{draft_id}/points")
-def draft_points(draft_id: str) -> dict:
-    return export_points(BuildingMap(drafts.building(draft_or_404(draft_id))))
 
 
 @app.get("/drafts/{draft_id}/plan")
@@ -479,3 +466,6 @@ def chat_completions(body: dict, x_session_id: str | None = Header(None)) -> dic
     if body.get("stream"):
         return StreamingResponse(openai_compat.stream(reply, model), media_type="text/event-stream")
     return openai_compat.completion(reply(), model)
+
+
+app.include_router(devtools.router(store, conversation_or_404, save_or_409))  # the app's dev panel (backend/devtools.py)

@@ -1,9 +1,8 @@
 """Turn-by-turn legs of a route for guidance UIs (camera walk mode, route card).
 
-Same walk as `core.pointcloud.route_nodes` (space anchor → door → next anchor; a connector hop between floors), but
-kept as structured legs. Each leg reads "turn …, walk about N m through the door into X": the turn is the heading
-change at the current space's anchor, from "door we came in by → anchor" to "anchor → next door", taken from the plan
-geometry. Turns are relative, so no compass or north reference is needed; the first leg and the first leg after a
+The walk is space anchor → door → next anchor (a connector hop between floors), kept as structured legs. Each leg
+reads "turn …, walk about N m through the door into X": the turn is the heading change at the current space's
+anchor, from "door we came in by → anchor" to "anchor → next door", taken from the plan geometry. Turns are relative, so no compass or north reference is needed; the first leg and the first leg after a
 floor change have no heading to turn from ("straight"). Distances are straight segments between those points, the
 same "about N m" as `BuildingMap.directions`, not the route cost."""
 
@@ -160,40 +159,55 @@ def landmark(building: BuildingMap, opening_id: str) -> str | None:
 
 def guidance_steps(building: BuildingMap, space_path: list[str], element_path: list[str]) -> list[str]:
     """Followable steps for a route: turn, rounded metres, the door and a landmark next to it; one line per
-    staircase or lift ride; no ids.
+    staircase or lift ride; no ids. The start line, then the `text` of each `guidance` step."""
+    if not space_path:
+        return []
+    start = space_path[0]
+    first = ("Start outside the building." if start == OUTSIDE
+             else f"Start in {building.spaces[start]['name']} ({floor_of(building, start)}).")
+    return [first] + [step["text"] for step in guidance(building, space_path, element_path)]
+
+
+def guidance(building: BuildingMap, space_path: list[str], element_path: list[str]) -> list[dict]:
+    """The same steps as data, for the app's next-move card: [{kind, turn, metres, to, to_id, floor, door?,
+    landmark?, via?, via_kind?, up?, floors?, text}, …], one per leg, ending with "arrive"; kind as in `route_legs`.
 
     The turn is taken where a person makes it: coming through the last door (heading = previous room's anchor →
     that door), which way is the next door. `route_legs` turns at the room's anchor instead, which reads "turn
     around" when the next door is next to the one you came in by. No turn on the first leg or after a ride."""
     if not space_path:
         return []
-    start = space_path[0]
-    steps = ["Start outside the building." if start == OUTSIDE
-             else f"Start in {building.spaces[start]['name']} ({floor_of(building, start)})."]
+    steps: list[dict] = []
     behind: tuple[float, float] | None = None  # a point before the last door, on the walking line through it
     entered: tuple[float, float] | None = None  # the last door we came through
-    current = start
+    current = space_path[0]
     for leg in route_legs(building, space_path, element_path):
+        base = {"kind": leg["kind"], "to": leg["to"], "to_id": leg["to_id"], "floor": leg["floor"]}
         if leg["kind"] == "connector":
             floors = leg.get("floors", 1)
             span = f" {FLOOR_COUNT.get(floors, str(floors))} floors" if floors > 1 else ""
-            steps.append(f"Take {leg['via']} {'up' if leg['up'] else 'down'}{span} to {leg['floor']}.")
+            steps.append({**base, "turn": "straight", "metres": 0, "via": leg["via"], "via_kind": leg.get("via_kind"),
+                          "up": leg["up"], "floors": floors,
+                          "text": f"Take {leg['via']} {'up' if leg['up'] else 'down'}{span} to {leg['floor']}."})
             behind = entered = None
         elif leg["kind"] == "arrive":
-            steps.append("You are now outside the building." if leg["to_id"] == OUTSIDE
-                         else f"You have arrived at {leg['to']} ({leg['floor']}).")
+            steps.append({**base, "turn": "straight", "metres": 0,
+                          "text": "You are now outside the building." if leg["to_id"] == OUTSIDE
+                          else f"You have arrived at {leg['to']} ({leg['floor']})."})
         else:
             door_at = tuple(building.openings[leg["via"]]["position"])
             degrees = heading_change(behind, entered, door_at) if behind and entered else None
+            turn = turn_word(degrees)
             door = DOOR_WORD.get(leg["via_kind"], "opening")
             mark = landmark(building, leg["via"])
             by = f" (by the {mark})" if mark else ""
             where = "and leave the building" if leg["kind"] == "exit" else f"into {leg['to']}"
-            if leg["distance_m"] < 1:
-                steps.append(f"Go through the {door}{by} {where}.")
-            else:
-                steps.append(f"{TURN_PHRASE[turn_word(degrees)]} about {about_m(leg['distance_m'])} m through the "
-                             f"{door}{by} {where}.")
+            short = leg["distance_m"] < 1
+            metres = 0 if short else about_m(leg["distance_m"])
+            text = (f"Go through the {door}{by} {where}." if short
+                    else f"{TURN_PHRASE[turn]} about {metres} m through the {door}{by} {where}.")
+            steps.append({**base, "turn": "straight" if short else turn, "metres": metres, "door": door, "landmark": mark,
+                          "text": text})
             behind = building.anchor(current) if current != OUTSIDE else entered
             entered = door_at
         current = leg["to_id"]

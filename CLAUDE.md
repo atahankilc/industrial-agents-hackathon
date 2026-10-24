@@ -66,7 +66,7 @@ We build at the repo root; `archive/` is reference only
 | Kit file layout and dataset stats | [docs/kit/repo-layout.md](docs/kit/repo-layout.md) |
 | System architecture (frontend, backend, DB, voice, CI) | [docs/architecture/overview.md](docs/architecture/overview.md) |
 | AI agents (Guide, benchmark pipeline, Builder) | [docs/architecture/ai-agents.md](docs/architecture/ai-agents.md) |
-| 3D point-cloud visualization (+ prototype) | [docs/product/visualization.md](docs/product/visualization.md) |
+| App visuals (vector plan view) | [docs/product/visualization.md](docs/product/visualization.md) |
 | Personas / routing profiles | [docs/product/personas.md](docs/product/personas.md), [docs/product/routing-profiles.md](docs/product/routing-profiles.md) |
 | ElevenLabs, cloud stack, question parsing research | [docs/research/](docs/README.md#research-dated-2026-10-24) |
 | Per-kind solver plan (benchmark) | [docs/architecture/solver-plan.md](docs/architecture/solver-plan.md) |

@@ -4,6 +4,7 @@
 
 import { ChevronLeft, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { EMPTY_STORY } from '../dev/story'
 import { api, type BuilderReply, type DraftState, type Issue, type Op, type Plan, type Proposal } from '../api'
 import type { PlanPalette } from '../plan/palette'
 import { PlanView } from '../plan/PlanView'
@@ -251,6 +252,7 @@ export function EditMode({ base, palette, onSaved, onExit }: Props) {
             onTilt={ignore}
             spread
             settings={PREVIEW_SETTINGS}
+            story={EMPTY_STORY}
           />
         )}
       </div>

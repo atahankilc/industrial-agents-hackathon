@@ -1,5 +1,6 @@
 // Light / dark / system theme. The choice is a per-viewer convenience in localStorage (guarded: storage can
-// throw in private windows); the resolved theme is mirrored on <html data-theme> for the CSS tokens.
+// throw in private windows); the resolved theme is mirrored on <html data-theme> for the CSS tokens. With no stored
+// choice it is dark: the building screen's HUD is designed dark first.
 
 import { useEffect, useState } from 'react'
 
@@ -10,9 +11,9 @@ const ORDER: ThemeMode[] = ['system', 'light', 'dark']
 function stored(): ThemeMode {
   try {
     const value = localStorage.getItem(KEY)
-    return value === 'light' || value === 'dark' ? value : 'system'
+    return value === 'light' || value === 'system' ? value : 'dark'
   } catch {
-    return 'system'
+    return 'dark'
   }
 }
 

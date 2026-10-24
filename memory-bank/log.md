@@ -10,6 +10,18 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — v1 Guide strengths ported into `agent/guide.py` (Utku's session)
+
+- **Did:** `agent/places.py` + `BuildingSession.resolve`: articles dropped, exact asset type → its room, repeated
+  names → `MapError` listing `id (name, ref, type, floor)` per candidate ([D-012](decisions.md#d-012)), typos → "Did
+  you mean"; `find_route` / `tour` pre-resolve stops; an ambiguous destination returns each option with its route
+  length. Grounding: unit-glued numbers, list lengths, clock times, half-up rounding. `tests/test_places.py` (10).
+- **Learned:** `Resolver.asset_type` / `navigation.resolve_asset_type` are fuzzy ("office" → `office_chair`), so
+  places.py accepts only an exact type (plural ok). Python `round()` is half-even: the old check flagged "about
+  43 m" for 42.5 m. Live (Sonnet 5.5 low): 7-turn script 0 ungrounded, $0.06; the model already fixed "Ofice" and
+  picked the nearest printer itself, so the new paths are a safety net rather than the common path.
+- **Next:** voice transcript rewriter (D-013); measure the Vercel preview (protected by Vercel Authentication).
+
 ## 2026-10-24 — Merge `origin/main` into `1-agentic-yarag` (Utku's session)
 
 - **Why:** Vercel build failed on the branch (no `vercel.json`, `frontend/app/`, `backend/`). Main and the branch had

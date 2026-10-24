@@ -27,6 +27,7 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
+from decimal import ROUND_HALF_UP, Decimal
 
 import anthropic
 
@@ -76,7 +77,10 @@ SYSTEM_MESSAGE_MODELS = ("claude-opus-5", "claude-opus-4-8", "claude-fable-5", "
                          "claude-haiku-5-5")
 CHANNELS = ("text", "voice")
 
-NUMBER = re.compile(r"(?<![\w.])\d+(?:[.,]\d+)?(?![\w])")
+# A number, also when glued to a unit ("120m", "45m²"); not "3D" or "2nd" (from agent/guide_v1/grounding.py).
+UNIT = r"(?:m²|m2|km|cm|mm|min|m|s|%|x)"
+NUMBER = re.compile(rf"(?<![\w.])\d+(?:[.,]\d+)?(?={UNIT}?(?!\w))")
+TIME = re.compile(r"\b\d{1,2}:\d{2}\b")
 IDENTIFIER = re.compile(r"\b[A-Za-z0-9]+(?:-[A-Za-z0-9]+){2,}\b")
 LIST_MARKER = re.compile(r"^\s*\d+[.)]\s", re.MULTILINE)
 
@@ -263,16 +267,46 @@ def ungrounded(text: str, corpus: str) -> list[str]:
     """Numbers and ids in `text` that appear nowhere in `corpus` (tool results, overview, user messages).
 
     A number counts as grounded when some corpus number rounds to it at the same precision ("about 124 m" for
-    124.24). Numbered-list markers are ignored; digits inside ids are checked as part of the id."""
+    124.24), or when it is the length of a list in a JSON tool result ("I found 2 options"). Numbered-list markers
+    and clock times are ignored; digits inside ids are checked as part of the id."""
     missing = [token for token in dict.fromkeys(IDENTIFIER.findall(text)) if token not in corpus]
-    scrubbed = LIST_MARKER.sub(" ", IDENTIFIER.sub(" ", text))
+    scrubbed = TIME.sub(" ", LIST_MARKER.sub(" ", IDENTIFIER.sub(" ", text)))
     known = [float(token.replace(",", ".")) for token in NUMBER.findall(IDENTIFIER.sub(" ", corpus))]
+    known += list_lengths(corpus)
     for token in dict.fromkeys(NUMBER.findall(scrubbed)):
         value = float(token.replace(",", "."))
         decimals = len(token.replace(",", ".").partition(".")[2])
-        if not any(round(number, decimals) == value for number in known):
+        if not any(half_up(number, decimals) == value for number in known):
             missing.append(token)
     return missing
+
+
+def half_up(number: float, decimals: int) -> float:
+    """round() rounds halves to even (42.5 → 42); people say 43."""
+    return float(Decimal(repr(number)).quantize(Decimal(1).scaleb(-decimals), ROUND_HALF_UP))
+
+
+def list_lengths(corpus: str) -> list[float]:
+    """Lengths of the lists of records or names inside the corpus lines that are JSON (tool results)."""
+    lengths: list[float] = []
+
+    def walk(value: object) -> None:
+        if isinstance(value, dict):
+            for item in value.values():
+                walk(item)
+        elif isinstance(value, list):
+            if value and all(isinstance(item, (dict, str)) for item in value):
+                lengths.append(float(len(value)))
+            for item in value:
+                walk(item)
+
+    for line in corpus.splitlines():
+        if line.startswith(("{", "[")):
+            try:
+                walk(json.loads(line))
+            except ValueError:
+                continue
+    return lengths
 
 
 @dataclass

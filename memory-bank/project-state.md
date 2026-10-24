@@ -88,8 +88,12 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
     (locate, find_places, place_info, building_fact, route, update_session), candidate fan-out for ambiguous names,
     grounding check with one repair then a code fallback; REPL `uv run --env-file .env python -m agent.guide_v1
     <building_dir> [--show-tools]`. 9 scripted conversations (`tests/guide_conversations/`, `scripts/eval_guide.py`):
-    16/16 turns PASS live (single run, ~$0.32). Next: port name resolution / fan-out, the stricter grounding
-    fallback and the voice transcript rewriter ([D-013](decisions.md#d-013)) into `agent/guide.py`.
+    16/16 turns PASS live (single run, ~$0.32).
+  - Ported into the canonical Guide (2026-10-24): place resolution + described candidates + typo suggestions +
+    route fan-out over an ambiguous destination (`agent/places.py`, `BuildingSession.resolve`), and grounding
+    (unit-glued numbers, list lengths, clock times, half-up rounding) in `agent/guide.py`; `tests/test_places.py`.
+    Not ported: the v1 code fallback reply (main's tools have no uniform `summary`); the voice transcript
+    rewriter ([D-013](decisions.md#d-013)) was never implemented in v1 either — still to build.
 - `benchmark/score.py` parsing behaviour checked ([scoring.md](../docs/challenge/scoring.md#formatting-pitfalls-cost-real-points)).
 
 ## Pending decisions (Atahan)

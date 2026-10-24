@@ -20,8 +20,9 @@ from pathlib import Path
 
 import networkx as nx
 
+from agent import places
 from core import navigation
-from core.building_map import LIFT, BuildingMap, MapError
+from core.building_map import LIFT, OUTSIDE, BuildingMap, MapError
 from core.solvers import SOLVERS, solve
 from core.solvers.geometry import adjacent_floor, centre_3d, polygon
 from core.solvers.reachability import is_room, reachable_spaces, rooms_on_floor
@@ -134,7 +135,31 @@ class BuildingSession:
         }
 
     def resolve(self, reference: str) -> str:
-        return self.building.resolve_space(reference)
+        """One space id for a phrase, else MapError listing the candidates or near-miss names (agent/places.py)."""
+        found = places.candidates(self.building, reference)
+        if len(found) != 1:
+            raise MapError(places.problem(self.building, reference, found))
+        return found[0]
+
+    def stop(self, reference: str) -> str:
+        return OUTSIDE if reference == OUTSIDE else self.resolve(reference)
+
+    def destination_options(self, start: str, destination: str, via: list[str]) -> dict | None:
+        """A destination phrase that fits several spaces: the route length to each, shortest first (D-012)."""
+        found = places.candidates(self.building, destination)
+        if not 1 < len(found) <= places.MAX_OPTIONS:
+            return None
+        options = []
+        for space_id in found:
+            route = navigation.find_route(self.building, start, space_id, step_free=self.profile.step_free,
+                                          closed=self.profile_closures(), via=via).to_dict()
+            options.append({**self.space_summary(space_id),
+                            "length_m": route["length_m"] if route.get("reachable") else None})
+        options.sort(key=lambda option: (option["length_m"] is None, option["length_m"] or 0.0))
+        extras = {option["id"]: f"{option['length_m']} m" if option["length_m"] is not None else "unreachable"
+                  for option in options}
+        return {"error": places.problem(self.building, destination, [o["id"] for o in options], extras),
+                "options": options}
 
     # ---------- read-only tools ----------
 
@@ -196,6 +221,10 @@ class BuildingSession:
         }
 
     def tool_find_route(self, start: str, destination: str, via: list[str] | None = None) -> dict:
+        start, via = self.stop(start), [self.stop(item) for item in via or ()]
+        if destination != OUTSIDE and (options := self.destination_options(start, destination, via)):
+            return options
+        destination = self.stop(destination)
         route = navigation.find_route(
             self.building,
             start,
@@ -214,7 +243,7 @@ class BuildingSession:
 
     def tool_tour(self, stops: list[str]) -> dict:
         return navigation.tour(
-            self.building, stops, step_free=self.profile.step_free, closed=self.profile_closures()
+            self.building, [self.stop(item) for item in stops], step_free=self.profile.step_free, closed=self.profile_closures()
         ).to_dict()
 
     def tool_reachable_rooms(self, start: str, floor_id: str | None = None) -> dict:

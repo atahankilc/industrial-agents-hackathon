@@ -7,8 +7,9 @@ happens, or the tool budget runs out, the reply is replaced by the tools' own co
 
 stop_reason handling: `tool_use` runs the tools; `refusal` / `max_tokens` fall back to summaries (any tool calls
 in that response get `is_error` results, so the next turn's history is valid); `pause_turn` re-sends the
-conversation unchanged (counts as one round); anything else is a final answer. An API error rolls the
-conversation, tool history and session back to the start of the turn, so the Guide stays usable."""
+conversation unchanged (counts as one round); anything else is a final answer. A tool that raises becomes an
+`error` tool result, so every tool_use is answered. Any other exception (API or bug) rolls the conversation, tool
+history and session back to the start of the turn and is re-raised, so the Guide stays usable."""
 
 import copy
 import json
@@ -84,11 +85,11 @@ class Guide:
         self.messages.append({"role": "user", "content": text})
         try:
             reply, grounded = self.run_loop(state)
-        except anthropic.APIError:
+            return self.result(reply, state, grounded)
+        except Exception:
             del self.messages[checkpoint[0]:], self.tool_results[checkpoint[1]:]
             self.session = checkpoint[2]
             raise
-        return self.result(reply, state, grounded)
 
     def run_loop(self, state: TurnState) -> tuple[str, bool]:
         repaired = False
@@ -139,12 +140,17 @@ class Guide:
                 for block in tool_uses]})
 
     def run(self, block, state: TurnState) -> dict:
-        result = run_tool(self.bmap, self.session, block.name, block.input)
+        try:
+            result = run_tool(self.bmap, self.session, block.name, block.input)
+            content = json.dumps(result)
+        except Exception as error:  # a bug in a tool or the core must not leave this tool_use unanswered
+            result = {"status": "error", "summary": f"Could not run {block.name}: {error}"}
+            content = json.dumps(result)
         state.calls.append({"name": block.name, "input": block.input, "status": result["status"],
                             "summary": result.get("summary", "")})
         state.results.append(result)
         self.tool_results.append(result)
-        return {"type": "tool_result", "tool_use_id": block.id, "content": json.dumps(result),
+        return {"type": "tool_result", "tool_use_id": block.id, "content": content,
                 "is_error": result["status"] == "error"}
 
     # ---------- what the turn touched (for the UI) ----------

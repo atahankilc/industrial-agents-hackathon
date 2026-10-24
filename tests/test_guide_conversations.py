@@ -16,7 +16,7 @@ LOBBY, LAB = "proc-campus-dev-001-F0-S014", "proc-campus-dev-001-F2-S020"
 
 
 def test_conversation_files_are_valid():
-    assert len(FILES) >= 7
+    assert len(FILES) >= 9
     for path in FILES:
         conversation = load_conversation(path)
         assert (Path(conversation["building"]) / "building.json").exists(), path

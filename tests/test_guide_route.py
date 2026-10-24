@@ -137,3 +137,26 @@ def test_empty_lists_mean_none():
     assert out["status"] == "ok" and s.closures == before
     trip = {"to": "1.14", "from": "Main lobby", "step_free": None}
     assert run_tool(b, s, "route", {**trip, "via": []}) == run_tool(b, s, "route", {**trip, "via": None})
+
+
+def test_ambiguous_route_summary_names_the_varying_slot():
+    out = run_tool(bmap(CAMPUS), Session(), "route", args(**{"from": "3D printer", "to": "Main lobby"}))
+    assert out["status"] == "ambiguous" and "'3D printer'" in out["summary"] and "'Main lobby'" not in out["summary"]
+
+
+NOTHING_SAVED = "Nothing was saved; call update_session again with all fields once this is resolved."
+
+
+def test_failed_session_update_says_nothing_was_saved():
+    b = bmap(CAMPUS)
+    s = Session(position=LOBBY)
+    s.closures = [["proc-campus-dev-001-V02"]]
+    calls = [{"position": "3D printer", "step_free": True, "close": None, "reopen": None},
+             {"position": None, "step_free": True, "close": ["Lift 2", "zzz"], "reopen": None},
+             {"position": None, "step_free": True, "close": None, "reopen": ["Lift 2"]}]
+    for call in calls:
+        out = run_tool(b, s, "update_session", call)
+        assert out["status"] != "ok" and out["summary"].endswith(NOTHING_SAVED)
+    assert s.step_free is False and s.closures == [["proc-campus-dev-001-V02"]] and s.position == LOBBY
+    assert NOTHING_SAVED not in run_tool(b, s, "update_session", {"position": None, "step_free": True,
+                                                                  "close": None, "reopen": None})["summary"]

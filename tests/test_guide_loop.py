@@ -180,3 +180,46 @@ def test_cut_off_tool_use_gets_error_results_so_next_turn_is_valid():
                 for b in m["content"] if b["type"] == "tool_result" and b["is_error"]}
     assert used == answered == {"toolu_cut"}
     assert [m["role"] for m in sent] == ["user", "assistant", "user", "user"]
+
+
+def test_any_tool_exception_becomes_an_error_result(monkeypatch):
+    def boom(*_args):
+        raise RuntimeError("core blew up")
+
+    monkeypatch.setattr("agent.guide.guide.run_tool", boom)
+    client = FakeClient(tool_reply("locate", {"thing": "3D printer"}), text_reply("Sorry, that failed."))
+    result = Guide(CAMPUS, client).turn("Where is the 3D printer?")
+    answer = client.calls[1]["messages"][-1]["content"][0]
+    assert answer["tool_use_id"] == "toolu_1" and answer["is_error"] and "core blew up" in answer["content"]
+    assert result.tool_calls[0]["status"] == "error" and result.text == "Sorry, that failed."
+
+
+def test_any_exception_rolls_the_turn_back(monkeypatch):
+    client = FakeClient(tool_reply("update_session", {"position": "Main lobby", "step_free": True, "close": None,
+                                                      "reopen": None}), text_reply("Noted."))
+    g = Guide(CAMPUS, client)
+    monkeypatch.setattr("agent.guide.guide.ungrounded", lambda *_a: (_ for _ in ()).throw(RuntimeError("bug")))
+    try:
+        g.turn("I'm in a wheelchair in the main lobby")
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("expected the exception to propagate")
+    assert g.messages == [] and g.tool_results == [] and g.session.step_free is False and g.session.position is None
+
+
+def test_repl_survives_any_exception(capsys):
+    client = FakeClient(raises=RuntimeError("unexpected"))
+    guide = Guide(CAMPUS, client)
+    repl(guide, ["hi", "again"])
+    out = capsys.readouterr().out
+    assert out.count("error: unexpected") == 2 and len(client.calls) == 2 and guide.messages == []
+
+
+def test_prompt_rules_for_constraints_and_clarifying_questions():
+    from agent.guide.prompt import RULES
+    text = " ".join(RULES.split())
+    assert "only after update_session returned ok" in text.lower()
+    assert "at most 3" in text and "door is closed" not in text
+    session_tool = next(t for t in TOOLS if t["name"] == "update_session")
+    assert "doors" not in session_tool["description"].split("(")[0]

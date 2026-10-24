@@ -63,9 +63,9 @@ TOOLS = [
          {"to": {"type": "string"}, "from": NULLABLE_TEXT, "via": TEXT_LIST,
           "step_free": {"anyOf": [{"type": "boolean"}, {"type": "null"}]}}),
     tool("update_session",
-         "Remember what the user tells you: where they are, whether they need step-free access, and lifts, stairs "
-         "or doors that are closed (close) or open again (reopen). Later routes use this state. Null / [] leaves a "
-         "field unchanged.",
+         "Remember what the user tells you: where they are, whether they need step-free access, and lifts or stairs "
+         "that are closed (close) or open again (reopen); doors only by their id. Later routes use this state. "
+         "Null / [] leaves a field unchanged. All or nothing: if any part fails, nothing is saved.",
          {"position": NULLABLE_TEXT, "step_free": {"anyOf": [{"type": "boolean"}, {"type": "null"}]},
           "close": TEXT_LIST, "reopen": TEXT_LIST}),
 ]
@@ -108,6 +108,12 @@ def named(bmap: BuildingMap, space_id: str) -> str:
     info = label(bmap, space_id)
     ref = f" ({info['ref']})" if info["ref"] else ""
     return f"{info['name']}{ref} on {info['floor']}"
+
+
+def slot_text(out: dict, slots: dict[str, list[str]], texts: dict[str, str | None]) -> str:
+    """The user's words for the slot(s) a fan_out result is about: the one not found, else the ones that vary."""
+    keys = [out["slot"]] if out["status"] == "not_found" else [k for k, ids in slots.items() if len(ids) > 1]
+    return "' and '".join(t for k in keys if (t := texts.get(k))) or "' and '".join(t for t in texts.values() if t)
 
 
 def not_found(bmap: BuildingMap, text: str, what: str) -> dict:
@@ -321,13 +327,14 @@ def building_fact(bmap: BuildingMap, session: Session, args: dict) -> dict:
         full = {slot: choices[slot]["id"] if slot in choices else candidates[0] for slot, candidates in slots.items()}
         return fact_summary(bmap, kind, solver_inputs(bmap, kind, fixed, full), payload["result"]), payload["result"]
 
-    text = str(args.get("place") or args.get("closed") or "")
+    texts = {"start": args.get("place"), "first": args.get("place"), "second": args.get("place2"),
+             "closed": args.get("closed")}
     out = fan_out(bmap, slots, run)
     if out["status"] == "ok":
         choice = {slot: candidates[0] for slot, candidates in slots.items()}
         out["summary"] = fact_summary(bmap, kind, solver_inputs(bmap, kind, fixed, choice), out["result"])
         return out
-    return finish(bmap, out, text, "place", unwrap)
+    return finish(bmap, out, slot_text(out, slots, texts), "place", unwrap)
 
 
 # ---------- route / update_session ----------
@@ -381,11 +388,11 @@ def route(bmap: BuildingMap, session: Session, args: dict) -> dict:
         return out
     if out["status"] == "not_found":
         return not_found(bmap, texts[out["slot"]], "place")
-    out = finish(bmap, out, end, "place",
+    out = finish(bmap, out, slot_text(out, slots, texts), "place",
                  lambda choices, payload: (route_summary(bmap, full(choices), step_free, payload["result"], closed_names(choices)),
                                 payload["result"]))
     if not out.get("truncated") and all(k.startswith("closure") for o in out["options"] for k in o["choices"]):
-        out["summary"] = f"A closed lift, stairs or door is unclear: {len(out['options'])} readings give different routes."
+        out["summary"] = f"A closed lift or stairs is unclear: {len(out['options'])} readings give different routes."
     return out
 
 
@@ -401,13 +408,24 @@ def state_summary(bmap: BuildingMap, session: Session) -> str:
     return f"Position: {where}. Step-free: {'yes' if session.step_free else 'no'}. Closed: {closed}."
 
 
+NOTHING_SAVED = "Nothing was saved; call update_session again with all fields once this is resolved."
+
+
 def update_session(bmap: BuildingMap, session: Session, args: dict) -> dict:
+    """All or nothing: every part is checked before any is saved, and a failure says so in its summary."""
+    out = apply_session_update(bmap, session, args)
+    if out["status"] != "ok":
+        out["summary"] = f"{out['summary']} {NOTHING_SAVED}"
+    return out
+
+
+def apply_session_update(bmap: BuildingMap, session: Session, args: dict) -> dict:
     position = args.get("position")
     reopening = []
     for phrase in args.get("reopen") or []:
         ids = set(resolve_elements(bmap, phrase))
         if not ids:
-            return not_found(bmap, phrase, "lift, stairs or door")
+            return not_found(bmap, phrase, "lift or stairs")
         if not any(ids & set(c) for c in session.closures):
             return {"status": "not_closed", "summary": f"'{phrase}' is not among the closures I know about, so there is nothing to reopen."}
         reopening.append(ids)
@@ -420,7 +438,7 @@ def update_session(bmap: BuildingMap, session: Session, args: dict) -> dict:
     for phrase in args.get("close") or []:
         ids = resolve_elements(bmap, phrase)
         if not ids:
-            return not_found(bmap, phrase, "lift, stairs or door")
+            return not_found(bmap, phrase, "lift or stairs")
         closing.append(ids)
     if position:
         session.position = out["result"]["position"]

@@ -66,3 +66,26 @@ def test_thousands_do_not_collapse_to_small_numbers():
 def test_long_leading_number_is_not_a_marker():
     assert ungrounded("42. far", grounded_tokens(["x"])) == []
     assert ungrounded("120: far", grounded_tokens(["x"])) == ["120"]
+
+
+def test_numbers_glued_to_a_unit_are_checked():
+    assert ungrounded("It is 999m away, 45m² big, 37.4m long.", G) == ["999", "45"]
+    assert ungrounded("About 37m, exactly 37.4m or 37,42m.", G) == []
+    g = grounded_tokens([{"area_m2": 45.0, "d": 120}])
+    assert ungrounded("45m², 45m2, 120m, 120 m, 45%, 120s", g) == []
+    assert ungrounded("The 3D printer, the 2nd and 3rd floor, the 1st door.", grounded_tokens(["x"])) == []
+
+
+def test_fallback_strips_raw_ids_from_steps():
+    text = fallback_text([{"status": "ok", "summary": "A → B: 37 m.", "result": {
+        "steps": ["Start in Main lobby [proc-campus-dev-001-F0-S014] on Ground floor.", "Arrive at B [x-F1-S2]."]}}])
+    assert "[" not in text and "1. Start in Main lobby on Ground floor." in text and "2. Arrive at B." in text
+
+
+def test_fallback_for_ambiguous_result_ends_with_the_choice():
+    text = fallback_text([{"status": "ambiguous", "summary": "'printer' could mean 2 different places.",
+                           "options": [{"choices": {}, "summary": "Makerspace 1.14: 94 m."},
+                                       {"choices": {}, "summary": "Lab 2.20: 120 m."}]}])
+    lines = text.splitlines()
+    assert lines[0].startswith("'printer'") and "Makerspace 1.14: 94 m." in text and "Lab 2.20: 120 m." in text
+    assert lines[-1].endswith("?")

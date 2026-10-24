@@ -10,6 +10,20 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Guide: final review fixes (branch `1-agentic-yarag`)
+
+- **Did:** Grounding now checks numbers glued to a unit ("999m", "45m²", "37.4m"; "3D", "2nd" still ignored);
+  `building_fact` / `route` not_found and ambiguous summaries name the slot that failed or varies (not always
+  `place` / `to`); a failed `update_session` says "Nothing was saved; call update_session again with all fields…"
+  and the prompt only acknowledges a constraint after an ok result; any tool exception becomes an `error`
+  tool_result, any turn exception rolls the turn back and re-raises, the REPL and `scripts/eval_guide.py` survive
+  any exception; the code fallback strips raw `[id]` tags from steps and ends an ambiguous result with the options
+  and "Which one do you mean?"; prompt: closures by name only for lifts/stairs, clarifying questions list ≤ 3
+  options. New conversation `compact_units.json`. +10 tests; full suite 117 passed.
+- **Live run:** `scripts/eval_guide.py`, 9 conversations: 16/16 turns PASS, ~$0.32 (single run).
+- **Changed docs:** project-state.md, ai-agents.md (live run count).
+- **Next:** deferred review items: plural closures ("both lifts"), raw opening ids in route summaries.
+
 ## 2026-10-24 — Guide Task 6: scripted conversations, live runner, docs (branch `1-agentic-yarag`)
 
 - **Did:** 8 scripted conversations (`tests/guide_conversations/*.json`: two-room and same-room printers, unknown

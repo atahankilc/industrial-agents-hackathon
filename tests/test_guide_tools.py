@@ -154,3 +154,13 @@ def test_too_many_readings_are_listed_not_crashed():
     assert out["status"] == "ambiguous" and out["truncated"] and "too many" in out["summary"]
     assert len(out["options"]) == 5 and all(set(o) == {"choices"} for o in out["options"])
     assert run_tool(b, Session(), "place_info", {"place": "toilet"})["status"] == "ambiguous"
+
+
+def test_building_fact_summary_names_the_slot_that_failed_or_varies():
+    b = bmap(CAMPUS)
+    base = {"kind": "straight_line_3d", "place": "1.14"}
+    missing = run_tool(b, Session(), "building_fact", {**base, "place2": "zzzz nowhere"})
+    assert missing["status"] == "not_found" and "'zzzz nowhere'" in missing["summary"]
+    varying = run_tool(b, Session(), "building_fact", {**base, "place2": "3D printer"})
+    assert varying["status"] == "ambiguous" and "'3D printer'" in varying["summary"]
+    assert "'1.14'" not in varying["summary"]

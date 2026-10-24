@@ -16,8 +16,6 @@ import re
 import sys
 from pathlib import Path
 
-import anthropic
-
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agent.guide.__main__ import cost  # noqa: E402
@@ -118,8 +116,8 @@ def run_conversation(path: Path) -> tuple[int, int, float]:
     for number, turn in enumerate(conversation["turns"], 1):
         try:
             result = guide.turn(turn["user"])
-        except anthropic.APIError as error:
-            failures, reply = [f"API error: {error}"], ""
+        except Exception as error:
+            failures, reply = [f"error: {type(error).__name__}: {error}"], ""
         else:
             failures, reply = check_turn(guide, result, turn["expect"]), result.text
         passed += not failures

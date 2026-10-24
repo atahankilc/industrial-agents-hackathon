@@ -1,6 +1,7 @@
 """Grounding check: a reply may only state numbers that some tool result (or the building overview) contains.
 
-Numbers with a decimal point or comma, counts and refs are checked; free-text names are not. A value counts as
+Numbers with a decimal point or comma, counts and refs are checked, also when glued to a unit ("120m", "45m²");
+free-text names and words like "3D" or "2nd" are not. A value counts as
 grounded if it equals a tool value rounded to 0, 1 or 2 decimals, and the length of any list in a tool result
 of dicts or strings (so "I found 2 options" passes; coordinate lists do not count). Plain JSON in, plain values out: no dependency on the building model."""
 
@@ -8,7 +9,8 @@ import math
 import re
 from decimal import ROUND_HALF_UP, Decimal
 
-NUMBER = re.compile(r"(?<![\w.,])\d+(?:[.,]\d+)*(?![\w])")
+UNIT = r"(?:m²|m2|km|cm|mm|min|m|s|%|x)"
+NUMBER = re.compile(rf"(?<![\w.,])\d+(?:[.,]\d+)*(?={UNIT}?(?!\w))")
 NO_ANSWER = "I couldn't find an answer to that in this building."
 
 
@@ -17,6 +19,8 @@ THOUSANDS = re.compile(r"\d{1,3}(?:[.,]\d{3})+")
 TIME = re.compile(r"\b\d{1,2}:\d{2}\b")
 MARKER_PREFIX = re.compile(r"\s*(?:[-*\u2022]\s*)?(?:\*\*)?(?:step\s+)?", re.I)
 MARKER_SUFFIX = re.compile(r"(?:\*\*)?[.):]")
+ID_TAG = re.compile(r"\s*\[[^]]*\]")  # "[space-id]" in route steps
+CHOOSE = "Which one do you mean?"
 
 
 def _norm(token: str) -> str:
@@ -88,5 +92,8 @@ def fallback_text(results: list[dict]) -> str:
         if r.get("summary"):
             lines.append(r["summary"])
         steps = (r.get("result") or {}).get("steps") if isinstance(r.get("result"), dict) else None
-        lines.extend(f"{i}. {s}" for i, s in enumerate(steps or [], 1))
+        lines.extend(f"{i}. {ID_TAG.sub('', s)}" for i, s in enumerate(steps or [], 1))
+        if r.get("status") == "ambiguous":
+            lines.extend(f"- {o['summary']}" for o in r.get("options") or [] if o.get("summary"))
+            lines.append(CHOOSE)
     return "\n".join(lines) or NO_ANSWER

@@ -1,14 +1,12 @@
 """Terminal REPL for the Guide: `uv run --env-file .env python -m agent.guide <building_dir> [--show-tools]`.
 
-Prints each reply, optionally the tool calls behind it, and the turn's token use with an estimated cost. An API
-error is printed and the conversation continues (the failed turn is rolled back by Guide.turn)."""
+Prints each reply, optionally the tool calls behind it, and the turn's token use with an estimated cost. Any error
+(API or otherwise) is printed and the conversation continues (the failed turn is rolled back by Guide.turn)."""
 
 import argparse
 import json
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-
-import anthropic
 
 from agent.guide.guide import Guide
 from agent.llm_parser import LlmUsage
@@ -35,7 +33,7 @@ def repl(guide: Guide, lines: Iterable[str], show_tools: bool = False) -> None:
             continue
         try:
             result = guide.turn(line)
-        except anthropic.APIError as error:
+        except Exception as error:
             print(f"error: {error}")
             continue
         if show_tools:

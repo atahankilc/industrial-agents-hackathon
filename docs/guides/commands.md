@@ -68,6 +68,7 @@ Without `ANTHROPIC_API_KEY` it runs the offline rule-based client; `GUIDE_LLM=of
 GUIDE_LLM=offline uv run uvicorn backend.app:app --port 8765          # no key needed
 uv run --env-file .env uvicorn backend.app:app --port 8765            # real Claude once the key is set
 # GUIDE_MODEL (default claude-opus-5-5), GUIDE_EFFORT (default medium), GUIDE_BUILDING (default train/proc-campus-train-000)
+# voice turns: GUIDE_REWRITER=off disables the transcript rewriter (D-013), GUIDE_REWRITER_MODEL (default claude-haiku-5-5)
 curl -s localhost:8765/health
 curl -s -X POST localhost:8765/sessions -H 'content-type: application/json' -d '{"building":"train/proc-campus-train-000"}'
 curl -s -X POST localhost:8765/chat -H 'content-type: application/json' -d '{"session_id":"<id>","message":"Where is the printer?"}'

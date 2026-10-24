@@ -31,6 +31,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 import anthropic
 
+from agent.rewriter import TranscriptRewriter
 from agent.speech import speakable
 from agent.tools import PRESETS, PROFILE_FIELDS, TOOL_DEFINITIONS, BuildingSession, RoutingProfile
 
@@ -318,6 +319,7 @@ class GuideTurn:
     stop_reason: str | None = None
     spoken: str | None = None  # voice turns: the reply made speakable (agent/speech.py)
     auto_profile: dict | None = None  # {"cues", "arguments", "result"} when the safety net set the profile
+    rewritten: str | None = None  # voice turns: the transcript normalised to the building's names (D-013)
 
 
 @dataclass
@@ -343,6 +345,10 @@ class Guide:
         self.proposed_in_turn: dict[str, int] = {}
         self.usage = Usage()
         self.profile_note: str | None = None  # tells the model next turn what the safety net set
+        # Voice transcripts are normalised first (D-013), only when talking to the real API.
+        self.rewriter: TranscriptRewriter | None = (
+            TranscriptRewriter(session.building) if isinstance(self.client, anthropic.Anthropic)
+            and os.environ.get("GUIDE_REWRITER", "on").lower() != "off" else None)
 
     def reply(self, text: str, channel: str = "text") -> GuideTurn:
         """One user turn. channel="voice" asks for a spoken style and fills `GuideTurn.spoken`."""
@@ -350,8 +356,13 @@ class Guide:
             raise ValueError(f"channel must be one of {CHANNELS}")
         self.turn += 1
         self.corpus.append(text)
+        rewritten = self.rewriter.rewrite(text) if channel == "voice" and self.rewriter is not None else text
+        said = text
+        if rewritten != text:  # the model sees both: a nuance the rewrite dropped stays visible
+            self.corpus.append(rewritten)
+            said = f"{rewritten}\n\n[speech transcript as heard: {text}]"
         note, self.profile_note = self.profile_note, None
-        content = f"{note}\n\n{text}" if note else text
+        content = f"{note}\n\n{said}" if note else said
         system_role = self.model.startswith(SYSTEM_MESSAGE_MODELS)
         if channel == "voice" and not system_role:
             content = f"{VOICE_STYLE}\n\n{content}"
@@ -391,6 +402,7 @@ class Guide:
             turn.text = f"{turn.text}\n\n{confirmation_line(auto['result'])}".strip()
         turn.ungrounded = ungrounded(turn.text, "\n".join(self.corpus))
         turn.events = self.session.events[first_event:]
+        turn.rewritten = rewritten if rewritten != text else None
         if channel == "voice":
             turn.spoken = speakable(turn.text)
         return turn

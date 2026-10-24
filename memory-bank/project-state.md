@@ -92,8 +92,9 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   - Ported into the canonical Guide (2026-10-24): place resolution + described candidates + typo suggestions +
     route fan-out over an ambiguous destination (`agent/places.py`, `BuildingSession.resolve`), and grounding
     (unit-glued numbers, list lengths, clock times, half-up rounding) in `agent/guide.py`; `tests/test_places.py`.
-    Not ported: the v1 code fallback reply (main's tools have no uniform `summary`); the voice transcript
-    rewriter ([D-013](decisions.md#d-013)) was never implemented in v1 either — still to build.
+    Not ported: the v1 code fallback reply (main's tools have no uniform `summary`).
+  - Voice transcript rewriter ([D-013](decisions.md#d-013)) built 2026-10-24: `agent/rewriter.py` (Haiku 5.5),
+    hooked into `Guide.reply(..., channel="voice")`; `tests/test_rewriter.py`.
 - `benchmark/score.py` parsing behaviour checked ([scoring.md](../docs/challenge/scoring.md#formatting-pitfalls-cost-real-points)).
 
 ## Pending decisions (Atahan)

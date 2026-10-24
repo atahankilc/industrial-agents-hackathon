@@ -125,6 +125,13 @@ wraps the same Building Guide (one brain for text and voice) — skeleton in `ba
 Per-building **keyterms** (room names, machine names) go to Scribe for accurate recognition.
 A **transcript rewriter** normalises each STT transcript to the building's vocabulary before the Guide sees it
 (original transcript passed along too); typed chat has no rewriter ([D-013](../../memory-bank/decisions.md#d-013)).
+Implemented in `agent/rewriter.py`: one `claude-haiku-5-5` call (effort low, JSON schema `{rewritten}`) with the
+building vocabulary as cached system prompt; `Guide.reply(..., channel="voice")` sends the model
+`<rewritten>\n\n[speech transcript as heard: <original>]`, adds both to the grounding corpus and returns
+`GuideTurn.rewritten`. Only with the real API client; `GUIDE_REWRITER=off` disables it, `GUIDE_REWRITER_MODEL`
+overrides the model. Any doubt (API error, refusal, empty, a number in neither the transcript nor the building)
+keeps the transcript as heard. Live (train campus 000): "lab two seventeen" → "Lab 2.17", "office zero oh two"
+→ "Office 0.02", "the kitchen" and "the second floor" unchanged; ~1–2 s per call. Tests `tests/test_rewriter.py`.
 
 **Implemented (2026-10-24):** `Guide.reply(text, channel="voice")` — used by `/v1/chat/completions` — adds the
 `VOICE_STYLE` instruction (plain spoken sentences, ≤ ~3 sentences, first 2–3 steps then offer to continue) as a

@@ -177,5 +177,9 @@ Template:
   keyterms). The Guide receives both the rewritten and the original transcript so a dropped nuance stays visible.
 - **Consequences:** One extra (small, fast) model call per voice turn; text chat stays rewriter-free. Must be
   measured on voice latency in Phase 4.
+- **Implemented (2026-10-24):** `agent/rewriter.py` (`claude-haiku-5-5`, effort low, JSON schema output, vocabulary =
+  `building_vocabulary` cached as system prompt), hooked into `Guide.reply(..., channel="voice")`. Live: ~1–2 s and
+  < $0.001 per voice turn. Falls back to the transcript as heard on API error, refusal, empty answer or a number
+  found neither in the transcript nor in the building; ordinal floor words are kept as said.
 - **Evidence:** conversation 2026-10-24 (branch `1-agentic-yarag`); voice path in
   [ai-agents.md](../docs/architecture/ai-agents.md#voice-path).

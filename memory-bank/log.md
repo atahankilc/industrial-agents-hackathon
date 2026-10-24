@@ -10,6 +10,18 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Voice transcript rewriter (D-013) (Utku's session)
+
+- **Did:** `agent/rewriter.py`: `TranscriptRewriter` (claude-haiku-5-5, effort low, JSON schema, building vocabulary
+  cached); `Guide.reply(..., channel="voice")` sends rewritten + "[speech transcript as heard: …]", both grounded,
+  `GuideTurn.rewritten`. Only with the real API client; `GUIDE_REWRITER=off`. `tests/test_rewriter.py` (7).
+- **Learned:** live, Haiku normalises "lab two seventeen" → "Lab 2.17", "office zero oh two" → "Office 0.02", "defib"
+  → "defibrillator", keeps "the kitchen"; ~1–2 s, < $0.001 per call. A prompt example "the second floor → Floor 2"
+  made it interpret ordinals (US vs UK floors), so ordinal floor words are now kept as said. End to end (Sonnet low
+  Guide): voice turn 4.7 s, one `find_route`, 0 ungrounded.
+- **Remote:** `origin/dev` has 3 commits ahead of main (Sunday geodesic route model + rules, live Guide steps,
+  camera photo turns, browser voice orb) touching `agent/guide.py` / `agent/tools.py`; not merged here yet.
+
 ## 2026-10-24 — v1 Guide strengths ported into `agent/guide.py` (Utku's session)
 
 - **Did:** `agent/places.py` + `BuildingSession.resolve`: articles dropped, exact asset type → its room, repeated

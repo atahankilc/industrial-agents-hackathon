@@ -124,9 +124,9 @@ def test_safety_net_applies_an_ignored_wheelchair_cue_and_redoes_the_route(sessi
     assert turn.auto_profile["cues"] == ["wheelchair"]
     assert turn.tool_calls[-1]["name"] == "set_profile" and turn.tool_calls[-1]["auto"] is True
     first, redone = (call_["result"] for call_ in turn.tool_calls if call_["name"] == "find_route")
-    assert not first["step_free"] and first["length_m"] == 98.73
-    assert redone["step_free"] and redone["length_m"] == 124.24 and LIFT_1 in redone["element_path"]
-    assert "about 124 m" in turn.text and "about 99 m" not in turn.text
+    assert not first["step_free"] and first["length_m"] == 57.68
+    assert redone["step_free"] and redone["length_m"] == 61.24 and LIFT_1 in redone["element_path"]
+    assert "about 61 m" in turn.text and "about 58 m" not in turn.text  # step-free 61.24 m, not 57.68 m
     assert turn.text.endswith(f"(Noted: {WHEELCHAIR_SUMMARY}. I'll use that for every route. Tell me if your "
                               "doors need to be wider or can be narrower.)")
     assert turn.ungrounded == []

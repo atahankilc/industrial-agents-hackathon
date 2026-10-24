@@ -10,6 +10,49 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 23:50 — Merge `origin/dev` (kit 1.1.0 route model) into `2-builder-edit`
+
+- **Did:** merged `origin/dev` at `26b908f` (kit 1.1.0 answers + route-model port) into `2-builder-edit`. Only
+  conflict: this log (both sides prepended entries; kept both, dev's first). Everything else merged automatically,
+  incl. `docs/guides/commands.md` and `project-state.md`. Merged tree: pytest 742 passed, 2 skipped; frontend build
+  ok; links ok. Builder M3 pushed earlier; its branch preview is behind Vercel Authentication (bypass secret pending).
+- **Next:** push to `origin/dev` (fast-forward) when Utku says so; then Builder project 2.
+
+## 2026-10-24 — Kit 1.1.0 route model ported (D-014)
+
+- **Did:** `core/building_map.py` now carries the 1.1.0 starter's geometry helpers and `graph` unchanged (+ `outside`
+  endpoint option, geometry-keyed walk cache `_WALKS`, `expand` / `path_parts` for the 1.1.0 paths);
+  `core/route_models.py` has one model (`GEODESIC` alias), outside always endpoint-only, bay/forklift filters fixed
+  for door-to-door edges (a bay was unreachable as a destination, forklift could cross a walkway door to door);
+  `navigation.path_length`, errand/what_if_door, `solvers_v1`, `validate_warmup.py` (unreachable tours, starter-equal
+  lengths) updated; removed `core/geodesic.py`, `tests/test_geodesic.py`, `scripts/compare_route_models.py`; tests
+  moved to the new metres (Guide scenario: 124.24 → 61.24 m step-free, 132.2 → 96.46 m after Lift 1 closes).
+  Regenerated `submissions/` (regex parser): 21 of 145 answers changed (20 errand, 1 what_if_door).
+- **Learned:** the official starter reproduces all 189 dev routes exactly; one gold value disagrees with it
+  (resplan-12462, 7.57 vs 7.67 m). First build of a huge OSM corridor (~1,000 corners) takes ~13 s; the whole building osm-way360544293 ~25 s.
+- **Numbers:** warm-up routes 1,338/1,338 exact (paths too), `validate_warmup` 99.53 % from text, same as before 1.1.0 (misses = duplicate
+  names), solvers 655/655, dev benchmark 138/138, `uv run pytest` green.
+- **Next:** push `dev`, merge into the feature branches; Q-014 (3), (4).
+
+## 2026-10-24 — Kit 1.1.0: corrected answers (new route model)
+
+- **Did:** Organisers published a patch (`Synera-GmbH/industrial-agents-hackathon-2026`, branch
+  `patch/fix-answers-ruleset`, commit 6a2cdec; same content merged to their `main` as dc03c44). Copied the 334 changed
+  `questions*.jsonl` (train + dev) into `data/` (`diff -rq` vs the kit: identical, `data/test` unchanged) and
+  updated `archive/initial-repo/` to 1.1.0 (README, CHANGELOG, pyproject, starter_agent). Work on `dev` directly.
+- **Learned:** in `data/` only expected answers changed (questions, buildings, manifest, test questions,
+  `benchmark/` are identical). Their 1.1.0 `README.md` was rewritten from an older text and drops the cb51a6f
+  alignment sections (story, personas, Sunday benchmark, submission process; judging row "Submission demo" →
+  "Pitch and demo, 3–5 min live") — kept the old text as `archive/initial-repo/README-cb51a6f.md`, repointed
+  personas/scoring/brief sources, opened [Q-017](open-questions.md#q-017). The graded rule = the organisers' route note, now precise in README §3 (see
+  [Q-014](open-questions.md#q-014)). With the new answers: `validate_solvers` **568/655** (errand 10/93,
+  what_if_door 0/4; all non-routing kinds still 100 %); `validate_warmup.py` crashes on the new unreachable-tour
+  shape. Our `geodesic` model is close (dev routes: reachability all right, 158/161 within 1 m, 3 exact).
+- **Changed docs:** [route-model.md](../docs/kit/route-model.md) marked outdated; Q-014 updated; Q-017 opened;
+  sources in personas.md, scoring.md, brief.md (+ judging-row warning).
+- **Next:** port the 1.1.0 route model into `core/` as the default, rewire errand / what_if_door / navigation,
+  fix `validate_warmup.py`, regenerate test answers.
+
 ## 2026-10-24 22:40 — Commit hook works in git worktrees
 
 - **Did:** the M3 commit was blocked as "stale" although verified: settings.json runs

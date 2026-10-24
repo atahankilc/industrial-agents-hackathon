@@ -33,8 +33,15 @@ def test_legs_follow_the_route_and_match_kit_steps(session):
     kit_route = navigation.find_route(session.building, route["space_path"][0], route["space_path"][-1]).to_dict()
     assert kit_route["length_m"] == route["length_m"]
     kit = [line for line in kit_route["steps"] if line.startswith("Walk about")]
-    ours = [f"{leg['distance_m']:.0f} m" for leg in legs if leg["kind"] == "door"]
-    assert [line.split("Walk about ")[1].split(" m")[0] + " m" for line in kit] == ours
+    ours = [leg["distance_m"] for leg in legs if leg["kind"] == "door"]
+    assert len(kit) == len(ours)  # one step per door, the same metres as the kit's step text
+    assert all(abs(int(line.split("Walk about ")[1].split(" m")[0]) - metres) <= 0.55 for line, metres in zip(kit, ours))
+    # door legs + stair/lift costs = the route's length (kit 1.1.0 walks, not straight lines)
+    graph = session.building.graph(False)
+    rides = sum(min(e["weight"] for e in graph.get_edge_data(a, b).values() if e.get("via") == v)
+                for a, b, v in zip(route["space_path"], route["space_path"][1:], route["element_path"])
+                if v in session.building.connectors)
+    assert sum(ours) + rides == pytest.approx(route["length_m"], abs=0.05 * len(ours) + 0.01)
     # ground → floor 3 on one staircase is a single leg
     hops = [leg for leg in legs if leg["kind"] == "connector"]
     assert len(hops) == 1 and hops[0]["up"] and hops[0]["floors"] == 3
@@ -60,7 +67,7 @@ def test_guidance_steps_have_turns_landmarks_rounded_metres_and_no_ids(session):
     steps = route["steps"]
     assert steps == guidance_steps(session.building, route["space_path"], route["element_path"])
     assert steps[0] == "Start in Main lobby (Ground floor)." and steps[-1].startswith("You have arrived at Meeting room")
-    assert "Walk about 25 m through the door (by the reception desk) into Corridor 0.01." in steps
+    assert "Walk about 3 m through the door (by the reception desk) into Corridor 0.01." in steps
     assert any(step.startswith(("Turn left", "Turn right")) for step in steps)
     assert sum(step.startswith("Take Staircase") for step in steps) == 1  # one line for ground → floor 3
     assert not any("proc-campus" in step or "[" in step for step in steps)

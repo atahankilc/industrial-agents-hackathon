@@ -13,6 +13,7 @@ A → B through the bay is ~8 m, around through the corridor ~12 m. One entrance
 `entrances_ab=True` also one into A at (0, 2) and one into B at (12, 2) (an outside shortcut A → B)."""
 
 import copy
+import json
 import math
 from pathlib import Path
 
@@ -113,31 +114,34 @@ def connector_weights(graph, first: str, second: str) -> dict[str, float]:
 
 def test_kit_model_without_rules_is_the_kit_graph_and_adds_no_fields():
     building = BuildingMap.load(DATA / "dev" / "proc-campus-dev-000")
-    kit, ours = building.graph(False), route_graph(building, False, KIT, NO_RULES)
+    kit, ours = building.graph(False, outside=True), route_graph(building, False, KIT, NO_RULES)
     assert list(ours.nodes) == list(kit.nodes) and list(ours.edges(keys=True, data=True)) == list(
         kit.edges(keys=True, data=True))
+    assert list(route_graph(building, False, GEODESIC).edges(keys=True, data=True)) == list(
+        kit.edges(keys=True, data=True))  # GEODESIC is an alias since kit 1.1.0
     route = find_route(factory(), "A", "B").to_dict()
     assert "model" not in route and "rules" not in route
 
 
-def test_geodesic_route_in_convex_rooms_is_straight_lines_through_the_door():
+def test_convex_rooms_walk_straight_to_a_door_landing_30_cm_inside():
     building = factory()
-    route = find_route(building, "A", "BAY", model=GEODESIC)
-    expected = math.dist(building.anchor("A"), (4, 2)) + math.dist((4, 2), building.anchor("BAY"))
+    route = find_route(building, "A", "BAY")
+    # anchor A → landing (3.7, 2) → door (4, 2) → landing (4.3, 2) → anchor BAY (convex rooms: straight lines)
+    expected = math.dist(building.anchor("A"), (3.7, 2)) + 0.3 + 0.3 + math.dist((4.3, 2), building.anchor("BAY"))
     assert route.length_m == pytest.approx(expected, abs=0.01)
-    assert route.space_path == ["A", "BAY"] and route.element_path == ["A-BAY", "A-BAY"]
-    assert route.model == GEODESIC
+    assert route.space_path == ["A", "BAY"] and route.element_path == ["A-BAY"]
 
 
-def test_geodesic_door_to_door_inside_a_space_and_kit_style_paths():
+def test_door_to_door_inside_a_space_and_kit_1_1_paths():
     building = factory()
-    route = find_route(building, "A", "B", model=GEODESIC)
-    # anchor A → door (4,2) → across the bay → door (8,2) → anchor B (convex rooms, doors 2 m from walls)
-    expected = math.dist(building.anchor("A"), (4, 2)) + 4.0 + math.dist((8, 2), building.anchor("B"))
+    route = find_route(building, "A", "B")
+    # A: anchor → landing → door; the bay crossed door to door (0.3 + 3.4 + 0.3); B: door → landing → anchor
+    expected = math.dist(building.anchor("A"), (3.7, 2)) + 0.3 + 4.0 + 0.3 + math.dist((8.3, 2), building.anchor("B"))
     assert route.length_m == pytest.approx(expected, abs=0.01)
     assert route.space_path == ["A", "BAY", "B"]
-    assert route.element_path == ["A-BAY", "A-BAY", "BAY-B", "BAY-B"]
+    assert route.element_path == ["A-BAY", "BAY-B"]  # each opening once (kit 1.1.0)
     assert route.steps[0].startswith("Start in") and route.steps[-1].startswith("You have arrived")
+    assert "into Production zone H-A1" in " ".join(route.steps)  # the crossed space is named
 
 
 def test_geodesic_stairs_and_lift_cost_from_elevation():
@@ -185,11 +189,13 @@ def test_no_route_under_the_rules_is_a_structured_answer():
 
 def test_no_shortcut_outside_but_outside_may_be_an_end():
     building = factory(entrances_ab=True)
-    building.closed |= {"C", "A-BAY"}  # A and B now connect only via the two entrances
-    assert find_route(building, "A", "B").space_path == ["A", "outside", "B"]
+    building.closed |= {"C", "A-BAY"}  # A and B now meet only outside: no route (kit 1.1.0), rules or not
+    assert find_route(building, "A", "B").reachable is False
     assert find_route(building, "A", "B", rules=RouteRules(no_outside=True)).reachable is False
-    out = find_route(building, "A", "outside", model=GEODESIC, rules=SUNDAY_RULES)
-    assert out.reachable and out.space_path == ["A", "outside"]
+    out = find_route(building, "A", "outside", rules=SUNDAY_RULES)
+    assert out.reachable and out.space_path == ["A", "outside"] and out.element_path == ["E-A"]
+    inside = find_route(building, "outside", "B")
+    assert inside.reachable and inside.space_path == ["outside", "B"]
 
 
 def test_forklift_needs_wide_openings_no_stairs_no_walkways():
@@ -225,26 +231,26 @@ def test_bay_and_walkway_detection_by_type_and_name():
 
 def test_sequence_length_matches_the_route_and_rejects_invalid_lists():
     building = factory()
-    route = find_route(building, "A", "B", model=GEODESIC, rules=SUNDAY_RULES)
+    route = find_route(building, "A", "B", rules=SUNDAY_RULES)
     assert sequence_length(building, route.space_path, rules=SUNDAY_RULES) == route.length_m
     assert sequence_length(building, ["A", "BAY", "B"], rules=SUNDAY_RULES) is None  # passes a bay
     assert sequence_length(building, ["A", "B"]) is None  # no door between A and B
     assert sequence_length(building, ["A", "outside", "B"]) is None  # no entrance into A or B
     shortcut = factory(entrances_ab=True)
-    assert sequence_length(shortcut, ["A", "outside", "B"]) == pytest.approx(4.0, abs=0.01)
-    assert sequence_length(shortcut, ["A", "outside", "B"], rules=SUNDAY_RULES) is None
-    kit_metres = sequence_length(building, ["A", "BAY", "B"], model=KIT)
-    assert kit_metres == find_route(building, "A", "B").length_m
+    assert sequence_length(shortcut, ["A", "outside", "B"]) is None  # never through the outside (kit 1.1.0)
+    assert sequence_length(shortcut, ["A", "outside"]) is not None  # but it may be the end
+    assert sequence_length(building, ["A", "BAY", "B"]) == find_route(building, "A", "B").length_m
 
 
 def test_sequence_length_on_real_warmup_routes():
-    building = BuildingMap.load(DATA / "dev" / "proc-campus-dev-001")
-    start, end = "proc-campus-dev-001-F0-S016", "proc-campus-dev-001-F1-S003"
-    best = find_route(building, start, end, model=GEODESIC, rules=SUNDAY_RULES)
-    kit = find_route(building, start, end)
-    assert sequence_length(building, best.space_path, rules=SUNDAY_RULES) == pytest.approx(best.length_m, abs=0.01)
-    # the kit route takes a lift where the new rule prefers the stairs: far from full marks
-    assert best.length_m / sequence_length(building, kit.space_path, rules=SUNDAY_RULES) < 0.5
+    directory = DATA / "dev" / "proc-campus-dev-001"
+    building = BuildingMap.load(directory)
+    routes = [json.loads(line)["answer"] for line in (directory / "questions_basic.jsonl").open(encoding="utf-8")
+              if json.loads(line)["kind"] == "route" and "space_path" in json.loads(line)["answer"]]
+    assert routes
+    for answer in routes:  # re-measuring the gold space list gives the gold length
+        measured = sequence_length(building, answer["space_path"])
+        assert measured == pytest.approx(answer["optimal_length_m"], abs=0.01)
 
 
 # ---------- Guide tools ----------

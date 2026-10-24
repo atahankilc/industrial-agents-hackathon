@@ -25,7 +25,8 @@ route, every time. The LLM only **selects and fills** a profile from the convers
 routes. Profiles are layered on the benchmark route model:
 
 ```
-building.json ──► base graph (exact benchmark model: anchors, door nodes, 12 m/floor stairs, 15+6 m lift)
+building.json ──► base graph (exact benchmark model, kit 1.1.0: door to door 15 cm off walls, 30 cm door landings,
+                  stairs 2 m per metre climbed, lift 15 m + 1 m per metre, outside only as an endpoint)
                      │
                      ├─ 1. hard filters   → remove edges/nodes   (changes WHAT is reachable)
                      └─ 2. soft penalties → add cost to edges    (changes WHICH route wins)
@@ -35,7 +36,7 @@ building.json ──► base graph (exact benchmark model: anchors, door nodes, 
 
 **Two weights per edge:** `weight` (true metres, base model) and `cost` (weight + penalties). Routing
 minimises `cost`; the answer always reports metres from `weight`. With every penalty at 0, `cost == weight`
-→ the **DEFAULT profile is the benchmark model exactly** (must keep the 369/369 oracle result on dev).
+→ the **DEFAULT profile is the benchmark model exactly** (must keep the warm-up routes exact: 1,338/1,338 train+dev, `tests/test_routes.py`; [route-model.md](../kit/route-model.md), [D-014](../../memory-bank/decisions.md#d-014)).
 
 Benchmark solvers must call the router with `DEFAULT` (or the exact filters a question states, e.g.
 `wide_delivery_count` = step-free + `min_door_width_m`). Soft penalties are **never** used for scored answers.
@@ -222,7 +223,7 @@ Mapping onto `BuildingMap.graph(step_free)` (`core/building_map.py:179-212`):
   or `+ lift_extra_wait_m`.
 - Node filter: drop `avoid_room_types` / `avoid_space_ids` (except endpoints) alongside `closed`.
 - `route()` runs Dijkstra on `"cost"`, then sums `"weight"` along the chosen path for `length_m`.
-- Regression test: `graph(DEFAULT)` routes == current routes on all dev warm-up questions (120/120 exact today).
+- Regression test: `graph(DEFAULT)` routes == current routes on all dev warm-up questions (1,338/1,338 train+dev exact since kit 1.1.0, 2026-10-24).
 
 ## Dataset reality check
 

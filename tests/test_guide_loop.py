@@ -100,11 +100,11 @@ def test_ambiguous_turn_reports_options_and_asked():
 
 def test_ok_route_reports_route_and_connectors():
     client = FakeClient(tool_reply("route", {"to": "1.14", "from": "Main lobby", "via": None, "step_free": None}),
-                        text_reply("Take Staircase 2 up to Floor 1; about 94 m."))
+                        text_reply("Take the stairs up to Floor 1; about 38 m."))
     result = Guide(CAMPUS, client).turn("How do I get from the main lobby to 1.14?")
     assert result.grounded and len(result.routes) == 1
     assert result.routes[0]["space_path"][-1] == "proc-campus-dev-001-F1-S014"
-    assert result.connector_ids == ["proc-campus-dev-001-V03"]
+    assert result.connector_ids == ["proc-campus-dev-001-V01"]
     assert "proc-campus-dev-001-F0-S001" in result.space_ids
 
 

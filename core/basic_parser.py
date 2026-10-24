@@ -154,8 +154,8 @@ def run_parsed(
 ) -> dict:
     """Execute a parsed warm-up question with core/navigation.py; returns the tool result as a dict.
 
-    `model`/`rules` (core/route_models.py): kit model without rules reproduces the warm-up gold answers; Sunday
-    route questions use `model="geodesic", rules=SUNDAY_RULES` (+ `forklift`) once Q-014 is answered. No route
+    `model`/`rules` (core/route_models.py): the kit 1.1.0 model without rules reproduces the warm-up gold answers;
+    `rules=SUNDAY_RULES` (+ `forklift`) adds the organisers' bay/forklift rules (not in the kit answers). No route
     under the rules → `reachable: false` with a reason starting "no route under these rules"."""
     params = parsed.params
     if parsed.kind == "locate":

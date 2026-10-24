@@ -36,8 +36,8 @@
   },
   {
     "question_id": "osm-way363805324-H03",
-    "reply": "Nearest one is in Gemeinschaftsbüro (114, Floor 1), 22.18 m away; from there to Generic room 1.02 (1.02, Floor 1) is 29.74 m.\nAnswer: 51.92 m",
-    "answer": "51.92 m",
+    "reply": "Nearest one is in Gemeinschaftsbüro (114, Floor 1), 14.84 m away; from there to Generic room 1.02 (1.02, Floor 1) is 30.06 m.\nAnswer: 44.90 m",
+    "answer": "44.90 m",
     "kind": "errand",
     "inputs": {
       "start": "osm-way363805324-F1-S010",
@@ -59,14 +59,14 @@
         "ref": "1.02",
         "floor": "Floor 1"
       },
-      "first_leg_m": 22.18,
-      "second_leg_m": 29.74,
-      "total_m": 51.92,
+      "first_leg_m": 14.84,
+      "second_leg_m": 30.06,
+      "total_m": 44.9,
       "legs": [
         {
           "from_space_id": "osm-way363805324-F1-S010",
           "to_space_id": "osm-way363805324-F1-S011",
-          "optimal_length_m": 22.18,
+          "optimal_length_m": 14.84,
           "space_path": [
             "osm-way363805324-F1-S010",
             "osm-way363805324-F1-S015",
@@ -74,36 +74,38 @@
           ],
           "element_path": [
             "osm-way363805324-F1-O0018",
-            "osm-way363805324-F1-O0018",
-            "osm-way363805324-F1-O0019",
             "osm-way363805324-F1-O0019"
           ]
         },
         {
           "from_space_id": "osm-way363805324-F1-S011",
           "to_space_id": "osm-way363805324-F1-S002",
-          "optimal_length_m": 29.74,
+          "optimal_length_m": 30.06,
           "space_path": [
             "osm-way363805324-F1-S011",
+            "osm-way363805324-F1-S015",
+            "osm-way363805324-F1-S009",
+            "osm-way363805324-F1-S008",
             "osm-way363805324-F1-S015",
             "osm-way363805324-F1-S002"
           ],
           "element_path": [
             "osm-way363805324-F1-O0019",
-            "osm-way363805324-F1-O0019",
-            "osm-way363805324-F1-O0017",
+            "osm-way363805324-F1-O0020",
+            "osm-way363805324-F1-O0021",
+            "osm-way363805324-F1-O0027",
             "osm-way363805324-F1-O0017"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 51.92,
+      "optimal_length_m": 44.9,
       "legs": [
         {
           "from_space_id": "osm-way363805324-F1-S010",
           "to_space_id": "osm-way363805324-F1-S011",
-          "optimal_length_m": 22.18,
+          "optimal_length_m": 14.84,
           "space_path": [
             "osm-way363805324-F1-S010",
             "osm-way363805324-F1-S015",
@@ -111,24 +113,26 @@
           ],
           "element_path": [
             "osm-way363805324-F1-O0018",
-            "osm-way363805324-F1-O0018",
-            "osm-way363805324-F1-O0019",
             "osm-way363805324-F1-O0019"
           ]
         },
         {
           "from_space_id": "osm-way363805324-F1-S011",
           "to_space_id": "osm-way363805324-F1-S002",
-          "optimal_length_m": 29.74,
+          "optimal_length_m": 30.06,
           "space_path": [
             "osm-way363805324-F1-S011",
+            "osm-way363805324-F1-S015",
+            "osm-way363805324-F1-S009",
+            "osm-way363805324-F1-S008",
             "osm-way363805324-F1-S015",
             "osm-way363805324-F1-S002"
           ],
           "element_path": [
             "osm-way363805324-F1-O0019",
-            "osm-way363805324-F1-O0019",
-            "osm-way363805324-F1-O0017",
+            "osm-way363805324-F1-O0020",
+            "osm-way363805324-F1-O0021",
+            "osm-way363805324-F1-O0027",
             "osm-way363805324-F1-O0017"
           ]
         }
@@ -277,8 +281,8 @@
   },
   {
     "question_id": "osm-way43035346-H03",
-    "reply": "Nearest one is in Stairwell N3834 (N3834, Floor 3), 21.28 m away; from there to Generic room N1838 (N1838, Floor 1) is 55.06 m.\nAnswer: 76.34 m",
-    "answer": "76.34 m",
+    "reply": "Nearest one is in Stairwell N3834 (N3834, Floor 3), 21.26 m away; from there to Generic room N1838 (N1838, Floor 1) is 32.73 m.\nAnswer: 53.98 m",
+    "answer": "53.98 m",
     "kind": "errand",
     "inputs": {
       "start": "osm-way43035346-F3-S016",
@@ -300,14 +304,14 @@
         "ref": "N1838",
         "floor": "Floor 1"
       },
-      "first_leg_m": 21.28,
-      "second_leg_m": 55.06,
-      "total_m": 76.34,
+      "first_leg_m": 21.26,
+      "second_leg_m": 32.73,
+      "total_m": 53.98,
       "legs": [
         {
           "from_space_id": "osm-way43035346-F3-S016",
           "to_space_id": "osm-way43035346-F3-S019",
-          "optimal_length_m": 21.28,
+          "optimal_length_m": 21.26,
           "space_path": [
             "osm-way43035346-F3-S016",
             "osm-way43035346-F3-S017",
@@ -315,15 +319,13 @@
           ],
           "element_path": [
             "osm-way43035346-F3-O0075",
-            "osm-way43035346-F3-O0075",
-            "osm-way43035346-F3-O0153",
             "osm-way43035346-F3-O0153"
           ]
         },
         {
           "from_space_id": "osm-way43035346-F3-S019",
           "to_space_id": "osm-way43035346-F1-S002",
-          "optimal_length_m": 55.06,
+          "optimal_length_m": 32.73,
           "space_path": [
             "osm-way43035346-F3-S019",
             "osm-way43035346-F2-S009",
@@ -335,20 +337,18 @@
             "osm-way43035346-V02",
             "osm-way43035346-V02",
             "osm-way43035346-F1-O0038",
-            "osm-way43035346-F1-O0038",
-            "osm-way43035346-F1-O0033",
             "osm-way43035346-F1-O0033"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 76.34,
+      "optimal_length_m": 53.98,
       "legs": [
         {
           "from_space_id": "osm-way43035346-F3-S016",
           "to_space_id": "osm-way43035346-F3-S019",
-          "optimal_length_m": 21.28,
+          "optimal_length_m": 21.26,
           "space_path": [
             "osm-way43035346-F3-S016",
             "osm-way43035346-F3-S017",
@@ -356,15 +356,13 @@
           ],
           "element_path": [
             "osm-way43035346-F3-O0075",
-            "osm-way43035346-F3-O0075",
-            "osm-way43035346-F3-O0153",
             "osm-way43035346-F3-O0153"
           ]
         },
         {
           "from_space_id": "osm-way43035346-F3-S019",
           "to_space_id": "osm-way43035346-F1-S002",
-          "optimal_length_m": 55.06,
+          "optimal_length_m": 32.73,
           "space_path": [
             "osm-way43035346-F3-S019",
             "osm-way43035346-F2-S009",
@@ -376,8 +374,6 @@
             "osm-way43035346-V02",
             "osm-way43035346-V02",
             "osm-way43035346-F1-O0038",
-            "osm-way43035346-F1-O0038",
-            "osm-way43035346-F1-O0033",
             "osm-way43035346-F1-O0033"
           ]
         }
@@ -479,8 +475,8 @@
   },
   {
     "question_id": "osm-way43035346-H07",
-    "reply": "Rooms counted: Generic room N3818, Generic room N3832, Generic room N3808, Generic room N3816, Generic room N3809, Generic room N3831, Generic room N3811, Generic room N3815, Generic room N3806, Generic room N3827, Generic room N3807, Generic room N3820, Generic room N3801, Generic room N3828.\nAnswer: 14",
-    "answer": "14",
+    "reply": "Rooms counted: none.\nAnswer: 0",
+    "answer": "0",
     "kind": "what_if_door",
     "inputs": {
       "first": "osm-way43035346-F0-S011",
@@ -489,23 +485,8 @@
       "door_floor_id": "osm-way43035346-F0"
     },
     "result": {
-      "count": 14,
-      "rooms": [
-        "Generic room N3818",
-        "Generic room N3832",
-        "Generic room N3808",
-        "Generic room N3816",
-        "Generic room N3809",
-        "Generic room N3831",
-        "Generic room N3811",
-        "Generic room N3815",
-        "Generic room N3806",
-        "Generic room N3827",
-        "Generic room N3807",
-        "Generic room N3820",
-        "Generic room N3801",
-        "Generic room N3828"
-      ]
+      "count": 0,
+      "rooms": []
     },
     "route": null,
     "error": null
@@ -547,8 +528,8 @@
   },
   {
     "question_id": "osm-way50299584-H03",
-    "reply": "Nearest one is in Corridor -1588 (-1588, Basement 1), 31.10 m away; from there to Generic room 2538 (2538, Floor 2) is 81.04 m.\nAnswer: 112.14 m",
-    "answer": "112.14 m",
+    "reply": "Nearest one is in Corridor 2591 (2591, Floor 2), 56.15 m away; from there to Generic room 2538 (2538, Floor 2) is 47.21 m.\nAnswer: 103.36 m",
+    "answer": "103.36 m",
     "kind": "errand",
     "inputs": {
       "start": "osm-way50299584-F1-S020",
@@ -559,10 +540,10 @@
     },
     "result": {
       "via": {
-        "space_id": "osm-way50299584-F-1-S029",
-        "name": "Corridor -1588",
-        "ref": "-1588",
-        "floor": "Basement 1"
+        "space_id": "osm-way50299584-F2-S006",
+        "name": "Corridor 2591",
+        "ref": "2591",
+        "floor": "Floor 2"
       },
       "target": {
         "space_id": "osm-way50299584-F2-S018",
@@ -570,112 +551,88 @@
         "ref": "2538",
         "floor": "Floor 2"
       },
-      "first_leg_m": 31.1,
-      "second_leg_m": 81.04,
-      "total_m": 112.14,
+      "first_leg_m": 56.15,
+      "second_leg_m": 47.21,
+      "total_m": 103.36,
       "legs": [
         {
           "from_space_id": "osm-way50299584-F1-S020",
-          "to_space_id": "osm-way50299584-F-1-S029",
-          "optimal_length_m": 31.1,
+          "to_space_id": "osm-way50299584-F2-S006",
+          "optimal_length_m": 56.15,
           "space_path": [
             "osm-way50299584-F1-S020",
             "osm-way50299584-F1-S018",
-            "outside",
-            "osm-way50299584-F-1-S023",
-            "osm-way50299584-F-1-S029"
+            "osm-way50299584-F1-S016",
+            "osm-way50299584-F1-S065",
+            "osm-way50299584-F1-S064",
+            "osm-way50299584-F2-S027",
+            "osm-way50299584-F2-S006"
           ],
           "element_path": [
             "osm-way50299584-F1-O0163",
-            "osm-way50299584-F1-O0163",
-            "osm-way50299584-F1-O0384",
-            "osm-way50299584-F1-O0384",
-            "osm-way50299584-F-1-O0006",
-            "osm-way50299584-F-1-O0006",
-            "osm-way50299584-F-1-O0057",
-            "osm-way50299584-F-1-O0057"
+            "osm-way50299584-F1-O0188",
+            "osm-way50299584-F1-O0187",
+            "osm-way50299584-F1-O0391",
+            "osm-way50299584-V05",
+            "osm-way50299584-F2-O0394"
           ]
         },
         {
-          "from_space_id": "osm-way50299584-F-1-S029",
+          "from_space_id": "osm-way50299584-F2-S006",
           "to_space_id": "osm-way50299584-F2-S018",
-          "optimal_length_m": 81.04,
+          "optimal_length_m": 47.21,
           "space_path": [
-            "osm-way50299584-F-1-S029",
-            "osm-way50299584-F-1-S023",
-            "outside",
-            "osm-way50299584-F2-S024",
+            "osm-way50299584-F2-S006",
             "osm-way50299584-F2-S037",
             "osm-way50299584-F2-S085",
             "osm-way50299584-F2-S018"
           ],
           "element_path": [
-            "osm-way50299584-F-1-O0057",
-            "osm-way50299584-F-1-O0057",
-            "osm-way50299584-F-1-O0006",
-            "osm-way50299584-F-1-O0006",
-            "osm-way50299584-F2-O0385",
-            "osm-way50299584-F2-O0385",
-            "osm-way50299584-F2-O0360",
-            "osm-way50299584-F2-O0360",
+            "osm-way50299584-F2-O0205",
             "osm-way50299584-F2-O0374",
-            "osm-way50299584-F2-O0374",
-            "osm-way50299584-F2-O0371",
             "osm-way50299584-F2-O0371"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 112.14,
+      "optimal_length_m": 103.36,
       "legs": [
         {
           "from_space_id": "osm-way50299584-F1-S020",
-          "to_space_id": "osm-way50299584-F-1-S029",
-          "optimal_length_m": 31.1,
+          "to_space_id": "osm-way50299584-F2-S006",
+          "optimal_length_m": 56.15,
           "space_path": [
             "osm-way50299584-F1-S020",
             "osm-way50299584-F1-S018",
-            "outside",
-            "osm-way50299584-F-1-S023",
-            "osm-way50299584-F-1-S029"
+            "osm-way50299584-F1-S016",
+            "osm-way50299584-F1-S065",
+            "osm-way50299584-F1-S064",
+            "osm-way50299584-F2-S027",
+            "osm-way50299584-F2-S006"
           ],
           "element_path": [
             "osm-way50299584-F1-O0163",
-            "osm-way50299584-F1-O0163",
-            "osm-way50299584-F1-O0384",
-            "osm-way50299584-F1-O0384",
-            "osm-way50299584-F-1-O0006",
-            "osm-way50299584-F-1-O0006",
-            "osm-way50299584-F-1-O0057",
-            "osm-way50299584-F-1-O0057"
+            "osm-way50299584-F1-O0188",
+            "osm-way50299584-F1-O0187",
+            "osm-way50299584-F1-O0391",
+            "osm-way50299584-V05",
+            "osm-way50299584-F2-O0394"
           ]
         },
         {
-          "from_space_id": "osm-way50299584-F-1-S029",
+          "from_space_id": "osm-way50299584-F2-S006",
           "to_space_id": "osm-way50299584-F2-S018",
-          "optimal_length_m": 81.04,
+          "optimal_length_m": 47.21,
           "space_path": [
-            "osm-way50299584-F-1-S029",
-            "osm-way50299584-F-1-S023",
-            "outside",
-            "osm-way50299584-F2-S024",
+            "osm-way50299584-F2-S006",
             "osm-way50299584-F2-S037",
             "osm-way50299584-F2-S085",
             "osm-way50299584-F2-S018"
           ],
           "element_path": [
-            "osm-way50299584-F-1-O0057",
-            "osm-way50299584-F-1-O0057",
-            "osm-way50299584-F-1-O0006",
-            "osm-way50299584-F-1-O0006",
-            "osm-way50299584-F2-O0385",
-            "osm-way50299584-F2-O0385",
-            "osm-way50299584-F2-O0360",
-            "osm-way50299584-F2-O0360",
+            "osm-way50299584-F2-O0205",
             "osm-way50299584-F2-O0374",
-            "osm-way50299584-F2-O0374",
-            "osm-way50299584-F2-O0371",
             "osm-way50299584-F2-O0371"
           ]
         }
@@ -836,8 +793,8 @@
   },
   {
     "question_id": "osm-way50300147-H03",
-    "reply": "Nearest one is in Generic room 1211B (1211B, Floor 1), 2.49 m away; from there to Generic room 2221 (2221, Floor 2) is 89.01 m.\nAnswer: 91.51 m",
-    "answer": "91.51 m",
+    "reply": "Nearest one is in Generic room 1211B (1211B, Floor 1), 2.71 m away; from there to Generic room 2221 (2221, Floor 2) is 75.53 m.\nAnswer: 78.24 m",
+    "answer": "78.24 m",
     "kind": "errand",
     "inputs": {
       "start": "osm-way50300147-F1-S057",
@@ -859,27 +816,26 @@
         "ref": "2221",
         "floor": "Floor 2"
       },
-      "first_leg_m": 2.49,
-      "second_leg_m": 89.01,
-      "total_m": 91.51,
+      "first_leg_m": 2.71,
+      "second_leg_m": 75.53,
+      "total_m": 78.24,
       "legs": [
         {
           "from_space_id": "osm-way50300147-F1-S057",
           "to_space_id": "osm-way50300147-F1-S037",
-          "optimal_length_m": 2.49,
+          "optimal_length_m": 2.71,
           "space_path": [
             "osm-way50300147-F1-S057",
             "osm-way50300147-F1-S037"
           ],
           "element_path": [
-            "osm-way50300147-F1-O0108",
             "osm-way50300147-F1-O0108"
           ]
         },
         {
           "from_space_id": "osm-way50300147-F1-S037",
           "to_space_id": "osm-way50300147-F2-S003",
-          "optimal_length_m": 89.01,
+          "optimal_length_m": 75.53,
           "space_path": [
             "osm-way50300147-F1-S037",
             "osm-way50300147-F1-S057",
@@ -892,42 +848,35 @@
           ],
           "element_path": [
             "osm-way50300147-F1-O0108",
-            "osm-way50300147-F1-O0108",
-            "osm-way50300147-F1-O0106",
             "osm-way50300147-F1-O0106",
             "osm-way50300147-F1-O0089",
-            "osm-way50300147-F1-O0089",
-            "osm-way50300147-F1-O0268",
             "osm-way50300147-F1-O0268",
             "osm-way50300147-V05",
             "osm-way50300147-F2-O0276",
-            "osm-way50300147-F2-O0276",
-            "osm-way50300147-F2-O0218",
             "osm-way50300147-F2-O0218"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 91.51,
+      "optimal_length_m": 78.24,
       "legs": [
         {
           "from_space_id": "osm-way50300147-F1-S057",
           "to_space_id": "osm-way50300147-F1-S037",
-          "optimal_length_m": 2.49,
+          "optimal_length_m": 2.71,
           "space_path": [
             "osm-way50300147-F1-S057",
             "osm-way50300147-F1-S037"
           ],
           "element_path": [
-            "osm-way50300147-F1-O0108",
             "osm-way50300147-F1-O0108"
           ]
         },
         {
           "from_space_id": "osm-way50300147-F1-S037",
           "to_space_id": "osm-way50300147-F2-S003",
-          "optimal_length_m": 89.01,
+          "optimal_length_m": 75.53,
           "space_path": [
             "osm-way50300147-F1-S037",
             "osm-way50300147-F1-S057",
@@ -940,17 +889,11 @@
           ],
           "element_path": [
             "osm-way50300147-F1-O0108",
-            "osm-way50300147-F1-O0108",
-            "osm-way50300147-F1-O0106",
             "osm-way50300147-F1-O0106",
             "osm-way50300147-F1-O0089",
-            "osm-way50300147-F1-O0089",
-            "osm-way50300147-F1-O0268",
             "osm-way50300147-F1-O0268",
             "osm-way50300147-V05",
             "osm-way50300147-F2-O0276",
-            "osm-way50300147-F2-O0276",
-            "osm-way50300147-F2-O0218",
             "osm-way50300147-F2-O0218"
           ]
         }
@@ -1296,8 +1239,8 @@
   },
   {
     "question_id": "proc-campus-test-000-H04",
-    "reply": "Nearest one is in Kitchen 4.41 (4.41, Floor 4), 62.79 m away; from there to Meeting room 2.09 (2.09, Floor 2) is 93.89 m.\nAnswer: 156.67 m",
-    "answer": "156.67 m",
+    "reply": "Nearest one is in Kitchen 4.41 (4.41, Floor 4), 45.30 m away; from there to Meeting room 2.09 (2.09, Floor 2) is 82.94 m.\nAnswer: 128.24 m",
+    "answer": "128.24 m",
     "kind": "errand",
     "inputs": {
       "start": "proc-campus-test-000-F4-S027",
@@ -1319,14 +1262,14 @@
         "ref": "2.09",
         "floor": "Floor 2"
       },
-      "first_leg_m": 62.79,
-      "second_leg_m": 93.89,
-      "total_m": 156.67,
+      "first_leg_m": 45.3,
+      "second_leg_m": 82.94,
+      "total_m": 128.24,
       "legs": [
         {
           "from_space_id": "proc-campus-test-000-F4-S027",
           "to_space_id": "proc-campus-test-000-F4-S041",
-          "optimal_length_m": 62.79,
+          "optimal_length_m": 45.3,
           "space_path": [
             "proc-campus-test-000-F4-S027",
             "proc-campus-test-000-F4-S001",
@@ -1335,17 +1278,14 @@
           ],
           "element_path": [
             "proc-campus-test-000-F4-O0236",
-            "proc-campus-test-000-F4-O0236",
             "proc-campus-test-000-F4-O0211",
-            "proc-campus-test-000-F4-O0211",
-            "proc-campus-test-000-F4-O0250",
             "proc-campus-test-000-F4-O0250"
           ]
         },
         {
           "from_space_id": "proc-campus-test-000-F4-S041",
           "to_space_id": "proc-campus-test-000-F2-S009",
-          "optimal_length_m": 93.89,
+          "optimal_length_m": 82.94,
           "space_path": [
             "proc-campus-test-000-F4-S041",
             "proc-campus-test-000-F4-S002",
@@ -1358,28 +1298,23 @@
           ],
           "element_path": [
             "proc-campus-test-000-F4-O0250",
-            "proc-campus-test-000-F4-O0250",
             "proc-campus-test-000-F4-O0211",
-            "proc-campus-test-000-F4-O0211",
-            "proc-campus-test-000-F4-O0219",
             "proc-campus-test-000-F4-O0219",
             "proc-campus-test-000-V03",
             "proc-campus-test-000-V03",
             "proc-campus-test-000-F2-O0135",
-            "proc-campus-test-000-F2-O0135",
-            "proc-campus-test-000-F2-O0134",
             "proc-campus-test-000-F2-O0134"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 156.67,
+      "optimal_length_m": 128.24,
       "legs": [
         {
           "from_space_id": "proc-campus-test-000-F4-S027",
           "to_space_id": "proc-campus-test-000-F4-S041",
-          "optimal_length_m": 62.79,
+          "optimal_length_m": 45.3,
           "space_path": [
             "proc-campus-test-000-F4-S027",
             "proc-campus-test-000-F4-S001",
@@ -1388,17 +1323,14 @@
           ],
           "element_path": [
             "proc-campus-test-000-F4-O0236",
-            "proc-campus-test-000-F4-O0236",
             "proc-campus-test-000-F4-O0211",
-            "proc-campus-test-000-F4-O0211",
-            "proc-campus-test-000-F4-O0250",
             "proc-campus-test-000-F4-O0250"
           ]
         },
         {
           "from_space_id": "proc-campus-test-000-F4-S041",
           "to_space_id": "proc-campus-test-000-F2-S009",
-          "optimal_length_m": 93.89,
+          "optimal_length_m": 82.94,
           "space_path": [
             "proc-campus-test-000-F4-S041",
             "proc-campus-test-000-F4-S002",
@@ -1411,16 +1343,11 @@
           ],
           "element_path": [
             "proc-campus-test-000-F4-O0250",
-            "proc-campus-test-000-F4-O0250",
             "proc-campus-test-000-F4-O0211",
-            "proc-campus-test-000-F4-O0211",
-            "proc-campus-test-000-F4-O0219",
             "proc-campus-test-000-F4-O0219",
             "proc-campus-test-000-V03",
             "proc-campus-test-000-V03",
             "proc-campus-test-000-F2-O0135",
-            "proc-campus-test-000-F2-O0135",
-            "proc-campus-test-000-F2-O0134",
             "proc-campus-test-000-F2-O0134"
           ]
         }
@@ -1511,8 +1438,8 @@
   },
   {
     "question_id": "proc-campus-test-004-H04",
-    "reply": "Nearest one is in Kitchen 0.05 (0.05, Ground floor), 33.21 m away; from there to Lab 1.17 (1.17, Floor 1) is 77.75 m.\nAnswer: 110.95 m",
-    "answer": "110.95 m",
+    "reply": "Nearest one is in Kitchen 0.05 (0.05, Ground floor), 33.56 m away; from there to Lab 1.17 (1.17, Floor 1) is 40.73 m.\nAnswer: 74.29 m",
+    "answer": "74.29 m",
     "kind": "errand",
     "inputs": {
       "start": "proc-campus-test-004-F0-S012",
@@ -1534,14 +1461,14 @@
         "ref": "1.17",
         "floor": "Floor 1"
       },
-      "first_leg_m": 33.21,
-      "second_leg_m": 77.75,
-      "total_m": 110.95,
+      "first_leg_m": 33.56,
+      "second_leg_m": 40.73,
+      "total_m": 74.29,
       "legs": [
         {
           "from_space_id": "proc-campus-test-004-F0-S012",
           "to_space_id": "proc-campus-test-004-F0-S005",
-          "optimal_length_m": 33.21,
+          "optimal_length_m": 33.56,
           "space_path": [
             "proc-campus-test-004-F0-S012",
             "proc-campus-test-004-F0-S001",
@@ -1549,44 +1476,38 @@
           ],
           "element_path": [
             "proc-campus-test-004-F0-O0011",
-            "proc-campus-test-004-F0-O0011",
-            "proc-campus-test-004-F0-O0004",
             "proc-campus-test-004-F0-O0004"
           ]
         },
         {
           "from_space_id": "proc-campus-test-004-F0-S005",
           "to_space_id": "proc-campus-test-004-F1-S017",
-          "optimal_length_m": 77.75,
+          "optimal_length_m": 40.73,
           "space_path": [
             "proc-campus-test-004-F0-S005",
             "proc-campus-test-004-F0-S001",
-            "proc-campus-test-004-F0-S009",
-            "proc-campus-test-004-F1-S011",
+            "proc-campus-test-004-F0-S002",
+            "proc-campus-test-004-F1-S004",
             "proc-campus-test-004-F1-S001",
             "proc-campus-test-004-F1-S017"
           ],
           "element_path": [
             "proc-campus-test-004-F0-O0004",
-            "proc-campus-test-004-F0-O0004",
-            "proc-campus-test-004-F0-O0008",
-            "proc-campus-test-004-F0-O0008",
-            "proc-campus-test-004-V03",
-            "proc-campus-test-004-F1-O0034",
-            "proc-campus-test-004-F1-O0034",
-            "proc-campus-test-004-F1-O0040",
+            "proc-campus-test-004-F0-O0001",
+            "proc-campus-test-004-V01",
+            "proc-campus-test-004-F1-O0027",
             "proc-campus-test-004-F1-O0040"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 110.95,
+      "optimal_length_m": 74.29,
       "legs": [
         {
           "from_space_id": "proc-campus-test-004-F0-S012",
           "to_space_id": "proc-campus-test-004-F0-S005",
-          "optimal_length_m": 33.21,
+          "optimal_length_m": 33.56,
           "space_path": [
             "proc-campus-test-004-F0-S012",
             "proc-campus-test-004-F0-S001",
@@ -1594,32 +1515,26 @@
           ],
           "element_path": [
             "proc-campus-test-004-F0-O0011",
-            "proc-campus-test-004-F0-O0011",
-            "proc-campus-test-004-F0-O0004",
             "proc-campus-test-004-F0-O0004"
           ]
         },
         {
           "from_space_id": "proc-campus-test-004-F0-S005",
           "to_space_id": "proc-campus-test-004-F1-S017",
-          "optimal_length_m": 77.75,
+          "optimal_length_m": 40.73,
           "space_path": [
             "proc-campus-test-004-F0-S005",
             "proc-campus-test-004-F0-S001",
-            "proc-campus-test-004-F0-S009",
-            "proc-campus-test-004-F1-S011",
+            "proc-campus-test-004-F0-S002",
+            "proc-campus-test-004-F1-S004",
             "proc-campus-test-004-F1-S001",
             "proc-campus-test-004-F1-S017"
           ],
           "element_path": [
             "proc-campus-test-004-F0-O0004",
-            "proc-campus-test-004-F0-O0004",
-            "proc-campus-test-004-F0-O0008",
-            "proc-campus-test-004-F0-O0008",
-            "proc-campus-test-004-V03",
-            "proc-campus-test-004-F1-O0034",
-            "proc-campus-test-004-F1-O0034",
-            "proc-campus-test-004-F1-O0040",
+            "proc-campus-test-004-F0-O0001",
+            "proc-campus-test-004-V01",
+            "proc-campus-test-004-F1-O0027",
             "proc-campus-test-004-F1-O0040"
           ]
         }
@@ -1715,8 +1630,8 @@
   },
   {
     "question_id": "proc-campus-test-005-H04",
-    "reply": "Nearest one is in Kitchen 2.33 (2.33, Floor 2), 28.61 m away; from there to Storage 1.27 (1.27, Floor 1) is 119.57 m.\nAnswer: 148.19 m",
-    "answer": "148.19 m",
+    "reply": "Nearest one is in Kitchen 2.33 (2.33, Floor 2), 29.09 m away; from there to Storage 1.27 (1.27, Floor 1) is 60.43 m.\nAnswer: 89.51 m",
+    "answer": "89.51 m",
     "kind": "errand",
     "inputs": {
       "start": "proc-campus-test-005-F2-S037",
@@ -1738,14 +1653,14 @@
         "ref": "1.27",
         "floor": "Floor 1"
       },
-      "first_leg_m": 28.61,
-      "second_leg_m": 119.57,
-      "total_m": 148.19,
+      "first_leg_m": 29.09,
+      "second_leg_m": 60.43,
+      "total_m": 89.51,
       "legs": [
         {
           "from_space_id": "proc-campus-test-005-F2-S037",
           "to_space_id": "proc-campus-test-005-F2-S033",
-          "optimal_length_m": 28.61,
+          "optimal_length_m": 29.09,
           "space_path": [
             "proc-campus-test-005-F2-S037",
             "proc-campus-test-005-F2-S002",
@@ -1753,47 +1668,40 @@
           ],
           "element_path": [
             "proc-campus-test-005-F2-O0174",
-            "proc-campus-test-005-F2-O0174",
-            "proc-campus-test-005-F2-O0170",
             "proc-campus-test-005-F2-O0170"
           ]
         },
         {
           "from_space_id": "proc-campus-test-005-F2-S033",
           "to_space_id": "proc-campus-test-005-F1-S027",
-          "optimal_length_m": 119.57,
+          "optimal_length_m": 60.43,
           "space_path": [
             "proc-campus-test-005-F2-S033",
             "proc-campus-test-005-F2-S002",
-            "proc-campus-test-005-F2-S038",
-            "proc-campus-test-005-F1-S038",
-            "proc-campus-test-005-F1-S002",
+            "proc-campus-test-005-F2-S001",
+            "proc-campus-test-005-F2-S015",
+            "proc-campus-test-005-F1-S015",
             "proc-campus-test-005-F1-S001",
             "proc-campus-test-005-F1-S027"
           ],
           "element_path": [
             "proc-campus-test-005-F2-O0170",
-            "proc-campus-test-005-F2-O0170",
-            "proc-campus-test-005-F2-O0175",
-            "proc-campus-test-005-F2-O0175",
-            "proc-campus-test-005-V05",
-            "proc-campus-test-005-F1-O0129",
-            "proc-campus-test-005-F1-O0129",
-            "proc-campus-test-005-F1-O0093",
-            "proc-campus-test-005-F1-O0093",
-            "proc-campus-test-005-F1-O0118",
+            "proc-campus-test-005-F2-O0139",
+            "proc-campus-test-005-F2-O0152",
+            "proc-campus-test-005-V03",
+            "proc-campus-test-005-F1-O0106",
             "proc-campus-test-005-F1-O0118"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 148.19,
+      "optimal_length_m": 89.51,
       "legs": [
         {
           "from_space_id": "proc-campus-test-005-F2-S037",
           "to_space_id": "proc-campus-test-005-F2-S033",
-          "optimal_length_m": 28.61,
+          "optimal_length_m": 29.09,
           "space_path": [
             "proc-campus-test-005-F2-S037",
             "proc-campus-test-005-F2-S002",
@@ -1801,35 +1709,28 @@
           ],
           "element_path": [
             "proc-campus-test-005-F2-O0174",
-            "proc-campus-test-005-F2-O0174",
-            "proc-campus-test-005-F2-O0170",
             "proc-campus-test-005-F2-O0170"
           ]
         },
         {
           "from_space_id": "proc-campus-test-005-F2-S033",
           "to_space_id": "proc-campus-test-005-F1-S027",
-          "optimal_length_m": 119.57,
+          "optimal_length_m": 60.43,
           "space_path": [
             "proc-campus-test-005-F2-S033",
             "proc-campus-test-005-F2-S002",
-            "proc-campus-test-005-F2-S038",
-            "proc-campus-test-005-F1-S038",
-            "proc-campus-test-005-F1-S002",
+            "proc-campus-test-005-F2-S001",
+            "proc-campus-test-005-F2-S015",
+            "proc-campus-test-005-F1-S015",
             "proc-campus-test-005-F1-S001",
             "proc-campus-test-005-F1-S027"
           ],
           "element_path": [
             "proc-campus-test-005-F2-O0170",
-            "proc-campus-test-005-F2-O0170",
-            "proc-campus-test-005-F2-O0175",
-            "proc-campus-test-005-F2-O0175",
-            "proc-campus-test-005-V05",
-            "proc-campus-test-005-F1-O0129",
-            "proc-campus-test-005-F1-O0129",
-            "proc-campus-test-005-F1-O0093",
-            "proc-campus-test-005-F1-O0093",
-            "proc-campus-test-005-F1-O0118",
+            "proc-campus-test-005-F2-O0139",
+            "proc-campus-test-005-F2-O0152",
+            "proc-campus-test-005-V03",
+            "proc-campus-test-005-F1-O0106",
             "proc-campus-test-005-F1-O0118"
           ]
         }
@@ -1955,8 +1856,8 @@
   },
   {
     "question_id": "proc-campus-test-008-H04",
-    "reply": "Nearest one is in Office 3.24 (3.24, Floor 3), 22.14 m away; from there to Meeting room 1.07 (1.07, Floor 1) is 79.11 m.\nAnswer: 101.25 m",
-    "answer": "101.25 m",
+    "reply": "Nearest one is in Office 3.24 (3.24, Floor 3), 22.46 m away; from there to Meeting room 1.07 (1.07, Floor 1) is 56.45 m.\nAnswer: 78.91 m",
+    "answer": "78.91 m",
     "kind": "errand",
     "inputs": {
       "start": "proc-campus-test-008-F3-S021",
@@ -1978,14 +1879,14 @@
         "ref": "1.07",
         "floor": "Floor 1"
       },
-      "first_leg_m": 22.14,
-      "second_leg_m": 79.11,
-      "total_m": 101.25,
+      "first_leg_m": 22.46,
+      "second_leg_m": 56.45,
+      "total_m": 78.91,
       "legs": [
         {
           "from_space_id": "proc-campus-test-008-F3-S021",
           "to_space_id": "proc-campus-test-008-F3-S024",
-          "optimal_length_m": 22.14,
+          "optimal_length_m": 22.46,
           "space_path": [
             "proc-campus-test-008-F3-S021",
             "proc-campus-test-008-F3-S001",
@@ -1993,46 +1894,40 @@
           ],
           "element_path": [
             "proc-campus-test-008-F3-O0131",
-            "proc-campus-test-008-F3-O0131",
-            "proc-campus-test-008-F3-O0134",
             "proc-campus-test-008-F3-O0134"
           ]
         },
         {
           "from_space_id": "proc-campus-test-008-F3-S024",
           "to_space_id": "proc-campus-test-008-F1-S007",
-          "optimal_length_m": 79.11,
+          "optimal_length_m": 56.45,
           "space_path": [
             "proc-campus-test-008-F3-S024",
             "proc-campus-test-008-F3-S001",
-            "proc-campus-test-008-F3-S013",
-            "proc-campus-test-008-F2-S013",
-            "proc-campus-test-008-F1-S013",
+            "proc-campus-test-008-F3-S005",
+            "proc-campus-test-008-F2-S005",
+            "proc-campus-test-008-F1-S005",
             "proc-campus-test-008-F1-S001",
             "proc-campus-test-008-F1-S007"
           ],
           "element_path": [
             "proc-campus-test-008-F3-O0134",
-            "proc-campus-test-008-F3-O0134",
-            "proc-campus-test-008-F3-O0123",
-            "proc-campus-test-008-F3-O0123",
-            "proc-campus-test-008-V03",
-            "proc-campus-test-008-V03",
-            "proc-campus-test-008-F1-O0067",
-            "proc-campus-test-008-F1-O0067",
-            "proc-campus-test-008-F1-O0061",
+            "proc-campus-test-008-F3-O0115",
+            "proc-campus-test-008-V01",
+            "proc-campus-test-008-V01",
+            "proc-campus-test-008-F1-O0059",
             "proc-campus-test-008-F1-O0061"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 101.25,
+      "optimal_length_m": 78.91,
       "legs": [
         {
           "from_space_id": "proc-campus-test-008-F3-S021",
           "to_space_id": "proc-campus-test-008-F3-S024",
-          "optimal_length_m": 22.14,
+          "optimal_length_m": 22.46,
           "space_path": [
             "proc-campus-test-008-F3-S021",
             "proc-campus-test-008-F3-S001",
@@ -2040,34 +1935,28 @@
           ],
           "element_path": [
             "proc-campus-test-008-F3-O0131",
-            "proc-campus-test-008-F3-O0131",
-            "proc-campus-test-008-F3-O0134",
             "proc-campus-test-008-F3-O0134"
           ]
         },
         {
           "from_space_id": "proc-campus-test-008-F3-S024",
           "to_space_id": "proc-campus-test-008-F1-S007",
-          "optimal_length_m": 79.11,
+          "optimal_length_m": 56.45,
           "space_path": [
             "proc-campus-test-008-F3-S024",
             "proc-campus-test-008-F3-S001",
-            "proc-campus-test-008-F3-S013",
-            "proc-campus-test-008-F2-S013",
-            "proc-campus-test-008-F1-S013",
+            "proc-campus-test-008-F3-S005",
+            "proc-campus-test-008-F2-S005",
+            "proc-campus-test-008-F1-S005",
             "proc-campus-test-008-F1-S001",
             "proc-campus-test-008-F1-S007"
           ],
           "element_path": [
             "proc-campus-test-008-F3-O0134",
-            "proc-campus-test-008-F3-O0134",
-            "proc-campus-test-008-F3-O0123",
-            "proc-campus-test-008-F3-O0123",
-            "proc-campus-test-008-V03",
-            "proc-campus-test-008-V03",
-            "proc-campus-test-008-F1-O0067",
-            "proc-campus-test-008-F1-O0067",
-            "proc-campus-test-008-F1-O0061",
+            "proc-campus-test-008-F3-O0115",
+            "proc-campus-test-008-V01",
+            "proc-campus-test-008-V01",
+            "proc-campus-test-008-F1-O0059",
             "proc-campus-test-008-F1-O0061"
           ]
         }
@@ -2161,8 +2050,8 @@
   },
   {
     "question_id": "proc-campus-test-012-H04",
-    "reply": "Nearest one is in Office 3.26 (3.26, Floor 3), 22.99 m away; from there to Lab 3.13 (3.13, Floor 3) is 28.14 m.\nAnswer: 51.13 m",
-    "answer": "51.13 m",
+    "reply": "Nearest one is in Office 3.23 (3.23, Floor 3), 9.77 m away; from there to Lab 3.13 (3.13, Floor 3) is 34.06 m.\nAnswer: 43.83 m",
+    "answer": "43.83 m",
     "kind": "errand",
     "inputs": {
       "start": "proc-campus-test-012-F3-S022",
@@ -2173,9 +2062,9 @@
     },
     "result": {
       "via": {
-        "space_id": "proc-campus-test-012-F3-S026",
-        "name": "Office 3.26",
-        "ref": "3.26",
+        "space_id": "proc-campus-test-012-F3-S023",
+        "name": "Office 3.23",
+        "ref": "3.23",
         "floor": "Floor 3"
       },
       "target": {
@@ -2184,76 +2073,68 @@
         "ref": "3.13",
         "floor": "Floor 3"
       },
-      "first_leg_m": 22.99,
-      "second_leg_m": 28.14,
-      "total_m": 51.13,
+      "first_leg_m": 9.77,
+      "second_leg_m": 34.06,
+      "total_m": 43.83,
       "legs": [
         {
           "from_space_id": "proc-campus-test-012-F3-S022",
-          "to_space_id": "proc-campus-test-012-F3-S026",
-          "optimal_length_m": 22.99,
+          "to_space_id": "proc-campus-test-012-F3-S023",
+          "optimal_length_m": 9.77,
           "space_path": [
             "proc-campus-test-012-F3-S022",
             "proc-campus-test-012-F3-S001",
-            "proc-campus-test-012-F3-S026"
+            "proc-campus-test-012-F3-S023"
           ],
           "element_path": [
             "proc-campus-test-012-F3-O0113",
-            "proc-campus-test-012-F3-O0113",
-            "proc-campus-test-012-F3-O0117",
-            "proc-campus-test-012-F3-O0117"
+            "proc-campus-test-012-F3-O0114"
           ]
         },
         {
-          "from_space_id": "proc-campus-test-012-F3-S026",
+          "from_space_id": "proc-campus-test-012-F3-S023",
           "to_space_id": "proc-campus-test-012-F3-S013",
-          "optimal_length_m": 28.14,
+          "optimal_length_m": 34.06,
           "space_path": [
-            "proc-campus-test-012-F3-S026",
+            "proc-campus-test-012-F3-S023",
             "proc-campus-test-012-F3-S001",
             "proc-campus-test-012-F3-S013"
           ],
           "element_path": [
-            "proc-campus-test-012-F3-O0117",
-            "proc-campus-test-012-F3-O0117",
-            "proc-campus-test-012-F3-O0104",
+            "proc-campus-test-012-F3-O0114",
             "proc-campus-test-012-F3-O0104"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 51.13,
+      "optimal_length_m": 43.83,
       "legs": [
         {
           "from_space_id": "proc-campus-test-012-F3-S022",
-          "to_space_id": "proc-campus-test-012-F3-S026",
-          "optimal_length_m": 22.99,
+          "to_space_id": "proc-campus-test-012-F3-S023",
+          "optimal_length_m": 9.77,
           "space_path": [
             "proc-campus-test-012-F3-S022",
             "proc-campus-test-012-F3-S001",
-            "proc-campus-test-012-F3-S026"
+            "proc-campus-test-012-F3-S023"
           ],
           "element_path": [
             "proc-campus-test-012-F3-O0113",
-            "proc-campus-test-012-F3-O0113",
-            "proc-campus-test-012-F3-O0117",
-            "proc-campus-test-012-F3-O0117"
+            "proc-campus-test-012-F3-O0114"
           ]
         },
         {
-          "from_space_id": "proc-campus-test-012-F3-S026",
+          "from_space_id": "proc-campus-test-012-F3-S023",
           "to_space_id": "proc-campus-test-012-F3-S013",
-          "optimal_length_m": 28.14,
+          "optimal_length_m": 34.06,
           "space_path": [
-            "proc-campus-test-012-F3-S026",
+            "proc-campus-test-012-F3-S023",
             "proc-campus-test-012-F3-S001",
             "proc-campus-test-012-F3-S013"
           ],
           "element_path": [
-            "proc-campus-test-012-F3-O0117",
-            "proc-campus-test-012-F3-O0117",
-            "proc-campus-test-012-F3-O0104",
+            "proc-campus-test-012-F3-O0114",
             "proc-campus-test-012-F3-O0104"
           ]
         }
@@ -2346,8 +2227,8 @@
   },
   {
     "question_id": "proc-campus-test-013-H04",
-    "reply": "Nearest one is in Lab 4.21 (4.21, Floor 4), 41.92 m away; from there to Lab 1.34 (1.34, Floor 1) is 115.01 m.\nAnswer: 156.93 m",
-    "answer": "156.93 m",
+    "reply": "Nearest one is in Lab 5.38 (5.38, Floor 5), 35.49 m away; from there to Lab 1.34 (1.34, Floor 1) is 81.12 m.\nAnswer: 116.61 m",
+    "answer": "116.61 m",
     "kind": "errand",
     "inputs": {
       "start": "proc-campus-test-013-F4-S029",
@@ -2358,10 +2239,10 @@
     },
     "result": {
       "via": {
-        "space_id": "proc-campus-test-013-F4-S021",
-        "name": "Lab 4.21",
-        "ref": "4.21",
-        "floor": "Floor 4"
+        "space_id": "proc-campus-test-013-F5-S038",
+        "name": "Lab 5.38",
+        "ref": "5.38",
+        "floor": "Floor 5"
       },
       "target": {
         "space_id": "proc-campus-test-013-F1-S034",
@@ -2369,33 +2250,38 @@
         "ref": "1.34",
         "floor": "Floor 1"
       },
-      "first_leg_m": 41.92,
-      "second_leg_m": 115.01,
-      "total_m": 156.93,
+      "first_leg_m": 35.49,
+      "second_leg_m": 81.12,
+      "total_m": 116.61,
       "legs": [
         {
           "from_space_id": "proc-campus-test-013-F4-S029",
-          "to_space_id": "proc-campus-test-013-F4-S021",
-          "optimal_length_m": 41.92,
+          "to_space_id": "proc-campus-test-013-F5-S038",
+          "optimal_length_m": 35.49,
           "space_path": [
             "proc-campus-test-013-F4-S029",
             "proc-campus-test-013-F4-S002",
-            "proc-campus-test-013-F4-S021"
+            "proc-campus-test-013-F4-S030",
+            "proc-campus-test-013-F5-S030",
+            "proc-campus-test-013-F5-S002",
+            "proc-campus-test-013-F5-S038"
           ],
           "element_path": [
             "proc-campus-test-013-F4-O0228",
-            "proc-campus-test-013-F4-O0228",
-            "proc-campus-test-013-F4-O0220",
-            "proc-campus-test-013-F4-O0220"
+            "proc-campus-test-013-F4-O0229",
+            "proc-campus-test-013-V05",
+            "proc-campus-test-013-F5-O0269",
+            "proc-campus-test-013-F5-O0277"
           ]
         },
         {
-          "from_space_id": "proc-campus-test-013-F4-S021",
+          "from_space_id": "proc-campus-test-013-F5-S038",
           "to_space_id": "proc-campus-test-013-F1-S034",
-          "optimal_length_m": 115.01,
+          "optimal_length_m": 81.12,
           "space_path": [
-            "proc-campus-test-013-F4-S021",
-            "proc-campus-test-013-F4-S002",
+            "proc-campus-test-013-F5-S038",
+            "proc-campus-test-013-F5-S002",
+            "proc-campus-test-013-F5-S030",
             "proc-campus-test-013-F4-S030",
             "proc-campus-test-013-F3-S030",
             "proc-campus-test-013-F2-S030",
@@ -2404,47 +2290,49 @@
             "proc-campus-test-013-F1-S034"
           ],
           "element_path": [
-            "proc-campus-test-013-F4-O0220",
-            "proc-campus-test-013-F4-O0220",
-            "proc-campus-test-013-F4-O0229",
-            "proc-campus-test-013-F4-O0229",
+            "proc-campus-test-013-F5-O0277",
+            "proc-campus-test-013-F5-O0269",
+            "proc-campus-test-013-V05",
             "proc-campus-test-013-V05",
             "proc-campus-test-013-V05",
             "proc-campus-test-013-V05",
             "proc-campus-test-013-F1-O0109",
-            "proc-campus-test-013-F1-O0109",
-            "proc-campus-test-013-F1-O0113",
             "proc-campus-test-013-F1-O0113"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 156.93,
+      "optimal_length_m": 116.61,
       "legs": [
         {
           "from_space_id": "proc-campus-test-013-F4-S029",
-          "to_space_id": "proc-campus-test-013-F4-S021",
-          "optimal_length_m": 41.92,
+          "to_space_id": "proc-campus-test-013-F5-S038",
+          "optimal_length_m": 35.49,
           "space_path": [
             "proc-campus-test-013-F4-S029",
             "proc-campus-test-013-F4-S002",
-            "proc-campus-test-013-F4-S021"
+            "proc-campus-test-013-F4-S030",
+            "proc-campus-test-013-F5-S030",
+            "proc-campus-test-013-F5-S002",
+            "proc-campus-test-013-F5-S038"
           ],
           "element_path": [
             "proc-campus-test-013-F4-O0228",
-            "proc-campus-test-013-F4-O0228",
-            "proc-campus-test-013-F4-O0220",
-            "proc-campus-test-013-F4-O0220"
+            "proc-campus-test-013-F4-O0229",
+            "proc-campus-test-013-V05",
+            "proc-campus-test-013-F5-O0269",
+            "proc-campus-test-013-F5-O0277"
           ]
         },
         {
-          "from_space_id": "proc-campus-test-013-F4-S021",
+          "from_space_id": "proc-campus-test-013-F5-S038",
           "to_space_id": "proc-campus-test-013-F1-S034",
-          "optimal_length_m": 115.01,
+          "optimal_length_m": 81.12,
           "space_path": [
-            "proc-campus-test-013-F4-S021",
-            "proc-campus-test-013-F4-S002",
+            "proc-campus-test-013-F5-S038",
+            "proc-campus-test-013-F5-S002",
+            "proc-campus-test-013-F5-S030",
             "proc-campus-test-013-F4-S030",
             "proc-campus-test-013-F3-S030",
             "proc-campus-test-013-F2-S030",
@@ -2453,16 +2341,13 @@
             "proc-campus-test-013-F1-S034"
           ],
           "element_path": [
-            "proc-campus-test-013-F4-O0220",
-            "proc-campus-test-013-F4-O0220",
-            "proc-campus-test-013-F4-O0229",
-            "proc-campus-test-013-F4-O0229",
+            "proc-campus-test-013-F5-O0277",
+            "proc-campus-test-013-F5-O0269",
+            "proc-campus-test-013-V05",
             "proc-campus-test-013-V05",
             "proc-campus-test-013-V05",
             "proc-campus-test-013-V05",
             "proc-campus-test-013-F1-O0109",
-            "proc-campus-test-013-F1-O0109",
-            "proc-campus-test-013-F1-O0113",
             "proc-campus-test-013-F1-O0113"
           ]
         }
@@ -2750,8 +2635,8 @@
   },
   {
     "question_id": "proc-factory-test-003-H04",
-    "reply": "Nearest one is in Server room 1.14 (1.14, Floor 1), 23.80 m away; from there to Kitchen 0.29 (0.29, Ground floor) is 141.38 m.\nAnswer: 165.19 m",
-    "answer": "165.19 m",
+    "reply": "Nearest one is in Server room 1.14 (1.14, Floor 1), 24.23 m away; from there to Kitchen 0.29 (0.29, Ground floor) is 65.63 m.\nAnswer: 89.86 m",
+    "answer": "89.86 m",
     "kind": "errand",
     "inputs": {
       "start": "proc-factory-test-003-F1-S010",
@@ -2773,14 +2658,14 @@
         "ref": "0.29",
         "floor": "Ground floor"
       },
-      "first_leg_m": 23.8,
-      "second_leg_m": 141.38,
-      "total_m": 165.19,
+      "first_leg_m": 24.23,
+      "second_leg_m": 65.63,
+      "total_m": 89.86,
       "legs": [
         {
           "from_space_id": "proc-factory-test-003-F1-S010",
           "to_space_id": "proc-factory-test-003-F1-S014",
-          "optimal_length_m": 23.8,
+          "optimal_length_m": 24.23,
           "space_path": [
             "proc-factory-test-003-F1-S010",
             "proc-factory-test-003-F1-S001",
@@ -2788,15 +2673,13 @@
           ],
           "element_path": [
             "proc-factory-test-003-F1-O0087",
-            "proc-factory-test-003-F1-O0087",
-            "proc-factory-test-003-F1-O0091",
             "proc-factory-test-003-F1-O0091"
           ]
         },
         {
           "from_space_id": "proc-factory-test-003-F1-S014",
           "to_space_id": "proc-factory-test-003-F0-S029",
-          "optimal_length_m": 141.38,
+          "optimal_length_m": 65.63,
           "space_path": [
             "proc-factory-test-003-F1-S014",
             "proc-factory-test-003-F1-S001",
@@ -2807,25 +2690,21 @@
           ],
           "element_path": [
             "proc-factory-test-003-F1-O0091",
-            "proc-factory-test-003-F1-O0091",
-            "proc-factory-test-003-F1-O0079",
             "proc-factory-test-003-F1-O0079",
             "proc-factory-test-003-V01",
             "proc-factory-test-003-F0-O0037",
-            "proc-factory-test-003-F0-O0037",
-            "proc-factory-test-003-F0-O0041",
             "proc-factory-test-003-F0-O0041"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 165.19,
+      "optimal_length_m": 89.86,
       "legs": [
         {
           "from_space_id": "proc-factory-test-003-F1-S010",
           "to_space_id": "proc-factory-test-003-F1-S014",
-          "optimal_length_m": 23.8,
+          "optimal_length_m": 24.23,
           "space_path": [
             "proc-factory-test-003-F1-S010",
             "proc-factory-test-003-F1-S001",
@@ -2833,15 +2712,13 @@
           ],
           "element_path": [
             "proc-factory-test-003-F1-O0087",
-            "proc-factory-test-003-F1-O0087",
-            "proc-factory-test-003-F1-O0091",
             "proc-factory-test-003-F1-O0091"
           ]
         },
         {
           "from_space_id": "proc-factory-test-003-F1-S014",
           "to_space_id": "proc-factory-test-003-F0-S029",
-          "optimal_length_m": 141.38,
+          "optimal_length_m": 65.63,
           "space_path": [
             "proc-factory-test-003-F1-S014",
             "proc-factory-test-003-F1-S001",
@@ -2852,13 +2729,9 @@
           ],
           "element_path": [
             "proc-factory-test-003-F1-O0091",
-            "proc-factory-test-003-F1-O0091",
-            "proc-factory-test-003-F1-O0079",
             "proc-factory-test-003-F1-O0079",
             "proc-factory-test-003-V01",
             "proc-factory-test-003-F0-O0037",
-            "proc-factory-test-003-F0-O0037",
-            "proc-factory-test-003-F0-O0041",
             "proc-factory-test-003-F0-O0041"
           ]
         }
@@ -3072,8 +2945,8 @@
   },
   {
     "question_id": "proc-factory-test-007-H04",
-    "reply": "Nearest one is in Production zone H-B5 (H-B5, Ground floor), 201.92 m away; from there to Kitchen 1.10 (1.10, Floor 1) is 175.26 m.\nAnswer: 377.18 m",
-    "answer": "377.18 m",
+    "reply": "Nearest one is in Production zone H-B2 (H-B2, Ground floor), 97.02 m away; from there to Kitchen 1.10 (1.10, Floor 1) is 123.59 m.\nAnswer: 220.61 m",
+    "answer": "220.61 m",
     "kind": "errand",
     "inputs": {
       "start": "proc-factory-test-007-F1-S005",
@@ -3084,9 +2957,9 @@
     },
     "result": {
       "via": {
-        "space_id": "proc-factory-test-007-F0-S011",
-        "name": "Production zone H-B5",
-        "ref": "H-B5",
+        "space_id": "proc-factory-test-007-F0-S008",
+        "name": "Production zone H-B2",
+        "ref": "H-B2",
         "floor": "Ground floor"
       },
       "target": {
@@ -3095,48 +2968,51 @@
         "ref": "1.10",
         "floor": "Floor 1"
       },
-      "first_leg_m": 201.92,
-      "second_leg_m": 175.26,
-      "total_m": 377.18,
+      "first_leg_m": 97.02,
+      "second_leg_m": 123.59,
+      "total_m": 220.61,
       "legs": [
         {
           "from_space_id": "proc-factory-test-007-F1-S005",
-          "to_space_id": "proc-factory-test-007-F0-S011",
-          "optimal_length_m": 201.92,
+          "to_space_id": "proc-factory-test-007-F0-S008",
+          "optimal_length_m": 97.02,
           "space_path": [
             "proc-factory-test-007-F1-S005",
             "proc-factory-test-007-F1-S001",
             "proc-factory-test-007-F1-S002",
             "proc-factory-test-007-F0-S026",
             "proc-factory-test-007-F0-S025",
-            "proc-factory-test-007-F0-S044",
-            "proc-factory-test-007-F0-S005",
-            "proc-factory-test-007-F0-S011"
+            "proc-factory-test-007-F0-S028",
+            "proc-factory-test-007-F0-S001",
+            "proc-factory-test-007-F0-S007",
+            "proc-factory-test-007-F0-S013",
+            "proc-factory-test-007-F0-S014",
+            "proc-factory-test-007-F0-S008"
           ],
           "element_path": [
             "proc-factory-test-007-F1-O0077",
-            "proc-factory-test-007-F1-O0077",
-            "proc-factory-test-007-F1-O0074",
             "proc-factory-test-007-F1-O0074",
             "proc-factory-test-007-V01",
             "proc-factory-test-007-F0-O0034",
-            "proc-factory-test-007-F0-O0034",
-            "proc-factory-test-007-F0-O0053",
-            "proc-factory-test-007-F0-O0053",
-            "proc-factory-test-007-F0-O0054",
-            "proc-factory-test-007-F0-O0054",
-            "proc-factory-test-007-F0-O0007",
-            "proc-factory-test-007-F0-O0007"
+            "proc-factory-test-007-F0-O0036",
+            "proc-factory-test-007-F0-O0037",
+            "proc-factory-test-007-F0-O0001",
+            "proc-factory-test-007-F0-O0009",
+            "proc-factory-test-007-F0-O0017",
+            "proc-factory-test-007-F0-O0010"
           ]
         },
         {
-          "from_space_id": "proc-factory-test-007-F0-S011",
+          "from_space_id": "proc-factory-test-007-F0-S008",
           "to_space_id": "proc-factory-test-007-F1-S010",
-          "optimal_length_m": 175.26,
+          "optimal_length_m": 123.59,
           "space_path": [
-            "proc-factory-test-007-F0-S011",
-            "proc-factory-test-007-F0-S005",
-            "proc-factory-test-007-F0-S044",
+            "proc-factory-test-007-F0-S008",
+            "proc-factory-test-007-F0-S014",
+            "proc-factory-test-007-F0-S013",
+            "proc-factory-test-007-F0-S007",
+            "proc-factory-test-007-F0-S001",
+            "proc-factory-test-007-F0-S028",
             "proc-factory-test-007-F0-S025",
             "proc-factory-test-007-F0-S026",
             "proc-factory-test-007-F1-S002",
@@ -3144,64 +3020,64 @@
             "proc-factory-test-007-F1-S010"
           ],
           "element_path": [
-            "proc-factory-test-007-F0-O0007",
-            "proc-factory-test-007-F0-O0007",
-            "proc-factory-test-007-F0-O0054",
-            "proc-factory-test-007-F0-O0054",
-            "proc-factory-test-007-F0-O0053",
-            "proc-factory-test-007-F0-O0053",
-            "proc-factory-test-007-F0-O0034",
+            "proc-factory-test-007-F0-O0010",
+            "proc-factory-test-007-F0-O0017",
+            "proc-factory-test-007-F0-O0009",
+            "proc-factory-test-007-F0-O0001",
+            "proc-factory-test-007-F0-O0037",
+            "proc-factory-test-007-F0-O0036",
             "proc-factory-test-007-F0-O0034",
             "proc-factory-test-007-V01",
             "proc-factory-test-007-F1-O0074",
-            "proc-factory-test-007-F1-O0074",
-            "proc-factory-test-007-F1-O0082",
             "proc-factory-test-007-F1-O0082"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 377.18,
+      "optimal_length_m": 220.61,
       "legs": [
         {
           "from_space_id": "proc-factory-test-007-F1-S005",
-          "to_space_id": "proc-factory-test-007-F0-S011",
-          "optimal_length_m": 201.92,
+          "to_space_id": "proc-factory-test-007-F0-S008",
+          "optimal_length_m": 97.02,
           "space_path": [
             "proc-factory-test-007-F1-S005",
             "proc-factory-test-007-F1-S001",
             "proc-factory-test-007-F1-S002",
             "proc-factory-test-007-F0-S026",
             "proc-factory-test-007-F0-S025",
-            "proc-factory-test-007-F0-S044",
-            "proc-factory-test-007-F0-S005",
-            "proc-factory-test-007-F0-S011"
+            "proc-factory-test-007-F0-S028",
+            "proc-factory-test-007-F0-S001",
+            "proc-factory-test-007-F0-S007",
+            "proc-factory-test-007-F0-S013",
+            "proc-factory-test-007-F0-S014",
+            "proc-factory-test-007-F0-S008"
           ],
           "element_path": [
             "proc-factory-test-007-F1-O0077",
-            "proc-factory-test-007-F1-O0077",
-            "proc-factory-test-007-F1-O0074",
             "proc-factory-test-007-F1-O0074",
             "proc-factory-test-007-V01",
             "proc-factory-test-007-F0-O0034",
-            "proc-factory-test-007-F0-O0034",
-            "proc-factory-test-007-F0-O0053",
-            "proc-factory-test-007-F0-O0053",
-            "proc-factory-test-007-F0-O0054",
-            "proc-factory-test-007-F0-O0054",
-            "proc-factory-test-007-F0-O0007",
-            "proc-factory-test-007-F0-O0007"
+            "proc-factory-test-007-F0-O0036",
+            "proc-factory-test-007-F0-O0037",
+            "proc-factory-test-007-F0-O0001",
+            "proc-factory-test-007-F0-O0009",
+            "proc-factory-test-007-F0-O0017",
+            "proc-factory-test-007-F0-O0010"
           ]
         },
         {
-          "from_space_id": "proc-factory-test-007-F0-S011",
+          "from_space_id": "proc-factory-test-007-F0-S008",
           "to_space_id": "proc-factory-test-007-F1-S010",
-          "optimal_length_m": 175.26,
+          "optimal_length_m": 123.59,
           "space_path": [
-            "proc-factory-test-007-F0-S011",
-            "proc-factory-test-007-F0-S005",
-            "proc-factory-test-007-F0-S044",
+            "proc-factory-test-007-F0-S008",
+            "proc-factory-test-007-F0-S014",
+            "proc-factory-test-007-F0-S013",
+            "proc-factory-test-007-F0-S007",
+            "proc-factory-test-007-F0-S001",
+            "proc-factory-test-007-F0-S028",
             "proc-factory-test-007-F0-S025",
             "proc-factory-test-007-F0-S026",
             "proc-factory-test-007-F1-S002",
@@ -3209,18 +3085,15 @@
             "proc-factory-test-007-F1-S010"
           ],
           "element_path": [
-            "proc-factory-test-007-F0-O0007",
-            "proc-factory-test-007-F0-O0007",
-            "proc-factory-test-007-F0-O0054",
-            "proc-factory-test-007-F0-O0054",
-            "proc-factory-test-007-F0-O0053",
-            "proc-factory-test-007-F0-O0053",
-            "proc-factory-test-007-F0-O0034",
+            "proc-factory-test-007-F0-O0010",
+            "proc-factory-test-007-F0-O0017",
+            "proc-factory-test-007-F0-O0009",
+            "proc-factory-test-007-F0-O0001",
+            "proc-factory-test-007-F0-O0037",
+            "proc-factory-test-007-F0-O0036",
             "proc-factory-test-007-F0-O0034",
             "proc-factory-test-007-V01",
             "proc-factory-test-007-F1-O0074",
-            "proc-factory-test-007-F1-O0074",
-            "proc-factory-test-007-F1-O0082",
             "proc-factory-test-007-F1-O0082"
           ]
         }
@@ -3442,8 +3315,8 @@
   },
   {
     "question_id": "proc-factory-test-010-H04",
-    "reply": "Nearest one is in Server room 1.07 (1.07, Floor 1), 28.18 m away; from there to Meeting room 0.40 (0.40, Ground floor) is 111.53 m.\nAnswer: 139.72 m",
-    "answer": "139.72 m",
+    "reply": "Nearest one is in Server room 1.16 (1.16, Floor 1), 21.48 m away; from there to Meeting room 0.40 (0.40, Ground floor) is 91.55 m.\nAnswer: 113.02 m",
+    "answer": "113.02 m",
     "kind": "errand",
     "inputs": {
       "start": "proc-factory-test-010-F1-S012",
@@ -3454,9 +3327,9 @@
     },
     "result": {
       "via": {
-        "space_id": "proc-factory-test-010-F1-S007",
-        "name": "Server room 1.07",
-        "ref": "1.07",
+        "space_id": "proc-factory-test-010-F1-S016",
+        "name": "Server room 1.16",
+        "ref": "1.16",
         "floor": "Floor 1"
       },
       "target": {
@@ -3465,32 +3338,30 @@
         "ref": "0.40",
         "floor": "Ground floor"
       },
-      "first_leg_m": 28.18,
-      "second_leg_m": 111.53,
-      "total_m": 139.72,
+      "first_leg_m": 21.48,
+      "second_leg_m": 91.55,
+      "total_m": 113.02,
       "legs": [
         {
           "from_space_id": "proc-factory-test-010-F1-S012",
-          "to_space_id": "proc-factory-test-010-F1-S007",
-          "optimal_length_m": 28.18,
+          "to_space_id": "proc-factory-test-010-F1-S016",
+          "optimal_length_m": 21.48,
           "space_path": [
             "proc-factory-test-010-F1-S012",
             "proc-factory-test-010-F1-S001",
-            "proc-factory-test-010-F1-S007"
+            "proc-factory-test-010-F1-S016"
           ],
           "element_path": [
             "proc-factory-test-010-F1-O0073",
-            "proc-factory-test-010-F1-O0073",
-            "proc-factory-test-010-F1-O0068",
-            "proc-factory-test-010-F1-O0068"
+            "proc-factory-test-010-F1-O0077"
           ]
         },
         {
-          "from_space_id": "proc-factory-test-010-F1-S007",
+          "from_space_id": "proc-factory-test-010-F1-S016",
           "to_space_id": "proc-factory-test-010-F0-S040",
-          "optimal_length_m": 111.53,
+          "optimal_length_m": 91.55,
           "space_path": [
-            "proc-factory-test-010-F1-S007",
+            "proc-factory-test-010-F1-S016",
             "proc-factory-test-010-F1-S001",
             "proc-factory-test-010-F1-S002",
             "proc-factory-test-010-F0-S022",
@@ -3498,44 +3369,38 @@
             "proc-factory-test-010-F0-S040"
           ],
           "element_path": [
-            "proc-factory-test-010-F1-O0068",
-            "proc-factory-test-010-F1-O0068",
-            "proc-factory-test-010-F1-O0063",
+            "proc-factory-test-010-F1-O0077",
             "proc-factory-test-010-F1-O0063",
             "proc-factory-test-010-V01",
             "proc-factory-test-010-F0-O0031",
-            "proc-factory-test-010-F0-O0031",
-            "proc-factory-test-010-F0-O0051",
             "proc-factory-test-010-F0-O0051"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 139.72,
+      "optimal_length_m": 113.02,
       "legs": [
         {
           "from_space_id": "proc-factory-test-010-F1-S012",
-          "to_space_id": "proc-factory-test-010-F1-S007",
-          "optimal_length_m": 28.18,
+          "to_space_id": "proc-factory-test-010-F1-S016",
+          "optimal_length_m": 21.48,
           "space_path": [
             "proc-factory-test-010-F1-S012",
             "proc-factory-test-010-F1-S001",
-            "proc-factory-test-010-F1-S007"
+            "proc-factory-test-010-F1-S016"
           ],
           "element_path": [
             "proc-factory-test-010-F1-O0073",
-            "proc-factory-test-010-F1-O0073",
-            "proc-factory-test-010-F1-O0068",
-            "proc-factory-test-010-F1-O0068"
+            "proc-factory-test-010-F1-O0077"
           ]
         },
         {
-          "from_space_id": "proc-factory-test-010-F1-S007",
+          "from_space_id": "proc-factory-test-010-F1-S016",
           "to_space_id": "proc-factory-test-010-F0-S040",
-          "optimal_length_m": 111.53,
+          "optimal_length_m": 91.55,
           "space_path": [
-            "proc-factory-test-010-F1-S007",
+            "proc-factory-test-010-F1-S016",
             "proc-factory-test-010-F1-S001",
             "proc-factory-test-010-F1-S002",
             "proc-factory-test-010-F0-S022",
@@ -3543,14 +3408,10 @@
             "proc-factory-test-010-F0-S040"
           ],
           "element_path": [
-            "proc-factory-test-010-F1-O0068",
-            "proc-factory-test-010-F1-O0068",
-            "proc-factory-test-010-F1-O0063",
+            "proc-factory-test-010-F1-O0077",
             "proc-factory-test-010-F1-O0063",
             "proc-factory-test-010-V01",
             "proc-factory-test-010-F0-O0031",
-            "proc-factory-test-010-F0-O0031",
-            "proc-factory-test-010-F0-O0051",
             "proc-factory-test-010-F0-O0051"
           ]
         }
@@ -3997,8 +3858,8 @@
   },
   {
     "question_id": "resplan-3573-H04",
-    "reply": "Nearest one is in Bathroom 0.07 (0.07, Ground floor), 6.16 m away; from there to Bathroom 0.06 (0.06, Ground floor) is 16.31 m.\nAnswer: 22.47 m",
-    "answer": "22.47 m",
+    "reply": "Nearest one is in Bathroom 0.07 (0.07, Ground floor), 6.20 m away; from there to Bathroom 0.06 (0.06, Ground floor) is 12.38 m.\nAnswer: 18.58 m",
+    "answer": "18.58 m",
     "kind": "errand",
     "inputs": {
       "start": "resplan-3573-F0-S001",
@@ -4020,27 +3881,26 @@
         "ref": "0.06",
         "floor": "Ground floor"
       },
-      "first_leg_m": 6.16,
-      "second_leg_m": 16.31,
-      "total_m": 22.47,
+      "first_leg_m": 6.2,
+      "second_leg_m": 12.38,
+      "total_m": 18.58,
       "legs": [
         {
           "from_space_id": "resplan-3573-F0-S001",
           "to_space_id": "resplan-3573-F0-S007",
-          "optimal_length_m": 6.16,
+          "optimal_length_m": 6.2,
           "space_path": [
             "resplan-3573-F0-S001",
             "resplan-3573-F0-S007"
           ],
           "element_path": [
-            "resplan-3573-F0-O0001",
             "resplan-3573-F0-O0001"
           ]
         },
         {
           "from_space_id": "resplan-3573-F0-S007",
           "to_space_id": "resplan-3573-F0-S006",
-          "optimal_length_m": 16.31,
+          "optimal_length_m": 12.38,
           "space_path": [
             "resplan-3573-F0-S007",
             "resplan-3573-F0-S001",
@@ -4049,35 +3909,31 @@
           ],
           "element_path": [
             "resplan-3573-F0-O0001",
-            "resplan-3573-F0-O0001",
             "resplan-3573-F0-O0003",
-            "resplan-3573-F0-O0003",
-            "resplan-3573-F0-O0005",
             "resplan-3573-F0-O0005"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 22.47,
+      "optimal_length_m": 18.58,
       "legs": [
         {
           "from_space_id": "resplan-3573-F0-S001",
           "to_space_id": "resplan-3573-F0-S007",
-          "optimal_length_m": 6.16,
+          "optimal_length_m": 6.2,
           "space_path": [
             "resplan-3573-F0-S001",
             "resplan-3573-F0-S007"
           ],
           "element_path": [
-            "resplan-3573-F0-O0001",
             "resplan-3573-F0-O0001"
           ]
         },
         {
           "from_space_id": "resplan-3573-F0-S007",
           "to_space_id": "resplan-3573-F0-S006",
-          "optimal_length_m": 16.31,
+          "optimal_length_m": 12.38,
           "space_path": [
             "resplan-3573-F0-S007",
             "resplan-3573-F0-S001",
@@ -4086,10 +3942,7 @@
           ],
           "element_path": [
             "resplan-3573-F0-O0001",
-            "resplan-3573-F0-O0001",
             "resplan-3573-F0-O0003",
-            "resplan-3573-F0-O0003",
-            "resplan-3573-F0-O0005",
             "resplan-3573-F0-O0005"
           ]
         }
@@ -4374,8 +4227,8 @@
   },
   {
     "question_id": "swiss-100-H03",
-    "reply": "Nearest one is in Kitchen 4.03 (apartment 16) (4.03, Floor 4), 6.92 m away; from there to Living room 1.05 (apartment 4) (1.05, Floor 1) is 51.37 m.\nAnswer: 58.29 m",
-    "answer": "58.29 m",
+    "reply": "Nearest one is in Kitchen 4.03 (apartment 16) (4.03, Floor 4), 7.07 m away; from there to Living room 1.05 (apartment 4) (1.05, Floor 1) is 32.13 m.\nAnswer: 39.20 m",
+    "answer": "39.20 m",
     "kind": "errand",
     "inputs": {
       "start": "swiss-100-F4-S007",
@@ -4397,14 +4250,14 @@
         "ref": "1.05",
         "floor": "Floor 1"
       },
-      "first_leg_m": 6.92,
-      "second_leg_m": 51.37,
-      "total_m": 58.29,
+      "first_leg_m": 7.07,
+      "second_leg_m": 32.13,
+      "total_m": 39.2,
       "legs": [
         {
           "from_space_id": "swiss-100-F4-S007",
           "to_space_id": "swiss-100-F4-S003",
-          "optimal_length_m": 6.92,
+          "optimal_length_m": 7.07,
           "space_path": [
             "swiss-100-F4-S007",
             "swiss-100-F4-S004",
@@ -4412,15 +4265,13 @@
           ],
           "element_path": [
             "swiss-100-F4-O0190",
-            "swiss-100-F4-O0190",
-            "swiss-100-F4-O0156",
             "swiss-100-F4-O0156"
           ]
         },
         {
           "from_space_id": "swiss-100-F4-S003",
           "to_space_id": "swiss-100-F1-S005",
-          "optimal_length_m": 51.37,
+          "optimal_length_m": 32.13,
           "space_path": [
             "swiss-100-F4-S003",
             "swiss-100-F4-S004",
@@ -4433,27 +4284,23 @@
           ],
           "element_path": [
             "swiss-100-F4-O0156",
-            "swiss-100-F4-O0156",
-            "swiss-100-F4-O0161",
             "swiss-100-F4-O0161",
             "swiss-100-V01",
             "swiss-100-V01",
             "swiss-100-V01",
             "swiss-100-F1-O0024",
-            "swiss-100-F1-O0024",
-            "swiss-100-F1-O0061",
             "swiss-100-F1-O0061"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 58.29,
+      "optimal_length_m": 39.2,
       "legs": [
         {
           "from_space_id": "swiss-100-F4-S007",
           "to_space_id": "swiss-100-F4-S003",
-          "optimal_length_m": 6.92,
+          "optimal_length_m": 7.07,
           "space_path": [
             "swiss-100-F4-S007",
             "swiss-100-F4-S004",
@@ -4461,15 +4308,13 @@
           ],
           "element_path": [
             "swiss-100-F4-O0190",
-            "swiss-100-F4-O0190",
-            "swiss-100-F4-O0156",
             "swiss-100-F4-O0156"
           ]
         },
         {
           "from_space_id": "swiss-100-F4-S003",
           "to_space_id": "swiss-100-F1-S005",
-          "optimal_length_m": 51.37,
+          "optimal_length_m": 32.13,
           "space_path": [
             "swiss-100-F4-S003",
             "swiss-100-F4-S004",
@@ -4482,15 +4327,11 @@
           ],
           "element_path": [
             "swiss-100-F4-O0156",
-            "swiss-100-F4-O0156",
-            "swiss-100-F4-O0161",
             "swiss-100-F4-O0161",
             "swiss-100-V01",
             "swiss-100-V01",
             "swiss-100-V01",
             "swiss-100-F1-O0024",
-            "swiss-100-F1-O0024",
-            "swiss-100-F1-O0061",
             "swiss-100-F1-O0061"
           ]
         }
@@ -4588,8 +4429,8 @@
   },
   {
     "question_id": "swiss-1671-H03",
-    "reply": "Nearest one is in Kitchen 1.09 (apartment 4) (1.09, Floor 1), 9.01 m away; from there to Bedroom 0.05 (apartment 1) (0.05, Ground floor) is 29.26 m.\nAnswer: 38.27 m",
-    "answer": "38.27 m",
+    "reply": "Nearest one is in Kitchen 1.09 (apartment 4) (1.09, Floor 1), 9.38 m away; from there to Bedroom 0.05 (apartment 1) (0.05, Ground floor) is 18.11 m.\nAnswer: 27.49 m",
+    "answer": "27.49 m",
     "kind": "errand",
     "inputs": {
       "start": "swiss-1671-F1-S013",
@@ -4611,14 +4452,14 @@
         "ref": "0.05",
         "floor": "Ground floor"
       },
-      "first_leg_m": 9.01,
-      "second_leg_m": 29.26,
-      "total_m": 38.27,
+      "first_leg_m": 9.38,
+      "second_leg_m": 18.11,
+      "total_m": 27.49,
       "legs": [
         {
           "from_space_id": "swiss-1671-F1-S013",
           "to_space_id": "swiss-1671-F1-S009",
-          "optimal_length_m": 9.01,
+          "optimal_length_m": 9.38,
           "space_path": [
             "swiss-1671-F1-S013",
             "swiss-1671-F1-S012",
@@ -4626,15 +4467,13 @@
           ],
           "element_path": [
             "swiss-1671-F1-O0029",
-            "swiss-1671-F1-O0029",
-            "swiss-1671-F1-O0027",
             "swiss-1671-F1-O0027"
           ]
         },
         {
           "from_space_id": "swiss-1671-F1-S009",
           "to_space_id": "swiss-1671-F0-S005",
-          "optimal_length_m": 29.26,
+          "optimal_length_m": 18.11,
           "space_path": [
             "swiss-1671-F1-S009",
             "swiss-1671-F1-S012",
@@ -4645,25 +4484,21 @@
           ],
           "element_path": [
             "swiss-1671-F1-O0027",
-            "swiss-1671-F1-O0027",
-            "swiss-1671-F1-O0028",
             "swiss-1671-F1-O0028",
             "swiss-1671-V03",
             "swiss-1671-F0-O0007",
-            "swiss-1671-F0-O0007",
-            "swiss-1671-F0-O0008",
             "swiss-1671-F0-O0008"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 38.27,
+      "optimal_length_m": 27.49,
       "legs": [
         {
           "from_space_id": "swiss-1671-F1-S013",
           "to_space_id": "swiss-1671-F1-S009",
-          "optimal_length_m": 9.01,
+          "optimal_length_m": 9.38,
           "space_path": [
             "swiss-1671-F1-S013",
             "swiss-1671-F1-S012",
@@ -4671,15 +4506,13 @@
           ],
           "element_path": [
             "swiss-1671-F1-O0029",
-            "swiss-1671-F1-O0029",
-            "swiss-1671-F1-O0027",
             "swiss-1671-F1-O0027"
           ]
         },
         {
           "from_space_id": "swiss-1671-F1-S009",
           "to_space_id": "swiss-1671-F0-S005",
-          "optimal_length_m": 29.26,
+          "optimal_length_m": 18.11,
           "space_path": [
             "swiss-1671-F1-S009",
             "swiss-1671-F1-S012",
@@ -4690,13 +4523,9 @@
           ],
           "element_path": [
             "swiss-1671-F1-O0027",
-            "swiss-1671-F1-O0027",
-            "swiss-1671-F1-O0028",
             "swiss-1671-F1-O0028",
             "swiss-1671-V03",
             "swiss-1671-F0-O0007",
-            "swiss-1671-F0-O0007",
-            "swiss-1671-F0-O0008",
             "swiss-1671-F0-O0008"
           ]
         }
@@ -4829,8 +4658,8 @@
   },
   {
     "question_id": "swiss-17736-H03",
-    "reply": "Nearest one is in Living room 2.01 (apartment 5) (2.01, Floor 2), 8.36 m away; from there to Bedroom 3.03 (apartment 8) (3.03, Floor 3) is 34.23 m.\nAnswer: 42.59 m",
-    "answer": "42.59 m",
+    "reply": "Nearest one is in Living room 2.01 (apartment 5) (2.01, Floor 2), 6.57 m away; from there to Bedroom 3.03 (apartment 8) (3.03, Floor 3) is 27.58 m.\nAnswer: 34.14 m",
+    "answer": "34.14 m",
     "kind": "errand",
     "inputs": {
       "start": "swiss-17736-F2-S008",
@@ -4852,14 +4681,14 @@
         "ref": "3.03",
         "floor": "Floor 3"
       },
-      "first_leg_m": 8.36,
-      "second_leg_m": 34.23,
-      "total_m": 42.59,
+      "first_leg_m": 6.57,
+      "second_leg_m": 27.58,
+      "total_m": 34.14,
       "legs": [
         {
           "from_space_id": "swiss-17736-F2-S008",
           "to_space_id": "swiss-17736-F2-S001",
-          "optimal_length_m": 8.36,
+          "optimal_length_m": 6.57,
           "space_path": [
             "swiss-17736-F2-S008",
             "swiss-17736-F2-S004",
@@ -4867,15 +4696,13 @@
           ],
           "element_path": [
             "swiss-17736-F2-O0046",
-            "swiss-17736-F2-O0046",
-            "swiss-17736-F2-O0064",
             "swiss-17736-F2-O0064"
           ]
         },
         {
           "from_space_id": "swiss-17736-F2-S001",
           "to_space_id": "swiss-17736-F3-S003",
-          "optimal_length_m": 34.23,
+          "optimal_length_m": 27.58,
           "space_path": [
             "swiss-17736-F2-S001",
             "swiss-17736-F2-S004",
@@ -4886,25 +4713,21 @@
           ],
           "element_path": [
             "swiss-17736-F2-O0064",
-            "swiss-17736-F2-O0064",
-            "swiss-17736-F2-O0042",
             "swiss-17736-F2-O0042",
             "swiss-17736-V01",
             "swiss-17736-F3-O0076",
-            "swiss-17736-F3-O0076",
-            "swiss-17736-F3-O0069",
             "swiss-17736-F3-O0069"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 42.59,
+      "optimal_length_m": 34.14,
       "legs": [
         {
           "from_space_id": "swiss-17736-F2-S008",
           "to_space_id": "swiss-17736-F2-S001",
-          "optimal_length_m": 8.36,
+          "optimal_length_m": 6.57,
           "space_path": [
             "swiss-17736-F2-S008",
             "swiss-17736-F2-S004",
@@ -4912,15 +4735,13 @@
           ],
           "element_path": [
             "swiss-17736-F2-O0046",
-            "swiss-17736-F2-O0046",
-            "swiss-17736-F2-O0064",
             "swiss-17736-F2-O0064"
           ]
         },
         {
           "from_space_id": "swiss-17736-F2-S001",
           "to_space_id": "swiss-17736-F3-S003",
-          "optimal_length_m": 34.23,
+          "optimal_length_m": 27.58,
           "space_path": [
             "swiss-17736-F2-S001",
             "swiss-17736-F2-S004",
@@ -4931,13 +4752,9 @@
           ],
           "element_path": [
             "swiss-17736-F2-O0064",
-            "swiss-17736-F2-O0064",
-            "swiss-17736-F2-O0042",
             "swiss-17736-F2-O0042",
             "swiss-17736-V01",
             "swiss-17736-F3-O0076",
-            "swiss-17736-F3-O0076",
-            "swiss-17736-F3-O0069",
             "swiss-17736-F3-O0069"
           ]
         }
@@ -5014,8 +4831,8 @@
   },
   {
     "question_id": "swiss-2080-H03",
-    "reply": "Nearest one is in Living room 2.08 (apartment 8) (2.08, Floor 2), 28.77 m away; from there to Bedroom 2.18 (apartment 9) (2.18, Floor 2) is 16.78 m.\nAnswer: 45.56 m",
-    "answer": "45.56 m",
+    "reply": "Nearest one is in Living room 2.08 (apartment 8) (2.08, Floor 2), 23.27 m away; from there to Bedroom 2.18 (apartment 9) (2.18, Floor 2) is 15.01 m.\nAnswer: 38.28 m",
+    "answer": "38.28 m",
     "kind": "errand",
     "inputs": {
       "start": "swiss-2080-F1-S022",
@@ -5037,14 +4854,14 @@
         "ref": "2.18",
         "floor": "Floor 2"
       },
-      "first_leg_m": 28.77,
-      "second_leg_m": 16.78,
-      "total_m": 45.56,
+      "first_leg_m": 23.27,
+      "second_leg_m": 15.01,
+      "total_m": 38.28,
       "legs": [
         {
           "from_space_id": "swiss-2080-F1-S022",
           "to_space_id": "swiss-2080-F2-S008",
-          "optimal_length_m": 28.77,
+          "optimal_length_m": 23.27,
           "space_path": [
             "swiss-2080-F1-S022",
             "swiss-2080-F1-S020",
@@ -5055,20 +4872,16 @@
           ],
           "element_path": [
             "swiss-2080-F1-O0044",
-            "swiss-2080-F1-O0044",
-            "swiss-2080-F1-O0036",
             "swiss-2080-F1-O0036",
             "swiss-2080-V01",
             "swiss-2080-F2-O0055",
-            "swiss-2080-F2-O0055",
-            "swiss-2080-F2-O0063",
             "swiss-2080-F2-O0063"
           ]
         },
         {
           "from_space_id": "swiss-2080-F2-S008",
           "to_space_id": "swiss-2080-F2-S018",
-          "optimal_length_m": 16.78,
+          "optimal_length_m": 15.01,
           "space_path": [
             "swiss-2080-F2-S008",
             "swiss-2080-F2-S012",
@@ -5078,24 +4891,20 @@
           ],
           "element_path": [
             "swiss-2080-F2-O0063",
-            "swiss-2080-F2-O0063",
-            "swiss-2080-F2-O0055",
             "swiss-2080-F2-O0055",
             "swiss-2080-F2-O0059",
-            "swiss-2080-F2-O0059",
-            "swiss-2080-F2-O0065",
             "swiss-2080-F2-O0065"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 45.56,
+      "optimal_length_m": 38.28,
       "legs": [
         {
           "from_space_id": "swiss-2080-F1-S022",
           "to_space_id": "swiss-2080-F2-S008",
-          "optimal_length_m": 28.77,
+          "optimal_length_m": 23.27,
           "space_path": [
             "swiss-2080-F1-S022",
             "swiss-2080-F1-S020",
@@ -5106,20 +4915,16 @@
           ],
           "element_path": [
             "swiss-2080-F1-O0044",
-            "swiss-2080-F1-O0044",
-            "swiss-2080-F1-O0036",
             "swiss-2080-F1-O0036",
             "swiss-2080-V01",
             "swiss-2080-F2-O0055",
-            "swiss-2080-F2-O0055",
-            "swiss-2080-F2-O0063",
             "swiss-2080-F2-O0063"
           ]
         },
         {
           "from_space_id": "swiss-2080-F2-S008",
           "to_space_id": "swiss-2080-F2-S018",
-          "optimal_length_m": 16.78,
+          "optimal_length_m": 15.01,
           "space_path": [
             "swiss-2080-F2-S008",
             "swiss-2080-F2-S012",
@@ -5129,12 +4934,8 @@
           ],
           "element_path": [
             "swiss-2080-F2-O0063",
-            "swiss-2080-F2-O0063",
-            "swiss-2080-F2-O0055",
             "swiss-2080-F2-O0055",
             "swiss-2080-F2-O0059",
-            "swiss-2080-F2-O0059",
-            "swiss-2080-F2-O0065",
             "swiss-2080-F2-O0065"
           ]
         }
@@ -5223,8 +5024,8 @@
   },
   {
     "question_id": "swiss-2873-H03",
-    "reply": "Nearest one is in Balcony 1.29 (apartment 8) (1.29, Floor 1), 7.51 m away; from there to Storage 2.14 (apartment 10) (2.14, Floor 2) is 37.99 m.\nAnswer: 45.50 m",
-    "answer": "45.50 m",
+    "reply": "Nearest one is in Balcony 1.29 (apartment 8) (1.29, Floor 1), 6.77 m away; from there to Storage 2.14 (apartment 10) (2.14, Floor 2) is 27.50 m.\nAnswer: 34.27 m",
+    "answer": "34.27 m",
     "kind": "errand",
     "inputs": {
       "start": "swiss-2873-F1-S030",
@@ -5246,14 +5047,14 @@
         "ref": "2.14",
         "floor": "Floor 2"
       },
-      "first_leg_m": 7.51,
-      "second_leg_m": 37.99,
-      "total_m": 45.5,
+      "first_leg_m": 6.77,
+      "second_leg_m": 27.5,
+      "total_m": 34.27,
       "legs": [
         {
           "from_space_id": "swiss-2873-F1-S030",
           "to_space_id": "swiss-2873-F1-S029",
-          "optimal_length_m": 7.51,
+          "optimal_length_m": 6.77,
           "space_path": [
             "swiss-2873-F1-S030",
             "swiss-2873-F1-S031",
@@ -5261,15 +5062,13 @@
           ],
           "element_path": [
             "swiss-2873-F1-O0075",
-            "swiss-2873-F1-O0075",
-            "swiss-2873-F1-O0061",
             "swiss-2873-F1-O0061"
           ]
         },
         {
           "from_space_id": "swiss-2873-F1-S029",
           "to_space_id": "swiss-2873-F2-S014",
-          "optimal_length_m": 37.99,
+          "optimal_length_m": 27.5,
           "space_path": [
             "swiss-2873-F1-S029",
             "swiss-2873-F1-S031",
@@ -5281,27 +5080,22 @@
           ],
           "element_path": [
             "swiss-2873-F1-O0061",
-            "swiss-2873-F1-O0061",
             "swiss-2873-F1-O0076",
-            "swiss-2873-F1-O0076",
-            "swiss-2873-F1-O0062",
             "swiss-2873-F1-O0062",
             "swiss-2873-V01",
             "swiss-2873-F2-O0092",
-            "swiss-2873-F2-O0092",
-            "swiss-2873-F2-O0089",
             "swiss-2873-F2-O0089"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 45.5,
+      "optimal_length_m": 34.27,
       "legs": [
         {
           "from_space_id": "swiss-2873-F1-S030",
           "to_space_id": "swiss-2873-F1-S029",
-          "optimal_length_m": 7.51,
+          "optimal_length_m": 6.77,
           "space_path": [
             "swiss-2873-F1-S030",
             "swiss-2873-F1-S031",
@@ -5309,15 +5103,13 @@
           ],
           "element_path": [
             "swiss-2873-F1-O0075",
-            "swiss-2873-F1-O0075",
-            "swiss-2873-F1-O0061",
             "swiss-2873-F1-O0061"
           ]
         },
         {
           "from_space_id": "swiss-2873-F1-S029",
           "to_space_id": "swiss-2873-F2-S014",
-          "optimal_length_m": 37.99,
+          "optimal_length_m": 27.5,
           "space_path": [
             "swiss-2873-F1-S029",
             "swiss-2873-F1-S031",
@@ -5329,15 +5121,10 @@
           ],
           "element_path": [
             "swiss-2873-F1-O0061",
-            "swiss-2873-F1-O0061",
             "swiss-2873-F1-O0076",
-            "swiss-2873-F1-O0076",
-            "swiss-2873-F1-O0062",
             "swiss-2873-F1-O0062",
             "swiss-2873-V01",
             "swiss-2873-F2-O0092",
-            "swiss-2873-F2-O0092",
-            "swiss-2873-F2-O0089",
             "swiss-2873-F2-O0089"
           ]
         }
@@ -5419,8 +5206,8 @@
   },
   {
     "question_id": "swiss-482-H03",
-    "reply": "Nearest one is in Kitchen 4.26 (apartment 19) (4.26, Floor 4), 8.03 m away; from there to Bedroom 9.04 (apartment 37) (9.04, Floor 9) is 89.13 m.\nAnswer: 97.16 m",
-    "answer": "97.16 m",
+    "reply": "Nearest one is in Kitchen 4.26 (apartment 19) (4.26, Floor 4), 8.46 m away; from there to Bedroom 9.04 (apartment 37) (9.04, Floor 9) is 58.56 m.\nAnswer: 67.01 m",
+    "answer": "67.01 m",
     "kind": "errand",
     "inputs": {
       "start": "swiss-482-F4-S027",
@@ -5442,14 +5229,14 @@
         "ref": "9.04",
         "floor": "Floor 9"
       },
-      "first_leg_m": 8.03,
-      "second_leg_m": 89.13,
-      "total_m": 97.16,
+      "first_leg_m": 8.46,
+      "second_leg_m": 58.56,
+      "total_m": 67.01,
       "legs": [
         {
           "from_space_id": "swiss-482-F4-S027",
           "to_space_id": "swiss-482-F4-S026",
-          "optimal_length_m": 8.03,
+          "optimal_length_m": 8.46,
           "space_path": [
             "swiss-482-F4-S027",
             "swiss-482-F4-S024",
@@ -5457,15 +5244,13 @@
           ],
           "element_path": [
             "swiss-482-F4-O0171",
-            "swiss-482-F4-O0171",
-            "swiss-482-F4-O0166",
             "swiss-482-F4-O0166"
           ]
         },
         {
           "from_space_id": "swiss-482-F4-S026",
           "to_space_id": "swiss-482-F9-S004",
-          "optimal_length_m": 89.13,
+          "optimal_length_m": 58.56,
           "space_path": [
             "swiss-482-F4-S026",
             "swiss-482-F4-S024",
@@ -5476,12 +5261,11 @@
             "swiss-482-F8-S035",
             "swiss-482-F9-S019",
             "swiss-482-F9-S001",
+            "swiss-482-F9-S007",
             "swiss-482-F9-S004"
           ],
           "element_path": [
             "swiss-482-F4-O0166",
-            "swiss-482-F4-O0166",
-            "swiss-482-F4-O0165",
             "swiss-482-F4-O0165",
             "swiss-482-V01",
             "swiss-482-V01",
@@ -5489,20 +5273,19 @@
             "swiss-482-V01",
             "swiss-482-V03",
             "swiss-482-F9-O0327",
-            "swiss-482-F9-O0327",
-            "swiss-482-F9-O0324",
-            "swiss-482-F9-O0324"
+            "swiss-482-F9-O0330",
+            "swiss-482-F9-O0329"
           ]
         }
       ]
     },
     "route": {
-      "optimal_length_m": 97.16,
+      "optimal_length_m": 67.01,
       "legs": [
         {
           "from_space_id": "swiss-482-F4-S027",
           "to_space_id": "swiss-482-F4-S026",
-          "optimal_length_m": 8.03,
+          "optimal_length_m": 8.46,
           "space_path": [
             "swiss-482-F4-S027",
             "swiss-482-F4-S024",
@@ -5510,15 +5293,13 @@
           ],
           "element_path": [
             "swiss-482-F4-O0171",
-            "swiss-482-F4-O0171",
-            "swiss-482-F4-O0166",
             "swiss-482-F4-O0166"
           ]
         },
         {
           "from_space_id": "swiss-482-F4-S026",
           "to_space_id": "swiss-482-F9-S004",
-          "optimal_length_m": 89.13,
+          "optimal_length_m": 58.56,
           "space_path": [
             "swiss-482-F4-S026",
             "swiss-482-F4-S024",
@@ -5529,12 +5310,11 @@
             "swiss-482-F8-S035",
             "swiss-482-F9-S019",
             "swiss-482-F9-S001",
+            "swiss-482-F9-S007",
             "swiss-482-F9-S004"
           ],
           "element_path": [
             "swiss-482-F4-O0166",
-            "swiss-482-F4-O0166",
-            "swiss-482-F4-O0165",
             "swiss-482-F4-O0165",
             "swiss-482-V01",
             "swiss-482-V01",
@@ -5542,9 +5322,8 @@
             "swiss-482-V01",
             "swiss-482-V03",
             "swiss-482-F9-O0327",
-            "swiss-482-F9-O0327",
-            "swiss-482-F9-O0324",
-            "swiss-482-F9-O0324"
+            "swiss-482-F9-O0330",
+            "swiss-482-F9-O0329"
           ]
         }
       ]

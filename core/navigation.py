@@ -14,9 +14,10 @@ a connector once per floor hop.
 Unknown or ambiguous place names raise `MapError` (a usage error the agent should repair by searching); a valid
 request with no path returns `reachable=False` with a reason.
 
-Route model and rules are chosen per call (core/route_models.py, Q-014): `model="kit"` (default, the dataset's
-model) or `"geodesic"` (the Sunday scoring rule), and `rules` (production bays destination-only, no shortcut
-outside, forklift). With no rules and the kit model the graph is exactly `BuildingMap.graph`."""
+One route model, the kit 1.1.0 one the expected answers and the judges use (core/route_models.py; `model` is kept
+for callers, "geodesic" is an alias). `rules` per call: production bays destination-only, forklift (Q-014/Q-015).
+"outside" may be a start or end but is never walked through. Without rules the graph is `BuildingMap.graph` plus
+the `outside` endpoint node."""
 
 import copy
 import itertools
@@ -25,7 +26,7 @@ from dataclasses import asdict, dataclass, field
 import networkx as nx
 
 from core import route_models
-from core.building_map import DOOR_PREFIX, OUTSIDE, BuildingMap, MapError
+from core.building_map import DOOR_PREFIX, OUTSIDE, BuildingMap, MapError, expand, path_parts
 from core.route_models import KIT, NO_RULES, RouteRules
 
 MAX_LOCATE_RESULTS = 10
@@ -211,11 +212,6 @@ def resolve_stop(view: BuildingMap, reference: str) -> str:
     return OUTSIDE if reference == OUTSIDE else view.resolve_space(reference)
 
 
-def edge_element(graph: nx.MultiGraph, first: str, second: str) -> str:
-    """The element of the cheapest edge between two nodes (same rule as BuildingMap.directions)."""
-    return min(graph[first][second].values(), key=lambda edge: edge["weight"])["via"]
-
-
 def directions(view: BuildingMap, graph: nx.MultiGraph, nodes: list[str]) -> list[str]:
     """BuildingMap.directions, also when the walk starts or ends outside the building."""
     if OUTSIDE not in (nodes[0], nodes[-1]):
@@ -265,14 +261,15 @@ def leg(
             reason=reason,
             **labels,
         )
-    nodes, walked = route_models.expand(walk, nodes)
+    space_path, element_path = path_parts(walk, nodes)
+    nodes, walked = expand(walk, nodes)
     return RouteAnswer(
         reachable=True,
         from_space_id=start,
         to_space_id=destination,
         length_m=round(length, 2),
-        space_path=[node for node in nodes if not node.startswith(DOOR_PREFIX)],
-        element_path=[edge_element(walked, first, second) for first, second in itertools.pairwise(nodes)],
+        space_path=space_path,
+        element_path=element_path,
         steps=directions(view, walked, nodes) if include_steps else None,
         step_free=step_free,
         closed=closed,
@@ -376,30 +373,38 @@ def path_length(
     step_free: bool = False,
     closed: tuple[str, ...] | list[str] = (),
 ) -> float | None:
-    """Route-model cost of a given (space_path, element_path); None if it is not a valid walk on the graph.
+    """Route-model cost of a given (space_path, element_path) in the kit 1.1.0 answer format (each opening once,
+    each stair flight / lift ride once); None if it is not a valid walk on the graph.
 
     Used to confirm that a different path of the same length as ours (a tie) is genuinely valid."""
     view = routing_view(building, closed)
     graph = view.graph(step_free)
-    nodes = [space_path[0]]
-    spaces = iter(space_path[1:])
-    index = 0
-    while index < len(element_path):
-        element = element_path[index]
+    hops: list[tuple[str, str, str | None]] = []  # (from node, to node, stair/lift id or None for a walk)
+    node, index = space_path[0], 0  # current node; position in space_path of the space we are in
+    for element in element_path:
+        if index + 1 >= len(space_path):
+            return None
+        here, there = space_path[index], space_path[index + 1]
         if element in view.openings:
-            if element_path[index + 1 : index + 2] != [element]:
+            if set(view.openings[element]["space_ids"]) != {here, there}:
                 return None
-            nodes += [DOOR_PREFIX + element, next(spaces, "")]
-            index += 2
+            hops.append((node, DOOR_PREFIX + element, None))
+            node = DOOR_PREFIX + element
         else:
-            nodes.append(next(spaces, ""))
-            index += 1
-    if "" in nodes or next(spaces, None) is not None:
+            if node != here:
+                hops.append((node, here, None))
+            hops.append((here, there, element))
+            node = there
+        index += 1
+    if index != len(space_path) - 1:
         return None
+    if node != space_path[-1]:
+        hops.append((node, space_path[-1], None))
     total = 0.0
-    for (first, second), element in zip(itertools.pairwise(nodes), element_path, strict=True):
+    for first, second, connector in hops:
         weights = [
-            edge["weight"] for edge in graph.get_edge_data(first, second, default={}).values() if edge["via"] == element
+            edge["weight"] for edge in graph.get_edge_data(first, second, default={}).values()
+            if edge.get("via") == connector
         ]
         if not weights:
             return None

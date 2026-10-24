@@ -9,7 +9,7 @@ same "about N m" as `BuildingMap.directions`, not the route cost."""
 
 import math
 
-from core.building_map import OUTSIDE, BuildingMap
+from core.building_map import DOOR_PREFIX, OUTSIDE, BuildingMap
 
 STRAIGHT_DEG = 25.0  # |turn| below this reads as "straight on"
 SHARP_DEG = 120.0  # |turn| above this reads as "turn around"
@@ -40,8 +40,10 @@ def route_legs(building: BuildingMap, space_path: list[str], element_path: list[
 
     kind: "door" (through an opening into the next space), "connector" (stairs/lift; `up`, `floors` when it spans
     more than one), "exit" (leave the building), "arrive". `turn` (left/right/straight/back) is made at the start of
-    the leg; `distance_m` is anchor → door → next anchor, like the kit's step text. `floor` is the floor name of the
-    space the leg ends in."""
+    the leg; `distance_m` is the route model's walk (kit 1.1.0, door to door round corners): inside the current
+    space from where we entered it to this door, plus — when the next space is the destination or a stair/lift stop
+    — the walk from the door to that space's centre, like the kit's step text. Door legs + stair/lift costs = the
+    route's length. `floor` is the floor name of the space the leg ends in."""
     if not space_path:
         return []
     legs: list[dict] = []
@@ -49,6 +51,7 @@ def route_legs(building: BuildingMap, space_path: list[str], element_path: list[
     current = space_path[0]
     here = building.anchor(current) if current != OUTSIDE else None
     entered: tuple[float, float] | None = None  # the door we came in through: heading entered → here
+    entry = current  # route node we entered `current` at: its centre, or "door:<id>"
     index = 0
     while index < len(element_path):
         element = element_path[index]
@@ -58,7 +61,12 @@ def route_legs(building: BuildingMap, space_path: list[str], element_path: list[
             index += 2 if element_path[index + 1: index + 2] == [element] else 1
             opening = building.openings[element]
             door = tuple(opening["position"])
-            walked = sum(math.dist(a, b) for a, b in ((here, door), (door, after)) if a is not None and b is not None)
+            node = DOOR_PREFIX + element
+            walked = walk_m(building, current, entry, node)
+            following = element_path[index] if index < len(element_path) else None
+            if target != OUTSIDE and (following is None or following in building.connectors):
+                walked += walk_m(building, target, node, target)  # on to the centre: the end, or a stair/lift stop
+            entry = node
             degrees = heading_change(entered, here, door) if entered is not None and here is not None else None
             legs.append({"kind": "exit" if target == OUTSIDE else "door",
                          "to": "outside" if target == OUTSIDE else building.spaces[target]["name"], "to_id": target,
@@ -76,12 +84,20 @@ def route_legs(building: BuildingMap, space_path: list[str], element_path: list[
                          "via_kind": connector.get("kind", "connector"),
                          "up": elevation(building, target) >= elevation(building, current)})
             entered = None  # a new floor: no heading to turn from
+            entry = target  # stairs and lifts join the stops' centres
         here, current = after, target
     last = space_path[-1]
     legs.append({"kind": "arrive", "to": "outside" if last == OUTSIDE else building.spaces[last]["name"],
                  "to_id": last, "floor": None if last == OUTSIDE else floor_of(building, last),
                  "distance_m": 0.0, "turn": "straight", "turn_deg": None})
     return merge_connector_hops(legs)
+
+
+def walk_m(building: BuildingMap, space_id: str, first: str, second: str) -> float:
+    """Route-model metres walked inside `space_id` between two of its nodes (its id = centre, "door:<id>")."""
+    if space_id == OUTSIDE or first == second:
+        return 0.0
+    return next((length for a, b, length in building.space_walks(space_id) if {a, b} == {first, second}), 0.0)
 
 
 def floor_of(building: BuildingMap, space_id: str) -> str:

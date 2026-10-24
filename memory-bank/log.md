@@ -44,6 +44,18 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Changed docs:** commands.md (Guide section), ai-agents.md (Guide v1 status), project-state.md.
 - **Next:** UI / voice on top of `TurnResult`; Guide edit tools (Builder).
 
+## 2026-10-24 — Organisers' note on Sunday route scoring (Utku's session)
+
+- **Learned:** Sunday routes are scored as a space sequence, re-measured with the organisers' own model
+  (door-to-door geodesic ~15 cm off walls; stairs 2 m per metre climbed; lift 15 m + 1 m per metre); score =
+  best ÷ ours, full marks within 1%, invalid = 0. New factory rules (forklift aisles, openings ≥ 3 m, no
+  pass-through production bays). Current `data/` has no aisle/walkway/bay space types.
+- **Changed docs:** [route-model.md](../docs/kit/route-model.md#sunday-scoring-model-organisers-note-2026-10-24)
+  (new section).
+- **Questions:** Q-001 progress (format partly answered, tolerance answered); opened Q-014 (scoring distance
+  model / router), Q-015 (factory schema).
+- **Next:** decide on a second cost profile for the router (Q-014).
+
 ## 2026-10-24 — Guide Task 5: loop, prompt and REPL (branch `1-agentic-yarag`)
 
 - **Did:** Added `agent/guide/prompt.py` (cached RULES + building overview, no per-room facts), `agent/guide/guide.py`

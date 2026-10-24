@@ -6,7 +6,7 @@ related: [decisions.md, project-state.md, ../docs/kit/questions.md]
 
 # Open questions
 
-[Memory bank](README.md) · Next free id: **Q-014**
+[Memory bank](README.md) · Next free id: **Q-016**
 
 Template:
 
@@ -39,9 +39,18 @@ Template:
   door, a connector id once per floor segment). `core.building_map` reproduces length, `space_path` and
   `element_path` exactly on all 1,457 train+dev warm-up route/tour legs. **Working assumption until answered:**
   Sunday routes use this warm-up format, one leg per stop-to-stop segment (as in `tour` answers).
-- **Still unknown:** (1) which of `space_path` / `element_path` Sunday wants and under which keys; (2) whether
-  Sunday questions are benchmark kinds, warm-up kinds (route, tour, locate…) or both; (3) multi-stop (errand,
-  tour): one combined path or per-leg; (4) route length tolerance; (5) is there an example `answers.json`.
+- **Progress (2026-10-24, organisers' Discord note on route scoring):** a route answer is "the ordered list of
+  spaces you pass through" (i.e. a space path); they check each step crosses a real door / opening / stair / lift
+  and that the question's rules hold, then re-measure it with **their** distance model — our own length numbers
+  do not affect the score. Score = best length ÷ our length; within 1% of best = full marks; invalid route = 0.
+  If no route exists under the rules, the correct answer is to say so. Their distance model differs from the
+  warm-up one → [Q-014](#q-014); new factory rules → [Q-015](#q-015). Full note:
+  [route-model.md](../docs/kit/route-model.md#sunday-scoring-model-organisers-note-2026-10-24).
+- **Still unknown:** (1) exact JSON key for the space path, whether `element_path` is still wanted, and whether
+  `"outside"` appears in it; (2) whether Sunday questions are benchmark kinds, warm-up kinds (route, tour,
+  locate…) or both; (3) multi-stop (errand, tour): one combined path or per-leg; (4) ~~route length
+  tolerance~~ answered above; (5) is there an example `answers.json`; (6) where a route starts when the start is
+  an item (its room, as for destinations?).
 - **Message to send the organisers** (not sent yet; Utku will ask):
   > Hi! Question about the Sunday benchmark output for Track 01. The README says the format will be announced
   > with the release, and the PDF mentions an `answers.json` with the located item/room id, the route as an
@@ -120,6 +129,35 @@ Template:
 - **Context:** Upstream repo publishes no licence; data licences are explicit, code's are not. We include it
   unmodified for reproducibility and say so in `NOTICE.md` ([D-009](decisions.md#d-009)). Fallback if they say
   no: delete `archive/initial-repo/starter_agent`, keep `benchmark/` out of git and fetch it from upstream in CI.
+
+<a id="q-014"></a>
+### Q-014 — Sunday route scoring uses a different distance model: how do we pick the best space sequence?
+- **Status:** open · **Priority:** high · **Resolve by:** experiment + team decision
+- **Context:** Organisers' note (2026-10-24): walking distance is measured inside each space **door to door,
+  ~15 cm off the walls, around corners**; stairs = **2 m per metre climbed**; lift = **15 m + 1 m per metre of
+  height**; furniture/equipment are not obstacles. Our warm-up graph uses anchor (`representative_point`) →
+  door straight lines, stairs 12 m × floor span, lift 15 m + 6 m × floor span
+  ([route-model.md](../docs/kit/route-model.md#graph)). Score = best ÷ ours, full marks within 1%, so a space
+  sequence that is optimal under the anchor model can lose points (L-shaped corridors, stair vs lift choice).
+- **How to resolve:** add a second cost profile (keep the warm-up one bit-exact): door-to-door geodesic inside
+  `polygon.buffer(-0.15)` (visibility graph), connector cost from floor `elevation_m` differences; search over
+  door nodes, return the space sequence. Open details: start/end point inside the first/last space (anchor? item
+  position? any point?), how a door position is snapped into the shrunken polygon, how "metre climbed" is taken
+  for a lift/stair spanning several floors (elevation difference of the end floors, presumably). Compare both
+  profiles on train/dev to see how often the space sequence changes.
+
+<a id="q-015"></a>
+### Q-015 — Factory buildings: forklift aisles, pedestrian walkways, production bays — what is the schema?
+- **Status:** open · **Priority:** high · **Resolve by:** ask organisers / wait for Sunday building
+- **Context:** Organisers' note (2026-10-24): *forklift* routes use forklift aisles and openings **≥ 3 m wide**
+  only (pedestrian walkways don't count); *production bays* are destinations — you may drive into one but not
+  through one; a route to a machine/item ends in the room or bay that holds it. Current `data/` has no space
+  `type`/`room_type` for aisles, walkways or bays (`forklift` / `forklift_charging_station` exist only as
+  equipment types; `production_zone` is a `room_type`) — so the Sunday building likely uses a schema we have not
+  seen. Also: "without stairs" = lifts, ramps and doors only (matches our step-free filter).
+- **How to resolve:** ask which fields mark aisles / walkways / bays (and whether `production_zone` is a bay);
+  meanwhile make the router take a rule set (allowed space predicate, min opening width, no-pass-through
+  predicate) so it can be wired to new fields without code changes elsewhere.
 
 ## Resolved
 

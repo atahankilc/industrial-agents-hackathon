@@ -10,6 +10,14 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 23:50 — Merge `origin/dev` (kit 1.1.0 route model) into `2-builder-edit`
+
+- **Did:** merged `origin/dev` at `26b908f` (kit 1.1.0 answers + route-model port) into `2-builder-edit`. Only
+  conflict: this log (both sides prepended entries; kept both, dev's first). Everything else merged automatically,
+  incl. `docs/guides/commands.md` and `project-state.md`. Merged tree: pytest 742 passed, 2 skipped; frontend build
+  ok; links ok. Builder M3 pushed earlier; its branch preview is behind Vercel Authentication (bypass secret pending).
+- **Next:** push to `origin/dev` (fast-forward) when Utku says so; then Builder project 2.
+
 ## 2026-10-24 — Kit 1.1.0 route model ported (D-014)
 
 - **Did:** `core/building_map.py` now carries the 1.1.0 starter's geometry helpers and `graph` unchanged (+ `outside`
@@ -45,6 +53,58 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Next:** port the 1.1.0 route model into `core/` as the default, rewire errand / what_if_door / navigation,
   fix `validate_warmup.py`, regenerate test answers.
 
+## 2026-10-24 22:40 — Commit hook works in git worktrees
+
+- **Did:** the M3 commit was blocked as "stale" although verified: settings.json runs
+  `$CLAUDE_PROJECT_DIR/.claude/hooks/require-verification.py` (the main checkout's copy), which compared the stamp
+  with the *main checkout's* index. The hook now resolves the repository the commit runs in (`cwd` from the hook
+  payload, then `cd <dir>` / `git -C <dir>`, quoted paths ok) and checks that repo's stamp and staged tree. Tests:
+  two new cases with a temp repository in `tests/test_commit_hook.py`. The fixed file was also copied into the main
+  checkout (branch `1-agentic-yarag`, uncommitted there) so it is the one Claude Code runs.
+- **Learned:** the hook's regex also fires on commit-like text inside a heredoc (pre-existing; documented).
+- **Next:** commit the hook on `1-agentic-yarag` too (or let it arrive by merge).
+
+## 2026-10-24 22:30 — Builder M3: drafts, saved buildings and Builder history in Supabase
+
+- **Did:** Utku took M3 back from Atahan (not started) and decided with Claude: public-URL demo + real persistent
+  multi-user system; own draft per person, no live co-editing; saved buildings visible to everyone. Built plan Tasks
+  1–5: `DraftBackend` (`FileDraftBackend` / `MemoryDraftBackend` / `PostgresDraftBackend`) in `backend/drafts.py`,
+  `PostgresConnection` + `db_url()` shared in `backend/persistence.py`, migration
+  `20261025120000_builder_drafts.sql` (applied to Supabase), `SessionStore.user_buildings` / `known` /
+  `load_session`, `Builder.dump` / `Builder.restore` (proposal numbers stored as `BuilderTools.next_id`), app:
+  Builder loaded / stored per request, 409 / 503 handlers, `/buildings` refreshes quietly; Edit mode reloads the
+  draft after a 409. Tests: `tests/test_draft_backends.py` (17 + 1 live).
+- **Learned:** one retry is not enough when two instances hammer one draft → `SAVE_ATTEMPTS = 3`, and a request
+  that still loses gets 409 (never a silent loss). Supabase also has an empty `building_edits` table from the early
+  architecture docs — unused, left alone.
+- **Changed docs:** M3 plan (status, as-built), spec (M3 decisions, table names), ai-agents.md, commands.md,
+  docs/README.md, project-state.
+- **Next:** Task 6 — deploy, public smoke test.
+
+## 2026-10-24 21:38 — Edit mode restyled in the new UI's design
+
+- **Did:** pushed `2-builder-edit` to origin (Utku). Restyled the Edit mode to Atahan's building-screen design
+  (Utku: option A): header = round back button + `where` card ("Editing … · Draft copy · N changes · floor") + round
+  undo + accent Save; `floor-tabs` (G / 1 / 2 …) on the left; plan rooms filled with `plan/geometry.fillOf` and walls /
+  labels / furniture / selection from the PlanView palette (light / dark); preview, Builder chat, problems and the
+  save sheet as `--surface` cards with `--shadow-float`; user bubbles in the accent; `--danger` for problems.
+  `edit.css` rewritten on the screen tokens. Headless Chrome flow unchanged (0 → 1 → 2 → 3 changes, no errors).
+- **Next:** push this commit too if Utku wants; then project 2 (build from PDF / image) or polish.
+
+## 2026-10-24 21:22 — Builder M2 review fixes; M3 plan for Atahan
+
+- **Did:** whole-branch review of M2 (opus): 1 critical, 3 important, 6 minor. Fixed test-first: (critical) an open
+  proposal stayed applicable after the UI dropped it — now any non-confirm turn, Cancel (`POST
+  /drafts/{id}/proposals/{pid}/cancel`, wired to the card) or a hand edit closes it, and the Apply button's 409 says
+  why; (important) only a message that is nothing but "yes"/"ok"/… skips the model (`CONFIRM_ONLY`), so "yes, but
+  call it Library" reaches it; name / ref / type / category fields in ops are coerced to strings (numbers) or refused
+  (a float ref broke `find`); the stream drops a proposal whose draft changed during the turn instead of erroring, and
+  the ghost uses the dry-run building kept on the `Proposal`. 8 new tests; `uv run pytest` 729 passed, 1 skipped;
+  headless Chrome re-run clean. Minors deferred (non-finite coordinates, two `/ops` 500s, Apply clickable while a
+  turn runs, revision bump on "yes", richer `find` candidates). Wrote the
+  [M3 plan](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m3.md) (Supabase store) for Atahan.
+- **Next:** Utku's call — merge / push `2-builder-edit`, or project 2 (build from PDF / image).
+
 ## 2026-10-24 — Design: access roles (demo feature, not built)
 
 - **Did:** brainstormed with Utku and wrote [access-roles design](../docs/superpowers/specs/2026-10-24-access-roles-design.md):
@@ -59,6 +119,119 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   Pending Utku's decision; see Q-015.
 - **Next:** implementation plan for access roles when Utku asks; bay rule decision + organiser question.
 
+## 2026-10-24 21:08 — Builder M2 Task 5: Edit-mode chat, proposal ghost, live check
+
+- **Did:** `frontend/app/src/edit/BuilderChat.tsx` (NDJSON stream with step lines, proposal card with areas / new
+  problems, Apply / Cancel), `api.builderStream` / `applyProposal`, `PlanEditor` `ghost` (changed / new elements
+  dashed blue, removed ones red), EditMode right column = PlanView inset + chat, issues bottom-left; a hand edit or
+  undo drops the open proposal. `scripts/live_builder.py`. Headless Chrome (offline client): widen → 2 ghost rooms +
+  card (33.6 → 39.6, 24.6 → 18.6 m², 3 assets left outside) → Apply → 1 change; rename proposal dropped by a door drag;
+  "yes" applies; no console errors.
+- **Live (Opus 5.5 medium, train/proc-campus-train-000):** "make Lab 0.13 one metre wider, into the room next to it" →
+  asked which side (Main lobby east / Toilet 0.14 west), 5.4 s, ~$0.018; "Into the toilet." → `move_edge` 1 m west,
+  39.06 → 45.06 / 38.46 → 32.46 m², flagged Sink 0.14 left outside and offered to move it, 6.9 s; "yes" applied.
+  Move 3D printer → `move_asset` 7.6 s ~$0.022; door between Office 0.02 / 0.03 → `add_opening` 13.1 s ~$0.039.
+  0 ungrounded replies.
+- **Learned:** `.builder` (panel) also matched the chat line's role class `builder` — class names in the Edit mode
+  need prefixes; same story as `.plan` / `.primary`.
+- **Next:** M2 whole-branch review; M3 plan for Atahan (not implemented by us).
+
+## 2026-10-24 20:56 — Builder M2 Tasks 3–4: Builder agent loop, offline client, backend routes
+
+- **Did:** `agent/builder.py` (`Builder`, `BuilderTurn`, `make_builder_client`; request shape from the Guide;
+  `DraftStore.apply(expected_version=…)` checks staleness inside the draft lock), `agent/builder_offline.py`,
+  `/drafts/{id}/chat/stream` and `/drafts/{id}/proposals/{pid}/apply` with one in-memory Builder per draft; hand
+  edits and undo leave a note for the Builder's next turn. `tests/test_builder.py` 11, `tests/test_drafts.py` 19.
+- **Learned:** example numbers in an offline help text trip the grounding check — keep canned text digit-free.
+- **Decided (Utku):** M3 goes to Atahan; we write its plan only.
+- **Next:** Task 5 — Builder chat, ghost overlay, Apply / Cancel in the Edit mode; live check.
+
+## 2026-10-24 20:42 — Builder M2 Tasks 1–2: move_edge, Builder tools
+
+- **Did:** `move_edge` (moves one wall along its outward normal in every room that has its corners, then `settle`),
+  `edge_sides`; `apply_op` turns ValueError/IndexError/KeyError from malformed arguments into EditError (M1 review
+  minor). `agent/builder_tools.py` with `BuilderTools`, `Proposal`, `BUILDER_TOOLS`; `tests/test_builder_tools.py`
+  13 passed, `tests/test_edits.py` 30 passed; full suite green.
+- **Next:** Task 3 — Builder loop (`agent/builder.py`) + offline client.
+
+## 2026-10-24 20:32 — Edit mode re-homed in the new UI
+
+- **Did:** Edit button (ruler-pencil) in `BuildingScreen`'s controls opens `EditMode` full screen; its 3D inset is now
+  Atahan's `PlanView` fed by the new `GET /drafts/{id}/plan` (`DraftStore.plan`, `core/floorplan.export_plan`,
+  centred on the base building so the preview doesn't jump); **Done** goes back; **Save** opens `user/<slug>` through
+  `Root` with a one-time note. `App.tsx` / `Scene.tsx` back to dev's versions. Editor CSS class `.plan` →
+  `.plan-editor` and `.primary` → `.edit-primary` (dev's globals). Fixed a StrictMode double-open that created two
+  drafts and resumed the wrong one (`openDraft` dedupes per base). Headless Chrome: edit → drag → Done → Edit again
+  resumes "1 change" → Save → `user/forschungsbau-v2` with the note; no console errors.
+- **Next:** M2 Task 1 (`move_edge`).
+
+## 2026-10-24 20:25 — Merge `origin/dev` (Atahan's new UI) into `2-builder-edit`
+
+- **Did:** merged `origin/dev` (92f063a new app UI, 508a1ba directions, 26df725 interaction eval). Conflicts:
+  `.gitignore` (both kept), `backend/app.py` (`/sessions/{id}/plan` and `/drafts` both kept), `memory-bank/log.md`
+  (both kept), `frontend/app/src/scene/Scene.tsx` (took dev's placeholder; kept an ignored `inset?` prop so the
+  Edit mode still compiles until it moves to `PlanView`). `uv run pytest` 685 passed, 1 skipped; `npm run build` ok.
+- **Next:** Edit entry in `BuildingScreen`, 3D inset → `PlanView` via `/drafts/{id}/plan`.
+
+## 2026-10-24 20:17 — Builder Edit mode M1 final review fixes; M2 plan; dev merge analysis
+
+- **Did:** whole-branch review (opus): 0 critical, 3 important, 7 minor. Fixed the important ones test-first:
+  `settle` skipped neighbours it had already fitted (overlap left with the second room sharing a corner); mid-edge
+  neighbours never grew (hole when a room shrank) → the vacated area now goes to the neighbour it borders most;
+  overlapping requests lost changes (concurrency test: 10 of 80 assets survived) → per-draft lock in `DraftStore`,
+  and the Edit UI no longer sends while an op is in flight and keeps the dropped preview until the answer.
+  Minors deferred (plan ledger). Wrote the [M2 plan](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m2.md)
+  (Builder agent, `move_edge` op). `uv run pytest` 673 passed, 1 skipped.
+- **Learned:** `origin/dev` has Atahan's new UI (92f063a): entry is `Root` → `BuildingSearch` / `BuildingScreen`,
+  `App.tsx` no longer rendered, point-cloud `Scene` replaced by a placeholder, vector `PlanView` +
+  `/sessions/{id}/plan` (`core/floorplan.py`). Dry-run merge: conflicts only in `.gitignore`, `backend/app.py`,
+  `scene/Scene.tsx`, `memory-bank/log.md`.
+- **Next:** merge `origin/dev`, re-home the Edit mode in `BuildingScreen`, inset → `PlanView`.
+
+## 2026-10-24 19:58 — Builder Edit mode M1 Tasks 5–7: frontend Edit mode, save → Guide
+
+- **Did:** `frontend/app/src/edit/` (`EditMode.tsx`, `PlanEditor.tsx`, `geometry.ts`, `edit.css`), draft API in
+  `api.ts`, `Scene` `inset` prop, View/Edit switch + save flow in `App.tsx`. Verified with playwright-core driving
+  headless Chrome against backend :8775 / Vite :5191 (offline Guide): plan + inset render, corner drag moves the
+  shared corner in both rooms and the validator flags assets left outside, door slide, asset drag + R, 4× ⌘Z back to
+  0 changes, save "Forschungsbau edited" → View on `user/forschungsbau-edited`, note in chat, Guide route Main lobby →
+  Meeting room 3.07 99 m. No console errors. `npm run build` clean.
+- **Learned:** `.opening.opening` in CSS matches every `.opening` — kind classes need a prefix (`kind-door`); the
+  3D inset needs `density` ≈ 0.3 or the small canvas turns black.
+- **Next:** final review of the branch; milestone 2 plan (Builder agent).
+
+## 2026-10-24 19:47 — Builder Edit mode M1 Task 4: drafts store + API
+
+- **Did:** `backend/drafts.py` — drafts as base + steps persisted in `data/user/.drafts/<id>.json`, saved buildings in
+  `data/user/<slug>/` registered as `user/<slug>`; `/drafts` endpoints in `backend/app.py`; endpoints table in
+  [commands.md](../docs/guides/commands.md#backend-guide-api). `.gitignore`: `data/user/`, `.superpowers/`.
+  `uv run pytest` 670 passed, 1 skipped.
+- **Next:** Task 5 — frontend View/Edit switch, plan view, 3D inset.
+
+## 2026-10-24 19:40 — Builder Edit mode M1 Tasks 2–3: wall moves, validator
+
+- **Did:** `core/edits.py` gained `move_vertex` (moves a corner in every room that has it) and `set_polygon`; both
+  shrink overlapped neighbours (`difference`), refuse when a neighbour would vanish, and put doors that were on a wall
+  back on it. Opening snapping now buffers by wall thickness (gap ≤ 2.5 m). `core/validate.py` + calibration script.
+  `uv run pytest` 658 passed, 1 skipped (280-building validator parametrisation included).
+- **Learned:** with thickness-aware snapping, off-wall doors in the dataset drop to osm 61 / swiss 46 / resplan 1;
+  overlaps osm 281 / resplan 13 / swiss 38 pairs → validator compares against the base building.
+- **Next:** Task 4 — drafts store (`data/user/`) + `/drafts` API.
+
+## 2026-10-24 19:40 — Builder Edit mode: design, M1 plan, core edit ops (branch `2-builder-edit`)
+
+- **Did:** brainstormed Level 4 with Utku → three Builder projects in order: Edit mode, build from scratch
+  (PDF/image/conversation), scan ingest. Design of Edit mode
+  ([spec](../docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md), status proposed, approved by Utku) and
+  milestone-1 plan ([plan](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m1.md), 7 tasks). Work happens on
+  branch `2-builder-edit` in the worktree `.claude/worktrees/2-builder-edit`. Task 1 done: `core/edits.py`
+  (11 JSON ops, deterministic ids, opening snapping, `apply_steps` replay), `tests/test_edits.py` 16 passed;
+  full suite 320 passed, 1 skipped.
+- **Learned:** Blueprint-Bench 2 (Andon Labs): models get room counts right but mostly miss which rooms connect →
+  validator-first Builder. Dataset scan: all 280 buildings have an entrance and every space is reachable; OSM /
+  Swiss / ResPlan have pre-existing overlaps and doors off the shared wall, Swiss walls up to ~2 m thick → the
+  validator must separate pre-existing from newly introduced issues, and snapping must tolerate thick walls.
+- **Next:** M1 Task 2 (`move_vertex`, `set_polygon` with neighbour fitting).
 ## 2026-10-24 — Directions: turns, landmarks, rounded metres
 
 - **Did:** `core/directions.py`: `about_m` (whole metres < 10, steps of 5 < 100, then 10, half up), `landmark` (the

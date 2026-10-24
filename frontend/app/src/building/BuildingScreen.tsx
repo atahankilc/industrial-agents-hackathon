@@ -3,9 +3,10 @@
 // at the bottom and only shows the latest exchange. One backend session per building; the plan comes from
 // GET /sessions/{id}/plan.
 
-import { ChevronLeft, Layers, Moon, Scan, Sun, SunMoon } from 'lucide-react'
+import { ChevronLeft, Layers, Moon, PencilRuler, Scan, Sun, SunMoon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { api, type Plan } from '../api'
+import { EditMode } from '../edit/EditMode'
 import { CATEGORY_LABEL, DARK, LIGHT } from '../plan/palette'
 import { PlanView, type Insets, type Selected, type ViewMode } from '../plan/PlanView'
 import { DEFAULT_SETTINGS } from '../plan/settings'
@@ -36,7 +37,12 @@ const humanise = (type: string) => type.replace(/_/g, ' ').replace(/^\w/, (c) =>
 const THEME_ICON = { system: SunMoon, light: Sun, dark: Moon }
 const THEME_LABEL = { system: 'Theme: follows the system', light: 'Theme: light', dark: 'Theme: dark' }
 
-export function BuildingScreen({ buildingId, onBack }: { buildingId: string; onBack: () => void }) {
+/** Shown once as the first chat line when a building opens right after it was saved in the Edit mode. */
+const noteKey = (buildingId: string) => `note:${buildingId}`
+
+type ScreenProps = { buildingId: string; onBack: () => void; onOpen: (buildingId: string) => void }
+
+export function BuildingScreen({ buildingId, onBack, onOpen }: ScreenProps) {
   const theme = useTheme()
   const palette = theme.dark ? DARK : LIGHT
   const viewport = useViewport()
@@ -48,11 +54,17 @@ export function BuildingScreen({ buildingId, onBack }: { buildingId: string; onB
   const [floor, setFloor] = useState(0)
   const [stacked, setStacked] = useState(false)
   const [selected, setSelected] = useState<Selected | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const note = sessionStorage.getItem(noteKey(buildingId))
+    return note ? [{ role: 'note', text: note }] : []
+  })
+  const [editing, setEditing] = useState(false)
   const [pending, setPending] = useState(false)
   const [listening, setListening] = useState(false)
   const [fitKey, setFitKey] = useState(0)
   const [look, setLook] = useState<ViewMode>('3d') // tilted, or flat once the user tilts straight down
+
+  useEffect(() => sessionStorage.removeItem(noteKey(buildingId)), [buildingId])
 
   useEffect(() => {
     let cancelled = false
@@ -140,6 +152,21 @@ export function BuildingScreen({ buildingId, onBack }: { buildingId: string; onB
 
   const ThemeIcon = THEME_ICON[theme.mode]
 
+  if (editing)
+    return (
+      <main className="screen editing">
+        <EditMode
+          base={buildingId}
+          palette={palette}
+          onExit={() => setEditing(false)}
+          onSaved={(saved, name) => {
+            sessionStorage.setItem(noteKey(saved), `Saved “${name}” from the Edit mode — this is the edited building.`)
+            onOpen(saved)
+          }}
+        />
+      </main>
+    )
+
   return (
     <main className="screen">
       {plan && (
@@ -216,6 +243,9 @@ export function BuildingScreen({ buildingId, onBack }: { buildingId: string; onB
               ))}
             </nav>
           )}
+          <button type="button" className="round" onClick={() => setEditing(true)} aria-label="Edit this building" title="Edit this building (on a copy)">
+            <PencilRuler size={19} strokeWidth={2} />
+          </button>
           <button type="button" className="round" onClick={() => setFitKey((key) => key + 1)} aria-label="Show it all" title="Show it all">
             <Scan size={19} strokeWidth={2} />
           </button>

@@ -1,7 +1,9 @@
 """Building catalogue and conversation sessions.
 
 A building id is "<split>/<directory>" (e.g. "train/proc-campus-train-000"), the `path` column of
-data/manifest.csv. Ids are only ever looked up in the catalogue, never joined into a path from user input.
+data/manifest.csv. Ids are only ever looked up in the catalogue, never joined into a path from user input. Saved
+Edit-mode buildings (`user/<slug>`) join the catalogue through `SessionStore.user_buildings` (the DraftStore,
+backend/drafts.py); on the deployed app they have no `path` and their data comes from the database.
 
 One session = one conversation = one `BuildingSession` + one `Guide`, behind a per-session lock so the Guide's
 history never sees two turns at once. `SessionStore` keeps conversations in a dict. With a persistence backend
@@ -13,6 +15,7 @@ ends. The lock only serialises turns within one process; across processes the ve
 building (cached until the session's BuildingMap object is replaced, e.g. by apply_change or a building switch)
 and outgoing events enriched with route `vertices` and change `space_ids` (copies; session.events is untouched)."""
 
+import copy
 import csv
 import os
 import threading
@@ -144,6 +147,19 @@ class SessionStore:
         self.backend = backend if backend is not None else persistence.from_env()
         self.conversations: dict[str, Conversation] = {}
         self.guard = threading.Lock()  # protects the dict, not the conversations
+        self.user_buildings: object | None = None  # the DraftStore: saved buildings (`known`, `base_building`)
+
+    def known(self, building: str) -> bool:
+        """In the catalogue, or saved by another instance since this one last looked."""
+        if building in self.catalogue:
+            return True
+        return self.user_buildings is not None and self.user_buildings.known(building)
+
+    def load_session(self, building: str) -> BuildingSession:
+        entry = self.catalogue[building]
+        if "path" in entry:
+            return BuildingSession.load(entry["path"])
+        return BuildingSession(BuildingMap(copy.deepcopy(self.user_buildings.base_building(building))))
 
     def default_building(self) -> str:
         for wanted in (os.environ.get("GUIDE_BUILDING"), DEMO_BUILDING):
@@ -153,9 +169,9 @@ class SessionStore:
 
     def build(self, conversation_id: str, building: str | None) -> Conversation:
         building = building or self.default_building()
-        if building not in self.catalogue:
+        if not self.known(building):
             raise UnknownBuilding(building)
-        session = BuildingSession.load(self.catalogue[building]["path"])
+        session = self.load_session(building)
         # make_client() per conversation, so GUIDE_LLM / ANTHROPIC_API_KEY are read at creation, not import.
         return Conversation(conversation_id, building, session, Guide(session, client=make_client()))
 
@@ -189,9 +205,9 @@ class SessionStore:
         if cached is not None and cached.version == current:
             return cached
         stored = self.backend.load(conversation_id)
-        if stored is None or stored.building not in self.catalogue:
+        if stored is None or not self.known(stored.building):
             return None
-        fresh = BuildingSession.load(self.catalogue[stored.building]["path"])
+        fresh = self.load_session(stored.building)
         session, guide = persistence.restore(stored.state, fresh, make_client())
         return self.remember(Conversation(conversation_id, stored.building, session, guide, version=stored.version))
 

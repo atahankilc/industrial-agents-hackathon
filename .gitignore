@@ -8,6 +8,8 @@ agent_output/
 .claude/settings.local.json
 .claude/worklog/.verified
 .claude/worklog/VERIFICATION.md
+data/user/
+.superpowers/
 
 # local research notes (not committed)
 .notes/

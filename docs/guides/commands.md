@@ -88,6 +88,15 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | POST | `/chat` | `{"session_id", "message", "channel"?, "photo"?}` | `{"reply", "tool_calls", "events", "ungrounded", "spoken"}` — `channel: "voice"` fills `spoken`; `photo` = base64 data URL (jpeg/png/webp, ≤1.5 M chars), shown to the Guide for this turn only |
 | POST | `/chat/stream` | same as `/chat` | NDJSON: `{"type":"step","kind":"tool"\|"tool_done"\|"check",…}` while the Guide works, then `{"type":"reply",…/chat payload}` or `{"type":"error","detail"}` |
 | GET | `/events` | `?session_id=&after=N` | `{"events": [...since N], "next"}` — UI highlights, routes (with `vertices` + turn-by-turn `legs`, `core/directions.py`), changes |
+| POST | `/drafts` | `{"base"}` (catalogue id) | Edit mode: new draft copy → `{"draft": {id, base, name, steps}, "building", "issues"}` (unknown base → 422) |
+| GET | `/drafts/{id}` | – | same shape (unknown / malformed id → 404) |
+| GET | `/drafts/{id}/plan` | – | vector plan of the draft (`core/floorplan.py`, what `PlanView` draws), centred on the base building |
+| GET | `/drafts/{id}/points` | – | point-cloud export of the draft (unused by the new UI) |
+| POST | `/drafts/{id}/ops` | `{"ops": [{"op": …}]}` (`core/edits.py`) | applied as one undo step → same shape; bad op → 422 with the reason |
+| POST | `/drafts/{id}/chat/stream` | `{"message"}` | Builder agent turn (prompt edits) as NDJSON: `step` lines, then `{"type":"reply","reply","tool_calls","proposal" (id, summary, ops, new_problems, effect, `building` = draft after the ops) or null,"applied","state"}`; a plain "yes" applies the one open proposal; offline (`GUIDE_LLM=offline` / no key) a rule-based client understands rename / "make X N m wider to the east" / "add a door between X and Y"; model `BUILDER_MODEL` (default `claude-opus-5-5`), `BUILDER_EFFORT` |
+| POST | `/drafts/{id}/proposals/{pid}/apply` | – | apply an open proposal → draft state; unknown or made against an older draft → 409 |
+| POST | `/drafts/{id}/undo` | – | drops the last step (nothing to undo → 409) |
+| POST | `/drafts/{id}/save` | `{"name"}` | `{"building": "user/<slug>", "issues"}` — written to `GUIDE_USER_DIR` (default `data/user/`, gitignored), listed in `/buildings`; name clash → `-2` |
 | POST | `/v1/chat/completions` | OpenAI body, `stream` | OpenAI-compatible (SSE: `"... "` first, then sentences, `data: [DONE]`) for an ElevenLabs Custom LLM |
 
 `/v1/chat/completions` uses only the last user message (the Guide keeps its own history). Session id, first
@@ -123,6 +132,21 @@ cd frontend/app && npm install && npx vite --port 5181          # open http://lo
 cd frontend/app && npm run build                                # type-check + production bundle in dist/
 ```
 
+**Edit mode** (ruler-pencil button in the building screen's right-hand controls): edits a draft copy of the current
+building on a 2D plan, with the building's 3D model (`PlanView` fed by `GET /drafts/{id}/plan`) as a live preview —
+click a room and drag its corners, drag doors along walls, drag things (R / Shift+R rotates), ⌘Z undoes; problems
+are listed bottom-left; **Done** goes back (the draft is kept); **Save** writes `user/<slug>` (local `data/user/`,
+or `GUIDE_USER_DIR`) and opens it as a new building (fresh Guide session, a note says it is the edited building).
+The chat on the right edits by prompt (the Builder agent): it proposes, the plan shows the proposal dashed in
+blue with its area changes and new problems, **Apply** (or typing "yes") applies, **Cancel** drops it. Live check of
+the agent: `uv run --env-file .env python scripts/live_builder.py [building_id] [--model …] [--effort …]`.
+The draft id is kept in `localStorage` per building. Without `SUPABASE_DB_URL` drafts and saved buildings are files
+under `data/user/`; with it (`uv run --env-file .env uvicorn …`, and on Vercel) they live in Postgres — tables from
+`supabase/migrations/20261025120000_builder_drafts.sql`, applied with the command in
+[Conversation persistence](#conversation-persistence-supabase-postgres) (milestone 3). Tests:
+`uv run pytest -q tests/test_draft_backends.py` (two instances, one fake DB); live:
+`PERSIST_LIVE_TEST=1 uv run --env-file .env pytest -q tests/test_draft_backends.py -k live`.
+
 Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8765`). Design and data path:
 [visualization.md](../product/visualization.md#app-and-data-path).
 
@@ -146,7 +170,10 @@ Atahan (once): Vercel → *Add New → Project* → import the GitHub repo. Leav
 
 Smoke test after a deploy: `curl -s https://<deployment>/api/health` → `{"ok":true,"llm":"anthropic"}`. Then
 in the app, say "I use a wheelchair" and ask for a route in the next message: the route must be step-free (proof
-that persistence works across instances). `uv run pytest -q tests/test_deploy.py` checks the config locally.
+that persistence works across instances). Edit mode: open a building → Edit → drag a corner → reload (the draft
+resumes) → prompt "make <room> 1 m wider to the <side>" → Apply → Save → the saved building opens and the Guide
+routes in it; `/drafts` needs the database on Vercel (read-only filesystem). `uv run pytest -q tests/test_deploy.py`
+checks the config locally.
 UNVERIFIED until the first deploy: Services (beta) with a service root of `./` next to `frontend/app/`, the
 exclude globs as Vercel applies them, cold-start time.
 

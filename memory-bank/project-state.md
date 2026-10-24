@@ -42,6 +42,45 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## What works (verified 2026-10-24)
 
+- **Builder Edit mode (branch `2-builder-edit`, in progress):** design
+  [builder-edit-mode-design](../docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md) (proposed, approved by
+  Utku 2026-10-24), plan [M1](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m1.md). Done: Task 1
+  `core/edits.py` — ops add/delete/set space, add/move/set/delete opening, add/move/set/delete asset, replay via
+  `apply_steps` (`tests/test_edits.py`). Task 2: `move_vertex` / `set_polygon` keep shared walls (overlapped
+  neighbours shrink, refused if one would vanish; doors re-projected; thick Swiss walls handled). Task 3:
+  `core/validate.py` — `validate(building, base)`, issues already in the base are warnings
+  (`scripts/validate_dataset.py`, `tests/test_validate.py` over all 280 buildings). Task 4: `backend/drafts.py`
+  (`DraftStore`, local `data/user/`, gitignored) + `/drafts` endpoints (create, get, points, ops, undo, save →
+  `user/<slug>` in `/buildings`, Guide routes in it; `tests/test_drafts.py`). Tasks 5–7: frontend Edit mode
+  (`frontend/app/src/edit/`: View/Edit switch, SVG plan editor, 3D inset, issues, undo, save → View + Guide);
+  verified in headless Chrome (offline Guide): corner / door / asset drags, rotate, 4× undo, save → route 99 m in
+  `user/forschungsbau-edited`. **M1 done**; final review (opus) fixes: shared corner into a corridor, neighbours
+  grow when a room shrinks, per-draft lock + client gating. M2 plan written
+  ([m2](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m2.md)). `origin/dev` merged (`ebcdb3d`, Atahan's new
+  UI); Edit mode re-homed: ruler-pencil button in `BuildingScreen` → `EditMode` full screen, 3D inset = `PlanView`
+  of `GET /drafts/{id}/plan`, Save opens `user/<slug>` via `Root`; verified in headless Chrome.
+- **Builder M2 (prompt edits), in progress:** Task 1 `move_edge` op + `edge_sides` (walls with compass sides),
+  malformed op arguments → EditError (422); Task 2 `agent/builder_tools.py` (overview, find, space_info,
+  floor_plan, propose_edit — dry run + effect + new problems, never applies). Task 3 `agent/builder.py` (tool
+  loop, "yes" applies the one open proposal without a model call, Apply-button / hand-edit notes, grounding repair,
+  stop after 2 failed proposals) + `agent/builder_offline.py` (rename / resize / door rules); Task 4
+  `/drafts/{id}/chat/stream` + `/drafts/{id}/proposals/{pid}/apply` (stale → 409). Task 5 frontend
+  (`edit/BuilderChat.tsx`, ghost overlay in `PlanEditor`, Apply / Cancel, examples from the building's rooms);
+  headless Chrome offline + live Opus check (`scripts/live_builder.py`, ~$0.08 for 3 prompts + $0.03 follow-up).
+  **M2 done**; review (opus) fixes: a proposal is confirmable only by the very next message (another turn,
+  Cancel — new `/proposals/{pid}/cancel` — or a hand edit closes it), only a bare "yes"/"ok" skips the model, text
+  fields in ops are coerced to strings, a proposal made against a draft that changed meanwhile is not sent.
+  Edit mode restyled to the building screen's design (clay palette, cards, floor tabs).
+- **M3 (deployed store) built by us** (Utku took it back from Atahan 2026-10-24, not started;
+  [m3 plan](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m3.md), decisions in the spec's "Milestone 3
+  decisions"): drafts, saved buildings (shared with everyone) and the Builder's conversation in Supabase
+  (`builder_drafts`, `saved_buildings`, migration applied), version-checked (409), DB down → `/drafts` 503. Verified:
+  pytest 746 passed, live Supabase tests, two local instances on Supabase end to end. **Next: Task 6 — deploy and the
+  public smoke test** (commands.md Deploy section): the branch preview builds, but Vercel Authentication protects it
+  — waiting for a Protection Bypass secret from Atahan (`VERCEL_AUTOMATION_BYPASS_SECRET` in `.env`).
+- **Order (Utku, 2026-10-24):** `2-builder-edit` merged with `origin/dev` (kit 1.1.0 route model) → to `dev`;
+  Builder project 2 (build from plan images) only after that merge; frontend polish is Atahan's.
+
 - **Solvers** `core/solvers/` (geometry, walls, reachability, routing): **655/655** train+dev on gold inputs
   (`scripts/validate_solvers.py`); rules + rejected variants in [solver-plan.md](../docs/architecture/solver-plan.md).
 - **Benchmark pipeline** `agent/benchmark_agent.py` + `agent/run_benchmark.py`: from question text dev **138/138**,

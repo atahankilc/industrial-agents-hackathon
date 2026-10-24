@@ -16,6 +16,8 @@ type Props = {
   selected: Selection
   onSelect: (selection: Selection) => void
   onOps: (ops: Op[]) => void
+  busy: boolean // an op is in flight: no new edits until it lands
+  revision: number // bumped by the parent on every op response (applied or refused)
 }
 
 type View = { x: number; y: number; w: number; h: number }
@@ -53,10 +55,14 @@ function doorSegment(opening: OpeningJson, polygonOf: (id: string) => XY[] | und
   return [[x - ux * half, y - uy * half], [x + ux * half, y + uy * half]]
 }
 
-export function PlanEditor({ building, floorId, issues, selected, onSelect, onOps }: Props) {
+export function PlanEditor({ building, floorId, issues, selected, onSelect, onOps, busy, revision }: Props) {
   const svg = useRef<SVGSVGElement>(null)
   const [view, setView] = useState<View | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
+  // A dropped edit stays drawn where it was dropped until the backend's answer arrives (then `building` has it,
+  // or it was refused and the old shape comes back) — no snap-back to the old shape in between.
+  const [sent, setSent] = useState<Drag | null>(null)
+  useEffect(() => setSent(null), [revision])
 
   const spaces = useMemo(() => building.spaces.filter((space) => space.floor_id === floorId), [building, floorId])
   const openings = useMemo(() => building.openings.filter((item) => item.floor_id === floorId), [building, floorId])
@@ -97,7 +103,7 @@ export function PlanEditor({ building, floorId, issues, selected, onSelect, onOp
   // R / Shift+R rotates the selected asset.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 'r' || selected?.kind !== 'asset' || event.metaKey || event.ctrlKey) return
+      if (event.key.toLowerCase() !== 'r' || selected?.kind !== 'asset' || event.metaKey || event.ctrlKey || busy) return
       if (event.target instanceof HTMLInputElement) return
       const asset = building.assets.find((item) => item.id === selected.id)
       if (!asset) return
@@ -106,7 +112,7 @@ export function PlanEditor({ building, floorId, issues, selected, onSelect, onOp
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selected, building, onOps])
+  }, [selected, building, onOps, busy])
 
   const toBuilding = (event: { clientX: number; clientY: number }): XY => {
     const element = svg.current!
@@ -117,6 +123,7 @@ export function PlanEditor({ building, floorId, issues, selected, onSelect, onOp
 
   const begin = (event: React.PointerEvent, next: Drag) => {
     event.stopPropagation()
+    if (busy && next.kind !== 'pan') return
     svg.current?.setPointerCapture(event.pointerId)
     setDrag(next)
   }
@@ -143,32 +150,37 @@ export function PlanEditor({ building, floorId, issues, selected, onSelect, onOp
 
   const onPointerUp = () => {
     if (!drag) return
+    const send = (ops: Op[]) => {
+      setSent(drag)
+      onOps(ops)
+    }
     if (drag.kind === 'vertex' && !samePoint(drag.from, drag.to, 0.001)) {
-      onOps([{ op: 'move_vertex', floor_id: floorId, from_xy: drag.from, to_xy: drag.to }])
+      send([{ op: 'move_vertex', floor_id: floorId, from_xy: drag.from, to_xy: drag.to }])
     } else if (drag.kind === 'opening') {
       const opening = building.openings.find((item) => item.id === drag.id)
-      if (opening && !samePoint(opening.position, drag.to, 0.001)) onOps([{ op: 'move_opening', opening_id: drag.id, position: drag.to }])
+      if (opening && !samePoint(opening.position, drag.to, 0.001)) send([{ op: 'move_opening', opening_id: drag.id, position: drag.to }])
     } else if (drag.kind === 'asset') {
       const asset = building.assets.find((item) => item.id === drag.id)
-      if (asset && !samePoint(asset.position, drag.to, 0.001)) onOps([{ op: 'move_asset', asset_id: drag.id, position: drag.to }])
+      if (asset && !samePoint(asset.position, drag.to, 0.001)) send([{ op: 'move_asset', asset_id: drag.id, position: drag.to }])
     } else if (drag.kind === 'pan' && !drag.moved) {
       onSelect(drag.select) // a click, not a pan: select what was under the pointer (or nothing)
     }
     setDrag(null)
   }
 
-  // Local preview of the drag in progress.
+  // Local preview of the drag in progress, or of the edit sent and not yet answered.
+  const shown = drag ?? sent
   const polygonOf = (id: string): XY[] => {
     const polygon = polygons.get(id) ?? []
-    if (drag?.kind === 'vertex' && drag.spaceIds.includes(id)) {
-      return polygon.map((vertex) => (samePoint(vertex, drag.from) ? drag.to : vertex))
+    if (shown?.kind === 'vertex' && shown.spaceIds.includes(id)) {
+      return polygon.map((vertex) => (samePoint(vertex, shown.from) ? shown.to : vertex))
     }
     return polygon
   }
   const openingAt = (opening: OpeningJson): OpeningJson =>
-    drag?.kind === 'opening' && drag.id === opening.id ? { ...opening, position: drag.to } : opening
+    shown?.kind === 'opening' && shown.id === opening.id ? { ...opening, position: shown.to } : opening
   const assetAt = (asset: AssetJson): AssetJson =>
-    drag?.kind === 'asset' && drag.id === asset.id ? { ...asset, position: drag.to } : asset
+    shown?.kind === 'asset' && shown.id === asset.id ? { ...asset, position: shown.to } : asset
 
   if (!view) return <svg ref={svg} className="plan" />
   const unit = view.w / 100 // ~1% of the view width, for handles and labels

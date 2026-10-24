@@ -10,6 +10,21 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 20:17 — Builder Edit mode M1 final review fixes; M2 plan; dev merge analysis
+
+- **Did:** whole-branch review (opus): 0 critical, 3 important, 7 minor. Fixed the important ones test-first:
+  `settle` skipped neighbours it had already fitted (overlap left with the second room sharing a corner); mid-edge
+  neighbours never grew (hole when a room shrank) → the vacated area now goes to the neighbour it borders most;
+  overlapping requests lost changes (concurrency test: 10 of 80 assets survived) → per-draft lock in `DraftStore`,
+  and the Edit UI no longer sends while an op is in flight and keeps the dropped preview until the answer.
+  Minors deferred (plan ledger). Wrote the [M2 plan](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m2.md)
+  (Builder agent, `move_edge` op). `uv run pytest` 673 passed, 1 skipped.
+- **Learned:** `origin/dev` has Atahan's new UI (92f063a): entry is `Root` → `BuildingSearch` / `BuildingScreen`,
+  `App.tsx` no longer rendered, point-cloud `Scene` replaced by a placeholder, vector `PlanView` +
+  `/sessions/{id}/plan` (`core/floorplan.py`). Dry-run merge: conflicts only in `.gitignore`, `backend/app.py`,
+  `scene/Scene.tsx`, `memory-bank/log.md`.
+- **Next:** merge `origin/dev`, re-home the Edit mode in `BuildingScreen`, inset → `PlanView`.
+
 ## 2026-10-24 19:58 — Builder Edit mode M1 Tasks 5–7: frontend Edit mode, save → Guide
 
 - **Did:** `frontend/app/src/edit/` (`EditMode.tsx`, `PlanEditor.tsx`, `geometry.ts`, `edit.css`), draft API in

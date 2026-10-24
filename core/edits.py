@@ -15,7 +15,7 @@ import re
 from collections.abc import Callable
 
 from shapely.geometry import Point, Polygon
-from shapely.ops import nearest_points
+from shapely.ops import nearest_points, unary_union
 
 from core.building_map import OUTSIDE
 from core.solvers.walls import WALL_TOLERANCE_M
@@ -281,7 +281,27 @@ def on_wall(building: dict, opening: dict) -> bool:
 
 
 def settle(before: dict, building: dict, floor_id: str, changed: set[str]) -> None:
-    """After outlines in `changed` moved: shrink overlapped neighbours, then put displaced openings back on a wall."""
+    """After outlines in `changed` moved: neighbours take the area the changed rooms gave up and lose the area they
+    took, so shared walls stay shared whichever way a wall moves; then displaced openings go back on a wall."""
+    fitted: set[str] = set()  # neighbours grown / trimmed here; still fitted against every other changed outline
+    old = unary_union([polygon_of(find(before, "spaces", space_id)) for space_id in changed])
+    new = unary_union([polygon_of(find(building, "spaces", space_id)) for space_id in changed])
+    vacated = old.difference(new)
+    for part in getattr(vacated, "geoms", [vacated]):
+        if part.is_empty or part.area <= MIN_OVERLAP_M2:
+            continue
+        # the area a changed room gave up goes to the neighbour it borders most (a corridor, the next room);
+        # bordering nobody (the outer wall moved in) it stays outside the building
+        border = {other["id"]: part.boundary.intersection(polygon_of(other).buffer(VERTEX_MATCH_M)).length
+                  for other in building["spaces"] if other["floor_id"] == floor_id and other["id"] not in changed}
+        taker = max(border, key=border.get, default=None)
+        if taker is None or border[taker] <= VERTEX_MATCH_M:
+            continue
+        other = find(building, "spaces", taker)
+        grown = polygon_of(other).union(part)
+        if grown.geom_type == "Polygon":
+            other["polygon"] = outline(grown.simplify(0.001))
+            fitted.add(taker)
     for space_id in sorted(changed):
         shape = polygon_of(find(building, "spaces", space_id))
         for other in building["spaces"]:
@@ -292,9 +312,11 @@ def settle(before: dict, building: dict, floor_id: str, changed: set[str]) -> No
                 continue
             rest = neighbour.difference(shape)
             if rest.is_empty or rest.geom_type != "Polygon" or rest.area < MIN_NEIGHBOUR_M2:
-                raise EditError(f"this change would remove {other['name']}; move it less far or delete that room first")
+                verb = "split" if rest.geom_type == "MultiPolygon" else "remove"
+                raise EditError(f"this change would {verb} {other['name']}; move it less far or delete that room first")
             other["polygon"] = outline(rest.simplify(0.001))
-            changed = changed | {other["id"]}
+            fitted.add(other["id"])
+    changed = changed | fitted
     was_on_wall = {opening["id"] for opening in before["openings"] if on_wall(before, opening)}
     for opening in building["openings"]:
         if opening["id"] in was_on_wall and changed & set(opening["space_ids"]) and not on_wall(building, opening):

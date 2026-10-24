@@ -152,3 +152,39 @@ def test_dataset_untouched(client):
     assert hashlib.sha256(path.read_bytes()).hexdigest() == before
     assert json.loads(path.read_text())["spaces"][0]["polygon"]  # still readable
     assert shape.area > 0
+
+
+def test_concurrent_ops_on_one_draft_lose_nothing(tmp_path):
+    """Overlapping requests on one draft (fast drags, R pressed twice) must each land on the latest state."""
+    import sys
+    import threading
+
+    from core.edits import apply_steps
+
+    store = DraftStore(tmp_path, dict(backend_app.store.catalogue))
+    draft = store.create(BASE)
+    room = a_room(store.building(draft))["id"]
+    centre = Polygon(next(space for space in store.building(draft)["spaces"] if space["id"] == room)["polygon"])
+    spot = [centre.representative_point().x, centre.representative_point().y]
+    barrier = threading.Barrier(8)
+
+    def worker(n: int) -> None:
+        barrier.wait()
+        for i in range(10):
+            store.apply(draft, [{"op": "add_asset", "space_id": room, "name": f"w{n}-{i}", "category": "equipment",
+                                 "type": "box", "position": spot}])
+
+    threads = [threading.Thread(target=worker, args=(n,)) for n in range(8)]
+    interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)  # switch threads constantly so an unguarded read-modify-write interleaves
+    try:
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    finally:
+        sys.setswitchinterval(interval)
+    assert len(draft.steps) == 80
+    assert sum(asset["name"].startswith("w") and "-" in asset["name"] for asset in store.building(draft)["assets"]) == 80
+    assert store.building(draft) == apply_steps(store.base_building(BASE), draft.steps)
+    assert draft.version == 80

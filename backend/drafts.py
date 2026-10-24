@@ -42,7 +42,8 @@ class DraftStore:
     def __init__(self, root: Path, catalogue: dict[str, dict]) -> None:
         self.root = Path(root)
         self.catalogue = catalogue
-        self.lock = threading.Lock()
+        self.lock = threading.Lock()  # the dicts and the catalogue
+        self.draft_locks: dict[str, threading.Lock] = {}  # one per draft: a change reads and writes it atomically
         self.drafts: dict[str, Draft] = {}
         self.cache: dict[tuple[str, int], dict] = {}
         self.bases: dict[str, dict] = {}
@@ -62,6 +63,10 @@ class DraftStore:
             path = Path(self.catalogue[base]["path"]) / "building.json"
             self.bases[base] = json.loads(path.read_text(encoding="utf-8"))
         return self.bases[base]
+
+    def draft_lock(self, draft_id: str) -> threading.Lock:
+        with self.lock:
+            return self.draft_locks.setdefault(draft_id, threading.Lock())
 
     def draft_file(self, draft_id: str) -> Path:
         return self.root / ".drafts" / f"{draft_id}.json"
@@ -111,21 +116,23 @@ class DraftStore:
         """Apply `ops` as one undo step; raises EditError (and stores nothing) if any op fails."""
         if not ops:
             raise EditError("no ops given")
-        building = self.building(draft)
-        for operation in ops:
-            building = apply_op(building, operation)
-        draft.steps.append(copy.deepcopy(ops))
-        draft.version += 1
-        self.cache[(draft.id, draft.version)] = building
-        self.store(draft)
+        with self.draft_lock(draft.id):  # overlapping requests (fast drags) each build on the latest state
+            building = self.building(draft)
+            for operation in ops:
+                building = apply_op(building, operation)
+            draft.steps.append(copy.deepcopy(ops))
+            draft.version += 1
+            self.cache[(draft.id, draft.version)] = building
+            self.store(draft)
         return draft
 
     def undo(self, draft: Draft) -> Draft:
-        if not draft.steps:
-            raise EditError("nothing to undo")
-        draft.steps.pop()
-        draft.version += 1
-        self.store(draft)
+        with self.draft_lock(draft.id):
+            if not draft.steps:
+                raise EditError("nothing to undo")
+            draft.steps.pop()
+            draft.version += 1
+            self.store(draft)
         return draft
 
     def save(self, draft: Draft, name: str) -> str:
@@ -148,5 +155,6 @@ class DraftStore:
             return self.register(slug, name)
 
     def state(self, draft: Draft) -> dict:
-        return {"draft": {"id": draft.id, "base": draft.base, "name": draft.name, "steps": len(draft.steps)},
-                "building": self.building(draft), "issues": self.issues(draft)}
+        with self.draft_lock(draft.id):
+            return {"draft": {"id": draft.id, "base": draft.base, "name": draft.name, "steps": len(draft.steps)},
+                    "building": self.building(draft), "issues": self.issues(draft)}

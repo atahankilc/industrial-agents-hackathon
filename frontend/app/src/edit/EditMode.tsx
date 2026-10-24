@@ -31,6 +31,7 @@ export function EditMode({ base, dark, onSaved }: Props) {
   const [selected, setSelected] = useState<Selection>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [revision, setRevision] = useState(0) // bumped on every op response, applied or refused
   const [naming, setNaming] = useState<string | null>(null) // save dialog open: the name being typed
 
   // Open (or resume) the draft for this base building.
@@ -76,11 +77,15 @@ export function EditMode({ base, dark, onSaved }: Props) {
       setMessage(reason(error))
     } finally {
       setBusy(false)
+      setRevision((value) => value + 1)
     }
   }, [])
 
-  const onOps = useCallback((ops: Op[]) => draftId && run(() => api.applyOps(draftId, ops)), [draftId, run])
-  const undo = useCallback(() => draftId && state && state.draft.steps > 0 && run(() => api.undo(draftId)), [draftId, state, run])
+  const onOps = useCallback((ops: Op[]) => draftId && !busy && run(() => api.applyOps(draftId, ops)), [draftId, busy, run])
+  const undo = useCallback(
+    () => draftId && !busy && state && state.draft.steps > 0 && run(() => api.undo(draftId)),
+    [draftId, busy, state, run],
+  )
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -148,6 +153,8 @@ export function EditMode({ base, dark, onSaved }: Props) {
         selected={selected}
         onSelect={setSelected}
         onOps={onOps}
+        busy={busy}
+        revision={revision}
       />
 
       <nav className="hud floors edit-floors" aria-label="Floors">

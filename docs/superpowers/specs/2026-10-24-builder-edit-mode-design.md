@@ -8,12 +8,12 @@ sources:
   - archive/initial-repo/README.md §1, §3, judging table
   - docs/kit/data-format.md
   - agent/tools.py, backend/app.py, backend/sessions.py, backend/persistence.py, frontend/app/src/App.tsx
-related: [../plans/2026-10-24-builder-edit-mode-m1.md, ../../architecture/ai-agents.md, ../../kit/data-format.md, ../../challenge/brief.md, 2026-10-24-guide-agent-design.md]
+related: [../plans/2026-10-24-builder-edit-mode-m1.md, ../plans/2026-10-24-builder-edit-mode-m2.md, ../../architecture/ai-agents.md, ../../kit/data-format.md, ../../challenge/brief.md, 2026-10-24-guide-agent-design.md]
 ---
 
 # Builder · Edit mode — design
 
-Implementation plan (milestone 1): [2026-10-24-builder-edit-mode-m1.md](../plans/2026-10-24-builder-edit-mode-m1.md).
+Implementation plans: [milestone 1](../plans/2026-10-24-builder-edit-mode-m1.md) (drag edit, done) · [milestone 2](../plans/2026-10-24-builder-edit-mode-m2.md) (prompt edits).
 
 ## Intent
 
@@ -115,6 +115,7 @@ Operation set (each validates its own arguments and raises a clear error on unkn
 | `set_space` | space_id, name?, ref?, type?, room_type? | rename / retype |
 | `set_polygon` | space_id, polygon | replaces the outline |
 | `move_vertex` | floor_id, from_xy, to_xy | moves that point in **every** space on the floor that has it (shared walls stay shared — *builder's call*); openings on a moved wall are re-projected onto the new wall |
+| `move_edge` | space_id, edge [[x1,y1],[x2,y2]], offset_m | *(added in milestone 2)* moves a wall along its outward normal in every room that has its corners, then fits neighbours once — the Builder's "make X wider" |
 | `add_opening` | space_ids (2, or 1 + "outside"), position, kind, width_m, step_free | id `<floor_id>-O-new<n>` |
 | `move_opening` | opening_id, position | position is snapped onto the shared wall |
 | `set_opening` | opening_id, width_m?, step_free?, kind? | |
@@ -243,5 +244,7 @@ The agent asks only what it needs (e.g. "which wall?" when ambiguous) and states
     it. No server-side lookup by session or base.
 12. **Walls stay shared, also mid-edge.** `move_vertex` / a wall move also updates neighbours whose edge the
     moved point lies on (inserting a matching point so the wall stays shared and the neighbour shrinks or grows).
-    If a neighbour would lose all its area the op is refused with an error. So "widen lab 0.21 two metres to the
+    If a neighbour would lose all its area the op is refused with an error. *Implemented (after the M1 review)* as:
+    the area the changed rooms give up goes to the neighbour it borders most, and the area they take is cut from
+    the neighbours they overlap — same outlines as inserting matching points, without the long-edge artefacts. So "widen lab 0.21 two metres to the
     east" shrinks the room next door instead of producing an overlap.

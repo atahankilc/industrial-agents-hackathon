@@ -54,8 +54,11 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `user/<slug>` in `/buildings`, Guide routes in it; `tests/test_drafts.py`). Tasks 5–7: frontend Edit mode
   (`frontend/app/src/edit/`: View/Edit switch, SVG plan editor, 3D inset, issues, undo, save → View + Guide);
   verified in headless Chrome (offline Guide): corner / door / asset drags, rotate, 4× undo, save → route 99 m in
-  `user/forschungsbau-edited`. **M1 done.** Next: final branch review, then milestone 2 (prompt edits via a
-  Builder agent) — its own plan.
+  `user/forschungsbau-edited`. **M1 done**; final review (opus) fixes: shared corner into a corridor, neighbours
+  grow when a room shrinks, per-draft lock + client gating. M2 plan written
+  ([m2](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m2.md)). Next: merge `origin/dev` (Atahan's new UI:
+  `Root` → `BuildingScreen`, `PlanView`; the point-cloud `Scene` is now a placeholder), move the Edit entry into
+  `BuildingScreen` and the 3D inset to `PlanView` via `/drafts/{id}/plan`, then M2.
 
 - **Solvers** `core/solvers/` (geometry, walls, reachability, routing): **655/655** train+dev on gold inputs
   (`scripts/validate_solvers.py`); rules + rejected variants in [solver-plan.md](../docs/architecture/solver-plan.md).

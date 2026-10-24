@@ -265,3 +265,52 @@ def test_move_opening_across_a_thick_wall():
                 assert math.dist(by_id(changed, "openings", opening["id"])["position"], [x, y]) < 1.0
                 return
     pytest.skip("no swiss building with a 0.5-1.0 m wall in train")
+
+
+# ---------- final-review fixes: corners on a neighbour's edge ----------
+
+
+def corner_on_corridor(building: dict) -> tuple[str, list[float], list[str]]:
+    """A corner shared by two rooms that lies in the middle of a corridor's edge: (corridor id, corner, rooms)."""
+    for corridor in building["spaces"]:
+        if corridor["type"] != "corridor":
+            continue
+        ring = Polygon(corridor["polygon"]).exterior
+        corners = {tuple(point) for point in corridor["polygon"]}
+        for room in building["spaces"]:
+            if room["type"] != "room" or room["floor_id"] != corridor["floor_id"]:
+                continue
+            for point in room["polygon"]:
+                if tuple(point) in corners or ring.distance(Point(point)) > 0.001:
+                    continue
+                sharing = [other["id"] for other in building["spaces"] if other["floor_id"] == room["floor_id"]
+                           and list(point) in [list(p) for p in other["polygon"]]]
+                if len(sharing) == 2:
+                    return corridor["id"], list(point), sharing
+    raise AssertionError("fixture has no shared corner on a corridor edge")
+
+
+def toward(building: dict, space_id: str, corner: list[float], metres: float) -> list[float]:
+    """`corner` moved `metres` towards the centroid of `space_id` along the axis normal to the corridor edge."""
+    centre = Polygon(by_id(building, "spaces", space_id)["polygon"]).centroid
+    return [corner[0], round(corner[1] + (metres if centre.y > corner[1] else -metres), 3)]
+
+
+def test_shared_corner_into_corridor_leaves_no_overlap(base):
+    from core.validate import validate
+    corridor, corner, rooms = corner_on_corridor(base)
+    floor = by_id(base, "spaces", corridor)["floor_id"]
+    changed = apply_op(base, {"op": "move_vertex", "floor_id": floor, "from_xy": corner,
+                              "to_xy": toward(base, corridor, corner, 1.0)})
+    assert [issue for issue in validate(changed, base=base) if issue["code"] == "overlap"] == []
+
+
+def test_corner_moved_away_from_corridor_leaves_no_hole(base):
+    corridor, corner, rooms = corner_on_corridor(base)
+    floor = by_id(base, "spaces", corridor)["floor_id"]
+    changed = apply_op(base, {"op": "move_vertex", "floor_id": floor, "from_xy": corner,
+                              "to_xy": toward(base, rooms[0], corner, 1.0)})
+    involved = [corridor, *rooms]
+    before = sum(Polygon(by_id(base, "spaces", space)["polygon"]).area for space in involved)
+    after = sum(Polygon(by_id(changed, "spaces", space)["polygon"]).area for space in involved)
+    assert abs(after - before) < 0.01  # the corridor grows into what the rooms gave up

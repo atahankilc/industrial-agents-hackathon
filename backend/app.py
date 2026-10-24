@@ -34,7 +34,7 @@ from agent.builder import Builder
 from backend.drafts import Draft, DraftStore
 from backend.sessions import DATA_DIR, DEFAULT_SESSION, Conversation, SessionStore, UnknownBuilding, summary
 from core.building_map import BuildingMap
-from core.edits import EditError, apply_op
+from core.edits import EditError
 from core.pointcloud import export_points
 
 API_PREFIX = "/api"
@@ -327,16 +327,15 @@ def builder_for(draft: Draft) -> tuple[Builder, threading.Lock]:
 def tell_builder(draft_id: str, note: str) -> None:
     builder = builders.get(draft_id)
     if builder is not None:
-        builder.notes.append(f"[note, not from the user] {note}")
+        builder.drafted_by_hand(note)
 
 
 def proposal_payload(draft: Draft, proposal: object | None) -> dict | None:
-    """An open proposal for the UI, with the draft as it would look after it (the plan's ghost overlay)."""
-    if proposal is None:
+    """An open proposal for the UI, with the draft as it would look after it (the plan's ghost overlay). None when
+    the draft changed while the Builder worked (a hand edit): the reply still goes out, the outdated proposal not."""
+    if proposal is None or proposal.draft_version != draft.version:
         return None
-    preview = drafts.building(draft)
-    for operation in proposal.ops:
-        preview = apply_op(preview, operation)
+    preview = proposal.preview
     return {"id": proposal.id, "summary": proposal.summary, "ops": proposal.ops,
             "new_problems": [issue["message"] for issue in proposal.new_problems], "effect": proposal.effect,
             "building": preview}
@@ -373,6 +372,15 @@ def draft_chat_stream(draft_id: str, body: BuilderMessage) -> StreamingResponse:
             yield json.dumps(line, ensure_ascii=False) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+@app.post("/drafts/{draft_id}/proposals/{proposal_id}/cancel")
+def cancel_proposal(draft_id: str, proposal_id: str) -> dict:
+    draft = draft_or_404(draft_id)
+    builder, lock = builder_for(draft)
+    with lock:
+        builder.cancel(proposal_id)
+    return {"cancelled": proposal_id}
 
 
 @app.post("/drafts/{draft_id}/proposals/{proposal_id}/apply")

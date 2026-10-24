@@ -83,6 +83,12 @@ export function BuilderChat({ draftId, proposal, disabled, examples, onReply, on
     }
   }
 
+  // Cancel closes the proposal on the server too, so a later "yes" can't apply it.
+  const cancel = () => {
+    if (proposal) void api.cancelProposal(draftId, proposal.id).catch(() => {})
+    onCancel()
+  }
+
   return (
     <section className="builder" aria-label="Builder">
       <div className="builder-lines" ref={list}>
@@ -117,7 +123,7 @@ export function BuilderChat({ draftId, proposal, disabled, examples, onReply, on
               <p key={index} className="problem">{problem}</p>
             ))}
             <div className="row">
-              <button type="button" onClick={onCancel} disabled={applying}>
+              <button type="button" onClick={cancel} disabled={applying}>
                 <X size={14} /> Cancel
               </button>
               <button type="button" className="edit-primary" onClick={apply} disabled={applying || disabled}>

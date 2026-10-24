@@ -169,3 +169,42 @@ def test_offline_add_door_between_neighbours(store, draft):
     assert turn.proposal is not None
     assert turn.proposal.ops[0]["op"] == "add_opening"
     assert turn.proposal.ops[0]["space_ids"] == [office["id"], other["id"]]
+
+
+# ---------- final-review fixes: a proposal is only confirmable by the very next message ----------
+
+
+def test_ok_after_another_turn_does_not_apply(store, draft):
+    room = a_room(store, draft)
+    builder = Builder(store, draft, client=BuilderOfflineClient())
+    assert builder.reply(f"rename {room['ref']} to Quiet room").proposal
+    builder.reply("what can you do?")  # the card is gone in the UI
+    turn = builder.reply("ok thanks")
+    assert turn.applied is None and draft.steps == []
+
+
+def test_yes_with_more_words_goes_to_the_model(store, draft):
+    room = a_room(store, draft)
+    client = ScriptedClient(rename_script(room) + [message(text_block("Sure — what name would you like instead?"))])
+    builder = Builder(store, draft, client=client)
+    builder.reply("rename it")
+    turn = builder.reply("yes, but call it Library instead")
+    assert turn.applied is None and draft.steps == []
+    assert "yes, but call it Library instead" in str(client.requests[-1][-1]["content"])
+
+
+def test_cancelled_proposal_is_not_applied_by_yes(store, draft):
+    room = a_room(store, draft)
+    client = ScriptedClient(rename_script(room) + [message(text_block("Nothing is open to apply."))])
+    builder = Builder(store, draft, client=client)
+    proposal = builder.reply("rename it").proposal
+    builder.cancel(proposal.id)
+    assert builder.reply("yes").applied is None and draft.steps == []
+
+
+def test_hand_edit_note_drops_the_open_proposal(store, draft):
+    room = a_room(store, draft)
+    builder = Builder(store, draft, client=BuilderOfflineClient())
+    builder.reply(f"rename {room['ref']} to Quiet room")
+    builder.drafted_by_hand("The user moved a door.")
+    assert builder.tools.pending == {} and builder.reply("yes").applied is None

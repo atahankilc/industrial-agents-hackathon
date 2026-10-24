@@ -385,3 +385,17 @@ def test_malformed_arguments_are_edit_errors(base):
                       {"op": "set_asset", "asset_id": asset["id"], "footprint": {"width_m": "x"}}):
         with pytest.raises(EditError):
             apply_op(base, operation)
+
+
+def test_text_fields_are_strings(base):
+    room = next(space for space in base["spaces"] if space["type"] == "room")
+    changed = apply_op(base, {"op": "set_space", "space_id": room["id"], "ref": 0.5, "name": 12})
+    assert by_id(changed, "spaces", room["id"])["ref"] == "0.5"
+    assert by_id(changed, "spaces", room["id"])["name"] == "12"
+    with pytest.raises(EditError):
+        apply_op(base, {"op": "set_space", "space_id": room["id"], "name": {"x": 1}})
+    with pytest.raises(EditError):
+        apply_op(base, {"op": "add_space", "floor_id": base["floors"][0]["id"], "polygon": [[0, 0], [1, 0], [1, 1]],
+                        "type": "room", "room_type": None, "name": "x"})
+    with pytest.raises(EditError):
+        apply_op(base, {"op": "set_asset", "asset_id": base["assets"][0]["id"], "category": ["machine"]})

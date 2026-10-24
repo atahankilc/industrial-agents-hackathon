@@ -269,3 +269,32 @@ def test_builder_stream_unknown_draft_404(client):
     assert client.post("/drafts/0123456789abcdef0123456789abcdef/chat/stream", json={"message": "hi"}).status_code == 404
     draft_id = new_draft(client)["draft"]["id"]
     assert client.post(f"/drafts/{draft_id}/proposals/P9/apply").status_code == 409
+
+
+def test_proposal_payload_skips_a_stale_proposal(client):
+    """A hand edit while the Builder was thinking: the reply still goes out, the outdated proposal does not."""
+    from agent.builder_tools import Proposal
+
+    created = new_draft(client)
+    draft = backend_app.drafts.get(created["draft"]["id"])
+    room = a_room(created["building"])
+    proposal = Proposal("P1", "rename", [{"op": "delete_space", "space_id": room["id"]}], draft.version,
+                        preview=backend_app.drafts.building(draft))
+    assert backend_app.proposal_payload(draft, proposal)["building"] is proposal.preview
+    backend_app.drafts.apply(draft, [{"op": "delete_space", "space_id": room["id"]}])
+    assert backend_app.proposal_payload(draft, proposal) is None
+
+
+def test_hand_edit_drops_the_builders_open_proposal(client):
+    draft_id = new_draft(client)["draft"]["id"]
+    builder_lines(client, draft_id, side_prompt(client, draft_id))
+    building = client.get(f"/drafts/{draft_id}").json()["building"]
+    rename(client, draft_id, a_room(building)["id"], "by hand")
+    assert builder_lines(client, draft_id, "yes")[-1]["applied"] is None
+
+
+def test_cancel_proposal_endpoint(client):
+    draft_id = new_draft(client)["draft"]["id"]
+    proposal = builder_lines(client, draft_id, side_prompt(client, draft_id))[-1]["proposal"]
+    assert client.post(f"/drafts/{draft_id}/proposals/{proposal['id']}/cancel").status_code == 200
+    assert client.post(f"/drafts/{draft_id}/proposals/{proposal['id']}/apply").status_code == 409

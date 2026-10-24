@@ -5,11 +5,13 @@ a Claude tool-use loop with a cached system prompt (instructions + the draft's o
 the Guide's grounding check (numbers / ids in a reply must come from a tool result, the overview or the user).
 The tools (agent/builder_tools.py) can only look and *propose*; a proposal enters the draft when the user applies
 it — the Apply button (`Builder.apply`, via the backend) or a plain "yes" while exactly one proposal is open, which
-is applied here without a model call. Proposals made against an older draft are refused ("changed since").
+is applied here without a model call. A proposal is open for one exchange only: the next message (or Apply);
+any other turn, a Cancel, or a hand edit closes it. Proposals made against an older draft are refused ("changed since").
 Offline (no key or GUIDE_LLM=offline) the rule-based agent/builder_offline.py stands in for the model."""
 
 import json
 import os
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -17,7 +19,6 @@ import anthropic
 
 from agent.builder_tools import BUILDER_TOOLS, BuilderTools, Proposal
 from agent.guide import FALLBACK_BETA, MAX_TOKENS, Usage, llm_mode, ungrounded
-from agent.offline_llm import CONFIRM
 from backend.drafts import Draft, DraftStore
 from core.edits import EditError
 
@@ -25,6 +26,10 @@ DEFAULT_MODEL = "claude-opus-5-5"  # override with BUILDER_MODEL
 DEFAULT_EFFORT = "medium"  # override with BUILDER_EFFORT
 MAX_TOOL_ROUNDS = 10
 MAX_REPAIRS = 2  # failed propose_edit calls per turn before the loop is told to stop proposing
+# Only a message that is nothing but a confirmation applies the open proposal without the model ("yes, but call it
+# Library" must reach the model).
+CONFIRM_ONLY = re.compile(r"^\s*(yes|yep|yeah|ok|okay|sure|confirm|apply|apply it|do it|go ahead|please do|yes please)"
+                          r"\s*[.!]*\s*$", re.IGNORECASE)
 STOP_PROPOSING = ("stop proposing: your last proposals failed. Tell the user in one or two sentences what you tried "
                   "and what went wrong, and ask how to continue.")
 
@@ -93,16 +98,32 @@ class Builder:
         self.messages: list[dict] = []
         self.corpus: list[str] = [overview]
         self.notes: list[str] = []  # told to the model with the next user message (Apply button, hand edits)
+        self.closed: dict[str, str] = {}  # proposal id → why it can no longer be applied (for the Apply button's 409)
         self.usage = Usage()
         self.on_step: Callable[[dict], None] | None = None
 
     # ---------- applying ----------
 
+    def cancel(self, proposal_id: str) -> None:
+        """The user dismissed the proposal (Cancel): it can no longer be applied."""
+        if self.tools.pending.pop(proposal_id, None) is not None:
+            self.closed[proposal_id] = "this proposal was cancelled"
+            self.notes.append(f"[note, not from the user] The user cancelled {proposal_id}.")
+
+    def drafted_by_hand(self, note: str) -> None:
+        """A hand edit / undo changed the draft: tell the model next turn, and drop the open proposal."""
+        self.close_all("the draft changed since this proposal; ask again")
+        self.notes.append(f"[note, not from the user] {note}")
+
+    def close_all(self, reason: str) -> None:
+        self.closed.update({proposal_id: reason for proposal_id in self.tools.pending})
+        self.tools.pending.clear()
+
     def apply(self, proposal_id: str) -> str:
         """Apply an open proposal to the draft (the user's decision). Raises EditError if it is unknown or stale."""
         proposal = self.tools.pending.get(proposal_id)
         if proposal is None:
-            raise EditError(f"no open proposal {proposal_id!r}; ask again")
+            raise EditError(self.closed.get(proposal_id, f"no open proposal {proposal_id!r}; ask again"))
         self.store.apply(self.draft, proposal.ops, expected_version=proposal.draft_version)
         self.tools.pending.pop(proposal_id, None)
         self.notes.append(f"[note, not from the user] The user applied {proposal.id} ({proposal.summary}) with the "
@@ -112,7 +133,7 @@ class Builder:
     # ---------- a user turn ----------
 
     def reply(self, text: str) -> BuilderTurn:
-        if CONFIRM.match(text) and len(self.tools.pending) == 1:
+        if CONFIRM_ONLY.match(text) and len(self.tools.pending) == 1:
             proposal_id = next(iter(self.tools.pending))
             try:
                 summary = self.apply(proposal_id)
@@ -125,10 +146,11 @@ class Builder:
             reply = f"Applied: {summary}."
             self.remember(text, reply)
             return BuilderTurn(reply, applied=summary)
+        # A proposal is only confirmable by the very next message: any other turn closes it (the UI drops its card).
+        self.close_all("a newer message replaced this proposal; ask again")
         self.corpus.append(text)
         notes, self.notes = self.notes, []
         self.messages.append({"role": "user", "content": "\n\n".join([*notes, text])})
-        open_before = set(self.tools.pending)
         turn = self.run()
         missing = ungrounded(turn.text, "\n".join(self.corpus))
         if missing and turn.stop_reason == "end_turn":
@@ -141,8 +163,7 @@ class Builder:
             repaired.tool_calls = turn.tool_calls + repaired.tool_calls
             turn = repaired
         turn.ungrounded = ungrounded(turn.text, "\n".join(self.corpus))
-        fresh = [proposal for pid, proposal in self.tools.pending.items() if pid not in open_before]
-        turn.proposal = fresh[-1] if fresh else None
+        turn.proposal = next(iter(self.tools.pending.values()), None)
         return turn
 
     def remember(self, said: str, reply: str) -> None:

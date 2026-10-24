@@ -203,6 +203,8 @@ export const api = {
   saveDraft: (id: string, name: string) =>
     request<{ building: string; issues: Issue[] }>(`/drafts/${id}/save`, { method: 'POST', body: JSON.stringify({ name }) }),
   builderStream,
+  cancelProposal: (id: string, proposalId: string) =>
+    request<{ cancelled: string }>(`/drafts/${id}/proposals/${proposalId}/cancel`, { method: 'POST' }),
   applyProposal: (id: string, proposalId: string) =>
     request<DraftState>(`/drafts/${id}/proposals/${proposalId}/apply`, { method: 'POST' }),
   events: (id: string, after: number) =>

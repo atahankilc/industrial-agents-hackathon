@@ -8,12 +8,12 @@ sources:
   - archive/initial-repo/README.md §1, §3, judging table
   - docs/kit/data-format.md
   - agent/tools.py, backend/app.py, backend/sessions.py, backend/persistence.py, frontend/app/src/App.tsx
-related: [../plans/2026-10-24-builder-edit-mode-m1.md, ../plans/2026-10-24-builder-edit-mode-m2.md, ../../architecture/ai-agents.md, ../../kit/data-format.md, ../../challenge/brief.md, 2026-10-24-guide-agent-design.md]
+related: [../plans/2026-10-24-builder-edit-mode-m1.md, ../plans/2026-10-24-builder-edit-mode-m2.md, ../plans/2026-10-24-builder-edit-mode-m3.md, ../../architecture/ai-agents.md, ../../kit/data-format.md, ../../challenge/brief.md, 2026-10-24-guide-agent-design.md]
 ---
 
 # Builder · Edit mode — design
 
-Implementation plans: [milestone 1](../plans/2026-10-24-builder-edit-mode-m1.md) (drag edit, done) · [milestone 2](../plans/2026-10-24-builder-edit-mode-m2.md) (prompt edits).
+Implementation plans: [milestone 1](../plans/2026-10-24-builder-edit-mode-m1.md) (drag edit, done) · [milestone 2](../plans/2026-10-24-builder-edit-mode-m2.md) (prompt edits, done) · [milestone 3](../plans/2026-10-24-builder-edit-mode-m3.md) (deployed store — owner Atahan).
 
 ## Intent
 

@@ -2,7 +2,7 @@
 id: plan-builder-edit-mode-m2
 summary: Task-by-task plan for milestone 2 of the Builder Edit mode — prompt edits by a Builder agent (tools, propose → Apply, ghost overlay on the plan), offline rules client, backend stream + apply, Edit-mode chat.
 sources: [../specs/2026-10-24-builder-edit-mode-design.md, 2026-10-24-builder-edit-mode-m1.md, agent/guide.py, agent/offline_llm.py, agent/places.py, backend/app.py, backend/drafts.py, core/edits.py]
-related: [../specs/2026-10-24-builder-edit-mode-design.md, 2026-10-24-builder-edit-mode-m1.md, ../../architecture/ai-agents.md]
+related: [../specs/2026-10-24-builder-edit-mode-design.md, 2026-10-24-builder-edit-mode-m1.md, 2026-10-24-builder-edit-mode-m3.md, ../../architecture/ai-agents.md]
 ---
 
 # Builder Edit Mode — Milestone 2 (Prompt Edits) Implementation Plan

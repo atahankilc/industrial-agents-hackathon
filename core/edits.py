@@ -71,6 +71,16 @@ def apply_steps(base: dict, steps: list[list[dict]]) -> dict:
 # ---------- helpers ----------
 
 
+def text(value: object, field: str) -> str:
+    """A name / ref / type field as a string: numbers become strings (models send refs like 0.21 as numbers),
+    anything else is refused — a dict or None in a name breaks search and the plan labels."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(value)
+    raise EditError(f"{field} must be text, not {type(value).__name__}")
+
+
 def rounded(xy: list[float]) -> list[float]:
     return [round(float(xy[0]), 3), round(float(xy[1]), 3)]
 
@@ -144,8 +154,9 @@ def add_space(building: dict, floor_id: str, polygon: list[list[float]], type: s
     if len(outline) < 3 or not Polygon(outline).is_valid or Polygon(outline).area <= 0:
         raise EditError("a space needs a valid outline with at least three corners")
     building["spaces"].append({
-        "id": new_id(building, "spaces", f"{floor_id}-S-new"), "floor_id": floor_id, "type": type,
-        "room_type": room_type, "name": name, "ref": ref, "polygon": outline, "synthetic": False,
+        "id": new_id(building, "spaces", f"{floor_id}-S-new"), "floor_id": floor_id, "type": text(type, "type"),
+        "room_type": text(room_type, "room_type"), "name": text(name, "name"),
+        "ref": None if ref is None else text(ref, "ref"), "polygon": outline, "synthetic": False,
     })
 
 
@@ -166,7 +177,7 @@ def set_space(building: dict, space_id: str, name: str | None = None, ref: str |
     space = find(building, "spaces", space_id)
     for key, value in (("name", name), ("ref", ref), ("type", type), ("room_type", room_type)):
         if value is not None:
-            space[key] = value
+            space[key] = text(value, key)
 
 
 # ---------- openings ----------
@@ -224,8 +235,9 @@ def add_asset(building: dict, space_id: str, name: str, category: str, type: str
     space = find(building, "spaces", space_id)
     footprint = footprint or {"width_m": 1.0, "depth_m": 1.0, "rotation_deg": 0.0}
     building["assets"].append({
-        "id": new_id(building, "assets", f"{building['building']['id']}-A-new"), "name": name,
-        "category": category, "type": type, "space_id": space_id, "floor_id": space["floor_id"],
+        "id": new_id(building, "assets", f"{building['building']['id']}-A-new"), "name": text(name, "name"),
+        "category": text(category, "category"), "type": text(type, "type"), "space_id": space_id,
+        "floor_id": space["floor_id"],
         "position": rounded(position),
         "footprint": {"width_m": float(footprint["width_m"]), "depth_m": float(footprint["depth_m"]),
                       "rotation_deg": float(footprint.get("rotation_deg", 0.0))},
@@ -252,7 +264,7 @@ def set_asset(building: dict, asset_id: str, name: str | None = None, type: str 
     asset = find(building, "assets", asset_id)
     for key, value in (("name", name), ("type", type), ("category", category)):
         if value is not None:
-            asset[key] = value
+            asset[key] = text(value, key)
     if footprint is not None:
         asset["footprint"].update({key: float(value) for key, value in footprint.items()})
 

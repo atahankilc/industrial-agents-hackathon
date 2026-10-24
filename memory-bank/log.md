@@ -10,6 +10,20 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 21:22 — Builder M2 review fixes; M3 plan for Atahan
+
+- **Did:** whole-branch review of M2 (opus): 1 critical, 3 important, 6 minor. Fixed test-first: (critical) an open
+  proposal stayed applicable after the UI dropped it — now any non-confirm turn, Cancel (`POST
+  /drafts/{id}/proposals/{pid}/cancel`, wired to the card) or a hand edit closes it, and the Apply button's 409 says
+  why; (important) only a message that is nothing but "yes"/"ok"/… skips the model (`CONFIRM_ONLY`), so "yes, but
+  call it Library" reaches it; name / ref / type / category fields in ops are coerced to strings (numbers) or refused
+  (a float ref broke `find`); the stream drops a proposal whose draft changed during the turn instead of erroring, and
+  the ghost uses the dry-run building kept on the `Proposal`. 8 new tests; `uv run pytest` 729 passed, 1 skipped;
+  headless Chrome re-run clean. Minors deferred (non-finite coordinates, two `/ops` 500s, Apply clickable while a
+  turn runs, revision bump on "yes", richer `find` candidates). Wrote the
+  [M3 plan](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m3.md) (Supabase store) for Atahan.
+- **Next:** Utku's call — merge / push `2-builder-edit`, or project 2 (build from PDF / image).
+
 ## 2026-10-24 21:08 — Builder M2 Task 5: Edit-mode chat, proposal ghost, live check
 
 - **Did:** `frontend/app/src/edit/BuilderChat.tsx` (NDJSON stream with step lines, proposal card with areas / new

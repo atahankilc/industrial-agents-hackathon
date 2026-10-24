@@ -67,7 +67,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `/drafts/{id}/chat/stream` + `/drafts/{id}/proposals/{pid}/apply` (stale → 409). Task 5 frontend
   (`edit/BuilderChat.tsx`, ghost overlay in `PlanEditor`, Apply / Cancel, examples from the building's rooms);
   headless Chrome offline + live Opus check (`scripts/live_builder.py`, ~$0.08 for 3 prompts + $0.03 follow-up).
-  **M2 done** — next: whole-branch review of M2, then write the M3 plan for Atahan.
+  **M2 done**; review (opus) fixes: a proposal is confirmable only by the very next message (another turn,
+  Cancel — new `/proposals/{pid}/cancel` — or a hand edit closes it), only a bare "yes"/"ok" skips the model, text
+  fields in ops are coerced to strings, a proposal made against a draft that changed meanwhile is not sent.
+  **M3 plan written for Atahan:** [m3](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m3.md).
 - **M3 (deployed store: drafts, saved buildings, Builder history in Supabase) is Atahan's** (Utku, 2026-10-24) —
   write its plan after M2, don't implement it.
 

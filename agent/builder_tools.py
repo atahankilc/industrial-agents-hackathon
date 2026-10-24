@@ -28,6 +28,7 @@ class Proposal:
     draft_version: int  # the draft it was made against; applying on a newer version is refused
     new_problems: list[dict] = field(default_factory=list)
     effect: dict = field(default_factory=dict)
+    preview: dict | None = None  # the draft after the ops, as dry-run (the plan's ghost); not sent to the model
 
 
 def shared_length(edge: dict, near: Polygon) -> float:
@@ -149,7 +150,7 @@ class BuilderTools:
             after = apply_op(after, operation)
         new_problems = [issue for issue in validate(after, base=current) if issue["severity"] == "error"]
         proposal = Proposal(f"P{next(self._ids)}", summary, ops, self.draft.version, new_problems,
-                            effect(current, after))
+                            effect(current, after), preview=after)
         self.pending = {proposal.id: proposal}  # only the newest proposal stays open
         return {"proposal_id": proposal.id, "summary": summary, "effect": proposal.effect,
                 "new_problems": [issue["message"] for issue in new_problems], "needs_confirmation": True}

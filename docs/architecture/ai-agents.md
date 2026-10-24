@@ -207,8 +207,10 @@ op lists with `propose_edit` (dry run, area effect, new problems), never applies
 proposal as a ghost on the plan with Apply / Cancel, a plain "yes" also applies; hand edits drop an open proposal
 (stale ones are refused server-side). Live (Opus 5.5 medium, `scripts/live_builder.py`): move a machine 7.6 s, add a
 door 13.1 s, an ambiguous "widen the lab into the next room" asked which side (5.4 s), then proposed `move_edge` and
-flagged the sink left outside (6.9 s); 0 ungrounded; ~$0.02–0.04 per turn. Not yet: deployed store and Builder
-history persistence (milestone 3 — Atahan), plan images (project 2).
+flagged the sink left outside (6.9 s); 0 ungrounded; ~$0.02–0.04 per turn. A proposal is open for one exchange
+only (the next message or Apply); another turn, Cancel or a hand edit closes it, and only a bare "yes"/"ok" applies
+without the model. Not yet: deployed store and Builder history persistence
+([milestone 3 plan](../superpowers/plans/2026-10-24-builder-edit-mode-m3.md) — Atahan), plan images (project 2).
 
 1. Upload plan image (PNG/PDF page) or describe changes by conversation.
 2. Claude vision drafts `floors`/`spaces`/`openings` in our schema (scale from a known dimension the user gives

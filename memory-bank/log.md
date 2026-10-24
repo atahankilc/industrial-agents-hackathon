@@ -10,6 +10,19 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Guide Task 5: loop, prompt and REPL (branch `1-agentic-yarag`)
+
+- **Did:** Added `agent/guide/prompt.py` (cached RULES + building overview, no per-room facts), `agent/guide/guide.py`
+  (`Guide.turn` tool loop, one grounding repair then `fallback_text`, API errors roll the turn back, `TurnResult`
+  with ids/routes/options for the UI) and `agent/guide/__main__.py` (REPL with `--show-tools` and a cost line);
+  15 tests in `tests/test_guide_loop.py` (+1 empty-list test in `tests/test_guide_route.py`); full suite 100 passed.
+- **Learned (live smoke):** the API rejects strict tool sets with more than 16 nullable/union parameters, so
+  `via` / `close` / `reopen` are now plain arrays (`[]` = none). The model split "the 3D printer" into one route per
+  room until a prompt rule said to pass the user's own words; `locate` now ignores a leading "the".
+- **Review fix:** a refusal / cut-off response with tool calls now gets `is_error` tool results (append-only), so the
+  next turn's history stays valid.
+- **Next:** Task 6+ (UI / voice on top of `TurnResult`).
+
 ## 2026-10-24 — Guide Task 4: grounding checker (branch `1-agentic-yarag`)
 
 - **Did:** Added `agent/guide/grounding.py` (`grounded_tokens`, `ungrounded`, `fallback_text`); numbers in a reply must

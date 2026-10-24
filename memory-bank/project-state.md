@@ -38,6 +38,7 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   schemas); 12 tests in `tests/test_guide_tools.py`; full suite 56 passed.
 - `route` + `update_session` tools in `agent/guide/tools.py` (session position / step-free / closures feed routes; closures fan out as slots and never leak into `bmap.closed`); 13 tests in `tests/test_guide_route.py`; full suite 69 passed.
 - `agent/guide/grounding.py` — grounded_tokens / ungrounded / fallback_text (numbers in replies must come from tool results); 14 tests in `tests/test_guide_grounding.py`; full suite 83 passed.
+- `agent/guide/prompt.py` + `guide.py` + `__main__.py` — Guide loop (`Guide.turn` → `TurnResult`, one grounding repair then code fallback, API errors roll the turn back) and REPL `uv run --env-file .env python -m agent.guide <building_dir> [--show-tools]`; 15 tests in `tests/test_guide_loop.py` (+1 in `tests/test_guide_route.py`: `[]` for via/close/reopen means none); full suite 100 passed.
 - Knowledge base: [docs/](../docs/README.md) incl. architecture, agents, personas, routing profiles, research.
 - Point-cloud 3D prototype: `frontend/prototypes/pointcloud/` (exporter + three.js viewer), see
   [visualization.md](../docs/product/visualization.md).
@@ -70,6 +71,7 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - Warm-up kinds (locate, count, route, route_step_free, route_with_closure, tour): parser templates + solvers +
   replies; from text 2,120/2,130 train+dev (`tests/test_warm_up.py`; 10 misses = duplicate room names); LLM
   parser knows them (offline fake-client test; live 12/12 reworded).
+- Guide REPL live (2026-10-24, campus dev-001): "Where is the 3D printer?" → both rooms from `locate`; "how do I get there from the main lobby?" → `update_session` + `route` ambiguous → asks which room; ≈ $0.03 for the 2 turns.
 - `benchmark/score.py` parsing behaviour checked ([scoring.md](../docs/challenge/scoring.md#formatting-pitfalls-cost-real-points)).
 
 ## Pending decisions (Atahan)

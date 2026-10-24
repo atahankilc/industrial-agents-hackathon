@@ -57,6 +57,11 @@ def test_locate_lists_every_room_with_counts():
     assert {(r["ref"], r["count"]) for r in out["rooms"]} == {("1.14", 4), ("2.20", 1)}
 
 
+def test_locate_ignores_leading_article():
+    out = run_tool(bmap(CAMPUS), Session(), "locate", {"thing": "the 3D printer"})
+    assert out["status"] == "ok" and out["total"] == 5
+
+
 def test_locate_unknown_thing_is_not_found_with_nearest():
     out = run_tool(bmap(FACTORY), Session(), "locate", {"thing": "espresso robot"})
     assert out["status"] == "not_found" and "nearest" in out and out["summary"]

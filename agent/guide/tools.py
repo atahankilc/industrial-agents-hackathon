@@ -8,7 +8,7 @@ import difflib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from agent.guide.resolve import describe, fan_out, nearest_names, resolve_elements, resolve_places
+from agent.guide.resolve import describe, fan_out, nearest_names, resolve_elements, resolve_places, strip_leading
 from core.building_map import BuildingMap, MapError
 from core.question_parser import ParseError, Resolver, normalise
 from core.solvers import area, label, room_stacked, shared_walls, solve
@@ -17,6 +17,7 @@ from core.solvers import route as core_route
 MAX_HITS = 10
 MAX_ASSET_NAMES = 15
 NULLABLE_TEXT = {"anyOf": [{"type": "string"}, {"type": "null"}]}
+TEXT_LIST = {"type": "array", "items": {"type": "string"}}  # [] = none; strict mode allows <= 16 unions
 FACT_KINDS = [
     "largest_room", "floor_area_total", "count", "shared_walls_count", "room_stacked", "straight_line_3d",
     "errand", "wide_delivery_count", "step_free_reachable_count", "what_if_door",
@@ -58,16 +59,15 @@ TOOLS = [
           "step_free": {"anyOf": [{"type": "boolean"}, {"type": "null"}]}}),
     tool("route",
          "Shortest route to a place. `from` null uses the user's current position; step_free null uses the session "
-         "setting. Session closures are applied. via lists stops to pass through in order.",
-         {"to": {"type": "string"}, "from": NULLABLE_TEXT,
-          "via": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]},
+         "setting. Session closures are applied. via lists stops to pass through in order ([] for none).",
+         {"to": {"type": "string"}, "from": NULLABLE_TEXT, "via": TEXT_LIST,
           "step_free": {"anyOf": [{"type": "boolean"}, {"type": "null"}]}}),
     tool("update_session",
          "Remember what the user tells you: where they are, whether they need step-free access, and lifts, stairs "
-         "or doors that are closed (close) or open again (reopen). Later routes use this state.",
+         "or doors that are closed (close) or open again (reopen). Later routes use this state. Null / [] leaves a "
+         "field unchanged.",
          {"position": NULLABLE_TEXT, "step_free": {"anyOf": [{"type": "boolean"}, {"type": "null"}]},
-          "close": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]},
-          "reopen": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]}}),
+          "close": TEXT_LIST, "reopen": TEXT_LIST}),
 ]
 
 
@@ -119,6 +119,7 @@ def not_found(bmap: BuildingMap, text: str, what: str) -> dict:
 # ---------- locate / find_places ----------
 
 def matching_assets(bmap: BuildingMap, thing: str) -> list[dict]:
+    thing = strip_leading(thing)
     wanted = normalise(thing)
     try:
         asset_type = Resolver(bmap).asset_type(thing)

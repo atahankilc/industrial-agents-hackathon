@@ -126,3 +126,14 @@ def test_collapsed_closure_names_every_candidate():
     out = run_tool(b, s, "route", args(to="Main lobby"))
     assert out["status"] == "ok" and out["closed"] == ["Lift 1 / Lift 2"]
     assert "Lift 1 / Lift 2" in out["summary"]
+
+
+def test_empty_lists_mean_none():
+    """The strict schema makes the model send [] for via / close / reopen; that must behave like null."""
+    b, s = bmap(CAMPUS), Session()
+    run_tool(b, s, "update_session", {"position": None, "step_free": None, "close": ["Lift 1"], "reopen": None})
+    before = list(s.closures)
+    out = run_tool(b, s, "update_session", {"position": None, "step_free": None, "close": [], "reopen": []})
+    assert out["status"] == "ok" and s.closures == before
+    trip = {"to": "1.14", "from": "Main lobby", "step_free": None}
+    assert run_tool(b, s, "route", {**trip, "via": []}) == run_tool(b, s, "route", {**trip, "via": None})

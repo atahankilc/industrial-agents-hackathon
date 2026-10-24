@@ -10,6 +10,21 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 19:40 — Builder Edit mode: design, M1 plan, core edit ops (branch `2-builder-edit`)
+
+- **Did:** brainstormed Level 4 with Utku → three Builder projects in order: Edit mode, build from scratch
+  (PDF/image/conversation), scan ingest. Design of Edit mode
+  ([spec](../docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md), status proposed, approved by Utku) and
+  milestone-1 plan ([plan](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m1.md), 7 tasks). Work happens on
+  branch `2-builder-edit` in the worktree `.claude/worktrees/2-builder-edit`. Task 1 done: `core/edits.py`
+  (11 JSON ops, deterministic ids, opening snapping, `apply_steps` replay), `tests/test_edits.py` 16 passed;
+  full suite 320 passed, 1 skipped.
+- **Learned:** Blueprint-Bench 2 (Andon Labs): models get room counts right but mostly miss which rooms connect →
+  validator-first Builder. Dataset scan: all 280 buildings have an entrance and every space is reachable; OSM /
+  Swiss / ResPlan have pre-existing overlaps and doors off the shared wall, Swiss walls up to ~2 m thick → the
+  validator must separate pre-existing from newly introduced issues, and snapping must tolerate thick walls.
+- **Next:** M1 Task 2 (`move_vertex`, `set_polygon` with neighbour fitting).
+
 ## 2026-10-24 — Guide eval ported to the canonical Guide
 
 - **Did:** `scripts/eval_guide.py` and `tests/test_guide_conversations.py` now test `agent/guide.py` (they tested

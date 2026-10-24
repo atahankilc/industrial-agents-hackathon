@@ -196,6 +196,8 @@ tool wins.
 
 ## Builder (Level 4)
 
+Edit mode design (step 1 of the Builder): [builder-edit-mode-design](../superpowers/specs/2026-10-24-builder-edit-mode-design.md).
+
 1. Upload plan image (PNG/PDF page) or describe changes by conversation.
 2. Claude vision drafts `floors`/`spaces`/`openings` in our schema (scale from a known dimension the user gives
    or a scale bar).

@@ -10,6 +10,18 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — `SUBMISSION/` folder for the graded benchmark (v1 pipeline)
+
+- **Did:** organisers announced the graded folder `SUBMISSION/` with exactly `BENCHMARK.md` + `answers.json`.
+  Moved `BENCHMARK.md` there (rewritten around `agent.run_benchmark_v1`) and generated `SUBMISSION/answers.json`
+  from the public test set (`PARSER_MODE=regex`, 145 answers, 0 errors; byte-identical to
+  `submissions/test_answers.json`). Links updated (README, commands, overview, ai-agents, scoring, Q-001, state).
+- **Learned:** the canonical runner (`agent.run_benchmark` → `core/solvers/`) has no solvers for the warm-up kinds:
+  all 1,338 train+dev route questions (route, step-free, closure, tour) → `No solver for question kind`. On the
+  test set both runners give the same rooms and numbers. v1 answers routes via `BuildingMap.route`
+  (1,338/1,338 exact) → v1 is the submission pipeline. Dev 138/138 with v1 (regex).
+- **Next:** Sunday building → rerun the one command into `SUBMISSION/answers.json`; video + tech explanation.
+
 ## 2026-10-25 — Pulled `origin/dev` twice (kit 1.1.0 route model, Builder Edit mode) into the uncommitted HUD work
 
 - **Did:** stash → fast-forward → stash apply, twice (26b908f, then b352e83). Text conflicts: `log.md` (all entries

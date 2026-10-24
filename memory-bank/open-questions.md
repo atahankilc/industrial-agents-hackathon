@@ -30,10 +30,14 @@ Template:
   [scoring.md](../docs/challenge/scoring.md#-conflict-pdf-vs-readme).
 - **How to resolve:** ask organisers; meanwhile make solvers return structured results (ids, node path, length)
   *and* prose.
-- **Progress (2026-10-24):** both runners exist ([BENCHMARK.md](../BENCHMARK.md)): canonical
+- **Progress (2026-10-24):** both runners exist ([BENCHMARK.md](../SUBMISSION/BENCHMARK.md)): canonical
   `agent.run_benchmark` writes answers.json per id (`kind`, `params`, `answer`, `unit`, `area_m2`, `evidence` with
   route node/element paths, `reply`, `error`); v1 `agent.run_benchmark_v1` .json has reply, `Answer:` text, kind,
   resolved ids, solver result and `route`. Missing: the announced Sunday format itself.
+- **Progress (2026-10-25):** organisers announced the graded folder `SUBMISSION/` with exactly `BENCHMARK.md` +
+  `answers.json`. We submit v1 (`agent.run_benchmark_v1`, .json): the canonical runner has no solvers for the
+  warm-up kinds (all 1,338 train+dev route questions → `No solver for question kind`). Content format of
+  `answers.json` still unannounced.
 - **Progress (2026-10-24, upstream README §3–4):** the graph's nodes are spaces (anchor =
   `representative_point()`), openings and one `"outside"` node. Warm-up route answers give the path as
   `space_path` (space ids + `"outside"`) and `element_path` (the `via` of every edge walked: an opening id twice per

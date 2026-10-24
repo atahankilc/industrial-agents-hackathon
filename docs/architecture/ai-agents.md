@@ -152,7 +152,7 @@ question text ─► template parser ──ok──► solver(kind, params) ─�
 ```
 
 Implemented: `agent/benchmark_agent.py` (`answer()` for `benchmark.evaluate --agent`) and `agent/run_benchmark.py`
-(Sunday/test CLI, [BENCHMARK.md](../../BENCHMARK.md)). Dev 138/138 end to end. Warm-up kinds (locate, count,
+(second test CLI; the submission uses `agent/run_benchmark_v1.py`, [BENCHMARK.md](../../SUBMISSION/BENCHMARK.md)). Dev 138/138 end to end. Warm-up kinds (locate, count,
 route, step-free, closure, tour) parse via `core/basic_parser.py` → `core/navigation.py`: 2120/2130 train+dev
 from text, 100% with gold ids (`scripts/validate_warmup.py`).
 

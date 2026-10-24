@@ -1,7 +1,7 @@
 ---
 id: guide-commands
 summary: Setup and every command for chatting, evaluating on dev, scoring and producing the test submission.
-sources: [archive/initial-repo/README.md §5-6, archive/initial-repo/starter_agent/README.md, benchmark/evaluate.py, backend/app.py, agent/run_benchmark.py, agent/run_benchmark_v1.py, agent/guide_v1/__main__.py, BENCHMARK.md]
+sources: [archive/initial-repo/README.md §5-6, archive/initial-repo/starter_agent/README.md, benchmark/evaluate.py, backend/app.py, agent/run_benchmark.py, agent/run_benchmark_v1.py, agent/guide_v1/__main__.py, SUBMISSION/BENCHMARK.md]
 related: [../kit/starter-agent.md, ../challenge/scoring.md]
 ---
 
@@ -43,7 +43,10 @@ Results: `agent_output/benchmark/<--name, default results>.jsonl` (question, exp
 
 ## Produce the test submission
 
+The graded submission is `SUBMISSION/` (exactly `BENCHMARK.md` + `answers.json`):
+
 ```bash
+PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 data/test data/test/questions.csv SUBMISSION/answers.json
 uv run --env-file .env python -m agent.run_benchmark_v1 data/test data/test/questions.csv submissions/team_jaRAG.csv
 # same replies via the kit evaluator (checked identical on 2026-10-24):
 uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answer:answer --submission-csv submissions/team_jaRAG.csv
@@ -221,8 +224,9 @@ Design: [guide-agent spec](../superpowers/specs/2026-10-24-guide-agent-design.md
 
 ## Sunday benchmark
 
-`agent.run_benchmark <building_dir> <questions file> <answers.json> [--csv …]` — documented in
-[`BENCHMARK.md`](../../BENCHMARK.md). Output format still unannounced →
+`PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> SUBMISSION/answers.json` —
+documented in [`SUBMISSION/BENCHMARK.md`](../../SUBMISSION/BENCHMARK.md) (v1 is the submission pipeline: it also
+answers the warm-up kinds, routes included; `agent.run_benchmark` has no solvers for them). Output format still unannounced →
 [Q-001](../../memory-bank/open-questions.md#q-001).
 
 ## Related

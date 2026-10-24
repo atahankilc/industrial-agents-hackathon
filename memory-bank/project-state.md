@@ -19,11 +19,11 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 |---|---|---|
 | 0 Foundation | docs, memory bank, CLAUDE.md | ✅ 2026-10-24 |
 | 1 Core + solvers | per-kind solvers verified on train+dev `inputs` | ✅ 2026-10-24 — 655/655 |
-| 2 Benchmark runner | question text → solver → `Answer:` reply; dev score via `benchmark.evaluate`; test CSV | ✅ 2026-10-24 — dev 138/138, `agent.run_benchmark`, [BENCHMARK.md](../BENCHMARK.md) |
+| 2 Benchmark runner | question text → solver → `Answer:` reply; dev score via `benchmark.evaluate`; test CSV | ✅ 2026-10-24 — dev 138/138, `agent.run_benchmark`, [BENCHMARK.md](../SUBMISSION/BENCHMARK.md) |
 | 3 Agent + interaction | conversational agent with clarifications, directions, closures, edits | scripted tricky-user conversation works — ✅ 2026-10-24 offline (`tests/test_guide.py`) + live (`scripts/live_guide.py`) |
 | 4 App/UI + voice | 2D view with route, then stacked floors; voice | demoable |
 | 5 Build + extend | plan → building (L4), one add-in (L5) | demoable |
-| 6 Submission | `BENCHMARK.md`, Sunday run, video, tech explanation | submitted before code freeze |
+| 6 Submission | `SUBMISSION/` (`BENCHMARK.md` + `answers.json`, v1), Sunday run, video, tech explanation | submitted before code freeze — `SUBMISSION/` ✅ 2026-10-25 with test-set answers; Sunday run pending |
 
 ## What exists
 
@@ -216,6 +216,10 @@ has no swing info. Next: Guide events on the plan
 `/ship`, staging/stamp/commit as separate commands; subagents get disjoint files.
 
 ## Next priorities
+
+00. **Submission (2026-10-25):** `SUBMISSION/BENCHMARK.md` + `SUBMISSION/answers.json` (v1, test set) exist. When the
+   Sunday building is released: `PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 <building_dir>
+   <questions> SUBMISSION/answers.json`, check errors, ship. Keep the folder to exactly those two files.
 
 0. ✅ **Kit 1.1.0 route model ported** (2026-10-24, [D-014](decisions.md#d-014)): `core/building_map.py` = the
    1.1.0 starter graph; warm-up routes 1,338/1,338 exact, solvers 655/655, dev benchmark 138/138, test submission

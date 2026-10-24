@@ -1,5 +1,5 @@
 """One command for a benchmark run: building(s) + question file in, answers file out. This is the v1 pipeline
-(agent.answer + core.solvers_v1); the canonical runner is agent.run_benchmark (BENCHMARK.md).
+(agent.answer + core.solvers_v1), the submission runner (SUBMISSION/BENCHMARK.md); agent.run_benchmark is the second.
 
   uv run --env-file .env python -m agent.run_benchmark_v1 <building_dir> <questions> <answers>
 

@@ -50,8 +50,8 @@ uv run --env-file .env python -m agent.run_benchmark_v1 <building_dir> <question
 ```
 
 `benchmark/score.py` is the official scorer; never edit it. The benchmark command, formats and current scores are
-in [BENCHMARK.md](BENCHMARK.md). Still open: the exact Sunday input/output format
-([Q-001](memory-bank/open-questions.md#q-001)); route node ids are not yet in the output.
+in [SUBMISSION/BENCHMARK.md](SUBMISSION/BENCHMARK.md); our answers file is `SUBMISSION/answers.json`. Still open: the
+exact Sunday input/output format ([Q-001](memory-bank/open-questions.md#q-001)).
 
 ## Licences
 

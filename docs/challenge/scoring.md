@@ -106,6 +106,8 @@ Answer: Seminar room 0.32, 61.4 m²"
 
 Shortly before code freeze the organisers release **one unseen building + a question file**.
 
+- **Submission folder (organiser announcement, 2026-10-25):** `SUBMISSION/` with exactly two files, `BENCHMARK.md`
+  and `answers.json` (exact spelling and case) — ours: [SUBMISSION/BENCHMARK.md](../../SUBMISSION/BENCHMARK.md).
 - **Our run:** a single command, documented in `BENCHMARK.md` in our repo, no manual steps
   (PDF example: `run_benchmark <building_dir> <questions.json> <answers.json>`).
 - We run it ourselves and submit the output; they may re-run the command to verify.

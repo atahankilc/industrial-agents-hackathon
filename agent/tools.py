@@ -18,6 +18,8 @@ import itertools
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+import networkx as nx
+
 from core import navigation
 from core.building_map import LIFT, BuildingMap, MapError
 from core.solvers import SOLVERS, solve
@@ -60,7 +62,9 @@ class BuildingSession:
         self.profile = RoutingProfile()
         self.pending: dict[str, Change] = {}
         self.applied: list[Change] = []
+        self.snapshots: dict[str, tuple[BuildingMap, BuildingMap]] = {}  # applied change id → (before, after)
         self.events: list[dict] = []
+        self.emitting = True  # off while predicting, so hypothetical routes never reach the UI
         self.last_route: dict | None = None
         self._ids = itertools.count(1)
 
@@ -76,22 +80,25 @@ class BuildingSession:
             return {"error": f"Unknown tool '{name}'"}
         try:
             return handler(**arguments)
-        except (MapError, KeyError, ValueError, TypeError) as error:
-            return {"error": str(error).strip("'\"")}
+        except KeyError as error:
+            return {"error": str(error.args[0]) if error.args else "Unknown id"}
+        except (MapError, ValueError, TypeError) as error:
+            return {"error": str(error)}
 
     # ---------- profile → routing constraints ----------
 
-    def profile_closures(self) -> list[str]:
+    def profile_closures(self, building: BuildingMap | None = None) -> list[str]:
         """Openings narrower than the profile's minimum width and lifts (if avoided) act as closed."""
+        building = building or self.building
         closed = []
         if self.profile.min_door_width_m:
             closed += [
                 opening["id"]
-                for opening in self.building.openings.values()
+                for opening in building.openings.values()
                 if opening["width_m"] < self.profile.min_door_width_m
             ]
         if self.profile.avoid_lifts:
-            closed += [c["id"] for c in self.building.connectors.values() if c["kind"] == LIFT]
+            closed += [c["id"] for c in building.connectors.values() if c["kind"] == LIFT]
         return closed
 
     def space_summary(self, space_id: str) -> dict:
@@ -174,7 +181,7 @@ class BuildingSession:
             via=via or (),
         ).to_dict()
         route["profile"] = self.profile.describe()
-        if route.get("reachable"):
+        if route.get("reachable") and self.emitting:
             self.last_route = {"start": start, "destination": destination, "via": via or []}
             self.events.append({"type": "route", "space_path": route["space_path"]})
         return route
@@ -243,7 +250,9 @@ class BuildingSession:
         change = self.pending.pop(change_id, None)
         if change is None:
             return {"error": f"No pending change '{change_id}'"}
+        before = self.building
         self.building = self.changed_building(change)
+        self.snapshots[change.id] = (before, self.building)
         self.applied.append(change)
         self.events.append({"type": "change", "summary": change.summary, "targets": change.targets})
         return {"applied": change.summary, "applied_changes": [item.summary for item in self.applied]}
@@ -266,19 +275,90 @@ class BuildingSession:
         """Effect of a change on the last route the user asked for (before → after), without applying it."""
         if self.last_route is None:
             return {}
-        before = self.tool_find_route(**self.last_route)
-        current, events = self.building, list(self.events)
-        self.building = self.changed_building(change)
-        try:
-            after = self.tool_find_route(**self.last_route)
-        finally:
-            self.building, self.events = current, events
-        return {
-            "last_route": f"{self.last_route['start']} → {self.last_route['destination']}",
-            "before_m": before.get("length_m"),
-            "after_m": after.get("length_m"),
-            "still_reachable": after.get("reachable", False),
+        return self.predict_between(self.building, self.changed_building(change))
+
+    def tool_compare_routes(self, change_id: str, start: str | None = None) -> dict:
+        """Before → after a pending or applied change, from `start` under the user's profile: rooms that lost (or
+        gained) access and the routes that got longer, in route-model metres."""
+        if change_id in self.pending:
+            before, after = self.building, self.changed_building(self.pending[change_id])
+            status = "pending"
+        elif change_id in self.snapshots:
+            before, after = self.snapshots[change_id]
+            status = "applied"
+        else:
+            return {"error": f"No pending or applied change '{change_id}'"}
+        if start is None:
+            start = self.last_route["start"] if self.last_route else self.main_entrance_space()
+        start_id = self.resolve(start)
+        old, new = self.room_distances(before, start_id), self.room_distances(after, start_id)
+        longer = sorted(
+            (
+                {"room": self.space_summary(room)["name"], "id": room, "floor": self.space_summary(room)["floor"],
+                 "before_m": round(old[room], 2), "after_m": round(new[room], 2),
+                 "extra_m": round(new[room] - old[room], 2)}
+                for room in old.keys() & new.keys()
+                if new[room] - old[room] > 0.005
+            ),
+            key=lambda item: (-item["extra_m"], item["id"]),
+        )
+        lost = sorted(old.keys() - new.keys())
+        gained = sorted(new.keys() - old.keys())
+        result = {
+            "change": (self.pending.get(change_id) or next(c for c in self.applied if c.id == change_id)).summary,
+            "status": status,
+            "from": self.building.describe_space(start_id),
+            "profile": self.profile.describe(),
+            "reachable_rooms_before": len(old),
+            "reachable_rooms_after": len(new),
+            "lost_access": [self.space_summary(room) for room in lost[:MAX_RESULTS]],
+            "lost_access_count": len(lost),
+            "gained_access_count": len(gained),
+            "longer_routes_count": len(longer),
+            "max_extra_m": longer[0]["extra_m"] if longer else 0.0,
+            "longer_routes": longer[:MAX_RESULTS],
         }
+        if self.last_route and start == self.last_route["start"]:
+            result["last_route"] = self.predict_between(before, after)
+        if lost:
+            self.events.append({"type": "highlight", "space_ids": lost, "style": "lost_access"})
+        return result
+
+    def room_distances(self, building: BuildingMap, start_id: str) -> dict[str, float]:
+        """Route-model metres from `start_id` to every reachable room under the profile in `building`."""
+        view = navigation.routing_view(building, self.profile_closures(building))
+        graph = view.graph(self.profile.step_free)
+        if start_id not in graph:
+            return {}
+        lengths = nx.single_source_dijkstra_path_length(graph, start_id, weight="weight")
+        return {
+            node: length for node, length in lengths.items()
+            if node in building.spaces and is_room(building.spaces[node])
+        }
+
+    def predict_between(self, before: BuildingMap, after: BuildingMap) -> dict:
+        """The last route on `before` and on `after`; emits no events and keeps the session's last route."""
+        current, last = self.building, self.last_route
+        self.emitting = False
+        try:
+            self.building = before
+            old = self.tool_find_route(**last)
+            self.building = after
+            new = self.tool_find_route(**last)
+        finally:
+            self.building, self.emitting = current, True
+        effect = {"last_route": f"{last['start']} → {last['destination']}", "before_m": old.get("length_m"),
+                  "after_m": new.get("length_m"), "still_reachable": new.get("reachable", False)}
+        if effect["before_m"] is not None and effect["after_m"] is not None:
+            effect["extra_m"] = round(effect["after_m"] - effect["before_m"], 2)
+        return effect
+
+    def main_entrance_space(self) -> str:
+        entrances = [o for o in self.building.openings.values() if o["kind"] == "entrance"]
+        entrances.sort(key=lambda o: (not o["step_free"], o["id"]))
+        if not entrances:
+            raise MapError("The building has no entrance; give a start place.")
+        return next(space for space in entrances[0]["space_ids"] if space in self.building.spaces)
 
     def element_name(self, element_id: str) -> str:
         if element_id in self.building.connectors:
@@ -336,6 +416,10 @@ TOOL_DEFINITIONS: list[dict] = [
          "required": ["action", "targets"]}},
     {"name": "apply_change", "description": "Apply a proposed change the user confirmed.", "input_schema": {
         "type": "object", "properties": {"change_id": {"type": "string"}}, "required": ["change_id"]}},
+    {"name": "compare_routes", "description": "Before → after a pending or applied change, from a start place "
+     "(default: the last route's start, else the main entrance) under the user's profile: rooms that lost access, "
+     "routes that got longer and by how many metres.", "input_schema": {"type": "object", "properties": {
+         "change_id": {"type": "string"}, "start": PLACE}, "required": ["change_id"]}},
     {"name": "show_on_map", "description": "Highlight spaces in the user's map view.", "input_schema": {
         "type": "object", "properties": {"space_ids": {"type": "array", "items": PLACE}},
         "required": ["space_ids"]}},

@@ -65,3 +65,26 @@ def test_add_door_is_isolated_to_the_session(session):
     session.call("apply_change", {"change_id": proposal["change_id"]})
     assert len(session.building.openings) == len(original.openings) + 1
     assert len(BuildingMap.load(BUILDING).openings) == len(original.openings)
+
+
+def test_compare_routes_pending_and_applied(session):
+    session.call("set_profile", {"step_free": True})
+    session.call("find_route", {"start": "Main lobby", "destination": "Meeting room 3.07"})
+    events, last_route = list(session.events), session.last_route
+    session.call("propose_change", {"action": "close", "targets": ["Lift 1"]})
+    pending = session.call("compare_routes", {"change_id": "C1"})
+    assert session.events == events and session.last_route == last_route  # predictions emit nothing
+    assert pending["status"] == "pending" and pending["lost_access_count"] == 0
+    assert pending["last_route"]["before_m"] == 124.24 and pending["last_route"]["after_m"] == 132.2
+    assert pending["longer_routes_count"] > 0 and pending["max_extra_m"] == pending["longer_routes"][0]["extra_m"]
+    assert "proc-campus-train-000-V02" not in session.building.closed  # comparing never applies
+    session.call("apply_change", {"change_id": "C1"})
+    applied = session.call("compare_routes", {"change_id": "C1"})
+    assert applied["status"] == "applied" and applied["longer_routes"] == pending["longer_routes"]
+    # With both lifts out, a wheelchair user loses every room above the ground floor.
+    session.call("propose_change", {"action": "close", "targets": ["Lift 2"]})
+    both = session.call("compare_routes", {"change_id": "C2", "start": "Main lobby"})
+    assert both["lost_access_count"] == both["reachable_rooms_before"] - both["reachable_rooms_after"] > 0
+    assert all(room["floor"] != "Ground floor" for room in both["lost_access"])
+    assert session.events[-1]["style"] == "lost_access"
+    assert "error" in session.call("compare_routes", {"change_id": "C9"})

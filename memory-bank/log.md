@@ -10,6 +10,23 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+
+## 2026-10-24 — Building Guide loop + backend skeleton (offline)
+
+- **Did:** `agent/guide.py` (manual Claude tool-use loop over `agent/tools.py`, cached overview, model via
+  `GUIDE_MODEL`), `agent/offline_llm.py` (rule-based client when no key), `compare_routes` tool (pending or applied
+  change: lost access, longer routes, `extra_m`), `tests/test_guide.py` (scripted tricky user). A subagent built
+  `backend/` (FastAPI: sessions, `/chat`, `/events`, OpenAI-compatible SSE `/v1/chat/completions`) +
+  `tests/test_backend.py`; fixed after its review: predictions no longer touch `session.events` (a poll could see
+  phantom routes), `llm_mode()` shared with `/health`. Fixed the `run_benchmark` usage in the
+  `agent/benchmark_agent.py` docstring.
+- **Learned:** with a step-free profile Main lobby → Meeting room 3.07 (train campus 000) is 124.24 m via Lift 1,
+  132.2 m via Lift 2 after closing Lift 1; closing both lifts cuts every upper-floor room for a wheelchair user.
+  Grounding by rounding is strict enough to catch invented numbers but accepts "about 124 m".
+- **Decisions:** D-010 proposed (guardrails in code).
+- **Budget:** $0 API (no key yet; all tests offline).
+- **Next:** [project-state.md](project-state.md#next-priorities).
+
 ## 2026-10-24 — Deterministic core: all solvers verified, benchmark runner, navigation, agent tools
 
 - **Did:** Scaffolding (`core/solvers` registry + `SolverResult`, `core/formatter.py`, `scripts/validate_solvers.py`),

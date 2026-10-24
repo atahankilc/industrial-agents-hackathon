@@ -1,7 +1,8 @@
 """Benchmark pipeline: question text → parse → deterministic solver → reply ending in the `Answer:` line.
 
   uv run python -m benchmark.evaluate data/dev --agent agent.benchmark_agent:answer
-  uv run python -m agent.run_benchmark data/test/questions.csv --out agent_output/test   # see BENCHMARK.md
+  uv run python -m agent.run_benchmark data/test data/test/questions.csv agent_output/test_answers.json \
+      --csv team_submission.csv   # see BENCHMARK.md
 
 No LLM writes any number or id we are scored on (D-003). Parsing is regex-first; PARSER_MODE (D-007) decides
 whether an LLM may help understand wording the templates don't cover. When a name in the question matches

@@ -85,6 +85,9 @@ Template:
   for agentic dev work. One full test run with the starter-style Opus agent ≈ 145 × $0.10–0.25 ≈ $15–36; with
   deterministic solvers + template parser the LLM cost of a benchmark run should be near $0. Track spend in
   [log.md](log.md).
+- **Guide (2026-10-24):** `agent/guide.py` defaults to `claude-opus-5-5` at effort `medium`; switch with
+  `GUIDE_MODEL` / `GUIDE_EFFORT` (e.g. `claude-sonnet-5-5`, `low` for voice latency). `guide.usage` counts tokens
+  incl. cache reads. Compare once a key is set: same scripted conversation, cost + latency per turn.
 
 <a id="q-013"></a>
 ### Q-013 — May we redistribute the kit's code (scorer, starter agent) in our public repo?

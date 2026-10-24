@@ -2,7 +2,7 @@
 id: arch-agents
 summary: PROPOSED design of every AI agent in the system — Building Guide (chat + voice), benchmark pipeline, Builder (plan → building), and how they share one deterministic tool layer.
 status: proposed
-sources: [../research/elevenlabs.md, ../kit/starter-agent.md, ../challenge/brief.md, ../challenge/scoring.md]
+sources: [../research/elevenlabs.md, ../kit/starter-agent.md, ../challenge/brief.md, ../challenge/scoring.md, ../../agent/tools.py, ../../agent/guide.py, ../../agent/offline_llm.py]
 related: [overview.md, solver-plan.md, ../product/routing-profiles.md, ../product/personas.md, ../research/question-parsing.md]
 ---
 
@@ -44,10 +44,17 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 **Implemented (2026-10-24):** `agent/tools.py` — `BuildingSession` (private building copy, routing profile,
 pending/applied changes, UI events) + `TOOL_DEFINITIONS` (Anthropic tool schemas) for building_overview, search,
 locate, count_assets, room_facts, find_route, tour, reachable_rooms, solve (every benchmark kind), set_profile,
-propose_change, apply_change, show_on_map. Errors come back as `{"error": …}` so the model can search or ask.
-Profile → constraints: `min_door_width_m` and `avoid_lifts` act as closures of narrow openings / lifts. Built on
-`core/navigation.py` (locate, count, find_route, tour; gold path format) and `core/solvers/`. Tests:
-`tests/test_agent_tools.py`. Not built yet: the LLM conversation loop (no API key) and `compare_routes`.
+propose_change, apply_change, compare_routes, show_on_map. Errors come back as `{"error": …}` so the model can
+search or ask. Profile → constraints: `min_door_width_m` and `avoid_lifts` act as closures of narrow openings /
+lifts. Built on `core/navigation.py` (locate, count, find_route, tour; gold path format) and `core/solvers/`.
+Tests: `tests/test_agent_tools.py`.
+
+`compare_routes(change_id, start?)` works on a **pending** change (current building vs the building with the
+change) or an **applied** one (snapshot before vs after `apply_change`). From `start` (default: the last route's
+start, else the main step-free entrance) under the user's profile it returns rooms reachable before/after, the
+rooms that **lost access** (also emitted as a `highlight` event with `style: "lost_access"`), the routes that got
+longer with `before_m`/`after_m`/`extra_m` (route-model metres, longest first) and the last route's before/after.
+`propose_change`'s predicted effect also carries `extra_m`, so the model never subtracts metres itself.
 
 `propose_change` → user sees an "I understood: close *Office lift*; 3 routes get 40 m longer. Apply?" card →
 `apply_change`. That is the brief's "show what it understood before it changes a plan"
@@ -67,11 +74,35 @@ Profile → constraints: `min_door_width_m` and `avoid_lifts` act as closures of
 - **Robust to tricky users:** vague ("the printer"), wrong ("room 9.99" → nearest matches), mid-course
   changes ("actually avoid the lift"), multilingual (ElevenLabs language detection).
 
+### Implementation — `agent/guide.py` (2026-10-24)
+
+`Guide(session, client=None)` is one conversation: `guide.reply(text) → GuideTurn(text, tool_calls, events,
+ungrounded, stop_reason)`. A manual tool-use loop over `client.beta.messages.create` (≤ 12 tool rounds per turn):
+every `tool_use` block goes to `BuildingSession.call`, all results return in one user message (`is_error` on
+`{"error": …}`), text written before tool calls is kept in the reply.
+
+| Aspect | How |
+|---|---|
+| Model | `GUIDE_MODEL` (default `claude-opus-5-5`), `GUIDE_EFFORT` (default `medium`); thinking left at the model default (adaptive); `fallbacks: "default"` with beta `server-side-fallback-2026-07-01`, as in `agent/llm_parser.py` |
+| Caching | system = fixed instructions + building overview (static `BuildingMap.overview()`, no profile/closures) with `cache_control`; tools render before it, so both are cached; top-level `cache_control` also caches the growing history |
+| History | append-only (assistant `response.content` stored unchanged), so the cached prefix and thinking blocks stay valid |
+| Confirm before edit | `apply_change` for a change proposed in the **same user turn** is refused with an error telling the model to show the summary and wait — enforced in code, not only in the prompt |
+| D-003 grounding | after each turn, every number and id in the reply must appear in a tool result, the overview or the user's own messages (a number counts if a known number rounds to it at the same precision; numbered-list markers ignored). Fails → one repair round ("[grounding check] … appear in no tool result"); anything still ungrounded is returned in `GuideTurn.ungrounded` |
+| No key | `make_client()` → `agent/offline_llm.py` `OfflineClient`: keyword rules choose tools, replies are composed only from tool results (demo + backend tests). `GUIDE_LLM=offline|anthropic` forces either |
+
+Tests: `tests/test_guide.py` — a scripted fake client plays the tricky user (vague printer → ≤ 3 options;
+ambiguous "the meeting room" → search → ≤ 3 options with floors; "I use a wheelchair" → `set_profile`, remembered
+on the next route; "the lift is broken" → propose, same-turn apply refused, apply after "yes"; route after the
+closure 124.24 m → 132.2 m via Lift 2, `compare_routes` +7.96 m), plus request shape (cached system, env model,
+append-only history, every tool_use answered), the repair round, and the offline client. Live behaviour with a
+real model is **UNVERIFIED** until an API key is set.
+
 ## Voice path
 
 Per [elevenlabs.md](../research/elevenlabs.md#tldr-recommendation): ElevenLabs Agent handles STT, turn-taking,
 interruptions and TTS; its **Custom LLM** points at our backend's OpenAI-compatible streaming endpoint, which
-wraps the same Building Guide (one brain for text and voice). Map actions reach the browser as ElevenLabs
+wraps the same Building Guide (one brain for text and voice) — skeleton in `backend/` (see
+[commands.md](../guides/commands.md#backend-guide-api)). Map actions reach the browser as ElevenLabs
 **client tools** and/or our own realtime channel. Fallback: Scribe Realtime → Guide → TTS WebSocket.
 Per-building **keyterms** (room names, machine names) go to Scribe for accurate recognition.
 

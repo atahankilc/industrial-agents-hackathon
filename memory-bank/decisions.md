@@ -6,7 +6,7 @@ related: [open-questions.md, project-state.md, ../docs/architecture/overview.md]
 
 # Decisions
 
-[Memory bank](README.md) · Next free id: **D-010**
+[Memory bank](README.md) · Next free id: **D-011**
 
 Template:
 
@@ -124,3 +124,16 @@ Template:
   confirm redistribution of kit code ([Q-013](open-questions.md#q-013)).
 - **Consequences:** screenshots / video showing OSM buildings must credit "© OpenStreetMap contributors";
   modified OSM buildings we publish stay ODbL.
+
+<a id="d-010"></a>
+### D-010 — Guide guardrails live in code: same-turn apply refused, grounding check with one repair round
+- **Status:** proposed · **Date:** 2026-10-24 · **By:** Claude (Guide session)
+- **Context:** The behaviour contract ([ai-agents.md](../docs/architecture/ai-agents.md#building-guide--behaviour-contract))
+  needs propose → confirm → apply and D-003 ("every number and id from a tool"). A prompt alone can't guarantee
+  either, and the brief scores "shows what it understood before it changes a plan".
+- **Decision:** `agent/guide.py` refuses `apply_change` for a change proposed in the same user turn, and checks
+  every reply: numbers/ids must appear in a tool result, the overview or the user's words (rounding allowed);
+  one repair round, then report leftovers in `GuideTurn.ungrounded` instead of blocking the reply.
+- **Consequences:** one extra request when the model invents a number; a confirmation always costs one user turn.
+  Derived numbers (differences, sums) must come from tools → `compare_routes` and `extra_m` exist for that.
+- **Evidence:** `tests/test_guide.py` (same-turn apply refused; invented "437 m" repaired; leftovers reported).

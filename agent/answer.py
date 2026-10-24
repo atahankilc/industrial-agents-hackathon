@@ -4,7 +4,8 @@
 
 The answer line follows benchmark/score.py (D-003): number kinds carry exactly one number (a room ref such as
 "1.02" would count as a second number, so refs stay on the explanation lines); space kinds name the room by its
-ref, which every train/dev `accept` list contains, and largest_room adds the area."""
+ref, which every train/dev `accept` list contains, and largest_room adds the area. Warm-up kinds: locate names the
+room and floor, count gives the number, routes give the step-by-step directions and the length (or "no route")."""
 
 from dataclasses import dataclass, field
 from functools import cache
@@ -41,6 +42,15 @@ def explain(kind: str, params: dict, result: dict) -> tuple[str, str]:
     if kind == "errand":
         return (f"Nearest one is in {room(result['via'])}, {result['first_leg_m']:.2f} m away; from there to "
                 f"{room(result['target'])} is {result['second_leg_m']:.2f} m.", f"{result['total_m']:.2f} m")
+    if kind == "locate":
+        return (f"The {result['asset_name']} ({result['asset_id']}) is in {room(result)}.",
+                f"{result['name']} ({result['ref']}), {result['floor']}")
+    if kind == "count":
+        return f"{result['count']} {params['asset_type'].replace('_', ' ')} items on that floor.", str(result["count"])
+    if kind in ("route", "route_step_free", "route_with_closure", "tour"):
+        if not result["reachable"]:
+            return result["reason"], "no step-free route" if kind == "route_step_free" else "no route"
+        return "\n".join(result["steps"]), f"{result['optimal_length_m']:.2f} m"
     if kind == "shared_walls_count":
         names = ", ".join(room(neighbour) for neighbour in result["rooms"]) or "none"
         return f"Rooms sharing at least 1 m of wall: {names}.", str(result["count"])
@@ -62,7 +72,7 @@ def reply(parsed: ParsedQuestion, bmap: BuildingMap, result: dict) -> str:
     lines = [explanation]
     for slot, candidates in parsed.alternatives.items():
         refs = ", ".join(bmap.spaces[candidate]["ref"] for candidate in candidates)
-        lines.append(f"Note: several rooms share that name ({refs}); I used {bmap.spaces[parsed.params[slot]]['ref']}.")
+        lines.append(f"Note: several rooms share that name ({refs}); I used {bmap.spaces[candidates[0]]['ref']}.")
     return "\n".join([*lines, f"Answer: {committed}"])
 
 

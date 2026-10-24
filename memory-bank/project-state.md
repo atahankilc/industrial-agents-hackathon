@@ -60,6 +60,9 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - Route paths: `BuildingMap.route()` gives per-leg `space_path` + `element_path` in the warm-up answer format,
   exact on all 1,338 train+dev warm-up route/step-free/closure/tour questions (`tests/test_routes.py`); errand
   returns its 2 legs; `run_benchmark` .json has `route` (20 test errands). Sunday format assumed = warm-up (Q-001).
+- Warm-up kinds (locate, count, route, route_step_free, route_with_closure, tour): parser templates + solvers +
+  replies; from text 2,120/2,130 train+dev (`tests/test_warm_up.py`; 10 misses = duplicate room names); LLM
+  parser knows them (offline fake-client test; live 12/12 reworded).
 - `benchmark/score.py` parsing behaviour checked ([scoring.md](../docs/challenge/scoring.md#formatting-pitfalls-cost-real-points)).
 
 ## Pending decisions (Atahan)

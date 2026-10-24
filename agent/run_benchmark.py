@@ -56,9 +56,11 @@ def write_answers(path: Path, answers: list[dict]) -> None:
 
 def route(result: dict | None) -> dict | None:
     """Warm-up answer format (Q-001 working assumption): total length plus one path per stop-to-stop leg."""
+    if result and result.get("reachable") is False:
+        return {"reachable": False}
     if not result or "legs" not in result:
         return None
-    total = result.get("total_m", sum(leg["optimal_length_m"] for leg in result["legs"]))
+    total = result.get("total_m", result.get("optimal_length_m", sum(leg["optimal_length_m"] for leg in result["legs"])))
     return {"optimal_length_m": round(total, 2),
             "legs": result["legs"]}
 

@@ -28,6 +28,12 @@ KINDS = [
     "room_stacked",
     "step_free_reachable_count",
     "what_if_door",
+    "locate",
+    "count",
+    "route",
+    "route_step_free",
+    "route_with_closure",
+    "tour",
     "unsupported",
 ]
 NULLABLE_TEXT = {"anyOf": [{"type": "string"}, {"type": "null"}]}
@@ -43,6 +49,7 @@ SPACE_SLOT = {
         {"type": "null"},
     ]
 }
+SPACE = SPACE_SLOT["anyOf"][0]
 SCHEMA = {
     "type": "object",
     "properties": {
@@ -50,6 +57,8 @@ SCHEMA = {
         "start": SPACE_SLOT,
         "first": SPACE_SLOT,
         "second": SPACE_SLOT,
+        "destination": SPACE_SLOT,
+        "stops": {"anyOf": [{"type": "array", "items": SPACE}, {"type": "null"}]},
         "floor": NULLABLE_TEXT,
         "room_type": NULLABLE_TEXT,
         "asset_type": NULLABLE_TEXT,
@@ -60,7 +69,7 @@ SCHEMA = {
         "may_use_stairs": {"anyOf": [{"type": "boolean"}, {"type": "null"}]},
     },
     "required": [
-        "kind", "start", "first", "second", "floor", "room_type", "asset_type",
+        "kind", "start", "first", "second", "destination", "stops", "floor", "room_type", "asset_type",
         "min_width_m", "item", "closed", "direction", "may_use_stairs",
     ],
     "additionalProperties": False,
@@ -82,6 +91,12 @@ Kinds and the slots each needs (every other slot is null):
 - step_free_reachable_count: closed (the lift or stair out of service), start, floor. Rooms on <floor> a
   wheelchair user can still reach.
 - what_if_door: first, second (the two spaces the new door joins), floor (the floor whose rooms are counted).
+- locate: asset_type. Where is a piece of equipment ("Where is the coffee machine?").
+- count: asset_type, floor. How many items of that type are on <floor>.
+- route: start, destination. How to get from start to destination.
+- route_step_free: start, destination. The same without stairs or steps (wheelchair, trolley, "step-free").
+- route_with_closure: closed (the lift or stair that is closed), start, destination.
+- tour: start, stops (the spaces visited in between, in order), destination (the last one).
 - unsupported: anything else.
 
 Rules:
@@ -117,10 +132,12 @@ def slots_to_groups(slots: dict) -> tuple[str, dict[str, str | None]]:
     if kind == "unsupported":
         raise ParseError("The LLM parser classified the question as unsupported")
     groups: dict[str, str | None] = {}
-    for slot in ("start", "first", "second"):
+    for slot in ("start", "first", "second", "destination"):
         if slots.get(slot):
             groups[slot] = slots[slot]["name"]
             groups[f"{slot}_floor"] = slots[slot]["floor"]
+    if kind == "tour":
+        groups["stops"] = [(stop["name"], stop["floor"]) for stop in slots.get("stops") or []]
     for slot in ("floor", "room_type", "asset_type", "item", "closed"):
         groups[slot] = slots.get(slot)
     if slots.get("min_width_m") is not None:

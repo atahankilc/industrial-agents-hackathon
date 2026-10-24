@@ -85,6 +85,21 @@ Close the named connector, step-free graph, BFS from start, count rooms on targe
    segment — not starter `add_door` nearest points). Width/step_free of new door: assume 0.9 m, step-free.
 3. Recompute; count rooms with improvement > 1 m. Only 4 labelled examples → [Q-005](../../memory-bank/open-questions.md#q-005).
 
+## Warm-up kinds (questions_basic.jsonl)
+In case Sunday asks one-search / one-route questions ([Q-001](../../memory-bank/open-questions.md#q-001)), the
+parser has a template per warm-up kind and `solve()` answers them (VERIFIED 2026-10-24, from the question text,
+`uv run pytest tests/test_warm_up.py -q -s`):
+
+| Kind | Solver | train+dev |
+|---|---|---|
+| `locate` | the asset of that type (label → type: exact, plural, start of asset name, end of type) | 553/553 |
+| `count` | assets of that type with that `floor_id` | 239/239 |
+| `route` / `route_step_free` / `route_with_closure` | `BuildingMap.route()` (closure added to `closed`); `reachable: False` when cut off | 715/720, 239/240, 136/138 |
+| `tour` | `route()` with the middle stops as `via`, one leg per stop pair | 238/240 |
+
+All 10 misses are texts naming a room that several rooms share (OSM duplicates such as "Büro"); the parser picks
+the first candidate. The LLM parser knows these kinds too: 12/12 on reworded dev questions (live, 2026-10-24).
+
 ## Answer formatting (all kinds)
 Solver returns a structured result; a formatter writes 1–3 explanation lines + `Answer: …` in exactly the
 template the question asks for ([D-003](../../memory-bank/decisions.md#d-003)).

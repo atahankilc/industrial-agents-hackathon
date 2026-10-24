@@ -126,3 +126,17 @@ Template:
   confirm redistribution of kit code ([Q-013](open-questions.md#q-013)).
 - **Consequences:** screenshots / video showing OSM buildings must credit "© OpenStreetMap contributors";
   modified OSM buildings we publish stay ODbL.
+
+<a id="d-010"></a>
+### D-010 — Duplicate room names: core returns candidates, the agent asks; the benchmark runs them all
+- **Status:** accepted · **Date:** 2026-10-24 · **By:** Utku
+- **Context:** Some buildings repeat a name on the same floor (three "Büro" on the ground floor, OSM rooms
+  duplicated with the same ref). The question text then cannot say which room is meant: all 12 train+dev misses
+  (2 benchmark, 10 warm-up) are such texts. The floor is usually already in the text, so it does not help.
+- **Decision:** `core/` stays deterministic and never guesses: the parser returns every candidate
+  (`ParsedQuestion.alternatives`). **Guide (chat):** run the solver for each candidate; if the answers agree, answer;
+  if they differ, ask one short question naming what tells them apart — ref ("0.10, 0.11 or 0.12?"), else size,
+  neighbour or position, or highlight them on the plan. **Benchmark (no user):** as in [D-007](#d-007), run every
+  candidate and answer if they agree; otherwise answer with the first and say so in the reply.
+- **Consequences:** benchmark misses on such texts are accepted; the Guide needs a candidate-describing tool
+  (ref, floor, area, neighbours). Contract: [ai-agents.md](../docs/architecture/ai-agents.md#building-guide--behaviour-contract).

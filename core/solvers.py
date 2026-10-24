@@ -8,7 +8,7 @@ import math
 import networkx as nx
 from shapely.geometry import Polygon
 
-from core.building_map import OUTSIDE, BuildingMap
+from core.building_map import OUTSIDE, BuildingMap, MapError
 
 ROOM = "room"
 WALL_TOLERANCE_M = 0.35
@@ -184,6 +184,39 @@ def what_if_door(bmap: BuildingMap, first: str, second: str, floor_id: str, door
     return {"count": len(improved), "rooms": [label(bmap, s)["name"] for s in improved]}
 
 
+# ---------- warm-up kinds (questions_basic.jsonl) ----------
+
+def locate(bmap: BuildingMap, asset_type: str) -> dict:
+    found = sorted((a for a in bmap.assets.values() if a["type"] == asset_type), key=lambda a: a["id"])
+    if not found:
+        raise ValueError(f"no {asset_type} in this building")
+    asset = found[0]
+    return {"asset_id": asset["id"], "asset_name": asset["name"], **label(bmap, asset["space_id"]),
+            "floor_level": level_of(bmap, asset["floor_id"]), "position": asset["position"],
+            "others": [a["id"] for a in found[1:]]}
+
+
+def count_assets(bmap: BuildingMap, asset_type: str, floor_id: str) -> dict:
+    return {"count": sum(a["type"] == asset_type and a["floor_id"] == floor_id for a in bmap.assets.values()),
+            "asset_type": asset_type, "floor_level": level_of(bmap, floor_id)}
+
+
+def route(bmap: BuildingMap, start: str, destination: str, step_free: bool = False,
+          closed: str | None = None, via: list[str] | None = None) -> dict:
+    """Shortest route in the kit's route model; `reachable: False` when closures or step-free rules cut it off."""
+    saved = set(bmap.closed)
+    bmap.closed |= {closed} if closed else set()
+    try:
+        result = bmap.route(start, destination, step_free=step_free, via=via)
+    except MapError as error:
+        return {"reachable": False, "from_space_id": start, "to_space_id": destination, "reason": str(error)}
+    finally:
+        bmap.closed = saved
+    return {"reachable": True, "from_space_id": start, "to_space_id": destination,
+            "optimal_length_m": result.length_m, "space_path": result.space_path,
+            "element_path": result.element_path, "legs": result.legs, "steps": result.steps}
+
+
 SOLVERS = {
     "largest_room": largest_room,
     "floor_area_total": floor_area_total,
@@ -192,6 +225,8 @@ SOLVERS = {
     "straight_line_3d": straight_line_3d,
     "errand": errand,
     "what_if_door": what_if_door,
+    "locate": locate,
+    "count": count_assets,
 }
 
 
@@ -203,4 +238,9 @@ def solve(bmap: BuildingMap, kind: str, inputs: dict) -> dict:
     if kind == "step_free_reachable_count":
         return reachable_rooms(bmap, inputs["start"], inputs["floor_id"], step_free=True,
                                closed=[inputs["closed"]])
+    if kind in ("route", "route_step_free", "route_with_closure"):
+        return route(bmap, inputs["start"], inputs["destination"], step_free=kind == "route_step_free",
+                     closed=inputs.get("closed"))
+    if kind == "tour":
+        return route(bmap, inputs["stops"][0], inputs["stops"][-1], via=inputs["stops"][1:-1])
     return SOLVERS[kind](bmap, **inputs)

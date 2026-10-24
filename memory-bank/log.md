@@ -10,6 +10,17 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Warm-up kinds in parser + solvers (Utku's session)
+
+- **Did:** 6 warm-up templates in `core/question_parser.py` (+ `destination`, tour `stops`, asset label → type
+  fallbacks); solvers `locate`, `count_assets`, `route` (step-free / closure / unreachable), tour via `solve()`;
+  replies in `agent/answer.py`; LLM parser schema + prompt; `run_benchmark` `route` = `{reachable: false}` when cut off.
+- **Result:** `tests/test_warm_up.py` 2,120/2,130 from text (count 239/239, locate 553/553, route 715/720,
+  step-free 239/240, closure 136/138, tour 238/240); all 10 misses are duplicate-name texts. Live LLM on 12 reworded
+  dev warm-up questions: 12/12 (≈ $0.33, mostly cache writes). Benchmark unchanged: dev 138/138, test CSV identical.
+- **Learned:** warm-up `locate`/`count` name assets by a label that is sometimes not the type ("seating row" →
+  `lecture_seating_row`, "air compressor" → `compressor`).
+
 ## 2026-10-24 — Route paths in the warm-up format (Utku's session)
 
 - **Did:** cloned the organisers' repo to `upstream-challenge/` (read-only, push disabled, ignored via

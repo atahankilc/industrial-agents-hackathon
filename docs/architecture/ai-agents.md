@@ -48,7 +48,9 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 ## Building Guide — behaviour contract
 
 - **Ask only what changes the answer.** If a search returns several candidates and the words don't settle it,
-  ask one short question listing ≤ 3 options (with floor). Never ask where the user is if the question doesn't
+  run the solver for each; if the answers agree, just answer. If they differ, ask one short question listing
+  ≤ 3 options by what tells them apart — ref first, else floor, size, a neighbour or position (duplicate names
+  usually share the floor) — or highlight them on the plan ([D-010](../../memory-bank/decisions.md#d-010)). Never ask where the user is if the question doesn't
   need it; once known, remember it for the session.
 - **Profile once, remember always.** Infer constraints (wheelchair, trolley width, no lifts, quiet) from the
   conversation, confirm once in one line, store in the session/user profile → used by every later route

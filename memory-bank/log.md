@@ -10,6 +10,17 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 22:40 — Commit hook works in git worktrees
+
+- **Did:** the M3 commit was blocked as "stale" although verified: settings.json runs
+  `$CLAUDE_PROJECT_DIR/.claude/hooks/require-verification.py` (the main checkout's copy), which compared the stamp
+  with the *main checkout's* index. The hook now resolves the repository the commit runs in (`cwd` from the hook
+  payload, then `cd <dir>` / `git -C <dir>`, quoted paths ok) and checks that repo's stamp and staged tree. Tests:
+  two new cases with a temp repository in `tests/test_commit_hook.py`. The fixed file was also copied into the main
+  checkout (branch `1-agentic-yarag`, uncommitted there) so it is the one Claude Code runs.
+- **Learned:** the hook's regex also fires on commit-like text inside a heredoc (pre-existing; documented).
+- **Next:** commit the hook on `1-agentic-yarag` too (or let it arrive by merge).
+
 ## 2026-10-24 22:30 — Builder M3: drafts, saved buildings and Builder history in Supabase
 
 - **Did:** Utku took M3 back from Atahan (not started) and decided with Claude: public-URL demo + real persistent

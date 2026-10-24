@@ -66,8 +66,8 @@ Template:
 
 <a id="q-014"></a>
 ### Q-014 — Sunday route scoring uses a different distance rule than the kit route model
-- **Status:** partly answered by kit 1.1.0 (see below) · **Priority:** HIGH · **Resolve by:** port the 1.1.0
-  route model; ask organisers (3), (4)
+- **Status:** partly answered by kit 1.1.0, model ported ([D-014](decisions.md#d-014)) · **Priority:** med ·
+  **Resolve by:** ask organisers (3), (4)
 - **Source:** organiser message on Discord, pasted by Atahan 2026-10-24 (summary, not verbatim):
   - Distance is measured inside each space **from door to door, ~15 cm off the walls, around corners** (never
     through walls). Furniture/machines are not obstacles. A route to an item ends in the room/bay that holds it.

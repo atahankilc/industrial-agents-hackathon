@@ -8,7 +8,7 @@ import math
 import networkx as nx
 from shapely.geometry import Polygon
 
-from core.building_map import OUTSIDE, BuildingMap, MapError
+from core.building_map import DOOR_PREFIX, OUTSIDE, BuildingMap, MapError
 
 ROOM = "room"
 WALL_TOLERANCE_M = 0.35
@@ -142,9 +142,7 @@ def reachable_rooms(bmap: BuildingMap, start: str, floor_id: str, step_free: boo
     finally:
         bmap.closed = saved
     if min_width is not None:
-        narrow = [(u, v, k) for u, v, k, d in graph.edges(keys=True, data=True)
-                  if d["via"] in bmap.openings and bmap.openings[d["via"]]["width_m"] < min_width]
-        graph.remove_edges_from(narrow)
+        graph.remove_nodes_from([DOOR_PREFIX + o["id"] for o in bmap.openings.values() if o["width_m"] < min_width])
     reached = nx.node_connected_component(graph, start) if start in graph else set()
     rooms = [s["id"] for s in spaces_on(bmap, floor_id, rooms_only=True) if s["id"] in reached]
     return {"count": len(rooms), "rooms": [label(bmap, r)["name"] for r in rooms]}
@@ -164,7 +162,7 @@ def shared_wall_midpoint(bmap: BuildingMap, first: str, second: str) -> tuple[fl
 
 
 def exit_distances(bmap: BuildingMap, floor_id: str) -> dict[str, float]:
-    graph = bmap.graph(step_free=False)
+    graph = bmap.graph(step_free=False, outside=True)
     from_outside = distances_from(graph, OUTSIDE)
     return {s["id"]: from_outside.get(s["id"], math.inf) for s in spaces_on(bmap, floor_id, rooms_only=True)}
 

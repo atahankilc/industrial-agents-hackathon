@@ -6,7 +6,7 @@ related: [open-questions.md, project-state.md, ../docs/architecture/overview.md]
 
 # Decisions
 
-[Memory bank](README.md) · Next free id: **D-014**
+[Memory bank](README.md) · Next free id: **D-015**
 
 Template:
 
@@ -183,3 +183,21 @@ Template:
   found neither in the transcript nor in the building; ordinal floor words are kept as said.
 - **Evidence:** conversation 2026-10-24 (branch `1-agentic-yarag`); voice path in
   [ai-agents.md](../docs/architecture/ai-agents.md#voice-path).
+
+<a id="d-014"></a>
+### D-014 — One route model: the kit 1.1.0 graph, ported verbatim into core
+- **Status:** accepted · **Date:** 2026-10-24 · **By:** Utku
+- **Context:** Kit 1.1.0 recomputed every expected answer (train/dev/test) with the judges' rule — door to door
+  15 cm off the walls, 30 cm door landings, stairs 2 m per metre climbed, a lift ride 15 m + 1 m per metre, no
+  outdoor link ([Q-014](open-questions.md#q-014)). Our `kit` model no longer matched (errand 10/93, what_if_door
+  0/4); our own `geodesic` approximation was within 1 m but exact on only 3 of 161 dev routes.
+- **Decision:** Copy the 1.1.0 starter's geometry helpers and `BuildingMap.graph` into `core/building_map.py`
+  unchanged (same node/edge order → same Dijkstra tie-breaks) and make it the only route model. `expand` /
+  `path_parts` give the 1.1.0 `space_path` / `element_path`. `outside` stays available as a start/end node only.
+  Remove `core/geodesic.py` and `scripts/compare_route_models.py`; keep `model=` and `GEODESIC` as aliases so
+  callers (Guide, branches) don't break. The bay / forklift rules stay ours (organiser note, not in the answers).
+- **Consequences:** Train+dev warm-up routes 1,338/1,338 exact (paths too), solvers 655/655, dev benchmark
+  138/138. First graph build is slow on huge OSM corridors (~25 s on osm-way360544293); walks are cached by geometry.
+  One gold value disagrees with the starter itself (resplan-12462, 10 cm); validators accept starter-equal lengths.
+- **Evidence:** [route-model.md](../docs/kit/route-model.md), `tests/test_routes.py`, `scripts/validate_warmup.py`,
+  `scripts/validate_solvers.py`.

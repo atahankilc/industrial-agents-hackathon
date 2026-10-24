@@ -114,15 +114,15 @@ All 10 misses are texts naming a room that several rooms share (OSM duplicates s
 the first candidate. The LLM parser knows these kinds too: 12/12 on reworded dev questions (live, 2026-10-24).
 
 <a id="sunday-routes"></a>
-## Sunday route questions (Q-014) — implemented, model choice open
-Route answers are scored as an ordered space list, re-measured with the organisers' rule. Our route path
-(`core/basic_parser.run_parsed` → `core/navigation.find_route` / `tour`) takes `model` and `rules`
-([route-model.md](../kit/route-model.md#sunday-route-model-and-route-rules-q-014)). Default stays the kit model
-without rules (warm-up gold 100 % with gold ids). For Sunday route questions use `model="geodesic",
-rules=SUNDAY_RULES` (+ `forklift=True` for forklift questions): on train/dev warm-up legs that scores 1.000 against
-0.930 for the kit model (0.984 with the rules) — `scripts/compare_route_models.py`. No route under the rules →
-`reachable: false`, reason starts "no route under these rules"; the answer must say so. Open: Q-014 (1)–(5),
-especially whether `outside` may be crossed (127 legs become unroutable without it).
+## Sunday route questions (Q-014) — one route model since kit 1.1.0, rules open
+Route answers are scored as an ordered space list, re-measured with the organisers' rule — since kit 1.1.0 that rule
+is the route model of every expected answer, ported verbatim into `core/building_map.py`
+([D-014](../../memory-bank/decisions.md#d-014), [route-model.md](../kit/route-model.md)). Our route path
+(`core/basic_parser.run_parsed` → `core/navigation.find_route` / `tour`) takes `rules`
+([route-model.md](../kit/route-model.md#sunday-route-model-and-route-rules-q-014)): none for the kit answers
+(train+dev warm-up 1,338/1,338 exact with gold ids), `SUNDAY_RULES` (+ `forklift=True`) for the organisers' bay /
+forklift rules, which the kit answers don't use. `outside` is never crossed. No route under the rules →
+`reachable: false`, reason starts "no route under these rules"; the answer must say so. Open: Q-014 (3), (4).
 
 ## Answer formatting (all kinds)
 `core/formatter.py`: explanation lines, then `Answer: <number>[ unit]` (integers bare, else 2 decimals) or

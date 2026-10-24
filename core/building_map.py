@@ -1,7 +1,10 @@
 """Deterministic core: load a building.json, search it, route through it, edit it.
 
-Extracted from the organiser starter kit (archive/initial-repo/starter_agent/building_map.py), unchanged so
-far. The route cost model matches the one used to compute the dataset's expected answers; keep it exact.
+Extracted from the organiser starter kit (archive/initial-repo/starter_agent/building_map.py). The route model is
+the kit 1.1.0 one the judges grade with and the expected answers use (README §3, docs/kit/route-model.md): walking
+inside a space goes door to door, 15 cm off the walls and round corners; a door lands 30 cm inside each space;
+stairs cost 2 m per metre climbed, a lift ride 15 m once plus 1 m per metre climbed; no way round the outside.
+Geometry helpers and `graph` are the starter's code unchanged — keep them exact.
 The agent is only the conversation layer; every fact it states comes from this module."""
 
 import itertools
@@ -11,18 +14,158 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import networkx as nx
-from shapely.geometry import Polygon
+import numpy as np
+import shapely
+from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
 
 OUTSIDE = "outside"
 DOOR_PREFIX = "door:"
 LIFT = "lift"
-STAIRS_COST_PER_FLOOR_M = 12.0
-LIFT_WAIT_COST_M = 15.0
-LIFT_COST_PER_FLOOR_M = 6.0
+# Vertical movement in equivalent walking metres per metre of height (floors' elevation_m), the grading rule.
+STAIRS_M_PER_RISE = 2.0
+LIFT_FIXED_M = 15.0
+LIFT_M_PER_RISE = 1.0
+# Walking inside a space: stay 15 cm off the walls; a door lands 30 cm inside the space.
+WALL_CLEARANCE_M = 0.15
+DOOR_LANDING_M = 0.30
+NARROW_LANDING_M = 0.05
+COVER_TOLERANCE_M = 0.02
+BLOCKED_DETOUR_FACTOR = 1.5  # used when no clear walk exists between two points of a space
+LENGTH_DECIMALS = 3
 MAX_SEARCH_RESULTS = 15
 ADJACENT_DISTANCE_M = 0.6
 NEW_DOOR_WIDTH_M = 0.9
+
+
+Point2 = tuple[float, float]
+# Walking lengths per space, keyed by (space id, outline, openings): see BuildingMap.space_walks.
+_WALKS: dict[tuple, list[tuple[str, str, float]]] = {}
+
+
+# ---------- geometry (starter kit 1.1.0, unchanged) ----------
+
+
+def outline(points: list[Point2]) -> Polygon:
+    polygon = Polygon(points)
+    return polygon if polygon.is_valid else polygon.buffer(0)
+
+
+def door_landing(polygon: Polygon, position: Point2) -> Point2:
+    """Where a door at `position` lands inside the space: 30 cm in from the walls."""
+    inner = polygon.buffer(-DOOR_LANDING_M)
+    if inner.is_empty:
+        inner = polygon.buffer(-NARROW_LANDING_M)
+    if inner.is_empty:
+        point = polygon.representative_point()
+        return (point.x, point.y)
+    if inner.contains(Point(position)):
+        return (position[0], position[1])
+    landing = nearest_points(inner, Point(position))[0]
+    return (landing.x, landing.y)
+
+
+def visibility_matrix(allowed: Polygon, nodes: list[Point2]) -> np.ndarray:
+    """Straight-line lengths between nodes that see each other inside `allowed`, infinite where blocked."""
+    coordinates = np.asarray(nodes, dtype=float)
+    straight = np.hypot(*(coordinates[:, None, :] - coordinates[None, :, :]).transpose(2, 0, 1))
+    first, second = np.triu_indices(len(nodes), k=1)
+    shapely.prepare(allowed)
+    clear = shapely.covers(
+        allowed, shapely.linestrings(np.stack([coordinates[first], coordinates[second]], axis=1))
+    )
+    usable = clear | (straight[first, second] == 0)
+    matrix = np.full(straight.shape, np.inf)
+    np.fill_diagonal(matrix, 0.0)
+    matrix[first[usable], second[usable]] = straight[first[usable], second[usable]]
+    matrix[second[usable], first[usable]] = straight[first[usable], second[usable]]
+    return matrix
+
+
+def shortest_lengths(matrix: np.ndarray) -> np.ndarray:
+    """All-pairs shortest path lengths (Floyd-Warshall)."""
+    for middle in range(len(matrix)):
+        matrix = np.minimum(matrix, matrix[:, middle, None] + matrix[None, middle, :])
+    return matrix
+
+
+def walking_lengths(polygon: Polygon, points: list[Point2]) -> dict[tuple[int, int], float]:
+    """Shortest walks between points inside a space, 15 cm off the walls and round its corners: a
+    visibility graph over the points and the corners of the walkable area."""
+    walkable = polygon.buffer(-WALL_CLEARANCE_M)
+    if walkable.is_empty or walkable.geom_type != "Polygon":
+        walkable = polygon
+    allowed = walkable.buffer(COVER_TOLERANCE_M)
+    corners = [
+        corner for ring in [walkable.exterior, *walkable.interiors] for corner in list(ring.coords)[:-1]
+    ]
+    walks = shortest_lengths(visibility_matrix(allowed, list(points) + corners))
+    lengths = {}
+    for source in range(len(points)):
+        for target in range(len(points)):
+            walk = float(walks[source, target])
+            fallback = math.dist(points[source], points[target]) * BLOCKED_DETOUR_FACTOR
+            lengths[(source, target)] = walk if math.isfinite(walk) else fallback
+    return lengths
+
+
+def connector_cost(connector: dict, rise_m: float) -> float:
+    """Stairs 2 m per metre climbed; a lift ride 15 m once plus 1 m per metre climbed."""
+    if connector["kind"] == LIFT:
+        return LIFT_FIXED_M + LIFT_M_PER_RISE * abs(rise_m)
+    return STAIRS_M_PER_RISE * abs(rise_m)
+
+
+# ---------- route paths ----------
+
+
+def cheapest(graph: nx.MultiGraph, first: str, second: str) -> dict:
+    return min(graph[first][second].values(), key=lambda edge: edge["weight"])
+
+
+def expand(graph: nx.MultiGraph, nodes: list[str]) -> tuple[list[str], nx.MultiGraph]:
+    """A Dijkstra node path → (space/door node path, graph of the hops walked), for directions and paths.
+
+    Every hop of the result has `via` (the opening or connector) and alternates spaces and doors: a door–door walk
+    inside space S becomes door → S (0 m) → door (the metres walked in S), so a corridor crossed door to door shows
+    up as a space, and directions report the walk when leaving S."""
+    walked = nx.MultiGraph()
+    expanded = [nodes[0]]
+
+    def hop(first: str, second: str, weight: float, via: str) -> None:
+        walked.add_edge(first, second, weight=weight, via=via)
+        expanded.append(second)
+
+    for first, second in itertools.pairwise(nodes):
+        edge = cheapest(graph, first, second)
+        space = edge.get("space")
+        door = first if first.startswith(DOOR_PREFIX) else second
+        if space is None:  # stairs, lift, or the outside link
+            hop(first, second, edge["weight"], edge["via"])
+        elif space in (first, second):  # the space's own centre point to one of its doors
+            hop(first, second, edge["weight"], door.removeprefix(DOOR_PREFIX))
+        else:
+            hop(first, space, 0.0, first.removeprefix(DOOR_PREFIX))
+            hop(space, second, edge["weight"], second.removeprefix(DOOR_PREFIX))
+    return expanded, walked
+
+
+def path_parts(graph: nx.MultiGraph, nodes: list[str]) -> tuple[list[str], list[str]]:
+    """(space_path, element_path) of a Dijkstra node path in the kit 1.1.0 answer format: every space passed in
+    order (incl. corridors crossed door to door, "outside" when it is an endpoint), each opening once, each stair
+    flight / lift ride once."""
+    expanded, walked = expand(graph, nodes)
+    spaces: list[str] = []
+    for node in expanded:
+        if not node.startswith(DOOR_PREFIX) and (not spaces or spaces[-1] != node):
+            spaces.append(node)
+    elements: list[str] = []
+    for first, second in itertools.pairwise(expanded):
+        if second.startswith(DOOR_PREFIX):
+            elements.append(second.removeprefix(DOOR_PREFIX))
+        elif not first.startswith(DOOR_PREFIX):
+            elements.append(cheapest(walked, first, second)["via"])  # space → space: stairs or lift
+    return spaces, elements
 
 
 class MapError(ValueError):
@@ -175,26 +318,60 @@ class BuildingMap:
 
     # ---------- routing ----------
 
-    def anchor(self, space_id: str) -> tuple[float, float]:
-        point = Polygon(self.spaces[space_id]["polygon"]).representative_point()
+    def anchor(self, space_id: str) -> Point2:
+        point = outline(self.spaces[space_id]["polygon"]).representative_point()
         return (point.x, point.y)
 
-    def graph(self, step_free: bool) -> nx.MultiGraph:
+    def space_walks(self, space_id: str) -> list[tuple[str, str, float]]:
+        """Walking lengths between the room's centre point and each of its doors, and between its doors.
+
+        Cached by the space's geometry and openings (module-level `_WALKS`), so copies of a building, sessions and
+        edits reuse them; an added door or changed outline is a new key."""
+        space = self.spaces[space_id]
+        doors = [
+            (opening["id"], (opening["position"][0], opening["position"][1]))
+            for opening in self.openings.values()
+            if space_id in opening["space_ids"]
+        ]
+        key = (space_id, tuple(map(tuple, space["polygon"])), tuple(doors))
+        if key not in _WALKS:
+            polygon = outline(space["polygon"])
+            members = [(space_id, self.anchor(space_id), 0.0)]
+            for opening_id, position in doors:
+                landing = door_landing(polygon, position)
+                members.append((DOOR_PREFIX + opening_id, landing, math.dist(landing, position)))
+            lengths = walking_lengths(polygon, [landing for _, landing, _ in members])
+            _WALKS[key] = [
+                (
+                    members[first][0],
+                    members[second][0],
+                    lengths[(first, second)] + members[first][2] + members[second][2],
+                )
+                for first, second in itertools.combinations(range(len(members)), 2)
+            ]
+        return _WALKS[key]
+
+    def graph(self, step_free: bool, outside: bool = False) -> nx.MultiGraph:
+        """The kit 1.1.0 route graph (archive/initial-repo/starter_agent/building_map.py, built in the same order so
+        Dijkstra breaks ties the same way). Walk edges inside a space carry `space`, stair/lift edges `via`.
+
+        `outside=True` adds an `outside` node joined at 0 m to every open entrance — only for routes that start or
+        end outside; never walk through it (no way round the outside, route_models.endpoint_only)."""
         # MultiGraph: a stair and a lift may join the same two spaces; both edges must be kept.
         graph = nx.MultiGraph()
-        anchors = {space_id: self.anchor(space_id) for space_id in self.spaces if space_id not in self.closed}
-        graph.add_nodes_from(anchors)
-        for opening in self.openings.values():
-            if opening["id"] in self.closed or (step_free and not opening["step_free"]):
-                continue
-            door = DOOR_PREFIX + opening["id"]
-            for space_id in opening["space_ids"]:
-                if space_id == OUTSIDE:
-                    graph.add_edge(OUTSIDE, door, weight=0.0, via=opening["id"])
-                elif space_id in anchors:
-                    distance = math.dist(anchors[space_id], opening["position"])
-                    graph.add_edge(space_id, door, weight=distance, via=opening["id"])
+        open_doors = {
+            DOOR_PREFIX + opening["id"]
+            for opening in self.openings.values()
+            if opening["id"] not in self.closed and (opening["step_free"] or not step_free)
+        }
+        open_spaces = [space_id for space_id in self.spaces if space_id not in self.closed]
+        graph.add_nodes_from(open_spaces)
+        for space_id in open_spaces:
+            for first, second, length in self.space_walks(space_id):
+                if (first == space_id or first in open_doors) and second in open_doors:
+                    graph.add_edge(first, second, weight=round(length, LENGTH_DECIMALS), space=space_id)
         levels = {floor_id: floor["level"] for floor_id, floor in self.floors.items()}
+        elevations = {floor_id: floor["elevation_m"] for floor_id, floor in self.floors.items()}
         for connector in self.connectors.values():
             if connector["id"] in self.closed or (step_free and not connector["step_free"]):
                 continue
@@ -202,16 +379,23 @@ class BuildingMap:
                 zip(connector["floor_ids"], connector["space_ids"], strict=True),
                 key=lambda stop: levels[stop[0]],
             )
-            for (low_floor, low_space), (high_floor, high_space) in itertools.pairwise(stops):
-                if low_space not in anchors or high_space not in anchors:
+            # A lift ride pays the fixed 15 m once however many floors it passes, so every pair of stops
+            # gets an edge; stairs keep one edge per flight.
+            is_lift = connector["kind"] == LIFT
+            pairs = itertools.combinations(stops, 2) if is_lift else itertools.pairwise(stops)
+            for (low_floor, low_space), (high_floor, high_space) in pairs:
+                if low_space not in graph or high_space not in graph:
                     continue
-                span = abs(levels[high_floor] - levels[low_floor])
-                cost = (
-                    LIFT_WAIT_COST_M + LIFT_COST_PER_FLOOR_M * span
-                    if connector["kind"] == LIFT
-                    else STAIRS_COST_PER_FLOOR_M * span
+                rise = abs(elevations[high_floor] - elevations[low_floor])
+                graph.add_edge(
+                    low_space, high_space, weight=round(connector_cost(connector, rise), LENGTH_DECIMALS),
+                    via=connector["id"],
                 )
-                graph.add_edge(low_space, high_space, weight=cost, via=connector["id"])
+        if outside:
+            for opening in self.openings.values():
+                door = DOOR_PREFIX + opening["id"]
+                if OUTSIDE in opening["space_ids"] and door in graph:
+                    graph.add_edge(OUTSIDE, door, weight=0.0, via=opening["id"])
         return graph
 
     def route(
@@ -223,9 +407,9 @@ class BuildingMap:
             self.resolve_space(destination),
         ]
         graph = self.graph(step_free)
-        nodes: list[str] = []
         length = 0.0
         legs = []
+        steps: list[str] = []
         for leg_start, leg_end in itertools.pairwise(stops):
             try:
                 leg_length, leg_nodes = nx.single_source_dijkstra(graph, leg_start, leg_end, weight="weight")
@@ -236,14 +420,16 @@ class BuildingMap:
                     f"{self.describe_space(leg_end)} with the current closures {sorted(self.closed)}."
                 ) from error
             length += leg_length
-            nodes += leg_nodes if not nodes else leg_nodes[1:]
             legs.append(self.leg(graph, leg_nodes, leg_length))
+            walk_nodes, walked = expand(graph, leg_nodes)
+            leg_steps = self.directions(walked, walk_nodes)
+            steps += leg_steps if not steps else leg_steps[1:]
         result = RouteResult(
             start_space_id=stops[0],
             destination_space_id=stops[-1],
             length_m=round(length, 2),
-            space_path=[node for node in nodes if not node.startswith(DOOR_PREFIX)],
-            steps=self.directions(graph, nodes),
+            space_path=[stops[0], *(space for leg in legs for space in leg["space_path"][1:])],
+            steps=steps,
             step_free=step_free,
             closed=sorted(self.closed),
             element_path=[element for leg in legs for element in leg["element_path"]],
@@ -258,18 +444,19 @@ class BuildingMap:
         return min(graph[first][second].values(), key=lambda candidate: candidate["weight"])
 
     def leg(self, graph: nx.MultiGraph, nodes: list[str], length: float) -> dict:
-        """One stop-to-stop leg in the warm-up answer format (questions_basic.jsonl `route` / `tour` legs):
-        `space_path` = spaces and "outside"; `element_path` = the opening or connector of every edge walked."""
+        """One stop-to-stop leg in the warm-up answer format (questions_basic.jsonl `route` / `tour` legs)."""
+        space_path, element_path = path_parts(graph, nodes)
         return {
             "from_space_id": nodes[0],
             "to_space_id": nodes[-1],
             "optimal_length_m": round(length, 2),
-            "space_path": [node for node in nodes if not node.startswith(DOOR_PREFIX)],
-            "element_path": [self.edge(graph, first, second)["via"] for first, second in itertools.pairwise(nodes)],
+            "space_path": space_path,
+            "element_path": element_path,
         }
 
     def directions(self, graph: nx.MultiGraph, nodes: list[str]) -> list[str]:
-        """Turn a node path into followable steps: one line per room change or floor change."""
+        """Turn an expanded node path (`expand`: space, door, space, …) into followable steps: one line per room
+        change or floor change."""
         steps = [f"Start in {self.describe_space(nodes[0])}."]
         walked = 0.0
         for previous, current in itertools.pairwise(nodes):
@@ -289,9 +476,7 @@ class BuildingMap:
                 walked = 0.0
             elif not current.startswith(DOOR_PREFIX):
                 opening = self.openings[element]
-                passage = {"door": "through the door", "entrance": "outside to the entrance and in"}.get(
-                    opening["kind"], "through the opening"
-                )
+                passage = "through the door" if opening["kind"] == "door" else "through the opening"
                 steps.append(f"Walk about {walked:.0f} m {passage} into {self.spaces[current]['name']}.")
                 walked = 0.0
         steps.append(f"You have arrived at {self.describe_space(nodes[-1])}.")

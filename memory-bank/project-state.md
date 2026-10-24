@@ -76,7 +76,7 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   ~$0.15) and Sonnet 5.5 low (~3.3–3.9 s/turn, ~$0.06), 0 ungrounded replies — table in
   [ai-agents.md](../docs/architecture/ai-agents.md#implementation--agentguidepy-2026-10-24).
 
-- `uv sync` at root; starter oracle on dev **369/369**; `core.building_map` reproduces 120/120 dev warm-up routes < 1 cm.
+- `uv sync` at root; starter oracle on dev **369/369** (kit 1.0.0); since kit 1.1.0 `core.building_map` reproduces 1,338/1,338 train+dev warm-up routes < 1 cm (D-014).
 - `core/question_parser.py`: 655/655 train+dev params match `inputs`; 145/145 test questions parse (`uv run pytest`).
 - `agent/parsing.py` modes + `agent/llm_parser.py`: offline tests pass; live (2026-10-24, `scripts/eval_llm_parser.py --per-kind 3`, 24 dev
   questions): original text regex/llm/hybrid 24/24 each; `--paraphrase` regex **0/24**, llm 24/24, hybrid 24/24.
@@ -132,10 +132,9 @@ persistence · `dc058f8` Sunday hardening · `46321b5` voice-ready replies. All 
 is deployed** (Atahan, 2026-10-24; public URL not recorded here, no smoke test by Claude yet).
 
 **What works:** benchmark dev 138/138, train 515/517 (2 irreducible Q-006); parser hybrid 31/31 on paraphrases;
-Guide live on Opus 5.5 / Sonnet 5.5; FastAPI backend; React app `frontend/app/` (D-011). **New:** second route model
-`geodesic` (door-to-door, 0.15 m off walls, height-based stair/lift costs) + route rules (production bays
-destination-only, no outside shortcut, forklift preset) — selectable per call, kit model stays default
-([route-model.md](../docs/kit/route-model.md#sunday-route-model-and-route-rules-q-014)). Guide routes always obey
+Guide live on Opus 5.5 / Sonnet 5.5; FastAPI backend; React app `frontend/app/` (D-011). **New (kit 1.1.0, D-014):** one route model —
+the organisers' door-to-door graph, ported verbatim; route rules (production bays destination-only, forklift
+preset) per call ([route-model.md](../docs/kit/route-model.md#sunday-route-model-and-route-rules-q-014)). Guide routes always obey
 the rules. `uv run pytest` 182 passed, 1 skipped (dev); 301 passed, 1 skipped after merging into `1-agentic-yarag`. API spend ≈ $1.4 of $150.
 
 **Running locally (may still be up):** backend `uvicorn backend.app:app --port 8765` (real Claude), Vite on
@@ -150,13 +149,12 @@ placeholder so the old `App.tsx` (unused, reference for porting) still compiles.
 
 **▶ Do next, in order (Atahan's call 2026-10-24: frontend polish next session; Q-014 and Q-001 parked):**
 1. **Frontend polish** (`frontend/app/`): phone-layout check, demo GIF (needs the Chrome extension), bundle split,
-   closure ripple for edits, narrow doors for the active profile, draw geodesic in-space polylines
-   (`core.geodesic.space_path`) instead of straight door-to-door lines.
-2. Parked until Atahan picks them up: [Q-014](open-questions.md#q-014) organiser answers → switch Sunday route
-   questions to `model="geodesic", rules=SUNDAY_RULES` (decide `no_outside`: 127 warm-up legs become unroutable
-   without outside; start/end convention; aisle/walkway/bay markers; errand on geodesic if the rule covers it);
-   Sunday output format ([Q-001](open-questions.md#q-001)) incl. the "no route under these rules" wording.
-3. Small gaps: `numpy` used by `core/geodesic.py` but not declared in `pyproject.toml` (transitive via shapely;
+   closure ripple for edits, narrow doors for the active profile, draw in-space walk polylines
+   (the visibility-graph walk of `core/building_map.walking_lengths`; `core/geodesic.py` was removed, D-014)
+   instead of straight door-to-door lines.
+2. Parked until Atahan picks them up: [Q-014](open-questions.md#q-014) (3), (4) — aisle/walkway/bay markers,
+   whether Sunday route questions use `rules=SUNDAY_RULES` (the kit 1.1.0 answers use none); Sunday output format ([Q-001](open-questions.md#q-001)) incl. the "no route under these rules" wording.
+3. Small gaps: `numpy` used by `core/building_map.py` but not declared in `pyproject.toml` (transitive via shapely;
    Atahan's file); `BuildingSession.route_model` is not saved by `backend/persistence.py` (irrelevant while the app
    stays on the kit model); live smoke test of the deployed app (needs the URL).
 4. ElevenLabs Custom LLM on the deployed `/v1/chat/completions` — ask before creating anything in any account.
@@ -167,10 +165,10 @@ placeholder so the old `App.tsx` (unused, reference for porting) still compiles.
 
 ## Next priorities
 
-0. **URGENT — kit 1.1.0 route model** (2026-10-24): the organisers recomputed all route answers (train/dev/test)
-   with a new rule; `data/` is updated, our routing still uses the old kit model → errand 10/93, what_if_door 0/4,
-   warm-up routes off. Port `archive/initial-repo/starter_agent/building_map.py` (1.1.0) into `core/` as the
-   default, see [Q-014](open-questions.md#q-014) and [log](log.md). Numbers under "What works" predate this.
+0. ✅ **Kit 1.1.0 route model ported** (2026-10-24, [D-014](decisions.md#d-014)): `core/building_map.py` = the
+   1.1.0 starter graph; warm-up routes 1,338/1,338 exact, solvers 655/655, dev benchmark 138/138, test submission
+   regenerated (20 errand + 1 what_if_door answers changed). Open: push `dev` (2 local commits), merge into
+   `1-agentic-yarag` / `2-builder-edit`; slow first build on huge OSM corridors (~25 s, cached afterwards).
 
 1. Frontend polish (next session): phone layout check, closure ripple for edits, narrow doors for the active profile, run against
    the real Guide (key set) and record a demo GIF/video.

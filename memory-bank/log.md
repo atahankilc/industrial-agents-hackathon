@@ -10,6 +10,22 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Kit 1.1.0 route model ported (D-014)
+
+- **Did:** `core/building_map.py` now carries the 1.1.0 starter's geometry helpers and `graph` unchanged (+ `outside`
+  endpoint option, geometry-keyed walk cache `_WALKS`, `expand` / `path_parts` for the 1.1.0 paths);
+  `core/route_models.py` has one model (`GEODESIC` alias), outside always endpoint-only, bay/forklift filters fixed
+  for door-to-door edges (a bay was unreachable as a destination, forklift could cross a walkway door to door);
+  `navigation.path_length`, errand/what_if_door, `solvers_v1`, `validate_warmup.py` (unreachable tours, starter-equal
+  lengths) updated; removed `core/geodesic.py`, `tests/test_geodesic.py`, `scripts/compare_route_models.py`; tests
+  moved to the new metres (Guide scenario: 124.24 → 61.24 m step-free, 132.2 → 96.46 m after Lift 1 closes).
+  Regenerated `submissions/` (regex parser): 21 of 145 answers changed (20 errand, 1 what_if_door).
+- **Learned:** the official starter reproduces all 189 dev routes exactly; one gold value disagrees with it
+  (resplan-12462, 7.57 vs 7.67 m). First build of a huge OSM corridor (~1,000 corners) takes ~13 s; the whole building osm-way360544293 ~25 s.
+- **Numbers:** warm-up routes 1,338/1,338 exact (paths too), `validate_warmup` 99.53 % from text, same as before 1.1.0 (misses = duplicate
+  names), solvers 655/655, dev benchmark 138/138, `uv run pytest` green.
+- **Next:** push `dev`, merge into the feature branches; Q-014 (3), (4).
+
 ## 2026-10-24 — Kit 1.1.0: corrected answers (new route model)
 
 - **Did:** Organisers published a patch (`Synera-GmbH/industrial-agents-hackathon-2026`, branch

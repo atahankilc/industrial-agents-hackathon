@@ -29,7 +29,7 @@ PYTHONPATH=archive/initial-repo uv run --env-file .env python -m starter_agent d
 ## Evaluate on dev (do this before touching test)
 
 ```bash
-# warm-up questions, tools only, free (verified 369/369 on 2026-10-24):
+# warm-up questions, tools only, free (verified 369/369 on 2026-10-24 with kit 1.0.0 answers; not re-run on 1.1.0):
 PYTHONPATH=archive/initial-repo uv run python -m starter_agent.evaluate data/dev --oracle
 # benchmark questions with the starter agent (~$0.10–0.25/question):
 PYTHONPATH=archive/initial-repo uv run --env-file .env python -m benchmark.evaluate data/dev --per-kind 3

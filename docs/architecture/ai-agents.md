@@ -121,6 +121,16 @@ wraps the same Building Guide (one brain for text and voice) — skeleton in `ba
 **client tools** and/or our own realtime channel. Fallback: Scribe Realtime → Guide → TTS WebSocket.
 Per-building **keyterms** (room names, machine names) go to Scribe for accurate recognition.
 
+**Implemented (2026-10-24):** `Guide.reply(text, channel="voice")` — used by `/v1/chat/completions` — adds the
+`VOICE_STYLE` instruction (plain spoken sentences, ≤ ~3 sentences, first 2–3 steps then offer to continue) as a
+mid-conversation **system message** after the user turn on models that support it (Opus 5/5.5, Opus 4.8, Fable,
+Sonnet 5.5, Haiku 5.5 — keeps the cached prefix), else as a note in the user turn; then `agent/speech.py`
+`speakable()` deterministically strips markdown, list markers, ids and symbols and spells out units (it never adds
+a number, so grounding holds). `GuideTurn.spoken` carries the result; the chat panel keeps the text channel.
+Live (Sonnet 5.5 low, `scripts/live_guide.py --channel voice`): 7 turns, ~3 s/turn, $0.054, 0 ungrounded, no ids
+or markdown in speech. Tests: `tests/test_speech.py`. Still open: ElevenLabs account wiring (session id, system
+tools) — needs the public deploy.
+
 ## Benchmark pipeline
 
 ```

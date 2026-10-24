@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 
 import anthropic
 
+from agent.speech import speakable
 from agent.tools import PRESETS, PROFILE_FIELDS, TOOL_DEFINITIONS, BuildingSession, RoutingProfile
 
 DEFAULT_MODEL = "claude-opus-5-5"  # override with GUIDE_MODEL
@@ -60,8 +61,20 @@ numbered steps a person can follow, with landmarks, explicit floor changes and r
 - Changes go propose_change → show the user the summary and its effect → apply_change only after the user \
 confirms in a later message. propose_change already reports who loses access and how much longer routes get; \
 use a change_id only after a tool has returned it. After applying, re-run the affected route and say what changed.
-- Use show_on_map to highlight what you're talking about when it helps.
+- Use show_on_map to highlight what you're talking about when it helps. Routes and highlights appear on the \
+user's map automatically, so don't offer to show them.
 - Be brief: this is also spoken aloud. No headings, no tables."""
+
+# Voice turns (ElevenLabs via /v1/chat/completions) get this operator instruction; agent/speech.py then makes the
+# text speakable deterministically. Sent as a mid-conversation system message where the model supports it (keeps
+# the cached prefix), otherwise as a note in the user turn.
+VOICE_STYLE = ("[voice channel] This reply will be spoken aloud. Use plain spoken sentences: no markdown, lists, "
+               "symbols or ids, and at most about three short sentences. For directions, give the first two or "
+               "three steps with landmarks and rounded metres, then offer to continue. Facts still come only from "
+               "tools.")
+SYSTEM_MESSAGE_MODELS = ("claude-opus-5", "claude-opus-4-8", "claude-fable-5", "claude-mythos-5", "claude-sonnet-5-5",
+                         "claude-haiku-5-5")
+CHANNELS = ("text", "voice")
 
 NUMBER = re.compile(r"(?<![\w.])\d+(?:[.,]\d+)?(?![\w])")
 IDENTIFIER = re.compile(r"\b[A-Za-z0-9]+(?:-[A-Za-z0-9]+){2,}\b")
@@ -269,6 +282,7 @@ class GuideTurn:
     events: list[dict] = field(default_factory=list)  # UI events emitted during this turn
     ungrounded: list[str] = field(default_factory=list)
     stop_reason: str | None = None
+    spoken: str | None = None  # voice turns: the reply made speakable (agent/speech.py)
     auto_profile: dict | None = None  # {"cues", "arguments", "result"} when the safety net set the profile
 
 
@@ -296,11 +310,20 @@ class Guide:
         self.usage = Usage()
         self.profile_note: str | None = None  # tells the model next turn what the safety net set
 
-    def reply(self, text: str) -> GuideTurn:
+    def reply(self, text: str, channel: str = "text") -> GuideTurn:
+        """One user turn. channel="voice" asks for a spoken style and fills `GuideTurn.spoken`."""
+        if channel not in CHANNELS:
+            raise ValueError(f"channel must be one of {CHANNELS}")
         self.turn += 1
         self.corpus.append(text)
         note, self.profile_note = self.profile_note, None
-        self.messages.append({"role": "user", "content": f"{note}\n\n{text}" if note else text})
+        content = f"{note}\n\n{text}" if note else text
+        system_role = self.model.startswith(SYSTEM_MESSAGE_MODELS)
+        if channel == "voice" and not system_role:
+            content = f"{VOICE_STYLE}\n\n{content}"
+        self.messages.append({"role": "user", "content": content})
+        if channel == "voice" and system_role:
+            self.messages.append({"role": "system", "content": VOICE_STYLE})
         first_event = len(self.session.events)
         turn = self.run()
         auto = self.profile_safety_net(text)
@@ -334,6 +357,8 @@ class Guide:
             turn.text = f"{turn.text}\n\n{confirmation_line(auto['result'])}".strip()
         turn.ungrounded = ungrounded(turn.text, "\n".join(self.corpus))
         turn.events = self.session.events[first_event:]
+        if channel == "voice":
+            turn.spoken = speakable(turn.text)
         return turn
 
     def profile_safety_net(self, text: str) -> dict | None:

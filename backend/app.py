@@ -127,7 +127,8 @@ def chat_completions(body: dict, x_session_id: str | None = Header(None)) -> dic
         if not text:
             return "Sorry, I didn't catch that."
         with conversation.lock:
-            return conversation.guide.reply(text).text
+            turn = conversation.guide.reply(text, channel="voice")  # spoken style for ElevenLabs
+            return turn.spoken or turn.text
 
     if body.get("stream"):
         return StreamingResponse(openai_compat.stream(reply, model), media_type="text/event-stream")

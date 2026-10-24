@@ -56,13 +56,16 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `tests/test_guide.py`: scripted tricky-user conversation passes offline.
 - **Backend** `backend/` (FastAPI): sessions per conversation + building choice, `POST /chat`, `GET /events`,
   OpenAI-compatible streaming `/v1/chat/completions`; runs with `GUIDE_LLM=offline uv run uvicorn backend.app:app`
-  ([commands.md](../docs/guides/commands.md#backend-guide-api)). `uv run pytest` **87 passed**.
+  ([commands.md](../docs/guides/commands.md#backend-guide-api)).
 - **Frontend app** `frontend/app/` (Vite + React + r3f): monochrome point cloud ([D-011](decisions.md#d-011)) with
   emergence + scan, route flow, highlight / closure / lost-access states, floor solo + separation, camera fly-to,
   chat panel; light/dark. Backend serves `GET /sessions/{id}/points` (`core/pointcloud.py`) and enriches route /
   change events. Verified in Chrome with the offline Guide ([commands.md](../docs/guides/commands.md#frontend-app)).
 - **Profiles:** `set_profile` presets (wheelchair, pram, trolley, no_lifts, default) + deterministic cue safety net
-  in the Guide (`tests/test_profiles.py`); live Sonnet run uses the preset itself. `uv run pytest` **136 passed**.
+  in the Guide (`tests/test_profiles.py`); live Sonnet run uses the preset itself.
+- **Voice replies:** `Guide.reply(…, channel="voice")` (used by `/v1/chat/completions`): spoken-style system
+  message + deterministic `agent/speech.py`; live Sonnet low 7 turns ~3 s/turn, $0.054, clean speech.
+  `uv run pytest` **146 passed**.
 - **Live Guide** (API key set 2026-10-24): 7-turn tricky-user conversation correct on Opus 5.5 medium (~5.9–7.3 s/turn,
   ~$0.15) and Sonnet 5.5 low (~3.3–3.9 s/turn, ~$0.06), 0 ungrounded replies — table in
   [ai-agents.md](../docs/architecture/ai-agents.md#implementation--agentguidepy-2026-10-24).
@@ -88,8 +91,8 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## Next priorities
 
-1. Voice: voice-friendly replies (no markdown, short steps) + ElevenLabs Custom LLM on `/v1/chat/completions` —
-   needs a public deploy; ask Atahan before creating anything in any account. Decide model per channel (Q-012).
+1. Voice: ElevenLabs Custom LLM on `/v1/chat/completions` (replies are voice-ready) — needs the public deploy
+   (Atahan working on it); ask before creating anything in any account. Decide model per channel (Q-012).
 2. Frontend polish: phone layout check, closure ripple for edits, narrow doors for the active profile, run against
    the real Guide (key set) and record a demo GIF/video.
 3. (Atahan) Vercel + Supabase accounts → [stack checklist](../docs/research/stack-options.md#7-day-one-setup-checklist-human-actions--ask-before-creating-anything).

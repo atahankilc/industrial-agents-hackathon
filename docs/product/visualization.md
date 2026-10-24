@@ -22,10 +22,9 @@ Prototype: `frontend/prototypes/pointcloud/` (run instructions in its README)
 | Ecosystem | three examples (`OrbitControls`, post-processing) | **drei** (controls, `<Html>` labels, `<Bvh>`, `<PointMaterial>`), `@react-three/postprocessing` (bloom), react state for UI ↔ scene |
 | Fit for us | Prototype (this folder) | The real app ([D-006](../../memory-bank/decisions.md#d-006): React frontend): chat, panels and 3D share React state (selected room, active route, closures) |
 
-Plan: keep the prototype's exporter + shader; port `index.html` into an r3f component
-`<BuildingCloud data route highlight density explode/>` with the same attributes and uniforms, driven by
-`useFrame`. Bloom via `@react-three/postprocessing` makes the additive points glow cheaply. Exact package
-versions to be pinned when the frontend is scaffolded (UNVERIFIED here).
+Done (2026-10-24): the exporter became `core/pointcloud.py` and the shader an r3f `<BuildingCloud/>` in
+`frontend/app/` (versions pinned in `frontend/app/package.json`: three 0.186, @react-three/fiber 9, drei 10). No
+post-processing bloom: the soft additive dots in dark mode glow enough and keep it to one draw call.
 
 ## Visual language
 

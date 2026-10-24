@@ -1,6 +1,6 @@
 """Run the tricky-user conversation against the real Claude API and report quality, latency and cost.
 
-  uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] [--effort low] [--out FILE]
+  uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] [--effort low] [--channel voice]
 
 Same user turns as tests/test_guide.py, but the model decides everything. Prints each reply with the tools it
 called, flags (ungrounded numbers/ids, refused same-turn applies), and per-turn tokens, cache reads, seconds and
@@ -54,15 +54,16 @@ def main() -> None:
     parser.add_argument("--model", default=None)
     parser.add_argument("--effort", default=None)
     parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument("--channel", choices=["text", "voice"], default="text")
     args = parser.parse_args()
 
     guide = Guide(BuildingSession.load(ROOT / args.building), client=make_client(), model=args.model,
                   effort=args.effort)
-    print(f"model {guide.model} · effort {guide.effort} · building {args.building}\n")
+    print(f"model {guide.model} · effort {guide.effort} · channel {args.channel} · building {args.building}\n")
     transcript, total_seconds = [], 0.0
     for text in TURNS:
         before, started = Usage(**asdict(guide.usage)), time.perf_counter()
-        turn = guide.reply(text)
+        turn = guide.reply(text, channel=args.channel)
         seconds = time.perf_counter() - started
         total_seconds += seconds
         used = delta(guide.usage, before)
@@ -70,19 +71,19 @@ def main() -> None:
         print(f"USER  {text}")
         print("TOOLS " + ", ".join(f"{c['name']}({json.dumps(c['input'], ensure_ascii=False)})"
                                    for c in turn.tool_calls))
-        print("GUIDE " + turn.text.replace("\n", "\n      "))
+        print("GUIDE " + (turn.spoken or turn.text).replace("\n", "\n      "))
         print(f"      [{seconds:.1f}s · {used.requests} req · in {used.input_tokens} · out {used.output_tokens} · "
               f"cache read {used.cache_read_input_tokens} · write {used.cache_creation_input_tokens} · "
               f"${cost(used, guide.model):.3f}" + (f" · UNGROUNDED {turn.ungrounded}" if turn.ungrounded else "")
               + (" · same-turn apply refused" if refused else "") + f" · stop {turn.stop_reason}]\n")
-        transcript.append({"user": text, "reply": turn.text, "tool_calls": turn.tool_calls, "events": turn.events,
+        transcript.append({"user": text, "reply": turn.text, "spoken": turn.spoken, "tool_calls": turn.tool_calls, "events": turn.events,
                            "ungrounded": turn.ungrounded, "stop_reason": turn.stop_reason,
                            "seconds": round(seconds, 2), "usage": asdict(used)})
     session = guide.session
     print(f"TOTAL {total_seconds:.1f}s · {guide.usage.requests} requests · ${cost(guide.usage, guide.model):.3f} · "
           f"profile {session.profile.describe()} · applied {[c.summary for c in session.applied]} · "
           f"pending {[c.summary for c in session.pending.values()]}")
-    out = args.out or ROOT / "agent_output" / "live_guide" / f"{guide.model}-{guide.effort}-{int(time.time())}.json"
+    out = args.out or ROOT / "agent_output" / "live_guide" / f"{guide.model}-{guide.effort}-{args.channel}-{int(time.time())}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({"model": guide.model, "effort": guide.effort, "building": args.building,
                                "usage": asdict(guide.usage), "cost_usd": round(cost(guide.usage, guide.model), 4),

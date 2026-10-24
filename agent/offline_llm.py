@@ -60,7 +60,9 @@ class OfflineClient:
         self.messages = self
 
     def create(self, **request: object) -> BetaMessage:
-        messages: list[dict] = request["messages"]  # type: ignore[assignment]
+        # Operator system messages (e.g. the voice style) are not user input: answer the turn before them.
+        everything: list[dict] = request["messages"]  # type: ignore[assignment]
+        messages = [item for item in everything if item["role"] != "system"]
         last = messages[-1]["content"]
         if isinstance(last, str):
             return self.on_user(last, messages)

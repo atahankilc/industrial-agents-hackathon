@@ -10,6 +10,17 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Voice-ready replies
+
+- **Did:** `agent/speech.py` (`speakable`: markdown, list markers, ids, symbols → plain sentences, units spelled
+  out, never adds numbers); `Guide.reply(channel="voice")` with `VOICE_STYLE` as a mid-conversation system message
+  (models that support it) or a user-turn note; `/v1/chat/completions` speaks; `live_guide.py --channel voice`;
+  prompt: don't offer to show the map. Doc nits from the last review fixed.
+- **Learned:** Sonnet 5.5 low in voice mode answers in ~3 s with natural spoken steps; only nit was offering to
+  "put it on the map" (fixed in the prompt).
+- **Budget:** +$0.054 → ≈ $0.63 total.
+- **Next:** Sunday hardening (parser paraphrases, Swiss `straight_line_3d`, full train run).
+
 ## 2026-10-24 — Frontend app (monochrome point cloud) + point-cloud API + profile presets
 
 - **Did:** Reviewed the teammate's gap check (routing-profiles TODO, personas P19–P26): accurate; fixed P21's Q-004

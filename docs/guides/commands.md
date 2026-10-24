@@ -72,7 +72,7 @@ curl -s -X POST localhost:8765/chat -H 'content-type: application/json' -d '{"se
 curl -sN -X POST localhost:8765/v1/chat/completions -H 'content-type: application/json' -H 'X-Session-Id: demo' \
      -d '{"stream":true,"messages":[{"role":"user","content":"I use a wheelchair"}]}'
 uv run pytest -q tests/test_guide.py tests/test_backend.py                      # offline tests
-uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] [--effort low]   # live, ~$0.05–0.16
+uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] [--effort low] [--channel voice]   # live, ~$0.05–0.16
 ```
 
 | Method | Path | Body / query | Returns |

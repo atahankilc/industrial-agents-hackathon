@@ -123,7 +123,7 @@ export function BuilderChat({ draftId, proposal, disabled, examples, onReply, on
               <p key={index} className="problem">{problem}</p>
             ))}
             <div className="row">
-              <button type="button" onClick={cancel} disabled={applying}>
+              <button type="button" className="edit-card-button" onClick={cancel} disabled={applying}>
                 <X size={14} /> Cancel
               </button>
               <button type="button" className="edit-primary" onClick={apply} disabled={applying || disabled}>

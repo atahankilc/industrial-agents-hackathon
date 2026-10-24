@@ -2,6 +2,7 @@
 // a 2D plan editor for one floor, a live 3D preview inset, the validator's issues, undo and save.
 // The draft id is kept in localStorage per base building, so a reload resumes the same draft.
 
+import { ChevronLeft, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, type BuilderReply, type DraftState, type Issue, type Op, type Plan, type Proposal } from '../api'
 import type { PlanPalette } from '../plan/palette'
@@ -158,6 +159,7 @@ export function EditMode({ base, palette, onSaved, onExit }: Props) {
     if (rooms.length < 2) return []
     return [`Make ${rooms[0].ref} 1 m wider to the east`, `Rename ${rooms[1].ref} to Quiet room`]
   }, [state])
+  const currentFloor = state?.building.floors.find((floor) => floor.id === floorId)
   const errors = state?.issues.filter((issue) => issue.severity === 'error') ?? []
   const warnings = state?.issues.filter((issue) => issue.severity === 'warning') ?? []
 
@@ -183,15 +185,27 @@ export function EditMode({ base, palette, onSaved, onExit }: Props) {
 
   return (
     <div className="edit">
-      <div className="edit-strip">
-        <span className="label">Draft</span>
-        <span>Copy of {state.draft.name}</span>
-        <span className="muted">· {state.draft.steps} {state.draft.steps === 1 ? 'change' : 'changes'}</span>
-        <button type="button" onClick={undo} disabled={busy || state.draft.steps === 0} title="Undo (⌘Z)">↶ Undo</button>
-        <button type="button" className="edit-primary" onClick={() => setNaming(`${state.draft.name} (edited)`)} disabled={busy}>Save</button>
-        <button type="button" onClick={onExit} disabled={busy} title="Back to the building (the draft is kept)">Done</button>
-        {message && <span className="edit-message">{message}</span>}
-      </div>
+      <header className="guide-line edit-line">
+        <button type="button" className="round" onClick={onExit} disabled={busy} aria-label="Back to the building"
+          title="Back to the building (the draft is kept)">
+          <ChevronLeft size={20} strokeWidth={2.2} />
+        </button>
+        <div className="where">
+          <h1>Editing {state.draft.name}</h1>
+          <p>
+            Draft copy · {state.draft.steps} {state.draft.steps === 1 ? 'change' : 'changes'}
+            {currentFloor ? ` · ${currentFloor.name}` : ''}
+          </p>
+        </div>
+        <button type="button" className="round" onClick={undo} disabled={busy || state.draft.steps === 0}
+          aria-label="Undo" title="Undo (⌘Z)">
+          <Undo2 size={19} strokeWidth={2} />
+        </button>
+        <button type="button" className="edit-save-button" onClick={() => setNaming(`${state.draft.name} (edited)`)} disabled={busy}>
+          Save
+        </button>
+      </header>
+      {message && <p className="edit-message" role="status">{message}</p>}
 
       <PlanEditor
         building={state.building}
@@ -203,15 +217,19 @@ export function EditMode({ base, palette, onSaved, onExit }: Props) {
         busy={busy}
         revision={revision}
         ghost={proposal?.building ?? null}
+        palette={palette}
       />
 
-      <nav className="hud floors edit-floors" aria-label="Floors">
-        {floors.map((floor) => (
-          <button key={floor.id} type="button" className={floor.id === floorId ? 'on' : ''} onClick={() => setFloorId(floor.id)} title={floor.name}>
-            {floor.level}
-          </button>
-        ))}
-      </nav>
+      {floors.length > 1 && (
+        <nav className="floor-tabs edit-floors" aria-label="Floors">
+          {floors.map((floor) => (
+            <button key={floor.id} type="button" aria-pressed={floor.id === floorId} aria-label={floor.name}
+              onClick={() => setFloorId(floor.id)}>
+              {floor.level < 0 ? `B${-floor.level}` : floor.level === 0 ? 'G' : floor.level}
+            </button>
+          ))}
+        </nav>
+      )}
 
       <div className="edit-inset" aria-label="3D preview">
         {plan && (
@@ -268,7 +286,7 @@ export function EditMode({ base, palette, onSaved, onExit }: Props) {
           <input autoFocus value={naming} onChange={(event) => setNaming(event.target.value)} aria-label="Building name" />
           {errors.length > 0 && <p className="warn">{errors.length} open {errors.length === 1 ? 'problem' : 'problems'} — you can save anyway.</p>}
           <div className="row">
-            <button type="button" onClick={() => setNaming(null)}>Cancel</button>
+            <button type="button" className="edit-card-button" onClick={() => setNaming(null)}>Cancel</button>
             <button type="submit" className="edit-primary" disabled={busy || !naming.trim()}>{errors.length > 0 ? 'Save anyway' : 'Save'}</button>
           </div>
         </form>

@@ -70,7 +70,7 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   **M2 done**; review (opus) fixes: a proposal is confirmable only by the very next message (another turn,
   Cancel — new `/proposals/{pid}/cancel` — or a hand edit closes it), only a bare "yes"/"ok" skips the model, text
   fields in ops are coerced to strings, a proposal made against a draft that changed meanwhile is not sent.
-  **M3 plan written for Atahan:** [m3](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m3.md).
+  Edit mode restyled to the building screen's design (clay palette, cards, floor tabs). **M3 plan written for Atahan:** [m3](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m3.md).
 - **M3 (deployed store: drafts, saved buildings, Builder history in Supabase) is Atahan's** (Utku, 2026-10-24) —
   write its plan after M2, don't implement it.
 

@@ -10,6 +10,16 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 21:38 — Edit mode restyled in the new UI's design
+
+- **Did:** pushed `2-builder-edit` to origin (Utku). Restyled the Edit mode to Atahan's building-screen design
+  (Utku: option A): header = round back button + `where` card ("Editing … · Draft copy · N changes · floor") + round
+  undo + accent Save; `floor-tabs` (G / 1 / 2 …) on the left; plan rooms filled with `plan/geometry.fillOf` and walls /
+  labels / furniture / selection from the PlanView palette (light / dark); preview, Builder chat, problems and the
+  save sheet as `--surface` cards with `--shadow-float`; user bubbles in the accent; `--danger` for problems.
+  `edit.css` rewritten on the screen tokens. Headless Chrome flow unchanged (0 → 1 → 2 → 3 changes, no errors).
+- **Next:** push this commit too if Utku wants; then project 2 (build from PDF / image) or polish.
+
 ## 2026-10-24 21:22 — Builder M2 review fixes; M3 plan for Atahan
 
 - **Did:** whole-branch review of M2 (opus): 1 critical, 3 important, 6 minor. Fixed test-first: (critical) an open

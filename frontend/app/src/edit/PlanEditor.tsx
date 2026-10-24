@@ -4,7 +4,10 @@
 // the backend applies, snaps and validates (core/edits.py, core/validate.py). Wheel zooms, dragging empty space pans.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { AssetJson, BuildingJson, Issue, OpeningJson, Op } from '../api'
+import type { AssetJson, BuildingJson, Issue, OpeningJson, Op, PlanSpace } from '../api'
+import { fillOf } from '../plan/geometry'
+import type { PlanPalette } from '../plan/palette'
+import { DEFAULT_SETTINGS } from '../plan/settings'
 import { area, bounds, centroid, nearestEdge, round3, samePoint, snap, svgPoints, type XY } from './geometry'
 
 export type Selection = { kind: 'space' | 'opening' | 'asset'; id: string } | null
@@ -19,6 +22,7 @@ type Props = {
   busy: boolean // an op is in flight: no new edits until it lands
   revision: number // bumped by the parent on every op response (applied or refused)
   ghost?: BuildingJson | null // the Builder's proposal: elements that would change are drawn dashed on top
+  palette: PlanPalette // the building screen's clay palette: rooms coloured by what they are for, like PlanView
 }
 
 type View = { x: number; y: number; w: number; h: number }
@@ -56,7 +60,7 @@ function doorSegment(opening: OpeningJson, polygonOf: (id: string) => XY[] | und
   return [[x - ux * half, y - uy * half], [x + ux * half, y + uy * half]]
 }
 
-export function PlanEditor({ building, floorId, issues, selected, onSelect, onOps, busy, revision, ghost }: Props) {
+export function PlanEditor({ building, floorId, issues, selected, onSelect, onOps, busy, revision, ghost, palette }: Props) {
   const svg = useRef<SVGSVGElement>(null)
   const [view, setView] = useState<View | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
@@ -202,6 +206,13 @@ export function PlanEditor({ building, floorId, issues, selected, onSelect, onOp
   const assetAt = (asset: AssetJson): AssetJson =>
     shown?.kind === 'asset' && shown.id === asset.id ? { ...asset, position: shown.to } : asset
 
+  // Same colours as the 3D model (plan/geometry.fillOf), so a room looks the same in the editor and the preview.
+  const fills = new Map(spaces.map((space) => [space.id, fillOf(palette, space as unknown as PlanSpace, DEFAULT_SETTINGS.colours)]))
+  const colours = {
+    '--plan-wall': palette.wall, '--plan-edge': palette.edge, '--plan-label': palette.label, '--plan-halo': palette.halo,
+    '--plan-furniture': palette.furniture, '--plan-door': palette.ground, '--plan-selected': palette.selectedEdge,
+  } as React.CSSProperties
+
   if (!view) return <svg ref={svg} className="plan-editor" />
   const unit = view.w / 100 // ~1% of the view width, for handles and labels
   const selectedSpace = selected?.kind === 'space' ? spaces.find((space) => space.id === selected.id) : undefined
@@ -211,6 +222,7 @@ export function PlanEditor({ building, floorId, issues, selected, onSelect, onOp
     <svg
       ref={svg}
       className={`plan-editor${drag?.kind === 'pan' ? ' panning' : ''}`}
+      style={colours}
       viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
       onPointerDown={(event) => begin(event, { kind: 'pan', start: [event.clientX, event.clientY], view, moved: false, select: null })}
       onPointerMove={onPointerMove}
@@ -226,6 +238,7 @@ export function PlanEditor({ building, floorId, issues, selected, onSelect, onOp
               key={space.id}
               className={classes.join(' ')}
               points={svgPoints(polygon)}
+              fill={fills.get(space.id)}
               onPointerDown={(event) =>
                 begin(event, { kind: 'pan', start: [event.clientX, event.clientY], view, moved: false, select: { kind: 'space', id: space.id } })
               }

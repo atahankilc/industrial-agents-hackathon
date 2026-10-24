@@ -1,175 +1,284 @@
-/* Edit mode: 2D plan editor full-bleed, draft strip, 3D inset, issues. Monochrome (D-011); red only for problems. */
+/* Edit mode, in the building screen's design (building/screen.css): the plan on the ground colour, white floating
+   cards with the float shadow, 44 px round controls, the accent for the one main action, --danger for problems.
+   Inside .screen, so --surface, --ink, --accent… come from there; the plan's colours come from the PlanView palette
+   (PlanEditor sets --plan-* on the svg). Class names carry an edit-/builder-/plan-editor prefix: screen.css owns
+   .plan, .primary, .card… */
 
-.edit { position: absolute; inset: 0; z-index: 1; }
-.edit.loading { display: grid; place-items: center; }
+.edit { position: absolute; inset: 0; background: var(--ground); }
+.edit.loading { display: grid; place-items: center; color: var(--ink-2); }
 .edit .label {
-  color: var(--ink-3);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   margin: 0;
-}
-
-.edit button {
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--hair);
-  border-radius: 8px;
-  background: var(--panel);
-  cursor: pointer;
+  color: var(--ink-2);
   font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
-.edit button:hover:not(:disabled) { border-color: var(--hair-strong); }
-.edit button:disabled { opacity: 0.35; cursor: default; }
-.edit button.edit-primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
-/* plan */
-.plan-editor { position: absolute; top: 72px; left: 72px; right: 372px; bottom: 16px; width: calc(100% - 444px); height: calc(100% - 88px); touch-action: none; user-select: none; cursor: default; }
-.plan-editor.panning { cursor: grabbing; }
-.plan-editor .space { fill: var(--fill); stroke: var(--ink-2); stroke-width: 1px; vector-effect: non-scaling-stroke; cursor: pointer; }
-.plan-editor .space.type-corridor, .plan-editor .space.type-hall { fill: transparent; }
-.plan-editor .space.type-stair, .plan-editor .space.type-lift { fill: var(--hair); }
-.plan-editor .space:hover { stroke: var(--ink); }
-.plan-editor .space.selected { fill: var(--hair); stroke: var(--ink); stroke-width: 2px; }
-.plan-editor .bad, .plan-editor .space.bad { stroke: #e5484d !important; stroke-width: 2.5px; }
-.plan-editor .labels text { fill: var(--ink-2); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; vector-effect: non-scaling-stroke; font-family: var(--mono); pointer-events: none; }
-.plan-editor .asset { fill: var(--panel); stroke: var(--ink-3); stroke-width: 1px; vector-effect: non-scaling-stroke; cursor: grab; }
-.plan-editor .asset:hover, .plan-editor .asset.selected { stroke: var(--ink); fill: var(--hair-strong); }
-.plan-editor .opening { stroke: var(--bg); stroke-width: 0.35; stroke-linecap: butt; cursor: ew-resize; }
-.plan-editor .opening.kind-door, .plan-editor .opening.kind-entrance { stroke: var(--ink); stroke-width: 0.22; }
-.plan-editor .opening.kind-opening { stroke-dasharray: 0.15 0.1; stroke: var(--ink-2); stroke-width: 0.22; }
-.plan-editor .opening.selected { stroke-width: 0.4; }
-.plan-editor .opening.bad { stroke: #e5484d; stroke-width: 0.4; vector-effect: none; }
-.plan-editor .handle { fill: var(--bg); stroke: var(--ink); stroke-width: 1.5px; vector-effect: non-scaling-stroke; cursor: move; }
-.plan-editor .handle:hover { fill: var(--ink); }
-.plan-editor .readout { fill: var(--ink); font-family: var(--mono); pointer-events: none; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; vector-effect: non-scaling-stroke; }
-
-/* draft strip */
-.edit-strip {
-  position: absolute;
-  z-index: 2;
-  top: 16px;
-  left: 16px;
-  display: flex;
-  gap: 10px;
+/* buttons inside the edit cards (not the 44 px .round ones) */
+.edit button:disabled { opacity: 0.4; cursor: default; }
+.edit-card-button {
+  display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
-  max-width: calc(100% - 420px);
-  padding: 8px 10px;
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
-  background: var(--panel);
-  backdrop-filter: blur(12px);
-  font-size: 12px;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
 }
-.edit-message { color: #e5484d; font-family: var(--mono); font-size: 11px; }
+.edit-card-button:active:not(:disabled) { background: var(--surface-press); }
+.edit .edit-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent-fill);
+  color: var(--accent-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.edit .edit-primary:active:not(:disabled) { filter: brightness(0.92); }
 
-.edit-floors { top: 55%; }
+/* header: back · where · undo · save (like the building screen's guide line) */
+.edit-line { right: calc(16px + 360px + 16px); }
+.edit-save-button {
+  flex: none;
+  height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent-fill);
+  color: var(--accent-ink);
+  box-shadow: var(--shadow-float);
+  font-size: 15px;
+  font-weight: 600;
+}
+.edit-save-button:active:not(:disabled) { filter: brightness(0.92); }
+.edit-message {
+  position: absolute;
+  z-index: 3;
+  top: calc(max(12px, env(safe-area-inset-top)) + 54px);
+  left: 68px;
+  max-width: 420px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  color: var(--danger);
+  font-size: 13px;
+}
 
-/* 3D inset */
+.edit-floors { position: absolute; z-index: 2; left: 12px; top: 50%; transform: translateY(-50%); }
+
+/* plan (2D editor) */
+.plan-editor {
+  position: absolute;
+  top: 72px;
+  left: 68px;
+  right: calc(16px + 360px + 16px);
+  bottom: 16px;
+  width: calc(100% - 68px - 392px);
+  height: calc(100% - 88px);
+  touch-action: none;
+  user-select: none;
+  cursor: default;
+}
+.plan-editor.panning { cursor: grabbing; }
+.plan-editor .space { stroke: var(--plan-wall); stroke-width: 1.5px; vector-effect: non-scaling-stroke; cursor: pointer; }
+.plan-editor .space:hover { filter: brightness(0.97); }
+.plan-editor .space.selected { stroke: var(--plan-selected); stroke-width: 3px; }
+.plan-editor .space.bad { stroke: var(--danger); stroke-width: 3px; }
+.plan-editor .space.removing { stroke: var(--danger); stroke-dasharray: 6 4; opacity: 0.6; }
+.plan-editor .labels text {
+  fill: var(--plan-label);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--plan-halo);
+  stroke-width: 3px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.plan-editor .asset { fill: var(--plan-furniture); stroke: var(--plan-edge); stroke-width: 1px; vector-effect: non-scaling-stroke; cursor: grab; }
+.plan-editor .asset:hover, .plan-editor .asset.selected { stroke: var(--plan-selected); stroke-width: 2px; }
+.plan-editor .asset.bad { stroke: var(--danger); stroke-width: 2px; }
+.plan-editor .opening { stroke: var(--plan-door); stroke-width: 0.35; stroke-linecap: butt; cursor: ew-resize; }
+.plan-editor .opening.kind-door, .plan-editor .opening.kind-entrance { stroke: var(--plan-door); stroke-width: 0.3; }
+.plan-editor .opening.kind-opening { stroke: var(--plan-door); stroke-dasharray: 0.15 0.1; stroke-width: 0.3; }
+.plan-editor .opening:hover, .plan-editor .opening.selected { stroke: var(--plan-selected); stroke-width: 0.4; }
+.plan-editor .opening.bad { stroke: var(--danger); stroke-width: 0.4; }
+.plan-editor .handle { fill: var(--surface); stroke: var(--plan-selected); stroke-width: 2px; vector-effect: non-scaling-stroke; cursor: move; }
+.plan-editor .handle:hover { fill: var(--plan-selected); }
+.plan-editor .readout {
+  fill: var(--ink);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4px;
+  vector-effect: non-scaling-stroke;
+}
+/* the Builder's proposal */
+.plan-editor .ghost-space { fill: color-mix(in srgb, var(--accent) 14%, transparent); stroke: var(--accent); stroke-width: 2.5px; stroke-dasharray: 7 5; vector-effect: non-scaling-stroke; pointer-events: none; }
+.plan-editor .ghost-asset { fill: color-mix(in srgb, var(--accent) 22%, transparent); stroke: var(--accent); stroke-width: 1.5px; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; pointer-events: none; }
+.plan-editor .ghost-opening { stroke: var(--accent); stroke-width: 0.35; pointer-events: none; }
+
+/* right column: 3D preview card, then the Builder chat card */
 .edit-inset {
   position: absolute;
   z-index: 2;
-  top: 16px;
+  top: max(12px, env(safe-area-inset-top));
   right: 16px;
-  width: 340px;
+  width: 360px;
   height: 230px;
   overflow: hidden;
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
-  background: var(--bg);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
 }
 
-/* issues: compact, bottom-left over the plan */
+.builder {
+  position: absolute;
+  z-index: 2;
+  top: calc(max(12px, env(safe-area-inset-top)) + 230px + 12px);
+  right: 16px;
+  bottom: 16px;
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+}
+.builder-lines { flex: 1; overflow: auto; padding: 14px 16px 6px; display: flex; flex-direction: column; gap: 10px; }
+.builder-empty p { margin: 0 0 10px; color: var(--ink-2); font-size: 14px; }
+.builder-chip {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 14px;
+  text-align: left;
+}
+.builder-chip:active { background: var(--surface-press); }
+.builder-line { margin: 0; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
+.builder-line.from-user {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--accent-fill);
+  color: var(--accent-ink);
+}
+.builder-line.from-note { color: var(--ink-2); font-size: 13px; }
+.builder-line.step { color: var(--ink-2); font-size: 13px; display: flex; gap: 6px; align-items: center; }
+.builder-line.step .spin { animation: edit-spin 1s linear infinite; }
+@keyframes edit-spin { to { transform: rotate(360deg); } }
+.builder-proposal { padding: 12px 14px; border-radius: 14px; background: var(--surface-2); display: flex; flex-direction: column; gap: 4px; }
+.builder-proposal p { margin: 0; font-size: 13px; }
+.builder-proposal .summary { font-size: 15px; font-weight: 600; }
+.builder-proposal .area { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.builder-proposal .problem { color: var(--danger); }
+.builder-proposal .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.builder-ask { display: flex; gap: 8px; padding: 10px 12px 12px; box-shadow: inset 0 1px 0 var(--hair); }
+.builder-ask input {
+  flex: 1;
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+}
+.builder-ask input:focus { box-shadow: inset 0 0 0 2px var(--accent); }
+.builder-ask .edit-primary { width: 40px; height: 40px; padding: 0; border-radius: 12px; }
+
+/* problems: compact card bottom-left over the plan */
 .edit-issues {
   position: absolute;
   z-index: 2;
-  left: 72px;
+  left: 68px;
   bottom: 16px;
   width: 340px;
   max-height: 28vh;
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px;
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
-  background: var(--panel);
-  backdrop-filter: blur(12px);
-}
-.edit .issue { height: auto; min-height: 28px; padding: 6px 8px; text-align: left; font-size: 12px; line-height: 1.35; }
-.edit .issue.error { border-color: rgba(229, 72, 77, 0.5); }
-.edit .issue.warning { color: var(--ink-3); }
-.edit-issues .hint { margin: 6px 0 0; font-size: 11px; }
-
-/* Builder chat: right column under the 3D preview */
-.builder {
-  position: absolute;
-  z-index: 2;
-  top: 262px;
-  right: 16px;
-  bottom: 16px;
-  width: 340px;
-  display: flex;
-  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
   border-radius: 16px;
-  background: var(--surface, var(--panel));
-  box-shadow: var(--shadow-float, none);
-  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
 }
-.builder-lines { flex: 1; overflow: auto; padding: 14px 14px 6px; display: flex; flex-direction: column; gap: 8px; }
-.builder-empty p { margin: 0 0 8px; color: var(--ink-2); font-size: 13px; }
-.edit .builder-chip { display: block; width: 100%; margin-bottom: 6px; text-align: left; background: var(--surface-2, var(--fill)); border: 0; }
-.builder-line { margin: 0; font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
-.builder-line.from-user { align-self: flex-end; max-width: 85%; padding: 7px 10px; border-radius: 12px; background: var(--accent-soft, var(--fill)); }
-.builder-line.from-note { color: var(--ink-2); font-size: 12px; }
-.builder-line.step { color: var(--ink-2); font-size: 12px; display: flex; gap: 6px; align-items: center; }
-.builder-line.step .spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.builder-proposal { padding: 10px 12px; border-radius: 12px; background: var(--surface-2, var(--fill)); display: flex; flex-direction: column; gap: 4px; }
-.builder-proposal p { margin: 0; font-size: 12px; }
-.builder-proposal .summary { font-size: 13px; font-weight: 600; }
-.builder-proposal .area { color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.builder-proposal .problem { color: #e5484d; }
-.builder-proposal .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
-.edit .builder-proposal button { display: inline-flex; align-items: center; gap: 4px; }
-.builder-ask { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--hair); }
-.builder-ask input { flex: 1; height: 34px; padding: 0 10px; border: 1px solid var(--hair); border-radius: 10px; background: transparent; font: inherit; font-size: 13px; color: inherit; }
-.edit .builder-ask button { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; }
+.edit-issues .issue {
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+}
+.edit-issues .issue.error { box-shadow: inset 3px 0 0 var(--danger); }
+.edit-issues .issue.warning { color: var(--ink-2); }
+.edit-issues .hint { margin: 4px 0 0; color: var(--ink-2); font-size: 12px; }
 
-/* the Builder's proposal on the plan */
-.plan-editor .ghost-space { fill: rgba(10, 132, 255, 0.12); stroke: var(--accent, #0a84ff); stroke-width: 2px; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; pointer-events: none; }
-.plan-editor .ghost-asset { fill: rgba(10, 132, 255, 0.18); stroke: var(--accent, #0a84ff); stroke-width: 1.5px; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; pointer-events: none; }
-.plan-editor .ghost-opening { stroke: var(--accent, #0a84ff); stroke-width: 0.3; pointer-events: none; }
-.plan-editor .space.removing { fill: rgba(229, 72, 77, 0.12); stroke-dasharray: 6 4; }
-
-/* save dialog */
+/* save sheet */
 .edit-save {
   position: absolute;
   z-index: 4;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(380px, 90vw);
+  width: min(400px, 90vw);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-  border: 1px solid var(--hair-strong);
-  border-radius: var(--radius);
-  background: var(--bg);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  gap: 12px;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float), 0 24px 60px rgba(0, 0, 0, 0.18);
 }
-.edit-save input { height: 34px; padding: 0 10px; border: 1px solid var(--hair-strong); border-radius: 8px; background: transparent; font: inherit; color: inherit; }
-.edit-save .warn { margin: 0; color: #e5484d; font-size: 12px; }
+.edit-save input {
+  height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+.edit-save input:focus { box-shadow: inset 0 0 0 2px var(--accent); }
+.edit-save .warn { margin: 0; color: var(--danger); font-size: 13px; }
 .edit-save .row { display: flex; justify-content: flex-end; gap: 8px; }
 
-@media (max-width: 720px) {
-  .plan-editor { left: 0; right: 0; top: 190px; bottom: 28vh; width: 100%; height: calc(100% - 190px - 28vh); }
-  .edit-inset { width: 46vw; height: 30vw; top: 84px; }
-  .edit-issues { width: auto; left: 12px; right: 12px; max-height: 20vh; bottom: calc(40vh + 24px); }
+@media (max-width: 900px) {
+  .edit-line { right: 12px; }
+  .plan-editor { left: 0; right: 0; top: 72px; bottom: 42vh; width: 100%; height: calc(100% - 72px - 42vh); }
+  .edit-inset { display: none; }
   .builder { top: auto; left: 12px; right: 12px; width: auto; height: 40vh; bottom: 12px; }
-  .edit-strip { top: 140px; left: 12px; max-width: 48vw; }
+  .edit-issues { left: 12px; right: 12px; width: auto; max-height: 18vh; bottom: calc(40vh + 24px); }
+  .edit-floors { top: auto; bottom: calc(42vh + 12px); transform: none; }
 }

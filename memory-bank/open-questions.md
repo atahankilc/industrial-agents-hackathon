@@ -70,13 +70,6 @@ Template:
   candidates. Remaining: solver policy for candidates (run all, answer if they agree). See
   [question-parsing.md](../docs/research/question-parsing.md).
 
-<a id="q-007"></a>
-### Q-007 — App/UI and voice stack
-- **Status:** open · **Priority:** med · **Resolve by:** team decision
-- **Context:** Options: Lovable-generated web app vs own React/three.js; voice via ElevenLabs (subscription).
-  See [overview.md](../docs/architecture/overview.md).
-- **Proposal:** [D-006](decisions.md#d-006) — awaiting Atahan's OK.
-
 <a id="q-008"></a>
 ### Q-008 — Benchmark question parsing: templates/regex vs LLM extraction vs hybrid
 - **Status:** open · **Priority:** high · **Resolve by:** team decision + experiment
@@ -109,6 +102,14 @@ Template:
   no: delete `archive/initial-repo/starter_agent`, keep `benchmark/` out of git and fetch it from upstream in CI.
 
 ## Resolved
+
+<a id="q-007"></a>
+### Q-007 — App/UI and voice stack
+- **Status:** resolved (2026-10-24) · **Priority:** med · **Resolve by:** team decision
+- **Context:** Options: Lovable-generated web app vs own React/three.js; voice via ElevenLabs (subscription).
+  See [overview.md](../docs/architecture/overview.md).
+- **Answer:** own Vite/React + r3f frontend and FastAPI backend in one Vercel project, Supabase, ElevenLabs Custom LLM — zero cost → [D-006](decisions.md#d-006).
+
 
 <a id="q-009"></a>
 ### Q-009 — Where does our code live?

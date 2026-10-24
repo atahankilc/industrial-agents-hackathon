@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-24** (foundation session)
+[Memory bank](README.md) · Last updated: **2026-10-24** (zero-cost stack session, after first commit `3300e6c`)
 
 ## Phase
 
@@ -37,8 +37,8 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   (per-source data licences) — [D-009](decisions.md#d-009) accepted.
 - Verified-commit workflow in `.claude/` (verifier + fixer agents, `/ship` skill, commit-gate hook, worklog) —
   [D-008](decisions.md#d-008), [dev-workflow.md](../docs/guides/dev-workflow.md).
-- Git: `main`; `origin` = https://github.com/atahankilc/industrial-agents-hackathon.git (public), no commits
-  yet — first commit in progress.
+- Git: `main`; `origin` = https://github.com/atahankilc/industrial-agents-hackathon.git (public); first commit
+  `3300e6c` pushed to `origin/main`.
 
 ## What works (verified 2026-10-24)
 
@@ -49,13 +49,23 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## Pending decisions (Atahan)
 
-- [D-006](decisions.md#d-006) cloud stack.
+- none (D-006 zero-cost stack accepted 2026-10-24).
 - [Q-002](open-questions.md#q-002) times — Atahan will provide.
+
+## ▶ Start here (handoff for the next session, 2026-10-24)
+
+- **Focus now: implementing the app.** Atahan handles the cloud accounts (Vercel, Supabase) later — don't block on it.
+- **First task:** benchmark solvers in `core/` ([solver-plan.md](../docs/architecture/solver-plan.md)), each verified
+  on train+dev `inputs` with tests, then formatter + `answer()` + `run_benchmark` + `BENCHMARK.md` + test CSV.
+- **Ways of working:** keep `.claude/worklog/PENDING.md` current; commit only via `/ship`
+  ([dev-workflow.md](../docs/guides/dev-workflow.md)). Parallel subagents are welcome (Atahan: quota is fine).
+- **No API keys yet** in `.env` → LLM paths can only be tested offline.
 
 ## Next priorities
 
-1. First commit + push via `/ship` (in progress); then Supabase/Railway/Vercel/ElevenLabs setup per the
-   [stack checklist](../docs/research/stack-options.md#7-day-one-setup-checklist-human-actions--ask-before-creating-anything).
+1. (Later, Atahan) Accounts per the zero-cost [stack checklist](../docs/research/stack-options.md#7-day-one-setup-checklist-human-actions--ask-before-creating-anything):
+   Atahan signs up for Vercel + Supabase (free) and puts keys in `.env`; Claude then configures Vercel (frontend +
+   FastAPI as Services) and the Supabase schema. First commit is pushed (`3300e6c`).
 2. Solvers in test-share order (floor_area_total → shared_walls_count → largest_room → errand →
    wide_delivery_count → straight_line_3d → room_stacked → what_if_door), verified on train+dev → resolves
    [Q-003](open-questions.md#q-003)–[Q-005](open-questions.md#q-005). Then formatter + `answer()` + test CSV + `run_benchmark`.

@@ -10,6 +10,16 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Zero-cost cloud stack
+
+- **Did:** Re-checked free tiers (Vercel Python runtime, Supabase, Render, Modal, HF Spaces, Koyeb); wrote
+  [stack-options.md §9](../docs/research/stack-options.md#9-zero-cost-variant-added-2026-10-24); rewrote the setup
+  checklist; `.env.example` now lists `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `PARSER_MODE`.
+- **Learned:** HF Docker Spaces now need a paid plan; Koyeb needs a card; Vercel runs FastAPI natively (500 MB bundle,
+  streaming, no WebSockets) → frontend + backend in one free project.
+- **Decisions:** D-006 accepted (zero-cost revision); Q-007 resolved.
+- **Next:** Atahan signs up for Vercel + Supabase; Claude configures; solvers in parallel.
+
 ## 2026-10-24 — Licensing, configurable parsing, point-cloud prototype
 
 - **Did:** Checked licences: data CC BY 4.0 / ODbL / CC0 (redistributable with attribution; ODbL share-alike);

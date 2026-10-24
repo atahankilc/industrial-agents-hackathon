@@ -19,7 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-This licence covers the code written by this team only. Third-party material
-(data/, benchmark/, archive/initial-repo/, parts of core/building_map.py, the
-challenge PDF) is under its own terms; see NOTICE.md and data/README.md.

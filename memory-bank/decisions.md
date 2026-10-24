@@ -72,10 +72,14 @@ Template:
 - **Consequences:** Clone size ~200 MB+; keep `ATTRIBUTION.md`; the repo stays ODbL-compliant for OSM-derived parts.
 
 <a id="d-006"></a>
-### D-006 — Cloud stack: FastAPI (Railway) + Supabase + own React app (Vercel) + ElevenLabs Custom LLM
-- **Status:** proposed · **Date:** 2026-10-24 · **Waiting for:** Atahan's OK + account creation
-- **Context:** "Cloud on day one", realtime collaboration, voice. Resolves [Q-007](open-questions.md#q-007) once accepted.
-- **Decision:** Python core + Claude agents in FastAPI on Railway; Supabase for Postgres (buildings JSON +
+### D-006 — Cloud stack: FastAPI on Vercel's Python runtime + Supabase + own React app (Vercel) + ElevenLabs Custom LLM
+- **Status:** accepted (zero-cost revision) · **Date:** 2026-10-24 · **By:** Atahan · **Waiting for:** account sign-ups (Vercel, Supabase)
+- **Revision 2026-10-24 (zero cost):** Atahan wants to pay nothing → backend moves from Railway to **Vercel's Python
+  runtime** in the same Vercel project as the frontend; fallback Render Free / Modal. See
+  [stack-options.md §9](../docs/research/stack-options.md#9-zero-cost-variant-added-2026-10-24).
+- **Context:** "Cloud on day one", realtime collaboration, voice. Resolves [Q-007](open-questions.md#q-007).
+- **Decision:** Python core + Claude agents in FastAPI on Vercel's Python runtime, in the same Vercel project as the
+  frontend (fallback Render Free / Modal); Supabase for Postgres (buildings JSON +
   `building_edits` event log), Realtime broadcast/presence, Auth, Storage; Vite/React/TS/Tailwind/shadcn +
   react-three-fiber in `frontend/` on Vercel; ElevenLabs Agent with Custom LLM → our OpenAI-compatible endpoint;
   GitHub Actions CI. Lovable only for throw-away mock-ups (no monorepo-subfolder sync).

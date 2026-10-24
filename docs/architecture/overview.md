@@ -1,12 +1,12 @@
 ---
 id: arch-overview
-summary: PROPOSED system architecture — what we need (frontend, backend, DB/realtime, voice, agents, CI, hosting), topology, collaboration flow, repo layout and build order.
-status: proposed — a component is binding only once recorded as accepted in memory-bank/decisions.md (see D-006)
+summary: System architecture (stack accepted in D-006, zero-cost revision; repo layout and build order proposed) — what we need (frontend, backend, DB/realtime, voice, agents, CI, hosting), topology, collaboration flow, repo layout and build order.
+status: accepted (D-006, zero-cost revision, 2026-10-24) — repo layout and build order remain proposals
 sources: [../research/stack-options.md, ../research/elevenlabs.md, ../challenge/brief.md, ../challenge/scoring.md]
 related: [ai-agents.md, solver-plan.md, ../product/personas.md, ../product/routing-profiles.md, ../../memory-bank/decisions.md]
 ---
 
-# Architecture overview — PROPOSED
+# Architecture overview
 
 [Docs index](../README.md) · Agents: [ai-agents.md](ai-agents.md) · Research: [stack](../research/stack-options.md),
 [voice](../research/elevenlabs.md) · Decision: [D-006](../../memory-bank/decisions.md#d-006)
@@ -19,10 +19,10 @@ explainable; personas change *parameters* of the same router, never the algorith
 
 ## What we need
 
-| # | Component | Choice (proposed) | Why | Details |
+| # | Component | Choice (accepted, D-006) | Why | Details |
 |---|---|---|---|---|
 | 1 | **Deterministic core** | Python package `core/` (shapely, networkx) | exact route model, geometry, solvers, profiles; shared by API + CLI | [solver-plan.md](solver-plan.md) |
-| 2 | **Backend API** | FastAPI on **Railway** (Fly.io fallback) | Python needed for core + Claude SDK; no sleep, monorepo subfolder | [stack §3](../research/stack-options.md#3-python-backend-hosting) |
+| 2 | **Backend API** | FastAPI on **Vercel's Python runtime** (zero cost; Render Free / Modal fallback) — was Railway | Python needed for core + Claude SDK; same project as the frontend; streaming OK, no WebSockets (Supabase does push) | [stack §9](../research/stack-options.md#9-zero-cost-variant-added-2026-10-24) |
 | 3 | **AI agents** | Claude (Anthropic API) in the backend: Guide, Builder; benchmark pipeline | one brain for text + voice | [ai-agents.md](ai-agents.md) |
 | 4 | **Voice** | ElevenLabs Agents with **Custom LLM** → our backend; client tools drive the map | turn-taking/interruptions/TTS for free, logic stays ours | [elevenlabs.md](../research/elevenlabs.md#tldr-recommendation) |
 | 5 | **Database** | **Supabase Postgres**: buildings (original JSON), `building_edits` event log, conversations, profiles | JSON + event log = undo, audit, replay | [stack data model](../research/stack-options.md#data-model-sketch-postgres) |
@@ -30,7 +30,7 @@ explainable; personas change *parameters* of the same router, never the algorith
 | 7 | **Auth** | Supabase Auth (anon / magic link); roles visitor vs facility manager | only editors may apply changes | — |
 | 8 | **File storage** | Supabase Storage | floor-plan uploads for the Builder (L4) | — |
 | 9 | **Frontend** | Vite + React + TS + Tailwind + shadcn/ui in `frontend/`; 2D SVG plan + react-three-fiber stacked floors | Lovable can't sync a monorepo subfolder → own app; Lovable only for mock-ups | [stack §1](../research/stack-options.md#1-lovable) |
-| 10 | **Frontend hosting** | Vercel (root dir `frontend/`, preview per PR) | zero-config, previews | [stack](../research/stack-options.md#frontend-hosting) |
+| 10 | **Frontend hosting** | Vercel Hobby, same project as the backend (Services), preview per PR | zero-config, previews, free | [stack](../research/stack-options.md#frontend-hosting) |
 | 11 | **CI** | GitHub Actions: tests, link check, oracle + solver eval on dev (no API keys) | regressions on the 55-point part caught per push | [stack §4](../research/stack-options.md#4-ci-github-actions) |
 | 12 | **Benchmark CLI** | `run_benchmark <building_dir> <questions> <answers>` + `BENCHMARK.md` | Sunday requirement; no cloud needed | [scoring.md](../challenge/scoring.md#sunday-benchmark) |
 
@@ -41,7 +41,7 @@ explainable; personas change *parameters* of the same router, never the algorith
         │ chat (REST + SSE)        │ edits & presence (WS)          │ voice (WebRTC)
         ▼                          ▼                                ▼
   ┌───────────────────────┐   ┌─────────────────────────┐   ┌────────────────────────────┐
-  │ FastAPI  (Railway)    │──►│ Supabase                │   │ ElevenLabs Agent           │
+  │ FastAPI  (Vercel fn)  │──►│ Supabase                │   │ ElevenLabs Agent           │
   │  core/ router+solvers │   │  Postgres: buildings,   │   │  STT · turn-taking · TTS   │
   │  Guide agent (Claude) │◄──┤  building_edits, convos │   │  Custom LLM ───────────────┼─► FastAPI
   │  /v1/chat/completions │   │  Realtime broadcast +   │   │  client tools ─► browser   │   /v1/chat/completions

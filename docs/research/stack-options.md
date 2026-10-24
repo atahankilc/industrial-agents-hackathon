@@ -1,7 +1,7 @@
 ---
 id: research-stack-options
 summary: Researched cloud stack for day-one deploy with realtime collaboration — Lovable vs own frontend, Supabase vs alternatives, Python backend hosting, CI — with a concrete recommendation, topology, secrets, setup checklist and risks.
-status: research (recommendation only — becomes binding once recorded as a D-### in memory-bank/decisions.md)
+status: research — zero-cost recommendation (§9) accepted as D-006 in memory-bank/decisions.md (2026-10-24); §3 Railway pick superseded
 researched: 2026-10-24
 sources:
   - https://docs.lovable.dev/integrations/github
@@ -24,6 +24,10 @@ sources:
   - https://liveblocks.io/pricing
   - https://vercel.com/docs/monorepos
   - https://vercel.com/docs/plans/hobby
+  - https://vercel.com/docs/functions/runtimes/python
+  - https://modal.com/pricing
+  - https://huggingface.co/docs/hub/en/spaces-overview
+  - https://www.koyeb.com/docs/faqs/pricing
 related: [../architecture/overview.md, elevenlabs.md]
 ---
 
@@ -41,8 +45,8 @@ marked **UNVERIFIED**.
 | Frontend app | **Own Vite + React + TS + Tailwind + shadcn/ui** in `frontend/`, react-three-fiber for 3D | Same stack Lovable generates, but lives in our monorepo so Claude Code edits it directly |
 | Lovable | **Optional side tool**: a separate Lovable project or repo for fast UI mock-ups; copy components into `frontend/` | Git sync always creates a **new** repo and subfolder sync isn't documented ([§1](#1-lovable)) |
 | DB + auth + realtime + file storage | **Supabase** (one project we own) | Postgres + Broadcast + Presence + Storage + Auth in one free tier; Python and JS clients |
-| Python API (core, solvers, Claude agent, ElevenLabs proxy) | **FastAPI on Railway** (Hobby, $5/mo) — fallback Fly.io | Always-on container (no sleep unless opted in), monorepo root-directory support |
-| Frontend hosting | **Vercel** (Root Directory = `frontend/`, PR previews) — alternatively Netlify or Cloudflare Pages | Monorepo-aware, a preview URL per PR |
+| Python API (core, solvers, Claude agent, ElevenLabs proxy) | **FastAPI on Vercel's Python runtime** (Hobby, free) — fallback Render Free / Modal ([§9](#9-zero-cost-variant-added-2026-10-24)) | Zero cost; same Vercel project as the frontend. Was Railway Hobby ($5/mo) before the zero-cost revision |
+| Frontend hosting | **Vercel** — one project with the Vite frontend and FastAPI backend as *Services* ([§9](#9-zero-cost-variant-added-2026-10-24)), PR previews | One deploy, same origin for frontend and API, a preview URL per PR |
 | CI | **GitHub Actions**: lint, tests, link check, deterministic dev benchmark | Guards the 55 benchmark points on every push |
 | Benchmark CLI | `run_benchmark` in the same Python package, no network needed | Same core, offline, reproducible |
 
@@ -146,22 +150,23 @@ messages         (id, conversation_id, role, content jsonb, created_at)  -- chat
 
 | Host | Free / cheapest (fetched) | Sleep / cold start | Verdict |
 |---|---|---|---|
-| **Railway** | Free $1/mo credit; Trial one-time $5; **Hobby $5/mo incl. $5 usage**; post-paid card required ([plans](https://docs.railway.com/reference/pricing/plans)) | Sleeping ("Serverless") is a per-service opt-in; the first request after sleep may 502 ([app-sleeping](https://docs.railway.com/reference/app-sleeping)) | **Pick.** Monorepo `rootDirectory` + watch paths + `railway.toml` ([monorepo](https://docs.railway.com/guides/monorepo)). WebSocket support not stated on the fetched pages (UNVERIFIED, widely used) |
-| Fly.io | **No free tier**; trial is 2 h machine time or 7 days; shared-cpu-1x 256 MB $2.19, 512 MB $3.69, 1 GB $6.70 per month ([pricing](https://docs.fly.io/about/pricing)) | Auto-stop/start configurable (UNVERIFIED details) | Good fallback; needs card after the trial; `fly.toml` per app |
-| Render | Free web service **spins down after 15 min idle, ~1 min cold start**, 750 h/mo ([free](https://render.com/docs/free)) | Bad for a live demo or judge re-runs | Only on a paid plan |
+| **Railway** | Free $1/mo credit; Trial one-time $5; **Hobby $5/mo incl. $5 usage**; post-paid card required ([plans](https://docs.railway.com/reference/pricing/plans)) | Sleeping ("Serverless") is a per-service opt-in; the first request after sleep may 502 ([app-sleeping](https://docs.railway.com/reference/app-sleeping)) | Was the pick; superseded by [§9](#9-zero-cost-variant-added-2026-10-24) (zero cost). Monorepo `rootDirectory` + watch paths + `railway.toml` ([monorepo](https://docs.railway.com/guides/monorepo)). WebSocket support not stated on the fetched pages (UNVERIFIED, widely used) |
+| Fly.io | **No free tier**; trial is 2 h machine time or 7 days; shared-cpu-1x 256 MB $2.19, 512 MB $3.69, 1 GB $6.70 per month ([pricing](https://docs.fly.io/about/pricing)) | Auto-stop/start configurable (UNVERIFIED details) | Out under zero cost (needs card after the trial; [§9](#9-zero-cost-variant-added-2026-10-24)); `fly.toml` per app |
+| Render | Free web service **spins down after 15 min idle, ~1 min cold start**, 750 h/mo ([free](https://render.com/docs/free)) | Bad for a live demo or judge re-runs | Free tier is the zero-cost fallback with a keep-warm ping ([§9](#9-zero-cost-variant-added-2026-10-24)); paid plan avoids sleep |
 | Google Cloud Run | Free tier and WebSocket/SSE support, 60 min max request (**UNVERIFIED**: the page didn't render, figures from general knowledge) | Cold starts unless `min-instances=1` (paid) | Viable if someone has GCP set up; more setup |
-| Modal, HF Spaces | not researched | — | Skip |
+| Modal, HF Spaces | researched later in [§9](#9-zero-cost-variant-added-2026-10-24) | — | Modal = zero-cost fallback; HF Spaces no |
 
 Memory: shapely + networkx + anthropic fit comfortably in 512 MB–1 GB (UNVERIFIED; measure with the largest
 OSM building, e.g. `osm-way22744230`, which has 8 floors and 325 spaces).
 
-Streaming: use **SSE** (or a WebSocket) from FastAPI for agent token and tool-progress streaming. Use
+Streaming: use **SSE** from FastAPI (Vercel functions don't support WebSockets, [§9](#9-zero-cost-variant-added-2026-10-24)) for agent token and tool-progress streaming. Use
 **Supabase Realtime**, not our backend, for multi-user fan-out. That keeps the backend stateless and
 restartable.
 
 ### Frontend hosting
 
-- **Vercel:** set Root Directory to `frontend/`. Every commit deploys and posts preview URLs on PRs.
+- **Vercel:** one project with the Vite frontend (`frontend/`) and the FastAPI backend as *Services*
+  ([§9](#9-zero-cost-variant-added-2026-10-24)); a frontend-only project would set Root Directory to `frontend/`. Every commit deploys and posts preview URLs on PRs.
   Unchanged projects are skipped ([monorepos](https://vercel.com/docs/monorepos)). **Hobby is non-commercial
   personal use only** ([hobby](https://vercel.com/docs/plans/hobby)); a student hackathon demo is probably
   fine, but that's UNVERIFIED.
@@ -192,8 +197,8 @@ jobs:
 
 - No API keys in CI by default. Live-LLM evals run manually (`workflow_dispatch`) with `ANTHROPIC_API_KEY`
   as a repo secret.
-- Vercel gives frontend previews. Railway PR environments exist but are not confirmed on the fetched pages
-  (UNVERIFIED); one shared staging backend is enough.
+- Vercel gives preview deploys per PR for the whole project (frontend + backend Services); one shared staging
+  backend is enough. (The earlier Railway option's PR environments were never confirmed — UNVERIFIED.)
 - The 209 MB `data/` checkout is fine for Actions (under GitHub's 100 MB per-file limit; check no single file
   exceeds it).
 
@@ -206,7 +211,7 @@ jobs:
           REST + SSE   │                      │ Realtime WS              │ voice (WebRTC/WS)
                        ▼                      ▼ (edits, presence)        ▼
         ┌────────────────────────┐   ┌──────────────────────────┐   ┌──────────────────────┐
-        │ FastAPI (Railway)      │──▶│ Supabase                 │   │ ElevenLabs           │
+        │ FastAPI (Vercel fn)    │──▶│ Supabase                 │   │ ElevenLabs           │
         │ core: BuildingMap,     │   │ Postgres: buildings,     │   │ (see elevenlabs.md)  │
         │ solvers, router        │   │ building_edits, convos   │◀──┤ agent tools call our │
         │ Claude agent (tools)   │   │ Realtime: broadcast +    │   │ FastAPI via webhook  │
@@ -220,35 +225,39 @@ jobs:
 
 ## 6. Env vars / secrets
 
+Updated for the zero-cost stack ([§9](#9-zero-cost-variant-added-2026-10-24)); previously these lived on Railway.
+
 | Var | Where | Notes |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Railway, local `.env`, GH secret (manual evals only) | never in the frontend |
-| `ELEVENLABS_API_KEY` | Railway | backend mints short-lived tokens or signed URLs for the browser (see [elevenlabs.md](elevenlabs.md)) |
-| `ELEVENLABS_AGENT_ID` | Railway, frontend (public) | if we use the ElevenLabs Agents platform |
-| `SUPABASE_URL` | Railway, frontend as `VITE_SUPABASE_URL` | public |
+| `ANTHROPIC_API_KEY` | Vercel (backend env vars), local `.env`, GH secret (manual evals only) | never in the frontend |
+| `ELEVENLABS_API_KEY` | Vercel (backend env vars) | backend mints short-lived tokens or signed URLs for the browser (see [elevenlabs.md](elevenlabs.md)) |
+| `ELEVENLABS_AGENT_ID` | Vercel (backend env vars), frontend (public) | if we use the ElevenLabs Agents platform |
+| `SUPABASE_URL` | Vercel (backend env vars), frontend as `VITE_SUPABASE_URL` | public |
 | `SUPABASE_ANON_KEY` (publishable key) | frontend as `VITE_SUPABASE_ANON_KEY` | public, protected by RLS |
-| `SUPABASE_SERVICE_ROLE_KEY` (secret key) | Railway only | server-side writes and broadcast REST |
-| `SUPABASE_DB_URL` | Railway / CI (migrations) | optional, for direct SQL / migrations |
-| `VITE_API_BASE_URL` | frontend | Railway URL |
-| `CORS_ORIGINS` | Railway | Vercel prod + preview domains, localhost |
+| `SUPABASE_SERVICE_ROLE_KEY` (secret key) | Vercel (backend env vars) only | server-side writes and broadcast REST |
+| `SUPABASE_DB_URL` | Vercel (backend env vars) / CI (migrations) | optional, for direct SQL / migrations |
+| `VITE_API_BASE_URL` | frontend | same-origin (empty / relative path) in the one-project Vercel setup; otherwise the Vercel (or fallback) backend URL |
+| `CORS_ORIGINS` | Vercel (backend env vars) | Vercel prod + preview domains, localhost (only needed if frontend and API are not same-origin) |
 
 Supabase's newer publishable/secret key naming vs the legacy anon/service_role keys: which one new projects
 show is UNVERIFIED; use whatever the dashboard shows.
 
 ## 7. Day-one setup checklist (human actions — ask before creating anything)
 
-1. **GitHub:** create the repo (org or personal), push `main`, invite teammates, add branch protection
-   (optional). Check no file is over 100 MB.
-2. **Supabase:** create one project in an EU region (Munich event; UNVERIFIED which regions exist). Copy the
-   URL, anon/publishable key and service-role/secret key. Enable anonymous sign-ins or magic link.
-3. **Railway:** sign up (post-paid card needed for Hobby, $5/mo), create a service from the GitHub repo, set
-   root directory to `/backend` (or repo root), add env vars, generate a public domain.
-   - Fallback: Fly.io (card after the trial).
-4. **Vercel:** import the GitHub repo, Root Directory `frontend/`, add the `VITE_*` env vars.
-5. **ElevenLabs:** create an API key (and an Agent if used) → see [elevenlabs.md](elevenlabs.md).
-6. **Anthropic:** API key from the organiser credits → Railway + local `.env`.
-7. **GitHub secrets:** `ANTHROPIC_API_KEY` (for manual eval workflow only).
-8. **Lovable (optional):** separate project or repo for UI mock-ups; don't connect it to the monorepo.
+Zero-cost version (D-006, accepted 2026-10-24); the original Railway variant is superseded.
+
+1. **GitHub:** ✅ done — public repo `atahankilc/industrial-agents-hackathon`, `main` pushed.
+2. **Supabase (free):** sign up with GitHub, create one project in an EU region. Copy the project URL,
+   publishable/anon key and secret/service-role key. Enable anonymous sign-ins (and/or magic link).
+3. **Vercel (Hobby, free):** sign up with GitHub, import the repo. Claude configures the project: Vite frontend +
+   FastAPI backend as Services, function `excludeFiles`, env vars. Preview deploy per PR.
+4. **ElevenLabs:** API key into local `.env` (`ELEVENLABS_API_KEY`) and into Vercel's env vars → see
+   [elevenlabs.md](elevenlabs.md).
+5. **Anthropic:** key from the organiser credits into `.env` (`ANTHROPIC_API_KEY`) and Vercel's env vars.
+6. **GitHub secrets:** `ANTHROPIC_API_KEY` only for a manual (workflow_dispatch) eval workflow; CI stays key-free.
+7. **Lovable (optional):** separate project or repo for UI mock-ups; don't connect it to the monorepo.
+
+Never paste keys into chat; every key lives in `.env` (git-ignored) or the provider's secret settings.
 
 ## 8. Risks
 
@@ -259,10 +268,32 @@ show is UNVERIFIED; use whatever the dashboard shows.
 | DB-trigger broadcast drops messages before the first client connects | Also broadcast from the backend via REST; clients re-fetch state on (re)connect |
 | Realtime/backend outage during the demo | Frontend can run against a local backend; record the demo video early |
 | Judges re-run the benchmark command | `run_benchmark` is pure local Python and doesn't depend on cloud services |
-| Vercel Hobby commercial-use clause | Netlify / Cloudflare Pages as a drop-in |
+| Vercel Hobby commercial-use clause | Netlify / Cloudflare Pages for the frontend; Render Free / Modal for the backend |
 | Big OSM buildings are slow to route in a request | Cache a `BuildingMap` per building and version in the backend process; invalidate on edit events |
 | Secrets leak through `VITE_*` | Only anon/publishable keys go in the frontend; ElevenLabs uses backend-minted tokens |
 
 ## Related
 
 - [overview.md](../architecture/overview.md) · [elevenlabs.md](elevenlabs.md) · [scoring.md](../challenge/scoring.md#sunday-benchmark)
+
+## 9. Zero-cost variant (added 2026-10-24)
+
+Constraint from Atahan: **pay nothing for now**. Railway Hobby ($5/mo) is out. Re-checked 2026-10-24:
+
+| Option | Free? | Catch | Source |
+|---|---|---|---|
+| **Vercel Hobby — Python runtime** | yes | FastAPI runs as Vercel Functions with zero config; streaming responses supported; **500 MB** bundle limit; Python 3.12–3.14; frontend + Python backend in one project via *Services*. No WebSockets (we use Supabase Realtime for push anyway). Hobby = non-commercial use | [python runtime](https://vercel.com/docs/functions/runtimes/python), [hobby](https://vercel.com/docs/plans/hobby) |
+| Supabase Free | yes | pauses after 1 week idle; 2 projects | [pricing](https://supabase.com/pricing) |
+| Render Free | yes | sleeps after **15 min** without traffic, **~1 min** wake-up; 750 h/mo; free services suspended if over bandwidth without a payment method | [free](https://render.com/docs/free) |
+| Modal Starter | yes, **$30/mo credits** | card requirement not stated on the pricing page (UNVERIFIED); CPU $0.0000131/core-s; scale-to-zero cold starts | [pricing](https://modal.com/pricing) |
+| Hugging Face Spaces | **no** for us | Docker/Gradio Spaces now need a paid plan (only static Spaces free) | [spaces overview](https://huggingface.co/docs/hub/en/spaces-overview) |
+| Koyeb Free | no-go | credit card required ($29 pre-auth hold); scales to zero after 1 h | [pricing FAQ](https://www.koyeb.com/docs/faqs/pricing) |
+| Fly.io / Railway Hobby | no | paid after trial | §3 |
+
+**Zero-cost recommendation:** one **Vercel** project (Vite frontend + FastAPI backend as Services) + **Supabase
+Free** (DB, Realtime, Auth, Storage) + **ElevenLabs** (existing account) + **Claude** ($150 organiser credits) +
+**GitHub Actions** (free for public repos). Fallback backend: Render Free with a keep-warm ping during the demo, or
+Modal. Bundle: exclude `archive/`, `tests/`, `docs/`, `frontend/prototypes/` from the function; `data/` (~209 MB)
+fits under 500 MB but slows cold starts — move building files to Supabase Storage if cold starts hurt.
+Unverified until we deploy: Hobby function max duration (matters for the ElevenLabs Custom LLM stream) and the
+cold-start time with shapely + networkx.

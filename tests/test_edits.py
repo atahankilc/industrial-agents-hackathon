@@ -1,6 +1,7 @@
 """core/edits.py: JSON edit operations on building dicts (docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md §1)."""
 
 import copy
+import math
 import json
 from pathlib import Path
 
@@ -187,3 +188,80 @@ def test_apply_steps_is_deterministic(base):
 def test_apply_steps_returns_a_copy_even_without_ops(base):
     assert apply_steps(base, [[]]) is not base
     assert apply_steps(base, []) is not base
+
+
+# ---------- Task 2: wall moves keep shared walls ----------
+
+
+def axis_shift(building: dict, a: str, b: str, metres: float) -> list[list[float]]:
+    """A's outline with the vertices on its shared wall with B moved `metres` towards B (axis-aligned rooms)."""
+    first, second = (Polygon(by_id(building, "spaces", space)["polygon"]) for space in (a, b))
+    dx, dy = second.centroid.x - first.centroid.x, second.centroid.y - first.centroid.y
+    step = [metres * (1 if dx > 0 else -1), 0.0] if abs(dx) > abs(dy) else [0.0, metres * (1 if dy > 0 else -1)]
+    return [[x + step[0], y + step[1]] if second.distance(Point(x, y)) < 0.01 else [x, y]
+            for x, y in by_id(building, "spaces", a)["polygon"]]
+
+
+def test_move_vertex_moves_shared_corner_in_both_rooms(base):
+    a, b = neighbour_rooms(base)
+    corners_b = {tuple(point) for point in by_id(base, "spaces", b)["polygon"]}
+    corner = next(point for point in by_id(base, "spaces", a)["polygon"] if tuple(point) in corners_b)
+    target = [round(corner[0] + 0.2, 3), round(corner[1] + 0.2, 3)]
+    floor = by_id(base, "spaces", a)["floor_id"]
+    changed = apply_op(base, {"op": "move_vertex", "floor_id": floor, "from_xy": corner, "to_xy": target})
+    assert target in by_id(changed, "spaces", a)["polygon"]
+    assert target in by_id(changed, "spaces", b)["polygon"]
+
+
+def test_widen_room_shrinks_neighbour(base):
+    a, b = neighbour_rooms(base)
+    first, second = (Polygon(by_id(base, "spaces", space)["polygon"]) for space in (a, b))
+    wall = first.exterior.intersection(second.buffer(0.001)).length - 0.002  # exact shared length, not the 0.35 m band
+    old_b = Polygon(by_id(base, "spaces", b)["polygon"]).area
+    changed = apply_op(base, {"op": "set_polygon", "space_id": a, "polygon": axis_shift(base, a, b, 1.0)})
+    new_a, new_b = (Polygon(by_id(changed, "spaces", space)["polygon"]) for space in (a, b))
+    assert abs(new_b.area - (old_b - wall)) < 0.05
+    assert new_a.intersection(new_b).area < 0.01
+
+
+def test_set_polygon_that_would_erase_neighbour_raises(base):
+    a, b = neighbour_rooms(base)
+    before = copy.deepcopy(base)
+    huge = list(Polygon(by_id(base, "spaces", a)["polygon"]).union(
+        Polygon(by_id(base, "spaces", b)["polygon"]).buffer(0.5, join_style="mitre")).envelope.exterior.coords)[:-1]
+    with pytest.raises(EditError, match="remove"):
+        apply_op(base, {"op": "set_polygon", "space_id": a, "polygon": [list(point) for point in huge]})
+    assert base == before
+
+
+def test_doors_follow_moved_wall(base):
+    a, b = neighbour_rooms(base)
+    with_door = apply_op(base, {"op": "add_opening", "space_ids": [a, b], "position": [0, 0], "kind": "door",
+                                "width_m": 0.9, "step_free": True})
+    door = with_door["openings"][-1]["id"]
+    changed = apply_op(with_door, {"op": "set_polygon", "space_id": a, "polygon": axis_shift(with_door, a, b, 1.0)})
+    assert shared_outline(changed, a, b).distance(Point(by_id(changed, "openings", door)["position"])) < 0.05
+
+
+def test_self_intersecting_polygon_raises(base):
+    a, _ = neighbour_rooms(base)
+    with pytest.raises(EditError):
+        apply_op(base, {"op": "set_polygon", "space_id": a, "polygon": [[0, 0], [4, 4], [4, 0], [0, 4]]})
+
+
+def test_move_opening_across_a_thick_wall():
+    """Swiss Dwellings walls leave gaps up to ~2 m between the two spaces of a door; snapping must still work."""
+    for file in sorted((FIXTURE.parent.parent).glob("*/building.json")):
+        building = json.loads(file.read_text(encoding="utf-8"))
+        if building["building"]["source"] != "swiss_dwellings":
+            continue
+        spaces = {space["id"]: Polygon(space["polygon"]) for space in building["spaces"]}
+        for opening in building["openings"]:
+            ids = opening["space_ids"]
+            if "outside" not in ids and 0.5 < spaces[ids[0]].distance(spaces[ids[1]]) < 1.0:
+                x, y = opening["position"]
+                changed = apply_op(building, {"op": "move_opening", "opening_id": opening["id"],
+                                              "position": [x + 0.1, y + 0.1]})
+                assert math.dist(by_id(changed, "openings", opening["id"])["position"], [x, y]) < 1.0
+                return
+    pytest.skip("no swiss building with a 0.5-1.0 m wall in train")

@@ -10,6 +10,16 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 19:40 — Builder Edit mode M1 Tasks 2–3: wall moves, validator
+
+- **Did:** `core/edits.py` gained `move_vertex` (moves a corner in every room that has it) and `set_polygon`; both
+  shrink overlapped neighbours (`difference`), refuse when a neighbour would vanish, and put doors that were on a wall
+  back on it. Opening snapping now buffers by wall thickness (gap ≤ 2.5 m). `core/validate.py` + calibration script.
+  `uv run pytest` 658 passed, 1 skipped (280-building validator parametrisation included).
+- **Learned:** with thickness-aware snapping, off-wall doors in the dataset drop to osm 61 / swiss 46 / resplan 1;
+  overlaps osm 281 / resplan 13 / swiss 38 pairs → validator compares against the base building.
+- **Next:** Task 4 — drafts store (`data/user/`) + `/drafts` API.
+
 ## 2026-10-24 19:40 — Builder Edit mode: design, M1 plan, core edit ops (branch `2-builder-edit`)
 
 - **Did:** brainstormed Level 4 with Utku → three Builder projects in order: Edit mode, build from scratch

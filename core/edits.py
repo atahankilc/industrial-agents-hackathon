@@ -21,6 +21,13 @@ from core.building_map import OUTSIDE
 from core.solvers.walls import WALL_TOLERANCE_M
 
 
+VERTEX_MATCH_M = 0.01  # vertices this close to the dragged one move with it (shared corners)
+MIN_OVERLAP_M2 = 0.01  # neighbour overlaps below this are rounding noise, not fitted
+MIN_NEIGHBOUR_M2 = 0.5  # a fitted neighbour smaller than this would effectively be removed
+MAX_WALL_GAP_M = 2.5  # thickest wall between the two spaces of a door (Swiss Dwellings: up to ~2 m)
+ON_WALL_M = 0.05  # an opening farther than this from its wall after a change is re-projected
+
+
 class EditError(ValueError):
     """An op that cannot be applied; nothing was changed."""
 
@@ -106,7 +113,11 @@ def wall_target(building: dict, space_ids: list[str]):
     first, second = spaces
     if first["floor_id"] != second["floor_id"]:
         raise EditError("an opening can only join two spaces on the same floor")
-    shared = polygon_of(first).exterior.intersection(polygon_of(second).buffer(WALL_TOLERANCE_M))
+    near, far = polygon_of(first), polygon_of(second)
+    gap = near.distance(far)  # wall thickness: 0 for procedural/OSM, up to ~2 m in Swiss Dwellings
+    if gap > MAX_WALL_GAP_M:
+        return None
+    shared = near.exterior.intersection(far.buffer(WALL_TOLERANCE_M + gap))
     return None if shared.is_empty or shared.length == 0 else shared
 
 
@@ -247,3 +258,73 @@ def set_asset(building: dict, asset_id: str, name: str | None = None, type: str 
 def delete_asset(building: dict, asset_id: str) -> None:
     find(building, "assets", asset_id)
     building["assets"] = [asset for asset in building["assets"] if asset["id"] != asset_id]
+
+
+# ---------- geometry: outlines and shared walls ----------
+
+
+def outline(geometry: Polygon) -> list[list[float]]:
+    return [rounded(point) for point in list(geometry.exterior.coords)[:-1]]
+
+
+def checked_outline(points: list[list[float]], what: str) -> list[list[float]]:
+    result = [rounded(point) for point in points]
+    shape = Polygon(result)
+    if len(result) < 3 or not shape.is_valid or shape.area <= 0:
+        raise EditError(f"{what}: the outline must be a simple polygon with at least three corners")
+    return result
+
+
+def on_wall(building: dict, opening: dict) -> bool:
+    target = wall_target(building, opening["space_ids"])
+    return target is not None and target.distance(Point(opening["position"])) <= ON_WALL_M
+
+
+def settle(before: dict, building: dict, floor_id: str, changed: set[str]) -> None:
+    """After outlines in `changed` moved: shrink overlapped neighbours, then put displaced openings back on a wall."""
+    for space_id in sorted(changed):
+        shape = polygon_of(find(building, "spaces", space_id))
+        for other in building["spaces"]:
+            if other["floor_id"] != floor_id or other["id"] in changed:
+                continue
+            neighbour = polygon_of(other)
+            if neighbour.intersection(shape).area <= MIN_OVERLAP_M2:
+                continue
+            rest = neighbour.difference(shape)
+            if rest.is_empty or rest.geom_type != "Polygon" or rest.area < MIN_NEIGHBOUR_M2:
+                raise EditError(f"this change would remove {other['name']}; move it less far or delete that room first")
+            other["polygon"] = outline(rest.simplify(0.001))
+            changed = changed | {other["id"]}
+    was_on_wall = {opening["id"] for opening in before["openings"] if on_wall(before, opening)}
+    for opening in building["openings"]:
+        if opening["id"] in was_on_wall and changed & set(opening["space_ids"]) and not on_wall(building, opening):
+            target = wall_target(building, opening["space_ids"])
+            if target is not None:
+                point = nearest_points(target, Point(opening["position"]))[0]
+                opening["position"] = rounded([point.x, point.y])
+
+
+@op("set_polygon")
+def set_polygon(building: dict, space_id: str, polygon: list[list[float]]) -> None:
+    before = copy.deepcopy(building)
+    space = find(building, "spaces", space_id)
+    space["polygon"] = checked_outline(polygon, space["name"])
+    settle(before, building, space["floor_id"], {space_id})
+
+
+@op("move_vertex")
+def move_vertex(building: dict, floor_id: str, from_xy: list[float], to_xy: list[float]) -> None:
+    floor_of(building, floor_id)
+    before = copy.deepcopy(building)
+    origin, target = Point(from_xy), rounded(to_xy)
+    changed = set()
+    for space in building["spaces"]:
+        if space["floor_id"] != floor_id:
+            continue
+        moved = [target if Point(point).distance(origin) <= VERTEX_MATCH_M else point for point in space["polygon"]]
+        if moved != space["polygon"]:
+            space["polygon"] = checked_outline(moved, space["name"])
+            changed.add(space["id"])
+    if not changed:
+        raise EditError(f"no corner at {rounded(from_xy)} on this floor")
+    settle(before, building, floor_id, changed)

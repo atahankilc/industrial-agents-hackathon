@@ -46,7 +46,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   [builder-edit-mode-design](../docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md) (proposed, approved by
   Utku 2026-10-24), plan [M1](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m1.md). Done: Task 1
   `core/edits.py` — ops add/delete/set space, add/move/set/delete opening, add/move/set/delete asset, replay via
-  `apply_steps` (`tests/test_edits.py`). Next: Task 2 `move_vertex` / `set_polygon` with neighbour fitting.
+  `apply_steps` (`tests/test_edits.py`). Task 2: `move_vertex` / `set_polygon` keep shared walls (overlapped
+  neighbours shrink, refused if one would vanish; doors re-projected; thick Swiss walls handled). Task 3:
+  `core/validate.py` — `validate(building, base)`, issues already in the base are warnings
+  (`scripts/validate_dataset.py`, `tests/test_validate.py` over all 280 buildings). Next: Task 4 drafts store + API.
 
 - **Solvers** `core/solvers/` (geometry, walls, reachability, routing): **655/655** train+dev on gold inputs
   (`scripts/validate_solvers.py`); rules + rejected variants in [solver-plan.md](../docs/architecture/solver-plan.md).

@@ -46,7 +46,7 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 
 ### Product (ours)
 - [product/personas.md](product/personas.md) — 18 ranked personas with needs, data feasibility, what to ask / never ask.
-- [product/visualization.md](product/visualization.md) — point-cloud 3D visual language, three.js vs react-three-fiber; prototype in `frontend/prototypes/pointcloud/`.
+- [product/visualization.md](product/visualization.md) — app visuals: current vector plan view (`core/floorplan.py`, `GET /sessions/{id}/plan`) and the superseded point-cloud scene; three.js vs react-three-fiber.
 - [product/routing-profiles.md](product/routing-profiles.md) — deterministic profile model (hard filters + soft penalties) on top of the exact route model.
 
 ### Research (dated 2026-10-24)

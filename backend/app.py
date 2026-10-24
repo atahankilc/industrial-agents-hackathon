@@ -215,6 +215,12 @@ def points(session_id: str) -> dict:
     return conversation.view.points(conversation.session)
 
 
+@app.get("/sessions/{session_id}/plan")
+def plan(session_id: str) -> dict:
+    conversation = conversation_or_404(session_id)
+    return conversation.view.plan(conversation.session)
+
+
 @app.post("/v1/chat/completions", response_model=None)
 def chat_completions(body: dict, x_session_id: str | None = Header(None)) -> dict | StreamingResponse:
     # The request's `tools` (ElevenLabs system tools) are ignored: UNVERIFIED, not handled yet.

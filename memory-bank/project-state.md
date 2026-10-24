@@ -31,8 +31,8 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `benchmark/` (official scorer), `data/` (committed, [D-005](decisions.md#d-005)), `tests/`, `pyproject.toml` (uv,
   pytest dev dep). Kit remainder in `archive/initial-repo/`.
 - Knowledge base: [docs/](../docs/README.md) incl. architecture, agents, personas, routing profiles, research.
-- Point-cloud 3D prototype: `frontend/prototypes/pointcloud/` (exporter + three.js viewer), see
-  [visualization.md](../docs/product/visualization.md).
+- App visuals: vector plan view (`frontend/app/src/plan/`, `core/floorplan.py`); the point-cloud prototype and
+  scene moved to the gitignored `.viz-archive/`, see [visualization.md](../docs/product/visualization.md).
 - Licensing: `LICENSE` (MIT, our code only), `NOTICE.md` (third-party paths + terms), `data/README.md`
   (per-source data licences) — [D-009](decisions.md#d-009) accepted.
 - Verified-commit workflow in `.claude/` (verifier + fixer agents, `/ship` skill, commit-gate hook, worklog) —
@@ -140,6 +140,13 @@ the rules. `uv run pytest` 182 passed, 1 skipped (dev); 301 passed, 1 skipped af
 
 **Running locally (may still be up):** backend `uvicorn backend.app:app --port 8765` (real Claude), Vite on
 `:5181` (port 5173 is another local project). Restart commands: [commands.md](../docs/guides/commands.md#frontend-app).
+
+**Frontend (new UI, committed 2026-10-24):** landing = building search (`src/search/`), `Root.tsx` → `BuildingScreen`
+(`src/building/`) over a vector plan view (`src/plan/*`, data from `core/floorplan.py` via
+`GET /sessions/{id}/plan`, same `center` as `/points`). Direction "Drawing Set": `PRODUCT.md`,
+`.impeccable/surfaces/frontend-app.md`. Old point-cloud scene moved to gitignored `.viz-archive/`; `src/scene/` is a
+placeholder so the old `App.tsx` (unused, reference for porting) still compiles. Next: Guide events on the plan
+(focus + dim, route line, closures, lost access), then 3D, voice, camera, maintainer edit.
 
 **▶ Do next, in order (Atahan's call 2026-10-24: frontend polish next session; Q-014 and Q-001 parked):**
 1. **Frontend polish** (`frontend/app/`): phone-layout check, demo GIF (needs the Chrome extension), bundle split,

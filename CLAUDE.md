@@ -15,7 +15,7 @@ Full brief: [docs/challenge/brief.md](docs/challenge/brief.md).
 ├── pyproject.toml                  ← uv project (Python ≥3.12) for core + benchmark
 ├── core/                           ← OUR deterministic core (route model, geometry, parsing, solvers)
 ├── agent/                          ← OUR LLM layer (llm_parser, parsing modes; later Guide + Builder)
-├── frontend/prototypes/pointcloud/ ← three.js point-cloud viewer prototype (docs/product/visualization.md)
+├── frontend/app/                   ← React app: building search + plan view + Guide (docs/product/visualization.md)
 ├── benchmark/                      ← official scorer + evaluator from the kit — never edit score.py
 ├── data/                           ← kit dataset: train/ dev/ test/ + manifest.csv (committed, D-005)
 ├── docs/                           ← curated knowledge base — start at docs/README.md

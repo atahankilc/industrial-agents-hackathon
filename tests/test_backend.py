@@ -142,6 +142,19 @@ def test_points_export(client):
     assert client.get("/sessions/missing/points").status_code == 404
 
 
+def test_plan_export(client):
+    session_id = new_session(client)
+    plan = client.get(f"/sessions/{session_id}/plan").json()
+    points = client.get(f"/sessions/{session_id}/points").json()
+    assert plan["center"] == points["center"]  # route vertices from /events map back onto the plan
+    assert len(plan["walls"]) == len(plan["floors"]) and all(plan["walls"])
+    assert plan["spaces"] and all(len(space["polygon"]) >= 3 for space in plan["spaces"])
+    door = next(opening for opening in plan["openings"] if opening["kind"] == "door")
+    assert door["side"] in (1, -1) and door["space"] in door["spaces"]
+    assert plan["assets"] and all(len(asset["size"]) == 2 for asset in plan["assets"])
+    assert client.get("/sessions/missing/plan").status_code == 404
+
+
 def test_points_are_gzipped(client):
     session_id = new_session(client)
     response = client.get(f"/sessions/{session_id}/points", headers={"Accept-Encoding": "gzip"})

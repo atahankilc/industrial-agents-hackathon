@@ -4,8 +4,10 @@ A building id is "<split>/<directory>" (e.g. "train/proc-campus-train-000"), the
 data/manifest.csv. Ids are only ever looked up in the catalogue, never joined into a path from user input.
 
 One session = one conversation = one `BuildingSession` + one `Guide`, behind a per-session lock so the Guide's
-history never sees two turns at once. `SessionStore` is an in-memory dict; it is the seam where a persistent
-store (Supabase) goes later.
+history never sees two turns at once. `SessionStore` keeps conversations in a dict. With a persistence backend
+(backend/persistence.py, Supabase when SUPABASE_DB_URL is set) that dict is only a cache: every lookup checks the
+stored version and restores the conversation if another instance saved it since, and every turn is saved after it
+ends. The lock only serialises turns within one process; across processes the version check does (Conflict).
 
 `MapView` derives what the map UI draws from a session: the point-cloud export of the session's *current*
 building (cached until the session's BuildingMap object is replaced, e.g. by apply_change or a building switch)
@@ -19,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from agent.guide import Guide, make_client
+from backend import persistence
 from agent.tools import BuildingSession
 from core.building_map import OUTSIDE, BuildingMap
 from core.pointcloud import export_points, route_vertices
@@ -109,6 +112,7 @@ class Conversation:
     guide: Guide
     lock: threading.Lock = field(default_factory=threading.Lock)
     view: MapView = field(default_factory=MapView)
+    version: int = 0  # stored version this object reflects (0 = not persisted)
 
 
 class UnknownBuilding(ValueError):
@@ -116,8 +120,9 @@ class UnknownBuilding(ValueError):
 
 
 class SessionStore:
-    def __init__(self, catalogue: dict[str, dict] | None = None) -> None:
+    def __init__(self, catalogue: dict[str, dict] | None = None, backend: object | None = None) -> None:
         self.catalogue = catalogue if catalogue is not None else load_catalogue()
+        self.backend = backend if backend is not None else persistence.from_env()
         self.conversations: dict[str, Conversation] = {}
         self.guard = threading.Lock()  # protects the dict, not the conversations
 
@@ -135,27 +140,72 @@ class SessionStore:
         # make_client() per conversation, so GUIDE_LLM / ANTHROPIC_API_KEY are read at creation, not import.
         return Conversation(conversation_id, building, session, Guide(session, client=make_client()))
 
-    def create(self, building: str | None = None, conversation_id: str | None = None) -> Conversation:
-        conversation = self.build(conversation_id or uuid.uuid4().hex, building)
+    def remember(self, conversation: Conversation) -> Conversation:
         with self.guard:
             self.conversations[conversation.id] = conversation
         return conversation
 
+    def insert(self, conversation: Conversation) -> bool:
+        """Store a new conversation; False if the id already exists in the backend."""
+        if self.backend is None:
+            return True
+        state = persistence.dump(conversation.session, conversation.guide)
+        if not self.backend.insert(conversation.id, conversation.building, state):
+            return False
+        conversation.version = 1
+        return True
+
+    def create(self, building: str | None = None, conversation_id: str | None = None) -> Conversation:
+        conversation = self.build(conversation_id or uuid.uuid4().hex, building)
+        self.insert(conversation)
+        return self.remember(conversation)
+
     def get(self, conversation_id: str) -> Conversation | None:
-        return self.conversations.get(conversation_id)
+        cached = self.conversations.get(conversation_id)
+        if self.backend is None:
+            return cached
+        current = self.backend.version(conversation_id)
+        if current is None:
+            return None
+        if cached is not None and cached.version == current:
+            return cached
+        stored = self.backend.load(conversation_id)
+        if stored is None or stored.building not in self.catalogue:
+            return None
+        fresh = BuildingSession.load(self.catalogue[stored.building]["path"])
+        session, guide = persistence.restore(stored.state, fresh, make_client())
+        return self.remember(Conversation(conversation_id, stored.building, session, guide, version=stored.version))
 
     def get_or_create(self, conversation_id: str) -> Conversation:
-        if existing := self.conversations.get(conversation_id):
+        if existing := self.get(conversation_id):
             return existing
         conversation = self.build(conversation_id, None)
+        if not self.insert(conversation):  # another instance created it first
+            return self.get(conversation_id) or conversation
         with self.guard:  # two first requests for one id race: keep whichever landed first
             return self.conversations.setdefault(conversation_id, conversation)
+
+    def save(self, conversation: Conversation) -> None:
+        """Persist after a turn or a building switch. Raises persistence.Conflict (and drops the cached copy) if
+        another instance saved this conversation in between; the caller's turn is then lost."""
+        if self.backend is None:
+            return
+        state = persistence.dump(conversation.session, conversation.guide)
+        try:
+            conversation.version = self.backend.save(conversation.id, conversation.building, state,
+                                                     conversation.version)
+        except persistence.Conflict:
+            with self.guard:
+                if self.conversations.get(conversation.id) is conversation:
+                    del self.conversations[conversation.id]
+            raise
 
     def switch_building(self, conversation: Conversation, building: str) -> Conversation:
         """Fresh BuildingSession + Guide on another building; the session id (and its lock) stay."""
         fresh = self.build(conversation.id, building)
         with conversation.lock:
             conversation.building, conversation.session, conversation.guide = building, fresh.session, fresh.guide
+            self.save(conversation)
         return conversation
 
 

@@ -7,7 +7,8 @@ export of the session's current building, gzipped), /chat, /events (polling curs
 carry `vertices`, change events `space_ids`) and the OpenAI-compatible /v1/chat/completions for ElevenLabs
 (backend/openai_compat.py).
 Guide turns are blocking (tool loop + LLM calls), so those endpoints are plain `def` and run in FastAPI's
-threadpool; each conversation's lock serialises its turns."""
+threadpool; each conversation's lock serialises its turns. With persistence on (backend/persistence.py) every turn
+is saved when it ends; a turn that lost a save race to another instance answers 409 and must be resent."""
 
 import os
 
@@ -18,7 +19,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from agent.guide import llm_mode
-from backend import openai_compat
+from backend import openai_compat, persistence
 from backend.sessions import DEFAULT_SESSION, Conversation, SessionStore, UnknownBuilding, summary
 
 app = FastAPI(title="Talk to Your Building")
@@ -46,6 +47,13 @@ def conversation_or_404(session_id: str) -> Conversation:
     if conversation is None:
         raise HTTPException(404, f"unknown session {session_id!r}")
     return conversation
+
+
+def save_or_409(conversation: Conversation) -> None:
+    try:
+        store.save(conversation)
+    except persistence.Conflict:
+        raise HTTPException(409, "this conversation was updated elsewhere meanwhile; send the message again") from None
 
 
 def turn_payload(conversation: Conversation, turn: object) -> dict:
@@ -91,6 +99,8 @@ def switch_building(session_id: str, body: SwitchBuilding) -> dict:
         store.switch_building(conversation, body.building)
     except UnknownBuilding as error:
         raise HTTPException(422, f"unknown building {error}; see GET /buildings") from None
+    except persistence.Conflict:
+        raise HTTPException(409, "this conversation was updated elsewhere meanwhile; try again") from None
     return {**summary(conversation), "overview": conversation.session.building.overview()}
 
 
@@ -98,7 +108,9 @@ def switch_building(session_id: str, body: SwitchBuilding) -> dict:
 def chat(body: ChatRequest) -> dict:
     conversation = conversation_or_404(body.session_id)
     with conversation.lock:
-        return turn_payload(conversation, conversation.guide.reply(body.message))
+        turn = conversation.guide.reply(body.message)
+        save_or_409(conversation)
+        return turn_payload(conversation, turn)
 
 
 @app.get("/events")
@@ -128,6 +140,10 @@ def chat_completions(body: dict, x_session_id: str | None = Header(None)) -> dic
             return "Sorry, I didn't catch that."
         with conversation.lock:
             turn = conversation.guide.reply(text, channel="voice")  # spoken style for ElevenLabs
+            try:
+                store.save(conversation)
+            except persistence.Conflict:  # mid-stream there is no status code left to send: say it instead
+                return "Sorry, I lost track of that. Could you say it again?"
             return turn.spoken or turn.text
 
     if body.get("stream"):

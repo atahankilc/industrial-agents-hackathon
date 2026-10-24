@@ -89,7 +89,27 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 `/v1/chat/completions` uses only the last user message (the Guide keeps its own history). Session id, first
 match wins: body `session_id`, `elevenlabs_extra_body.session_id`, header `X-Session-Id`, body `user`; none → a
 shared `default` session. How ElevenLabs actually sends it, and its system `tools`, are UNVERIFIED
-([elevenlabs.md](../research/elevenlabs.md)). Sessions are in memory (lost on restart; Supabase later, D-006).
+([elevenlabs.md](../research/elevenlabs.md)). Sessions are in memory unless
+`SUPABASE_DB_URL` is set (see below).
+
+### Conversation persistence (Supabase Postgres)
+
+With `SUPABASE_DB_URL` in `.env` (the **Transaction pooler** URI, port 6543; the direct `db.<project>.supabase.co`
+host is IPv6-only and doesn't resolve here) every conversation is stored in the `conversations` table and every turn
+is saved, so any backend instance can continue it ([backend/persistence.py](../../backend/persistence.py)).
+`GUIDE_PERSIST=off` forces in-memory sessions. A save that loses a race to another instance → HTTP 409.
+
+```bash
+uv run --env-file .env uvicorn backend.app:app --port 8765                     # persisted sessions
+uv run pytest -q tests/test_persistence.py                                     # offline (two stores, one fake DB)
+PERSIST_LIVE_TEST=1 uv run --env-file .env pytest -q tests/test_persistence.py  # + live round trip on Supabase
+```
+
+Schema changes go in `supabase/migrations/` (idempotent SQL). Apply one with:
+
+```bash
+uv run --env-file .env python -c "import os,sys,psycopg; psycopg.connect(os.environ['SUPABASE_DB_URL'], autocommit=True, prepare_threshold=None).execute(open(sys.argv[1]).read())" supabase/migrations/<file>.sql
+```
 
 ## Frontend app
 

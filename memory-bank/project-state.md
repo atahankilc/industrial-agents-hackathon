@@ -95,7 +95,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
    (Atahan working on it); ask before creating anything in any account. Decide model per channel (Q-012).
 2. Frontend polish: phone layout check, closure ripple for edits, narrow doors for the active profile, run against
    the real Guide (key set) and record a demo GIF/video.
-3. (Atahan) Vercel + Supabase accounts → [stack checklist](../docs/research/stack-options.md#7-day-one-setup-checklist-human-actions--ask-before-creating-anything).
+3. Deploy: Supabase ✅ (project created, `conversations` table applied, sessions persisted via
+   `backend/persistence.py`, live round trip incl. real Claude verified 2026-10-24). Next: Vercel config (Vite
+   frontend + FastAPI, `/api` rewrite, `excludeFiles`, CORS) → Atahan imports the repo and sets env vars
+   ([commands.md](../docs/guides/commands.md#conversation-persistence-supabase-postgres)).
 4. Preference extraction, remaining TODO: group composition (P20), profile lifetime/reset scope, persistence,
    soft penalties → [TODO](../docs/product/routing-profiles.md#todo-preference-extraction).
 5. Sunday hardening: wording robustness ✅ (hybrid 31/31 on paraphrases), Swiss `straight_line_3d` ✅ (generator

@@ -10,6 +10,18 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Conversation persistence on Supabase
+
+- **Did:** `backend/persistence.py`: conversation ⇄ JSON (profile, applied changes replayed from the base building,
+  pending, events, Guide history + system blocks), Memory and Postgres backends with optimistic `version` saves.
+  `SessionStore` uses it when `SUPABASE_DB_URL` is set; `/chat` and switch-building save, conflict → 409. Migration
+  `supabase/migrations/20261024120000_conversations.sql` applied (RLS on, no policies). `tests/test_persistence.py`.
+- **Learned:** the Supabase direct host is IPv6-only (doesn't resolve on our network; Vercel is IPv4) → use the
+  Transaction pooler (6543, no prepared statements). Restored history is accepted by the real API (Sonnet, two
+  stores, wheelchair profile honoured on the second; cache reads hit). Anon key on `/rest/v1/conversations` → 0 rows.
+- **Changed docs:** [commands.md](../docs/guides/commands.md#conversation-persistence-supabase-postgres), `.env.example`.
+- **Next:** Vercel config ([project-state.md](project-state.md#next-priorities)).
+
 ## 2026-10-24 — Sunday hardening: paraphrases, Swiss frames, end-to-end checks
 
 - **Did:** Live paraphrase eval of the parser (31 dev questions, all kinds): regex 0/31, llm 31/31, hybrid 31/31.

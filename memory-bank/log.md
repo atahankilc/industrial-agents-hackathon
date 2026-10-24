@@ -10,6 +10,13 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Guide Task 2: lookup tools (branch `1-agentic-yarag`)
+
+- **Did:** Added `agent/guide/tools.py` (`Session`, `TOOLS`, `run_tool`; tools locate, find_places, place_info,
+  building_fact via a name -> handler dict) and `tests/test_guide_tools.py` (12 tests); `building_fact` equals
+  `core.solvers.solve` on gold inputs for every dev question of its kinds; full suite 56 passed.
+- **Next:** Task 3 adds `route` and `update_session` to `HANDLERS` / `TOOLS`.
+
 ## 2026-10-24 — Guide Task 1: place resolution + candidate fan-out (branch `1-agentic-yarag`)
 
 - **Did:** Added `agent/guide/resolve.py` (`resolve_places`, `resolve_elements`, `nearest_names`, `describe`,

@@ -93,6 +93,8 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | GET | `/drafts/{id}/plan` | – | vector plan of the draft (`core/floorplan.py`, what `PlanView` draws), centred on the base building |
 | GET | `/drafts/{id}/points` | – | point-cloud export of the draft (unused by the new UI) |
 | POST | `/drafts/{id}/ops` | `{"ops": [{"op": …}]}` (`core/edits.py`) | applied as one undo step → same shape; bad op → 422 with the reason |
+| POST | `/drafts/{id}/chat/stream` | `{"message"}` | Builder agent turn (prompt edits) as NDJSON: `step` lines, then `{"type":"reply","reply","tool_calls","proposal" (id, summary, ops, new_problems, effect, `building` = draft after the ops) or null,"applied","state"}`; a plain "yes" applies the one open proposal; offline (`GUIDE_LLM=offline` / no key) a rule-based client understands rename / "make X N m wider to the east" / "add a door between X and Y"; model `BUILDER_MODEL` (default `claude-opus-5-5`), `BUILDER_EFFORT` |
+| POST | `/drafts/{id}/proposals/{pid}/apply` | – | apply an open proposal → draft state; unknown or made against an older draft → 409 |
 | POST | `/drafts/{id}/undo` | – | drops the last step (nothing to undo → 409) |
 | POST | `/drafts/{id}/save` | `{"name"}` | `{"building": "user/<slug>", "issues"}` — written to `GUIDE_USER_DIR` (default `data/user/`, gitignored), listed in `/buildings`; name clash → `-2` |
 | POST | `/v1/chat/completions` | OpenAI body, `stream` | OpenAI-compatible (SSE: `"... "` first, then sentences, `data: [DONE]`) for an ElevenLabs Custom LLM |

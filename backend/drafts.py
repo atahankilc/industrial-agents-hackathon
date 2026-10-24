@@ -124,11 +124,14 @@ class DraftStore:
     def issues(self, draft: Draft) -> list[dict]:
         return validate(self.building(draft), base=self.base_building(draft.base))
 
-    def apply(self, draft: Draft, ops: list[dict]) -> Draft:
-        """Apply `ops` as one undo step; raises EditError (and stores nothing) if any op fails."""
+    def apply(self, draft: Draft, ops: list[dict], expected_version: int | None = None) -> Draft:
+        """Apply `ops` as one undo step; raises EditError (and stores nothing) if any op fails, or if the draft is no
+        longer at `expected_version` (a proposal made against an older draft)."""
         if not ops:
             raise EditError("no ops given")
         with self.draft_lock(draft.id):  # overlapping requests (fast drags) each build on the latest state
+            if expected_version is not None and draft.version != expected_version:
+                raise EditError("the draft changed since this proposal; ask again")
             building = self.building(draft)
             for operation in ops:
                 building = apply_op(building, operation)

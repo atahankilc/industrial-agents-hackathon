@@ -6,7 +6,7 @@ Endpoints: /health, /buildings, /sessions (create, inspect, switch building), /s
 export of the session's current building, gzipped), /chat, /chat/stream (the same turn as NDJSON: live tool steps,
 then the reply), /events (polling cursor for the map UI; route events
 carry `vertices`, change events `space_ids`), the OpenAI-compatible /v1/chat/completions for ElevenLabs
-(backend/openai_compat.py), and the Edit mode's /drafts (create, get, points, plan, ops, undo, save — backend/drafts.py;
+(backend/openai_compat.py), and the Edit mode's /drafts (create, get, points, plan, ops, undo, save, chat/stream for the Builder agent, proposals/{pid}/apply — backend/drafts.py;
 saved buildings appear in /buildings as `user/<slug>`, stored under GUIDE_USER_DIR, default data/user/).
 Guide turns are blocking (tool loop + LLM calls), so those endpoints are plain `def` and run in FastAPI's
 threadpool; each conversation's lock serialises its turns. With persistence on (backend/persistence.py) every turn
@@ -30,10 +30,11 @@ from pydantic import BaseModel
 
 from agent.guide import PHOTO_TYPES, llm_mode
 from backend import openai_compat, persistence
+from agent.builder import Builder
 from backend.drafts import Draft, DraftStore
 from backend.sessions import DATA_DIR, DEFAULT_SESSION, Conversation, SessionStore, UnknownBuilding, summary
 from core.building_map import BuildingMap
-from core.edits import EditError
+from core.edits import EditError, apply_op
 from core.pointcloud import export_points
 
 API_PREFIX = "/api"
@@ -80,6 +81,10 @@ class DraftOps(BaseModel):
 
 class SaveDraft(BaseModel):
     name: str
+
+
+class BuilderMessage(BaseModel):
+    message: str
 
 
 class ChatRequest(BaseModel):
@@ -281,6 +286,7 @@ def draft_ops(draft_id: str, body: DraftOps) -> dict:
         drafts.apply(draft, body.ops)
     except EditError as error:
         raise HTTPException(422, str(error)) from None
+    tell_builder(draft_id, "The user changed the draft by hand (dragging on the plan); look again before proposing.")
     return drafts.state(draft)
 
 
@@ -291,6 +297,7 @@ def draft_undo(draft_id: str) -> dict:
         drafts.undo(draft)
     except EditError as error:
         raise HTTPException(409, str(error)) from None
+    tell_builder(draft_id, "The user undid the last change to the draft; look again before proposing.")
     return drafts.state(draft)
 
 
@@ -299,6 +306,85 @@ def draft_save(draft_id: str, body: SaveDraft) -> dict:
     draft = draft_or_404(draft_id)
     issues = drafts.issues(draft)
     return {"building": drafts.save(draft, body.name), "issues": issues}
+
+
+# ---------- Edit mode: the Builder agent (agent/builder.py) — prompt edits ----------
+# One Builder per draft, in memory (lost on restart; milestone 3 persists it), behind a per-draft turn lock.
+
+builders: dict[str, Builder] = {}
+builder_locks: dict[str, threading.Lock] = {}
+builders_guard = threading.Lock()
+
+
+def builder_for(draft: Draft) -> tuple[Builder, threading.Lock]:
+    with builders_guard:
+        if draft.id not in builders:
+            builders[draft.id] = Builder(drafts, draft)
+            builder_locks[draft.id] = threading.Lock()
+        return builders[draft.id], builder_locks[draft.id]
+
+
+def tell_builder(draft_id: str, note: str) -> None:
+    builder = builders.get(draft_id)
+    if builder is not None:
+        builder.notes.append(f"[note, not from the user] {note}")
+
+
+def proposal_payload(draft: Draft, proposal: object | None) -> dict | None:
+    """An open proposal for the UI, with the draft as it would look after it (the plan's ghost overlay)."""
+    if proposal is None:
+        return None
+    preview = drafts.building(draft)
+    for operation in proposal.ops:
+        preview = apply_op(preview, operation)
+    return {"id": proposal.id, "summary": proposal.summary, "ops": proposal.ops,
+            "new_problems": [issue["message"] for issue in proposal.new_problems], "effect": proposal.effect,
+            "building": preview}
+
+
+@app.post("/drafts/{draft_id}/chat/stream")
+def draft_chat_stream(draft_id: str, body: BuilderMessage) -> StreamingResponse:
+    """One Builder turn as NDJSON: {"type": "step", …} while it works, then {"type": "reply", "reply", "tool_calls",
+    "proposal" (or null), "applied" (summary when a "yes" applied the open proposal), "state"} or {"type": "error"}."""
+    draft = draft_or_404(draft_id)
+    builder, lock = builder_for(draft)
+    lines: queue.Queue[dict | None] = queue.Queue()
+
+    def work() -> None:
+        try:
+            with lock:
+                builder.on_step = lambda step: lines.put({"type": "step", **step})
+                try:
+                    turn = builder.reply(body.message)
+                finally:
+                    builder.on_step = None
+                lines.put({"type": "reply", "reply": turn.text,
+                           "tool_calls": [{"name": call["name"], "input": call["input"]} for call in turn.tool_calls],
+                           "proposal": proposal_payload(draft, turn.proposal), "applied": turn.applied,
+                           "ungrounded": turn.ungrounded, "state": drafts.state(draft)})
+        except Exception as error:  # the stream has started: report instead of a status code
+            lines.put({"type": "error", "detail": f"{type(error).__name__}: {error}"[:300]})
+        finally:
+            lines.put(None)
+
+    def stream():
+        threading.Thread(target=work, daemon=True).start()
+        while (line := lines.get()) is not None:
+            yield json.dumps(line, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+@app.post("/drafts/{draft_id}/proposals/{proposal_id}/apply")
+def apply_proposal(draft_id: str, proposal_id: str) -> dict:
+    draft = draft_or_404(draft_id)
+    builder, lock = builder_for(draft)
+    with lock:
+        try:
+            builder.apply(proposal_id)
+        except EditError as error:
+            raise HTTPException(409, str(error)) from None
+    return drafts.state(draft)
 
 
 @app.post("/v1/chat/completions", response_model=None)

@@ -61,7 +61,12 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   of `GET /drafts/{id}/plan`, Save opens `user/<slug>` via `Root`; verified in headless Chrome.
 - **Builder M2 (prompt edits), in progress:** Task 1 `move_edge` op + `edge_sides` (walls with compass sides),
   malformed op arguments → EditError (422); Task 2 `agent/builder_tools.py` (overview, find, space_info,
-  floor_plan, propose_edit — dry run + effect + new problems, never applies). Next: Task 3 Builder loop.
+  floor_plan, propose_edit — dry run + effect + new problems, never applies). Task 3 `agent/builder.py` (tool
+  loop, "yes" applies the one open proposal without a model call, Apply-button / hand-edit notes, grounding repair,
+  stop after 2 failed proposals) + `agent/builder_offline.py` (rename / resize / door rules); Task 4
+  `/drafts/{id}/chat/stream` + `/drafts/{id}/proposals/{pid}/apply` (stale → 409). Next: Task 5 frontend.
+- **M3 (deployed store: drafts, saved buildings, Builder history in Supabase) is Atahan's** (Utku, 2026-10-24) —
+  write its plan after M2, don't implement it.
 
 - **Solvers** `core/solvers/` (geometry, walls, reachability, routing): **655/655** train+dev on gold inputs
   (`scripts/validate_solvers.py`); rules + rejected variants in [solver-plan.md](../docs/architecture/solver-plan.md).

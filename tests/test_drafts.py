@@ -204,3 +204,68 @@ def test_plan_endpoint_follows_the_draft(client):
     assert next(space for space in after["spaces"] if space["id"] == room["id"])["name"] == "Renamed for the plan"
     assert after["center"] == plan["center"]  # stable frame: the preview doesn't jump when the outline changes
     assert client.get("/drafts/0123456789abcdef0123456789abcdef/plan").status_code == 404
+
+
+# ---------- M2: Builder stream + proposal apply ----------
+
+
+def builder_lines(client: TestClient, draft_id: str, text: str) -> list[dict]:
+    response = client.post(f"/drafts/{draft_id}/chat/stream", json={"message": text})
+    assert response.status_code == 200
+    return [json.loads(line) for line in response.text.splitlines() if line.strip()]
+
+
+def side_prompt(client: TestClient, draft_id: str) -> str:
+    """'make <ref> 1 m wider to the <side>' for an office with a room on that side."""
+    from agent.builder_tools import BuilderTools
+
+    tools = BuilderTools(backend_app.drafts, backend_app.drafts.get(draft_id))
+    for space in backend_app.drafts.building(tools.draft)["spaces"]:
+        if space["room_type"] == "office" and len(space["polygon"]) == 4:
+            info = tools.call("space_info", {"space": space["id"]})
+            sides = [n["side"] for n in info["neighbours"] if n["side"] in ("east", "west") and n["shared_m"] >= 2]
+            if sides:
+                return f"make {space['ref']} 1 m wider to the {sides[0]}"
+    raise AssertionError("no office with a side neighbour")
+
+
+def test_builder_stream_offline_proposal(client):
+    draft_id = new_draft(client)["draft"]["id"]
+    lines = builder_lines(client, draft_id, side_prompt(client, draft_id))
+    assert any(line["type"] == "step" for line in lines)
+    reply = lines[-1]
+    assert reply["type"] == "reply"
+    assert reply["proposal"]["ops"][0]["op"] == "move_edge"
+    assert reply["state"]["draft"]["steps"] == 0
+    assert {"spaces", "openings", "assets"} <= set(reply["proposal"]["building"])
+    assert reply["applied"] is None
+
+
+def test_apply_proposal_endpoint(client):
+    draft_id = new_draft(client)["draft"]["id"]
+    proposal = builder_lines(client, draft_id, side_prompt(client, draft_id))[-1]["proposal"]
+    response = client.post(f"/drafts/{draft_id}/proposals/{proposal['id']}/apply")
+    assert response.status_code == 200
+    assert response.json()["draft"]["steps"] == 1
+
+
+def test_apply_stale_proposal_409(client):
+    created = new_draft(client)
+    draft_id = created["draft"]["id"]
+    proposal = builder_lines(client, draft_id, side_prompt(client, draft_id))[-1]["proposal"]
+    rename(client, draft_id, a_room(created["building"])["id"], "by hand")
+    response = client.post(f"/drafts/{draft_id}/proposals/{proposal['id']}/apply")
+    assert response.status_code == 409 and "changed since" in response.text
+
+
+def test_yes_in_stream_applies(client):
+    draft_id = new_draft(client)["draft"]["id"]
+    builder_lines(client, draft_id, side_prompt(client, draft_id))
+    reply = builder_lines(client, draft_id, "yes")[-1]
+    assert reply["applied"] and reply["state"]["draft"]["steps"] == 1 and reply["proposal"] is None
+
+
+def test_builder_stream_unknown_draft_404(client):
+    assert client.post("/drafts/0123456789abcdef0123456789abcdef/chat/stream", json={"message": "hi"}).status_code == 404
+    draft_id = new_draft(client)["draft"]["id"]
+    assert client.post(f"/drafts/{draft_id}/proposals/P9/apply").status_code == 409

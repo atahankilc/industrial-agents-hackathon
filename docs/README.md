@@ -46,6 +46,7 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 - [superpowers/plans/2026-10-24-builder-edit-mode-m2.md](superpowers/plans/2026-10-24-builder-edit-mode-m2.md) — Builder Edit mode milestone-2 plan: prompt edits by a Builder agent (5 tasks).
 - [superpowers/plans/2026-10-24-builder-edit-mode-m1.md](superpowers/plans/2026-10-24-builder-edit-mode-m1.md) — Builder Edit mode milestone-1 implementation plan (7 tasks).
 - [superpowers/plans/2026-10-24-guide-agent.md](superpowers/plans/2026-10-24-guide-agent.md) — v1 Guide implementation plan (6 tasks).
+- [superpowers/specs/2026-10-24-access-roles-design.md](superpowers/specs/2026-10-24-access-roles-design.md) — demo feature design (not built): roles with room access + physical limits set by the facility manager in conversation, building-wide rules and changes, manager-only edits; benchmark untouched.
 - [architecture/solver-plan.md](architecture/solver-plan.md) — one deterministic function per benchmark kind — all VERIFIED 655/655, with the rules the data settled.
 
 ### Product (ours)

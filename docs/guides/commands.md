@@ -82,8 +82,9 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | POST | `/sessions` | `{"building"?}` | `{"session_id", "building", "overview"}` (unknown building → 422) |
 | GET | `/sessions/{id}` | – | building, profile, applied/pending changes, event count |
 | PUT | `/sessions/{id}/building` | `{"building"}` | fresh session on another building, same id |
-| POST | `/chat` | `{"session_id", "message"}` | `{"reply", "tool_calls", "events", "ungrounded"}` |
-| GET | `/events` | `?session_id=&after=N` | `{"events": [...since N], "next"}` — UI highlights, routes, changes |
+| POST | `/chat` | `{"session_id", "message", "channel"?, "photo"?}` | `{"reply", "tool_calls", "events", "ungrounded", "spoken"}` — `channel: "voice"` fills `spoken`; `photo` = base64 data URL (jpeg/png/webp, ≤1.5 M chars), shown to the Guide for this turn only |
+| POST | `/chat/stream` | same as `/chat` | NDJSON: `{"type":"step","kind":"tool"\|"tool_done"\|"check",…}` while the Guide works, then `{"type":"reply",…/chat payload}` or `{"type":"error","detail"}` |
+| GET | `/events` | `?session_id=&after=N` | `{"events": [...since N], "next"}` — UI highlights, routes (with `vertices` + turn-by-turn `legs`, `core/directions.py`), changes |
 | POST | `/v1/chat/completions` | OpenAI body, `stream` | OpenAI-compatible (SSE: `"... "` first, then sentences, `data: [DONE]`) for an ElevenLabs Custom LLM |
 
 `/v1/chat/completions` uses only the last user message (the Guide keeps its own history). Session id, first

@@ -24,6 +24,7 @@ from agent.guide import Guide, make_client
 from backend import persistence
 from agent.tools import BuildingSession
 from core.building_map import OUTSIDE, BuildingMap
+from core.directions import route_legs
 from core.pointcloud import export_points, route_vertices
 
 DATA_DIR = Path(os.environ.get("GUIDE_DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
@@ -67,7 +68,7 @@ class MapView:
             return self.refresh(session.building)
 
     def enrich(self, session: BuildingSession, events: list[dict], first_index: int) -> list[dict]:
-        """Copies of `events` (session.events[first_index:...]) with route vertices and change space ids.
+        """Copies of `events` (session.events[first_index:...]) with route vertices + legs and change space ids.
 
         Limitation: vertices are computed on the session's building as it is now, not the one current when the
         route was emitted (changes only add doors or closures, so earlier paths still resolve); the route cache is
@@ -84,11 +85,19 @@ class MapView:
                                                                 event.get("element_path") or [])
                         except (KeyError, StopIteration):  # path no longer valid on this building
                             self.routes[index] = []
-                    event = {**event, "vertices": self.routes[index]}
+                    event = {**event, "vertices": self.routes[index],
+                             "legs": safe_legs(building, event)}
                 elif event.get("type") == "change":
                     event = {**event, "space_ids": affected_spaces(building, event.get("targets") or [])}
                 enriched.append(event)
             return enriched
+
+
+def safe_legs(building: BuildingMap, event: dict) -> list[dict]:
+    try:
+        return route_legs(building, event.get("space_path") or [], event.get("element_path") or [])
+    except (KeyError, StopIteration):  # path no longer valid on this building
+        return []
 
 
 def affected_spaces(building: BuildingMap, targets: list[str]) -> list[str]:

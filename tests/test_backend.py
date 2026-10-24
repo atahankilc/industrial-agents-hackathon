@@ -171,3 +171,43 @@ def test_change_event_has_space_ids_and_points_update(client):
     assert next(event for event in polled if event["type"] == "change")["space_ids"] == change["space_ids"]
     raw = store.get(session_id).session.events  # the enrichment works on copies
     assert all("vertices" not in event and "space_ids" not in event for event in raw if event["type"] != "highlight")
+
+
+def test_chat_stream_steps_then_reply(client):
+    session_id = new_session(client)
+    response = client.post("/chat/stream", json={"session_id": session_id, "message": ROUTE})
+    assert response.status_code == 200 and response.headers["content-type"].startswith("application/x-ndjson")
+    lines = [json.loads(line) for line in response.text.splitlines() if line]
+    steps = [line for line in lines if line["type"] == "step"]
+    assert lines[-1]["type"] == "reply" and lines[-1]["reply"]
+    assert any(step["kind"] == "tool" and step["name"] == "find_route" for step in steps)
+    assert [step["kind"] for step in steps if step["name"] == "find_route"][:2] == ["tool", "tool_done"]
+    assert any(event["type"] == "route" for event in lines[-1]["events"])
+
+
+def test_chat_voice_channel_and_bad_channel(client):
+    session_id = new_session(client)
+    turn = client.post("/chat", json={"session_id": session_id, "message": ROUTE, "channel": "voice"}).json()
+    assert turn["spoken"] and "**" not in turn["spoken"]
+    assert client.post("/chat", json={"session_id": session_id, "message": "hi", "channel": "fax"}).status_code == 422
+    assert client.post("/chat/stream", json={"session_id": session_id, "message": "hi", "channel": "fax"}).status_code == 422
+
+
+TINY_PNG = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5E"
+            "rkJggg==")
+
+
+def test_photo_turn_is_answered_and_not_kept(client):
+    session_id = new_session(client)
+    turn = client.post("/chat", json={"session_id": session_id, "message": "Where is the printer?",
+                                      "photo": TINY_PNG})
+    assert turn.status_code == 200 and turn.json()["reply"]
+    history = store.get(session_id).guide.messages
+    assert any(isinstance(m["content"], str) and m["content"].startswith("[the user sent a camera photo") for m in history)
+    assert not any(isinstance(m["content"], list) and any(
+        (b.get("type") if isinstance(b, dict) else getattr(b, "type", None)) == "image" for b in m["content"])
+        for m in history)
+    bad = {"session_id": session_id, "message": "hi"}
+    assert client.post("/chat", json={**bad, "photo": "data:text/plain;base64,aGk="}).status_code == 422
+    assert client.post("/chat", json={**bad, "photo": "not a data url"}).status_code == 422
+    assert client.post("/chat", json={**bad, "photo": "data:image/jpeg;base64," + "A" * 1_500_001}).status_code == 413

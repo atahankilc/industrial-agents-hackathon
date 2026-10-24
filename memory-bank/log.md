@@ -10,6 +10,29 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — AI layer of the app: live steps, cards, voice orb, camera walk mode
+
+- **Did:** (parallel to another session's visual concepts in `frontend/prototypes/twin-lab/`; file split agreed by
+  message: this session owns `src/ui/Chat.tsx`, `src/ui/cards/`, `src/voice/`, the orb, the camera view, `chat.css`,
+  `/chat/stream`.) Backend: `Guide.on_step` callback + `POST /chat/stream` (NDJSON steps → reply), `channel` and
+  `photo` on `/chat`, photo shown for one turn then replaced by a text placeholder, `core/directions.py` turn-by-turn
+  legs on route events. Frontend: live tool checklist, route card (steps, show on map, walk with camera), pending
+  change card (Apply / Keep as is → plain messages to the Guide), applied note, profile chip, follow-up chips,
+  voice mode (browser SpeechRecognition + speechSynthesis, canvas point-cloud orb, EN/DE/TR, hands-free), camera
+  walk mode (rear camera, floor arrow, spoken steps, "Where am I?" sends a frame, mic for next/back/repeat or a
+  question).
+- **Learned:** Starlette GZip flushes streamed chunks (Z_SYNC_FLUSH), so NDJSON is live behind it; `.chat` has
+  `backdrop-filter`, so the full-screen camera view must be portalled to `body`. Live Opus 5.5 photo turn: read the
+  sign "3.07 Meeting room", confirmed it with `search`, highlighted it; 5.2 s, 0 ungrounded.
+- **Changed docs:** [commands.md](../docs/guides/commands.md#backend-guide-api), [project-state.md](project-state.md).
+- **Then (Atahan: "no feedback, looks cheap"):** orb rebuilt in WebGL (three.js points, simplex-noise shader, rim +
+  depth fade, CSS glow driven by the level); always visible (large in the empty chat, small in the composer); voice
+  mode became a stage (orb, live transcript, Guide steps, spoken reply as captions); recognition never fails
+  silently (per-error messages, "didn't catch that"); the mic meter starts only on `audiostart`, and an
+  `audio-capture` error retries once without it (a parallel mic stream cost recognition the device in Chrome with a
+  fake device). Optional `--accent` (fallback `--ink`) for the other session's HUD tokens.
+- **Next:** test voice + camera on a phone over HTTPS (deployed URL); ElevenLabs can replace `useVoice` later.
+
 ## 2026-10-24 — Vercel deploy config
 
 - **Did:** `vercel.json` (services `web` = Vite `frontend/app/` and `api` = FastAPI `backend.app:app`, `/api/(.*)`

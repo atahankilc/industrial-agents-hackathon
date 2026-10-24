@@ -61,6 +61,12 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   emergence + scan, route flow, highlight / closure / lost-access states, floor solo + separation, camera fly-to,
   chat panel; light/dark. Backend serves `GET /sessions/{id}/points` (`core/pointcloud.py`) and enriches route /
   change events. Verified in Chrome with the offline Guide ([commands.md](../docs/guides/commands.md#frontend-app)).
+- **AI layer of the app** (2026-10-24): `POST /chat/stream` live tool steps, route/change cards, follow-up chips,
+  voice mode with the orb (browser speech, `frontend/app/src/voice/useVoice.ts`), camera walk mode with turn-by-turn
+  legs (`core/directions.py`) and "Where am I?" photo turns (`Guide.reply(photo=…)`, one turn only). Verified
+  headless in Chrome (offline Guide, fake camera) and one live Opus photo turn; WebGL orb + voice stage with
+  explicit recognition errors. Real-mic recognition and phone camera not yet confirmed (automation can't feed
+  Chrome's speech service).
 - **Profiles:** `set_profile` presets (wheelchair, pram, trolley, no_lifts, default) + deterministic cue safety net
   in the Guide (`tests/test_profiles.py`); live Sonnet run uses the preset itself.
 - **Voice replies:** `Guide.reply(…, channel="voice")` (used by `/v1/chat/completions`): spoken-style system

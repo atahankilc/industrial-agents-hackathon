@@ -22,6 +22,19 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   (1,338/1,338 exact) → v1 is the submission pipeline. Dev 138/138 with v1 (regex).
 - **Next:** Sunday building → rerun the one command into `SUBMISSION/answers.json`; video + tech explanation.
 
+## 2026-10-25 00:14 — Plan images vs `building.json`; submission folder; Level 4 question
+
+- **Learned:** floor PNG/SVGs are Matplotlib renders of `building.json` (floor 0 of `osm-way27917482`: polygons
+  match at ~9.98 px/m, per-type counts match) — no extra information; nothing in our code reads them. No kit
+  source defines Level 4's input or check. Organisers' Discord note: benchmark graded only from `SUBMISSION/`
+  with exactly `BENCHMARK.md` + `answers.json` — already there from 8537ca0 (145 test answers, ids match
+  `data/test/questions.csv`, 0 errors).
+- **Did:** removed the old lowercase `submissions/` (superseded by `SUBMISSION/`; the README/commands CSV commands
+  still work, they create their output folder).
+- **Opened Q:** [Q-018](open-questions.md#q-018) (Level 4 input/scoring), [Q-019](open-questions.md#q-019)
+  (`SUBMISSION/answers.json` scope/format vs the Discord image).
+- **Next:** confirm Q-019 against the Discord image; video + form ([project-state](project-state.md#next-priorities)).
+
 ## 2026-10-25 — Open building's map block as a see-through shell
 
 - **Did:** the tile blocks over the open building (same overlap test as the blue blocks' heights, now one `overlaps`

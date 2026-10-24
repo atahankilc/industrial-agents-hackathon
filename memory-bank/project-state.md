@@ -228,6 +228,14 @@ has no swing info. Next: Guide events on the plan
    Sunday building is released: `PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 <building_dir>
    <questions> SUBMISSION/answers.json`, check errors, ship. Keep the folder to exactly those two files.
 
+‼ **Submission (organisers' Discord note, 2026-10-25 00:10, ~14 h to the deadline) — before anything else:**
+- [x] `SUBMISSION/` with exactly `BENCHMARK.md` + `answers.json` (8537ca0, v1 pipeline, 145 test answers, ids match
+  `data/test/questions.csv`, 0 errors). Still to confirm against the Discord image: scope and schema
+  ([Q-019](open-questions.md#q-019)). Old `submissions/` (lowercase) removed 2026-10-25.
+- [ ] Hack and More form: repo link, **strictly 2-minute** demo video (YouTube/Luma; start early), short technical
+  explanation.
+- [ ] Ask organisers about Level 4 input/scoring ([Q-018](open-questions.md#q-018)); Builder is not a priority.
+
 0. ✅ **Kit 1.1.0 route model ported** (2026-10-24, [D-014](decisions.md#d-014)): `core/building_map.py` = the
    1.1.0 starter graph; warm-up routes 1,338/1,338 exact, solvers 655/655, dev benchmark 138/138, test submission
    regenerated (20 errand + 1 what_if_door answers changed). Open: push `dev` (2 local commits), merge into

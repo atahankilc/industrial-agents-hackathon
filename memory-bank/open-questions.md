@@ -6,7 +6,7 @@ related: [decisions.md, project-state.md, ../docs/kit/questions.md]
 
 # Open questions
 
-[Memory bank](README.md) · Next free id: **Q-018**
+[Memory bank](README.md) · Next free id: **Q-020**
 
 Template:
 
@@ -231,6 +231,37 @@ Template:
   `archive/initial-repo/README-cb51a6f.md` = the previous text, still cited for the sections 1.1.0 dropped. Prepare
   for both: a video + technical explanation, and a live demo that runs without a restart.
 - **How to resolve:** ask the organisers whether the cb51a6f judging/submission text still holds.
+
+<a id="q-019"></a>
+### Q-019 — `SUBMISSION/answers.json`: which questions, which format?
+- **Status:** open · **Priority:** high · **Resolve by:** organisers' Discord image / ask organisers
+- **Context:** Organisers' Discord note (pasted by Atahan 2026-10-25 00:10, ~14 h before the deadline): the
+  benchmark (55 points) is graded from a repo folder named exactly `SUBMISSION` with exactly two files,
+  `BENCHMARK.md` and `answers.json` ("wrong file names = we can't grade your benchmark"); the reference structure
+  is in an image we have not seen. The remaining 45 points come through the Hack and More form: repo link, a strictly
+  2-minute demo video (YouTube/Luma), a short technical explanation. **Done (8537ca0, Utku, 2026-10-25 01:10):**
+  `SUBMISSION/BENCHMARK.md` + `SUBMISSION/answers.json` from `agent.run_benchmark_v1`: a list of 145 objects
+  (`question_id`, `reply`, `answer`, `kind`, `inputs`, `result`, `route`, `error`), ids = `data/test/questions.csv`,
+  0 errors (checked 2026-10-25). The schema is our own, see [BENCHMARK.md](../SUBMISSION/BENCHMARK.md).
+- **Unknown:** (1) does `answers.json` hold the 145 test questions, the Sunday building's questions, or both;
+  (2) its schema (the image may show it; links to [Q-001](#q-001)).
+- **How to resolve:** compare with the Discord image; if Sunday questions belong there, regenerate with
+  `agent.run_benchmark_v1` (never hand-edited), keeping the folder to exactly those two files.
+
+<a id="q-018"></a>
+### Q-018 — Level 4 "Build": what is the input, and how is "built correctly" checked?
+- **Status:** open (question drafted 2026-10-25, not sent yet) · **Priority:** med · **Resolve by:** ask organisers
+- **Context:** PDF p.3 and kit README only say "Build: create or update a building from floor plans, by
+  conversation" and score "buildings built correctly from plans" under Does it work (55). The kit ships
+  "structured plan files plus PNG images" (PDF); the images are Matplotlib renders of `building.json` (floor 0 of
+  `osm-way27917482`: polygons match to 1e-5 px at ~9.98 px/m, y flipped; per-type counts match), so they add no
+  information. None of the 15 question kinds in train/dev/test is a build task, and the kit has no build test.
+- **Unknown:** input (plain PNG only? PDF? `building.json` withheld?), expected output (kit-schema `building.json`;
+  spaces only or also openings/connectors/assets), metric, whether it runs inside `run_benchmark`, and whether
+  "update by conversation" is checked automatically.
+- **Meanwhile:** with ~14 h left, Level 4 Builder is not a priority over the submission ([Q-019](#q-019)). If needed,
+  the 797 `floor_*_plain.png` renders across 280 buildings (each with its `building.json`) are a ready eval set
+  ([ai-agents.md](../docs/architecture/ai-agents.md#builder-level-4)).
 
 <a id="q-016"></a>
 ### Q-016 — Level 3 "several buildings": what format, and how do walkways link them?

@@ -188,6 +188,13 @@ Template:
   `type`/`room_type` for aisles, walkways or bays (`forklift` / `forklift_charging_station` exist only as
   equipment types; `production_zone` is a `room_type`) — so the Sunday building likely uses a schema we have not
   seen. Also: "without stairs" = lifts, ramps and doors only (matches our step-free filter).
+- **Finding (2026-10-24):** with `bays_destination_only` (production + assembly + logistics + warehouse + additive
+  zones) and `no_outside`, **26/26** factory buildings (train/dev/test) cut the office wing off from the hall: the
+  only way in is through a first-row zone (`Hall access → Assembly zone`) or outside. E.g. proc-factory-dev-004:
+  Locker room 0.30 → Production zone H-A2 has no route (61.56 m via Assembly zone H-A1 without rules). Counting only
+  `production_zone` as a bay still leaves 706 spaces cut off. The rule text we have is our own summary of the
+  Discord note ("you may drive into one to deliver, not through one as a shortcut"), not the PDF or kit README; the
+  extra zone types and applying it to pedestrians are our reading. Ask for the original wording.
 - **How to resolve:** ask which fields mark aisles / walkways / bays (and whether `production_zone` is a bay);
   meanwhile make the router take a rule set (allowed space predicate, min opening width, no-pass-through
   predicate) so it can be wired to new fields without code changes elsewhere.

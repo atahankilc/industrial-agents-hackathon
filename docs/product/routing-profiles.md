@@ -248,5 +248,7 @@ aisles inside halls, door opening direction or automatic doors.
 
 ## Related
 
+- [Access roles design](../superpowers/specs/2026-10-24-access-roles-design.md) — roles (who may enter which rooms, physical limits) set by the facility manager; extends these profiles (draft, not built)
+
 - [personas.md](personas.md) · [route-model.md](../kit/route-model.md) ·
   [solver-plan.md](../architecture/solver-plan.md) · [overview.md](../architecture/overview.md)

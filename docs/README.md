@@ -42,6 +42,7 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 - [architecture/ai-agents.md](architecture/ai-agents.md) — Building Guide, benchmark pipeline, Builder; shared tools; voice path.
 - [superpowers/specs/2026-10-24-guide-agent-design.md](superpowers/specs/2026-10-24-guide-agent-design.md) — design of the v1 Guide (`agent/guide_v1/`, branch `1-agentic-yarag`): terminal, multi-turn, grounded, clarifies only what matters.
 - [superpowers/plans/2026-10-24-guide-agent.md](superpowers/plans/2026-10-24-guide-agent.md) — v1 Guide implementation plan (6 tasks).
+- [superpowers/specs/2026-10-24-access-roles-design.md](superpowers/specs/2026-10-24-access-roles-design.md) — demo feature design (not built): roles with room access + physical limits set by the facility manager in conversation, building-wide rules and changes, manager-only edits; benchmark untouched.
 - [architecture/solver-plan.md](architecture/solver-plan.md) — one deterministic function per benchmark kind — all VERIFIED 655/655, with the rules the data settled.
 
 ### Product (ours)

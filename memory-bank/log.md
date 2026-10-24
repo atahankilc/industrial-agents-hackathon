@@ -10,6 +10,20 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Design: access roles (demo feature, not built)
+
+- **Did:** brainstormed with Utku and wrote [access-roles design](../docs/superpowers/specs/2026-10-24-access-roles-design.md):
+  the facility manager sets roles (room-type access + editable physical limits: stairs, lifts, opening width) by
+  talking to the Guide; rules and building changes are building-wide and reach open conversations on their next
+  turn; only a conversation that claimed `manager` may edit (a claim, not a credential); no role = today's
+  behaviour; benchmark untouched. Builder check (subagent) raised 5 questions: 3 answered by Utku, 2 settled as my
+  calls in the doc.
+- **Also (same session):** factory bay rule — 26/26 factory buildings lose office ↔ hall routes under bays
+  destination-only + no outside (the rule comes only from our summary of the organisers' Discord note, not from the
+  PDF or kit README; the zone list beyond `production` and applying it to pedestrians are our interpretation).
+  Pending Utku's decision; see Q-015.
+- **Next:** implementation plan for access roles when Utku asks; bay rule decision + organiser question.
+
 ## 2026-10-24 — Directions: turns, landmarks, rounded metres
 
 - **Did:** `core/directions.py`: `about_m` (whole metres < 10, steps of 5 < 100, then 10, half up), `landmark` (the

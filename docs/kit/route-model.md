@@ -4,6 +4,7 @@ summary: The exact graph and cost model used to compute every expected route len
 sources:
   - archive/initial-repo/README.md §3 "The route model behind the expected answers"
   - archive/initial-repo/starter_agent/building_map.py:175-246
+  - core/route_models.py, core/geodesic.py, scripts/compare_route_models.py (Sunday model, Q-014)
 related: [data-format.md, questions.md, starter-agent.md, ../architecture/solver-plan.md]
 ---
 
@@ -12,7 +13,8 @@ related: [data-format.md, questions.md, starter-agent.md, ../architecture/solver
 > ⚠ **Sunday route scoring uses a different distance rule** (door-to-door inside each space, 15 cm off walls; stairs
 > 2 m per metre climbed; lift 15 m + 1 m per metre; production bays destination-only; forklift ≥ 3 m) — see
 > [Q-014](../../memory-bank/open-questions.md#q-014). This page stays correct for the kit's own answers (warm-up
-> routes, `errand`) until the organisers say otherwise.
+> routes, `errand`) until the organisers say otherwise. Our implementation of the new rule, selectable per call:
+> [below](#sunday-route-model-and-route-rules-q-014).
 
 [Docs index](../README.md) · Data it is built from: [data-format.md](data-format.md)
 
@@ -67,6 +69,47 @@ have `legs`, each with its own paths. Example in [questions.md](questions.md#war
 - `straight_line_3d` uses the polygon **centroid** (not representative point) + floor `elevation_m`.
 - "Nearest" in `errand` = route-model distance on the full graph, any floor — VERIFIED 93/93 against gold `via`
   ([solver-plan.md](../architecture/solver-plan.md#errand)).
+
+<a id="sunday-route-model-and-route-rules-q-014"></a>
+## Sunday route model and route rules (Q-014)
+
+`core/route_models.py`; every `core/navigation.py` route call (`find_route`, `tour`, warm-up `run_parsed`) takes
+`model="kit" | "geodesic"` and `rules=RouteRules(...)`. **Default: `kit` without rules** — exactly
+`BuildingMap.graph` (node/edge order unchanged, so the tie-breaking above holds; `tests/test_route_models.py`).
+The geodesic model and the rules are our reading of the organiser note — **UNVERIFIED** until Q-014 is answered.
+
+| | kit | geodesic |
+|---|---|---|
+| inside a space | anchor → door straight lines | door → door shortest path in the polygon shrunk by 0.15 m (`core/geodesic.py`: mitre offset, visibility graph over its reflex vertices; within 0.3 m of a door the path may be closer to walls) |
+| first / last space | from / to the anchor | from / to the anchor — UNVERIFIED, Q-014 (2) |
+| stairs | 12 m × floor span, per consecutive stop | 2 m × metres climbed (`elevation_m` difference), per consecutive stop |
+| lift | 15 m + 6 m × span, per consecutive stop | 15 m + 1 m × metres of height, one edge per pair of stops (one wait per ride) |
+| graph | kit nodes | kit node ids + door–door edges inside each space (`space` attribute); paths are expanded back to the kit representation, so `space_path` / `element_path` / steps look the same |
+
+Rules (`RouteRules`, both models): `bays_destination_only` (production / assembly / logistics / warehouse /
+additive zones and halls named "bay": start or end of a leg only; `lobby` halls excluded), `no_outside` (`outside`
+only as start or end), `forklift` (openings ≥ 3 m of every kind, no stairs, walkway-like spaces by type/room_type/
+name removed; lifts allowed — UNVERIFIED). `SUNDAY_RULES` = bays + no outside. No route under the rules →
+`reachable: false`, reason `"no route under these rules (…): …"`.
+
+`sequence_length(view, space_path, …)` re-measures an ordered space list the way the organisers score it (best
+door choice per step; `None` = invalid step or rule broken → score 0).
+
+**Measured on train+dev warm-up legs** (`uv run python scripts/compare_route_models.py`, 1,578 legs, 1,457
+reachable under the kit model, 2026-10-24): the kit and geodesic models choose a **different space sequence in 115
+legs (7.9 %)**. Scored as best ÷ ours against the geodesic + Sunday-rules best:
+
+| our answer | mean score | full marks (≥ 0.99) | score 0 | min |
+|---|---|---|---|---|
+| kit model, no rules | 0.930 | 88.8 % | 75 (pass `outside`) | 0 |
+| kit model + rules | 0.984 | 93.1 % | 0 | 0.361 |
+| geodesic + rules | 1.000 | 100 % | 0 | 1.000 |
+
+The worst kit legs are multi-floor ones where the kit model takes a lift and the new costs prefer the stairs (e.g.
+proc-campus-dev-001 F0-S016 → F1-S003: kit 75.84 m re-measured vs 27.41 m best). 202 kit legs pass through
+`outside`; **127 legs have no route at all once `outside` is banned** (106 Swiss Dwellings, 21 OSM: parts joined
+only via the street) — whether that is right is organiser question (3). With outside allowed (bay rule only) the
+kit model scores 0.983 mean, 92.9 % full marks. No warm-up route passes a production bay.
 
 ## Related
 

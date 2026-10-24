@@ -20,13 +20,29 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Changed docs:** [commands.md](../docs/guides/commands.md#deploy-vercel), [project-state.md](project-state.md#next-priorities).
 - **Next:** Atahan imports the repo into Vercel and sets the env vars; pushing `dev` needs Atahan's OK.
 
+## 2026-10-24 — Q-014: second route model (geodesic) + route rules
+
+- **Did:** `core/geodesic.py` (in-space door-to-door distance, polygon shrunk 0.15 m, visibility graph; subagent),
+  `core/route_models.py` (`kit` | `geodesic` per call, height-based stair/lift costs, `RouteRules`: production bays
+  destination-only, no outside shortcut, forklift; `sequence_length` = organiser-style re-measure), wired into
+  `core/navigation.py`, `core/basic_parser.run_parsed` and `agent/tools.py` (rules always on, `forklift` preset,
+  `route_model` attribute). `scripts/compare_route_models.py`; tests `tests/test_geodesic.py`,
+  `tests/test_route_models.py`. Gave Atahan the 5 organiser questions as a Discord message.
+- **Learned:** on 1,457 warm-up legs the models pick different sequences in 115 (7.9 %); kit answers would score
+  0.930 mean (0.984 with the rules), worst legs = kit lift vs new-rule stairs (score 0.36). 202 kit legs pass
+  `outside`; 127 have no route without it (Swiss stair blocks) — the outside question decides a lot. No warm-up
+  route crosses a production bay. Kit default unchanged: warm-up 2120/2130, solvers 655/655.
+- **Changed docs:** route-model.md (new section), solver-plan.md (Sunday routes), routing-profiles.md (forklift
+  preset), Q-014 progress, project-state.
+- **Next:** organiser answers → switch Sunday route questions to geodesic + rules.
+
 ## 2026-10-24 — Organiser route-scoring rules (Discord) → Q-014; session handoff
 
 - **Did:** Analysed the organisers' Discord note on how route answers are scored and compared it with our model
   and the data → [Q-014](open-questions.md#q-014) (door-to-door geodesic distance, height-based stair/lift costs,
   production bays destination-only, forklift ≥ 3 m, likely no `outside` shortcut, score = best ÷ ours). Warning added
   to [route-model.md](../docs/kit/route-model.md). Wrote the handoff in
-  [project-state.md](project-state.md#-start-here-handoff-for-the-next-session-2026-10-24-1530).
+  [project-state.md](project-state.md#-start-here-handoff-for-the-next-session-2026-10-24-evening).
 - **Learned:** under the new costs the stairs-vs-lift choice can flip; any route through a production bay would
   score 0; whether `errand` distances change too is the key question for the organisers.
 - **Next:** Q-014 implementation (see project-state).

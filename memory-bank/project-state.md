@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-24** (Guide session: conversation loop + backend skeleton, offline)
+[Memory bank](README.md) · Last updated: **2026-10-24** (Q-014: Sunday route model + route rules)
 
 ## Phase
 
@@ -80,36 +80,36 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - none (D-006 zero-cost stack accepted 2026-10-24).
 - [Q-002](open-questions.md#q-002) times — Atahan will provide.
 
-## ▶ Start here (handoff for the next session, 2026-10-24 ~15:30)
+## ▶ Start here (handoff for the next session, 2026-10-24 evening)
 
-**Git (`dev`, not pushed — ask Atahan before pushing; never commit on `main`):** latest commits
-`188abd3` conversation persistence · `dc058f8` Sunday hardening · `46321b5` voice-ready replies · `89070ba` frontend app + point-cloud API + profile
-presets · `ed5f6c1` live Guide check · `a4e3efb` Guide loop + backend. All via `/ship` (verifier PASS).
+**Git (`dev`, not pushed — ask Atahan before pushing; never commit on `main`):** latest commits — the Q-014 route
+model commit (this session) · `ec1b33e` Vercel deploy config (+ the Q-014 handoff) · `188abd3` conversation
+persistence · `dc058f8` Sunday hardening · `46321b5` voice-ready replies. All via `/ship` (verifier PASS).
 
-**Deployment work (no longer uncommitted):** the conversation persistence on Supabase (`backend/persistence.py`,
-`supabase/`, `tests/test_persistence.py`, …) was committed as `188abd3`. The Vercel deploy config (`vercel.json`,
-`StripPrefix` / `CORS_ORIGINS` in `backend/app.py`, `tests/test_deploy.py`, the commands.md deploy section) lands in
-the commit after it, and this handoff (Q-014 in `open-questions.md`, the warning in `docs/kit/route-model.md`, this
-section and its `log.md` entry) ships together with that deploy commit.
+**Deployment work:** committed (`188abd3` Supabase persistence, `ec1b33e` Vercel config: `vercel.json`,
+`StripPrefix` / `CORS_ORIGINS` in `backend/app.py`, `tests/test_deploy.py`, commands.md deploy section). Atahan
+imports the repo into Vercel and sets the env vars.
 
 **What works:** benchmark dev 138/138, train 515/517 (2 irreducible Q-006); parser hybrid 31/31 on paraphrases;
-Guide live on Opus 5.5 / Sonnet 5.5 (grounding check, confirm-before-apply, profile presets + cue safety net, voice
-channel); FastAPI backend (`/chat`, `/events`, `/sessions/{id}/points`, OpenAI-compatible streaming
-`/v1/chat/completions` speaking); React app `frontend/app/` (monochrome point cloud, D-011). `uv run pytest` 147
-passed (+ Atahan's persistence tests). API spend ≈ $1.4 of $150.
+Guide live on Opus 5.5 / Sonnet 5.5; FastAPI backend; React app `frontend/app/` (D-011). **New:** second route model
+`geodesic` (door-to-door, 0.15 m off walls, height-based stair/lift costs) + route rules (production bays
+destination-only, no outside shortcut, forklift preset) — selectable per call, kit model stays default
+([route-model.md](../docs/kit/route-model.md#sunday-route-model-and-route-rules-q-014)). Guide routes always obey
+the rules. `uv run pytest` 182 passed, 1 skipped. API spend ≈ $1.4 of $150.
 
 **Running locally (may still be up):** backend `uvicorn backend.app:app --port 8765` (real Claude), Vite on
 `:5181` (port 5173 is another local project). Restart commands: [commands.md](../docs/guides/commands.md#frontend-app).
 
 **▶ Do next, in order:**
-1. **[Q-014](open-questions.md#q-014) — new Sunday route scoring rule (HIGH).** Send Atahan the 5 organiser
-   questions (draft in Q-014), then build the second route model + production-bay / forklift / no-outside rules and
-   measure sequence differences on train/dev. Stays in `core/` + `agent/` (not his deploy files).
-2. Help finish the deploy if Atahan asks (Vercel: Vite frontend + FastAPI, `/api` rewrite or `VITE_API_BASE`).
-3. ElevenLabs Custom LLM wiring once there is a public URL (ask before creating anything in any account).
-4. Frontend: phone-layout check, demo GIF (needs the Chrome extension; it was disconnected), bundle split.
-5. Open for Atahan: model per channel (Q-012; proposal Opus 5.5 medium for text, Sonnet 5.5 low for voice), team
-   name for the test CSV, push `dev`.
+1. **[Q-014](open-questions.md#q-014):** Atahan posts the 5 organiser questions (message given 2026-10-24). On the
+   answers: switch Sunday route questions to `model="geodesic", rules=SUNDAY_RULES` (decide `no_outside`: 127 warm-up
+   legs become unroutable without outside), fix the start/end convention (2), walkway/aisle/bay markers (4); if
+   (1) says `errand` changes too, run errand on the geodesic model.
+2. Sunday output format (Q-001): a route answer = ordered space list; "no route under these rules" wording.
+3. Help finish the deploy if Atahan asks; ElevenLabs Custom LLM once there is a public URL (ask before creating
+   anything in any account).
+4. Frontend: phone layout, demo GIF, bundle split; draw geodesic in-space polylines (`core.geodesic.space_path`).
+5. Open for Atahan: model per channel (Q-012), team name for the test CSV, push `dev`.
 
 **Ways of working:** session protocol in CLAUDE.md; keep `.claude/worklog/PENDING.md` current; commit only via
 `/ship`, staging/stamp/commit as separate commands; subagents get disjoint files.

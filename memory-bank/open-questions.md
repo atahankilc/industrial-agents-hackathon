@@ -62,6 +62,14 @@ Template:
   the two models pick different space sequences on train/dev warm-up routes; (c) rules: production bays = destination
   only, forklift profile (≥ 3 m, exclude walkway-like spaces), no route through `outside`; (d) benchmark "no route"
   answer wording checked.
+- **Progress (2026-10-24):** (a)–(c) implemented — `core/geodesic.py`, `core/route_models.py` (`model="kit" |
+  "geodesic"`, `RouteRules`, `sequence_length` re-measures a space list), wired into `core/navigation.py`,
+  `core/basic_parser.run_parsed` and the Guide tools (rules always on there, `forklift` preset). Kit stays the
+  default. Measured on 1,457 train/dev warm-up legs ([route-model.md](../docs/kit/route-model.md#sunday-route-model-and-route-rules-q-014)):
+  sequences differ in 115 (7.9 %); kit answers score 0.930 mean / 88.8 % full marks (0.984 / 93.1 % with the
+  rules), geodesic 1.000. **New finding for question (3):** 127 legs have no route once `outside` is banned (Swiss
+  Dwellings stair blocks joined only via the street). Still open: the 5 organiser questions (sent to Atahan), the
+  benchmark "no route" answer wording once the Sunday format is known (Q-001), lifts for forklifts.
 
 <a id="q-002"></a>
 ### Q-002 — When is code freeze and when is the Sunday building released?

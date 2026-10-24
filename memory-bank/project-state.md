@@ -56,9 +56,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   verified in headless Chrome (offline Guide): corner / door / asset drags, rotate, 4× undo, save → route 99 m in
   `user/forschungsbau-edited`. **M1 done**; final review (opus) fixes: shared corner into a corridor, neighbours
   grow when a room shrinks, per-draft lock + client gating. M2 plan written
-  ([m2](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m2.md)). Next: merge `origin/dev` (Atahan's new UI:
-  `Root` → `BuildingScreen`, `PlanView`; the point-cloud `Scene` is now a placeholder), move the Edit entry into
-  `BuildingScreen` and the 3D inset to `PlanView` via `/drafts/{id}/plan`, then M2.
+  ([m2](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m2.md)). `origin/dev` merged (`ebcdb3d`, Atahan's new
+  UI); Edit mode re-homed: ruler-pencil button in `BuildingScreen` → `EditMode` full screen, 3D inset = `PlanView`
+  of `GET /drafts/{id}/plan`, Save opens `user/<slug>` via `Root`; verified in headless Chrome. Next: M2 (prompt
+  edits via a Builder agent).
 
 - **Solvers** `core/solvers/` (geometry, walls, reachability, routing): **655/655** train+dev on gold inputs
   (`scripts/validate_solvers.py`); rules + rejected variants in [solver-plan.md](../docs/architecture/solver-plan.md).

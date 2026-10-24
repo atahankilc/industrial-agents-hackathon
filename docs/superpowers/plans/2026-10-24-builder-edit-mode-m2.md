@@ -269,7 +269,8 @@ def test_builder_stream_unknown_draft_404(client)
 - Produces (api.ts): `type Proposal = { id: string; summary: string; ops: Op[]; new_problems: string[]; effect:
   unknown; building: BuildingJson }`, `type BuilderReply = { reply: string; tool_calls: {name: string; input:
   unknown}[]; proposal: Proposal | null; applied: string | null; state: DraftState }`,
-  `api.builderStream(draftId, message, onStep) -> Promise<BuilderReply>` (NDJSON, same parsing as `chatStream`),
+  `api.builderStream(draftId, message, onStep) -> Promise<BuilderReply>` (NDJSON, same parsing as `chatStream`;
+  steps shown with `ui/guideSteps.stepLabel` like the building screen),
   `api.applyProposal(draftId, proposalId) -> Promise<DraftState>`.
 - `PlanEditor` gains `ghost?: BuildingJson | null`: spaces / openings / assets whose JSON differs from `building`
   (or are new) are drawn dashed on top (`.ghost`); removed ones are drawn crossed out.
@@ -278,8 +279,11 @@ def test_builder_stream_unknown_draft_404(client)
   from `step.name`), input; the proposal card shows summary, area changes, new problems (red), **Apply** →
   `api.applyProposal` → `onState`, **Cancel** → `onProposal(null)`.
 
-- [ ] **Step 1:** Layout: right column = 3D inset (top) + `BuilderChat` (fills the rest); the issues list moves to
-  a compact panel at the bottom-left of the plan (`max-height: 28vh`).
+- [ ] **Step 1:** Layout (Edit mode now lives in Atahan's `BuildingScreen`, merged from `dev`; the 3D inset is
+  `PlanView` fed by `GET /drafts/{id}/plan`): right column = `PlanView` inset (top) + `BuilderChat` (fills the
+  rest); the issues list moves to a compact panel at the bottom-left of the plan (`max-height: 28vh`). Style the chat
+  with the screen's tokens (`--surface`, `--ground`, …) like `building/Conversation.tsx`; don't reuse dev's global
+  class names (`.plan`, `.primary`) — they collide.
 - [ ] **Step 2:** Proposal flow: on a reply with `proposal`, EditMode sets `ghost = proposal.building` and switches
   the floor to the first changed element's floor; Apply clears the ghost and takes the new state; any drag or
   undo also clears the ghost (the backend would refuse the stale proposal anyway).

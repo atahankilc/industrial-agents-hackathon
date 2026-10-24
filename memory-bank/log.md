@@ -10,6 +10,17 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 20:32 — Edit mode re-homed in the new UI
+
+- **Did:** Edit button (ruler-pencil) in `BuildingScreen`'s controls opens `EditMode` full screen; its 3D inset is now
+  Atahan's `PlanView` fed by the new `GET /drafts/{id}/plan` (`DraftStore.plan`, `core/floorplan.export_plan`,
+  centred on the base building so the preview doesn't jump); **Done** goes back; **Save** opens `user/<slug>` through
+  `Root` with a one-time note. `App.tsx` / `Scene.tsx` back to dev's versions. Editor CSS class `.plan` →
+  `.plan-editor` and `.primary` → `.edit-primary` (dev's globals). Fixed a StrictMode double-open that created two
+  drafts and resumed the wrong one (`openDraft` dedupes per base). Headless Chrome: edit → drag → Done → Edit again
+  resumes "1 change" → Save → `user/forschungsbau-v2` with the note; no console errors.
+- **Next:** M2 Task 1 (`move_edge`).
+
 ## 2026-10-24 20:25 — Merge `origin/dev` (Atahan's new UI) into `2-builder-edit`
 
 - **Did:** merged `origin/dev` (92f063a new app UI, 508a1ba directions, 26df725 interaction eval). Conflicts:

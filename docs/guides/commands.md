@@ -90,7 +90,8 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | GET | `/events` | `?session_id=&after=N` | `{"events": [...since N], "next"}` — UI highlights, routes (with `vertices` + turn-by-turn `legs`, `core/directions.py`), changes |
 | POST | `/drafts` | `{"base"}` (catalogue id) | Edit mode: new draft copy → `{"draft": {id, base, name, steps}, "building", "issues"}` (unknown base → 422) |
 | GET | `/drafts/{id}` | – | same shape (unknown / malformed id → 404) |
-| GET | `/drafts/{id}/points` | – | point-cloud export of the draft (3D preview) |
+| GET | `/drafts/{id}/plan` | – | vector plan of the draft (`core/floorplan.py`, what `PlanView` draws), centred on the base building |
+| GET | `/drafts/{id}/points` | – | point-cloud export of the draft (unused by the new UI) |
 | POST | `/drafts/{id}/ops` | `{"ops": [{"op": …}]}` (`core/edits.py`) | applied as one undo step → same shape; bad op → 422 with the reason |
 | POST | `/drafts/{id}/undo` | – | drops the last step (nothing to undo → 409) |
 | POST | `/drafts/{id}/save` | `{"name"}` | `{"building": "user/<slug>", "issues"}` — written to `GUIDE_USER_DIR` (default `data/user/`, gitignored), listed in `/buildings`; name clash → `-2` |
@@ -129,10 +130,12 @@ cd frontend/app && npm install && npx vite --port 5181          # open http://lo
 cd frontend/app && npm run build                                # type-check + production bundle in dist/
 ```
 
-**Edit mode** (header switch View / Edit): edits a draft copy of the current building on a 2D plan — click a room
-and drag its corners, drag doors along walls, drag things (R / Shift+R rotates), ⌘Z undoes; problems are listed on
-the right; **Save** writes `user/<slug>` (local `data/user/`, or `GUIDE_USER_DIR`) and switches the Guide to it
-(the conversation restarts). The draft id is kept in `localStorage` per building. Local store only for now — on the
+**Edit mode** (ruler-pencil button in the building screen's right-hand controls): edits a draft copy of the current
+building on a 2D plan, with the building's 3D model (`PlanView` fed by `GET /drafts/{id}/plan`) as a live preview —
+click a room and drag its corners, drag doors along walls, drag things (R / Shift+R rotates), ⌘Z undoes; problems
+are listed on the right; **Done** goes back (the draft is kept); **Save** writes `user/<slug>` (local `data/user/`,
+or `GUIDE_USER_DIR`) and opens it as a new building (fresh Guide session, a note says it is the edited building).
+The draft id is kept in `localStorage` per building. Local store only for now — on the
 deployed app `/drafts` can't write (milestone 3).
 
 Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8765`). Design and data path:

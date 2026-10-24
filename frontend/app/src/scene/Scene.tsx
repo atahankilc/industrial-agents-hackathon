@@ -16,7 +16,6 @@ type Props = {
   emergeKey: number
   route: { vertices: [number, number, number, number][]; key: number } | null
   focus: Focus | null
-  inset?: boolean // Edit-mode preview (ignored by the placeholder)
 }
 
 export function Scene({ dark }: Props) {

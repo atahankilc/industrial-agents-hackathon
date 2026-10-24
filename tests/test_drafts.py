@@ -188,3 +188,19 @@ def test_concurrent_ops_on_one_draft_lose_nothing(tmp_path):
     assert sum(asset["name"].startswith("w") and "-" in asset["name"] for asset in store.building(draft)["assets"]) == 80
     assert store.building(draft) == apply_steps(store.base_building(BASE), draft.steps)
     assert draft.version == 80
+
+
+def test_plan_endpoint_follows_the_draft(client):
+    """The Edit-mode 3D preview (PlanView) reads the draft as a vector plan, in the base building's frame."""
+    created = new_draft(client)
+    draft_id = created["draft"]["id"]
+    before = client.get(f"/drafts/{draft_id}/plan")
+    assert before.status_code == 200
+    plan = before.json()
+    assert {"floors", "spaces", "walls", "openings", "assets", "center"} <= set(plan)
+    room = a_room(created["building"])
+    rename(client, draft_id, room["id"], "Renamed for the plan")
+    after = client.get(f"/drafts/{draft_id}/plan").json()
+    assert next(space for space in after["spaces"] if space["id"] == room["id"])["name"] == "Renamed for the plan"
+    assert after["center"] == plan["center"]  # stable frame: the preview doesn't jump when the outline changes
+    assert client.get("/drafts/0123456789abcdef0123456789abcdef/plan").status_code == 404

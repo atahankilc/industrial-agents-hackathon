@@ -4,7 +4,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, type Building, type ChatReply, type PointCloud, type SessionSummary, type UiEvent } from './api'
-import { EditMode } from './edit/EditMode'
 import { cloudExtent, type SpaceSets } from './scene/BuildingCloud'
 import { Scene, type Focus } from './scene/Scene'
 import { useTheme } from './theme'
@@ -31,7 +30,7 @@ function initialBuilding() {
 }
 
 export default function App() {
-  const { mode: themeMode, dark, cycle } = useTheme()
+  const { mode, dark, cycle } = useTheme()
   const [buildings, setBuildings] = useState<Building[]>([])
   const [buildingId, setBuildingId] = useState(initialBuilding)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -47,8 +46,6 @@ export default function App() {
   const [floorsOn, setFloorsOn] = useState<boolean[]>([])
   const [separated, setSeparated] = useState(false)
   const [emergeKey, setEmergeKey] = useState(0)
-  const [mode, setMode] = useState<'view' | 'edit'>('view')
-  const note = useRef<string | null>(null) // shown as the first chat line after the next building load
   const cursor = useRef(0)
   const nonce = useRef(0)
 
@@ -72,8 +69,7 @@ export default function App() {
     setSets(EMPTY_SETS)
     setRoute(null)
     setFocus(null)
-    setMessages(note.current ? [{ role: 'note', text: note.current }] : [])
-    note.current = null
+    setMessages([])
     cursor.current = 0
     setEmergeKey((key) => key + 1)
   }
@@ -267,17 +263,9 @@ export default function App() {
   const showFloor = (floor: number | null) =>
     setFloorsOn(floors.map((_, i) => floor === null || i === floor))
 
-  const onSaved = (building: string, name: string) => {
-    note.current = `Saved “${name}” and switched to it — the conversation restarted on the edited building.`
-    api.buildings().then(setBuildings).catch(() => {})
-    setMode('view')
-    setBuildingId(building)
-  }
-
   return (
     <div className="app">
-      {mode === 'edit' && <EditMode base={buildingId} dark={dark} onSaved={onSaved} />}
-      {mode === 'view' && cloud && (
+      {cloud && (
         <Scene
           cloud={cloud}
           dark={dark}
@@ -290,7 +278,7 @@ export default function App() {
           focus={focus}
         />
       )}
-      {mode === 'view' && !cloud && (
+      {!cloud && (
         <div className="loading">
           {error ? <p className="error">{error}</p> : <p className="muted pulse">Scanning building…</p>}
         </div>
@@ -316,25 +304,21 @@ export default function App() {
           </div>
         </div>
         <div className="actions">
-          <div className="mode-switch" role="group" aria-label="Mode">
-            <button type="button" className={mode === 'view' ? 'on' : ''} onClick={() => setMode('view')}>View</button>
-            <button type="button" className={mode === 'edit' ? 'on' : ''} onClick={() => setMode('edit')} disabled={!cloud}>Edit</button>
-          </div>
           {llm && <span className="tag">{llm === 'offline' ? 'offline mode' : 'claude'}</span>}
           <button type="button" className="icon" onClick={() => setEmergeKey((key) => key + 1)} aria-label="Replay scan" title="Replay scan">
             <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
-          <button type="button" className="icon" onClick={cycle} aria-label={`Theme: ${themeMode}`} title={`Theme: ${themeMode}`}>
+          <button type="button" className="icon" onClick={cycle} aria-label={`Theme: ${mode}`} title={`Theme: ${mode}`}>
             <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
               <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
-              {themeMode !== 'light' && <path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" />}
-              {themeMode === 'system' && <circle cx="8" cy="8" r="1.4" fill="currentColor" />}
+              {mode !== 'light' && <path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" />}
+              {mode === 'system' && <circle cx="8" cy="8" r="1.4" fill="currentColor" />}
             </svg>
           </button>
         </div>
       </header>
 
-      {mode === 'view' && cloud && (
+      {cloud && (
         <nav className="hud floors" aria-label="Floors">
           <button type="button" className={solo === -1 ? 'on' : ''} onClick={() => showFloor(null)}>All</button>
           {[...floors].map((floor, i) => ({ floor, i })).reverse().map(({ floor, i }) => (
@@ -349,7 +333,7 @@ export default function App() {
         </nav>
       )}
 
-      {mode === 'view' && <footer className="hud status">
+      <footer className="hud status">
         {route && (
           <div className="route-line">
             <span className="label">Route</span>
@@ -365,9 +349,9 @@ export default function App() {
           </div>
         )}
         {cloud?.building.attribution && <div className="attribution muted">{cloud.building.attribution}</div>}
-      </footer>}
+      </footer>
 
-      {mode === 'view' && <Chat
+      <Chat
         messages={messages}
         pending={pending}
         disabled={!sessionId || !cloud}
@@ -375,7 +359,7 @@ export default function App() {
         pendingChanges={summary?.pending ?? []}
         onSend={send}
         onShowRoute={showRoute}
-      />}
+      />
     </div>
   )
 }

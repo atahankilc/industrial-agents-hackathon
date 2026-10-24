@@ -17,7 +17,9 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from core.building_map import BuildingMap
 from core.edits import EditError, apply_op, apply_steps
+from core.floorplan import export_plan
 from core.validate import validate
 
 DRAFT_ID = re.compile(r"^[0-9a-f]{32}$")
@@ -108,6 +110,16 @@ class DraftStore:
             self.cache = {k: v for k, v in self.cache.items() if k[0] != draft.id}  # one cached version per draft
             self.cache[key] = apply_steps(self.base_building(draft.base), draft.steps)
         return self.cache[key]
+
+    def plan(self, draft: Draft) -> dict:
+        """Vector plan of the draft (core/floorplan.py, what PlanView draws), centred on the *base* building's
+        footprint so the preview stays put while outlines change."""
+        base = self.base_building(draft.base)
+        xs = [x for space in base["spaces"] for x, _ in space["polygon"]]
+        ys = [y for space in base["spaces"] for _, y in space["polygon"]]
+        center = [round((min(xs) + max(xs)) / 2, 2), round(-(min(ys) + max(ys)) / 2, 2)]
+        with self.draft_lock(draft.id):
+            return export_plan(BuildingMap(self.building(draft)), center)
 
     def issues(self, draft: Draft) -> list[dict]:
         return validate(self.building(draft), base=self.base_building(draft.base))

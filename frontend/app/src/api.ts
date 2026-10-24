@@ -179,6 +179,7 @@ export const api = {
   createDraft: (base: string) => request<DraftState>('/drafts', { method: 'POST', body: JSON.stringify({ base }) }),
   draft: (id: string) => request<DraftState>(`/drafts/${id}`),
   draftPoints: (id: string) => request<PointCloud>(`/drafts/${id}/points`),
+  draftPlan: (id: string) => request<Plan>(`/drafts/${id}/plan`),
   applyOps: (id: string, ops: Op[]) =>
     request<DraftState>(`/drafts/${id}/ops`, { method: 'POST', body: JSON.stringify({ ops }) }),
   undo: (id: string) => request<DraftState>(`/drafts/${id}/undo`, { method: 'POST' }),

@@ -29,7 +29,7 @@ export function Root() {
 
   if (view.building)
     return (
-      <BuildingScreen key={view.building} buildingId={view.building} onBack={() => open(null)} />
+      <BuildingScreen key={view.building} buildingId={view.building} onBack={() => open(null)} onOpen={open} />
     )
   return <BuildingSearch onOpen={open} />
 }

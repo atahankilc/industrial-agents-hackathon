@@ -6,7 +6,7 @@ Endpoints: /health, /buildings, /sessions (create, inspect, switch building), /s
 export of the session's current building, gzipped), /chat, /chat/stream (the same turn as NDJSON: live tool steps,
 then the reply), /events (polling cursor for the map UI; route events
 carry `vertices`, change events `space_ids`), the OpenAI-compatible /v1/chat/completions for ElevenLabs
-(backend/openai_compat.py), and the Edit mode's /drafts (create, get, points, ops, undo, save — backend/drafts.py;
+(backend/openai_compat.py), and the Edit mode's /drafts (create, get, points, plan, ops, undo, save — backend/drafts.py;
 saved buildings appear in /buildings as `user/<slug>`, stored under GUIDE_USER_DIR, default data/user/).
 Guide turns are blocking (tool loop + LLM calls), so those endpoints are plain `def` and run in FastAPI's
 threadpool; each conversation's lock serialises its turns. With persistence on (backend/persistence.py) every turn
@@ -267,6 +267,11 @@ def get_draft(draft_id: str) -> dict:
 @app.get("/drafts/{draft_id}/points")
 def draft_points(draft_id: str) -> dict:
     return export_points(BuildingMap(drafts.building(draft_or_404(draft_id))))
+
+
+@app.get("/drafts/{draft_id}/plan")
+def draft_plan(draft_id: str) -> dict:
+    return drafts.plan(draft_or_404(draft_id))
 
 
 @app.post("/drafts/{draft_id}/ops")

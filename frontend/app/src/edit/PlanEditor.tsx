@@ -182,7 +182,7 @@ export function PlanEditor({ building, floorId, issues, selected, onSelect, onOp
   const assetAt = (asset: AssetJson): AssetJson =>
     shown?.kind === 'asset' && shown.id === asset.id ? { ...asset, position: shown.to } : asset
 
-  if (!view) return <svg ref={svg} className="plan" />
+  if (!view) return <svg ref={svg} className="plan-editor" />
   const unit = view.w / 100 // ~1% of the view width, for handles and labels
   const selectedSpace = selected?.kind === 'space' ? spaces.find((space) => space.id === selected.id) : undefined
   const vertexDrag = drag?.kind === 'vertex' ? drag : null
@@ -190,7 +190,7 @@ export function PlanEditor({ building, floorId, issues, selected, onSelect, onOp
   return (
     <svg
       ref={svg}
-      className={`plan${drag?.kind === 'pan' ? ' panning' : ''}`}
+      className={`plan-editor${drag?.kind === 'pan' ? ' panning' : ''}`}
       viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
       onPointerDown={(event) => begin(event, { kind: 'pan', start: [event.clientX, event.clientY], view, moved: false, select: null })}
       onPointerMove={onPointerMove}

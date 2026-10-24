@@ -3,18 +3,42 @@
 // The draft id is kept in localStorage per base building, so a reload resumes the same draft.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { api, type DraftState, type Issue, type Op, type PointCloud } from '../api'
-import { Scene } from '../scene/Scene'
+import { api, type DraftState, type Issue, type Op, type Plan } from '../api'
+import type { PlanPalette } from '../plan/palette'
+import { PlanView } from '../plan/PlanView'
+import { DEFAULT_SETTINGS } from '../plan/settings'
 import { PlanEditor, type Selection } from './PlanEditor'
 import './edit.css'
 
-const EMPTY_SETS = { highlight: [], lost: [], closed: [], route: [] }
+const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 }
+const PREVIEW_SETTINGS = { ...DEFAULT_SETTINGS, pins: false, hover: false }
+const ignore = () => {}
 const draftKey = (base: string) => `draft:${base}`
+
+// One open request per base building: a second mount while the first is still loading (React StrictMode runs
+// effects twice) must get the same draft, or two drafts are created and localStorage keeps the wrong one.
+const opening = new Map<string, Promise<DraftState>>()
+
+function openDraft(base: string): Promise<DraftState> {
+  const pending = opening.get(base)
+  if (pending) return pending
+  const work = (async () => {
+    const stored = localStorage.getItem(draftKey(base))
+    const resumed = stored ? await api.draft(stored).catch(() => null) : null
+    if (resumed) return resumed
+    const created = await api.createDraft(base)
+    localStorage.setItem(draftKey(base), created.draft.id)
+    return created
+  })().finally(() => opening.delete(base))
+  opening.set(base, work)
+  return work
+}
 
 type Props = {
   base: string
-  dark: boolean
+  palette: PlanPalette // the building screen's light / dark palette, for the 3D preview
   onSaved: (building: string, name: string) => void
+  onExit: () => void
 }
 
 /** "422 /drafts/x/ops: {"detail":"…"}" → "…" */
@@ -24,10 +48,10 @@ function reason(error: unknown) {
   return match ? JSON.parse(`"${match[1]}"`) : text.replace(/^Error:\s*/, '')
 }
 
-export function EditMode({ base, dark, onSaved }: Props) {
+export function EditMode({ base, palette, onSaved, onExit }: Props) {
   const [state, setState] = useState<DraftState | null>(null)
   const [floorId, setFloorId] = useState<string | null>(null)
-  const [cloud, setCloud] = useState<PointCloud | null>(null)
+  const [plan, setPlan] = useState<Plan | null>(null)
   const [selected, setSelected] = useState<Selection>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -39,13 +63,7 @@ export function EditMode({ base, dark, onSaved }: Props) {
     let cancelled = false
     setState(null)
     const open = async () => {
-      const stored = localStorage.getItem(draftKey(base))
-      let next: DraftState | null = null
-      if (stored) next = await api.draft(stored).catch(() => null)
-      if (!next) {
-        next = await api.createDraft(base)
-        localStorage.setItem(draftKey(base), next.draft.id)
-      }
+      const next = await openDraft(base)
       if (cancelled) return
       setState(next)
       const floors = [...next.building.floors].sort((a, b) => a.level - b.level)
@@ -62,7 +80,7 @@ export function EditMode({ base, dark, onSaved }: Props) {
   useEffect(() => {
     if (!draftId) return
     let cancelled = false
-    api.draftPoints(draftId).then((points) => !cancelled && setCloud(points)).catch(() => {})
+    api.draftPlan(draftId).then((next) => !cancelled && setPlan(next)).catch(() => {})
     return () => {
       cancelled = true
     }
@@ -142,7 +160,8 @@ export function EditMode({ base, dark, onSaved }: Props) {
         <span>Copy of {state.draft.name}</span>
         <span className="muted">· {state.draft.steps} {state.draft.steps === 1 ? 'change' : 'changes'}</span>
         <button type="button" onClick={undo} disabled={busy || state.draft.steps === 0} title="Undo (⌘Z)">↶ Undo</button>
-        <button type="button" className="primary" onClick={() => setNaming(`${state.draft.name} (edited)`)} disabled={busy}>Save</button>
+        <button type="button" className="edit-primary" onClick={() => setNaming(`${state.draft.name} (edited)`)} disabled={busy}>Save</button>
+        <button type="button" onClick={onExit} disabled={busy} title="Back to the building (the draft is kept)">Done</button>
         {message && <span className="edit-message">{message}</span>}
       </div>
 
@@ -166,9 +185,21 @@ export function EditMode({ base, dark, onSaved }: Props) {
       </nav>
 
       <div className="edit-inset" aria-label="3D preview">
-        {cloud && (
-          <Scene cloud={cloud} dark={dark} sets={EMPTY_SETS} floorsOn={cloud.floors.map(() => true)} explode={0} density={0.3}
-            emergeKey={0} route={null} focus={null} inset />
+        {plan && (
+          <PlanView
+            plan={plan}
+            floor={Math.max(0, plan.floors.findIndex((floor) => floor.id === floorId))}
+            stacked={false}
+            palette={palette}
+            selected={null}
+            insets={NO_INSETS}
+            fitKey={0}
+            onSelect={ignore}
+            onPickFloor={ignore}
+            onTilt={ignore}
+            spread
+            settings={PREVIEW_SETTINGS}
+          />
         )}
       </div>
 
@@ -195,7 +226,7 @@ export function EditMode({ base, dark, onSaved }: Props) {
           {errors.length > 0 && <p className="warn">{errors.length} open {errors.length === 1 ? 'problem' : 'problems'} — you can save anyway.</p>}
           <div className="row">
             <button type="button" onClick={() => setNaming(null)}>Cancel</button>
-            <button type="submit" className="primary" disabled={busy || !naming.trim()}>{errors.length > 0 ? 'Save anyway' : 'Save'}</button>
+            <button type="submit" className="edit-primary" disabled={busy || !naming.trim()}>{errors.length > 0 ? 'Save anyway' : 'Save'}</button>
           </div>
         </form>
       )}

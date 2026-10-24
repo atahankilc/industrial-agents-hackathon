@@ -1,6 +1,6 @@
 """routing solvers (errand, what_if_door) — see docs/architecture/solver-plan.md.
 
-Both run on the exact route model of `BuildingMap.graph` (verified to the cm) and never mutate the building:
+Both run on the kit 1.1.0 route model of `BuildingMap.graph` and never mutate the building:
 distances come from our own Dijkstra calls on a freshly built graph, and the what-if door is added to a deep copy.
 
 Rules verified against train+dev labelled answers (scripts/validate_solvers.py):
@@ -27,13 +27,12 @@ what_if_door (4/4):
 """
 
 import copy
-import itertools
 
 import networkx as nx
 from shapely.geometry import LineString, Polygon
 from shapely.ops import linemerge, nearest_points
 
-from core.building_map import DOOR_PREFIX, NEW_DOOR_WIDTH_M, OUTSIDE, BuildingMap, MapError
+from core.building_map import NEW_DOOR_WIDTH_M, OUTSIDE, BuildingMap, MapError, path_parts
 from core.solvers import SolverResult, solver
 
 ROOM_TYPE = "room"
@@ -44,21 +43,15 @@ IMPROVEMENT_THRESHOLD_M = 1.0
 # ---------- route helpers ----------
 
 
-def path_elements(graph: nx.MultiGraph, nodes: list[str]) -> list[str]:
-    """Element id (opening or connector) used by each hop of a node path; cheapest parallel edge wins."""
-    return [
-        min(graph[a][b].values(), key=lambda edge: edge["weight"])["via"] for a, b in itertools.pairwise(nodes)
-    ]
-
-
 def leg(graph: nx.MultiGraph, start: str, end: str, length: float, nodes: list[str]) -> dict:
+    spaces, elements = path_parts(graph, nodes)
     return {
         "from": start,
         "to": end,
         "length_m": round(length, 2),
-        "nodes": nodes,  # ordered route node ids: space ids, "door:<opening id>", "outside"
-        "spaces": [node for node in nodes if not node.startswith(DOOR_PREFIX) and node != OUTSIDE],
-        "elements": list(dict.fromkeys(path_elements(graph, nodes))),  # openings/connectors passed, in order
+        "nodes": nodes,  # ordered route node ids: space ids, "door:<opening id>"
+        "spaces": spaces,  # every space passed, incl. corridors crossed door to door
+        "elements": elements,  # openings / stair flights / lift rides used, in order
     }
 
 
@@ -209,7 +202,7 @@ def with_new_door(building: BuildingMap, first: str, second: str) -> tuple[Build
 
 def distances_out(building: BuildingMap) -> dict[str, float]:
     """Route distance from every space to the nearest entrance (the shared `outside` node), stairs allowed."""
-    graph = building.graph(step_free=False)
+    graph = building.graph(step_free=False, outside=True)
     if OUTSIDE not in graph:
         return {}
     return nx.single_source_dijkstra_path_length(graph, OUTSIDE, weight="weight")

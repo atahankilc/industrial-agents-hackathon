@@ -1,17 +1,36 @@
 ---
 id: product-visualization
-summary: 3D point-cloud visual language for the app — three.js vs react-three-fiber, how structures emerge and densify, route/closure/edit effects, performance budget, and how it serves the judging criteria. Backed by a working prototype.
+summary: App visuals — the current vector plan view (core/floorplan.py, GET /sessions/{id}/plan, frontend/app/src/plan/) and the superseded point-cloud visual language; three.js vs react-three-fiber, performance, judging fit.
 sources:
-  - frontend/prototypes/pointcloud/ (export_points.py, index.html, README.md — verified 2026-10-24)
+  - core/floorplan.py, backend/sessions.py (MapView.plan), frontend/app/src/plan/, frontend/app/src/building/ (verified 2026-10-24)
+  - core/pointcloud.py (point-cloud export, still served by /points)
   - https://threejs.org/docs/ (three.js r160)
   - https://r3f.docs.pmnd.rs/ (react-three-fiber)
 related: [../architecture/overview.md, personas.md, routing-profiles.md, ../architecture/ai-agents.md]
 ---
 
-# Visualization: buildings as point clouds
+# Visualization
 
-[Docs index](../README.md) · System: [overview.md](../architecture/overview.md) ·
-Prototype: `frontend/prototypes/pointcloud/` (run instructions in its README)
+[Docs index](../README.md) · System: [overview.md](../architecture/overview.md)
+
+## Current: vector plan view (2026-10-24)
+
+Direction "Drawing Set" (`PRODUCT.md`, `.impeccable/surfaces/frontend-app.md`). Landing is a building search
+(`frontend/app/src/search/`); `Root.tsx` opens `BuildingScreen` (`src/building/`) over an orthographic r3f plan
+(`src/plan/`: rooms, walls with door gaps, door swings, furniture, labels that only show when they fit, tap a room →
+place card) with a floating Guide conversation.
+
+- **Data:** `core/floorplan.py` `export_plan(building_map, center)` → floors, spaces (polygon, label point), walls
+  per floor with door gaps cut, openings (wall angle, swing side), connectors, assets in drawn spaces, `closed`.
+  Served by `GET /sessions/{id}/plan`, cached in `MapView.plan` with the point-cloud export's `center` so route
+  vertices from `/events` map back onto the plan (`x = vx + cx`, `y = -(vz + cz)`).
+- **Not built yet:** Guide events on the plan (focus, route line, closures, lost access), 3D, maintainer edits.
+
+## Superseded: point-cloud scene
+
+Everything below describes the earlier point-cloud scene. Its code (`src/scene/*` shaders, BuildingCloud,
+RouteFlow) and the `frontend/prototypes/pointcloud/` prototype were moved out of the repo to the gitignored
+`.viz-archive/` on 2026-10-24; `src/scene/` is now a placeholder. Kept for the ideas, not as a description of the app.
 
 ## three.js vs react-three-fiber
 

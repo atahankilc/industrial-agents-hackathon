@@ -10,6 +10,41 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Kit 1.1.0 route model ported (D-014)
+
+- **Did:** `core/building_map.py` now carries the 1.1.0 starter's geometry helpers and `graph` unchanged (+ `outside`
+  endpoint option, geometry-keyed walk cache `_WALKS`, `expand` / `path_parts` for the 1.1.0 paths);
+  `core/route_models.py` has one model (`GEODESIC` alias), outside always endpoint-only, bay/forklift filters fixed
+  for door-to-door edges (a bay was unreachable as a destination, forklift could cross a walkway door to door);
+  `navigation.path_length`, errand/what_if_door, `solvers_v1`, `validate_warmup.py` (unreachable tours, starter-equal
+  lengths) updated; removed `core/geodesic.py`, `tests/test_geodesic.py`, `scripts/compare_route_models.py`; tests
+  moved to the new metres (Guide scenario: 124.24 → 61.24 m step-free, 132.2 → 96.46 m after Lift 1 closes).
+  Regenerated `submissions/` (regex parser): 21 of 145 answers changed (20 errand, 1 what_if_door).
+- **Learned:** the official starter reproduces all 189 dev routes exactly; one gold value disagrees with it
+  (resplan-12462, 7.57 vs 7.67 m). First build of a huge OSM corridor (~1,000 corners) takes ~13 s; the whole building osm-way360544293 ~25 s.
+- **Numbers:** warm-up routes 1,338/1,338 exact (paths too), `validate_warmup` 99.53 % from text, same as before 1.1.0 (misses = duplicate
+  names), solvers 655/655, dev benchmark 138/138, `uv run pytest` green.
+- **Next:** push `dev`, merge into the feature branches; Q-014 (3), (4).
+
+## 2026-10-24 — Kit 1.1.0: corrected answers (new route model)
+
+- **Did:** Organisers published a patch (`Synera-GmbH/industrial-agents-hackathon-2026`, branch
+  `patch/fix-answers-ruleset`, commit 6a2cdec; same content merged to their `main` as dc03c44). Copied the 334 changed
+  `questions*.jsonl` (train + dev) into `data/` (`diff -rq` vs the kit: identical, `data/test` unchanged) and
+  updated `archive/initial-repo/` to 1.1.0 (README, CHANGELOG, pyproject, starter_agent). Work on `dev` directly.
+- **Learned:** in `data/` only expected answers changed (questions, buildings, manifest, test questions,
+  `benchmark/` are identical). Their 1.1.0 `README.md` was rewritten from an older text and drops the cb51a6f
+  alignment sections (story, personas, Sunday benchmark, submission process; judging row "Submission demo" →
+  "Pitch and demo, 3–5 min live") — kept the old text as `archive/initial-repo/README-cb51a6f.md`, repointed
+  personas/scoring/brief sources, opened [Q-017](open-questions.md#q-017). The graded rule = the organisers' route note, now precise in README §3 (see
+  [Q-014](open-questions.md#q-014)). With the new answers: `validate_solvers` **568/655** (errand 10/93,
+  what_if_door 0/4; all non-routing kinds still 100 %); `validate_warmup.py` crashes on the new unreachable-tour
+  shape. Our `geodesic` model is close (dev routes: reachability all right, 158/161 within 1 m, 3 exact).
+- **Changed docs:** [route-model.md](../docs/kit/route-model.md) marked outdated; Q-014 updated; Q-017 opened;
+  sources in personas.md, scoring.md, brief.md (+ judging-row warning).
+- **Next:** port the 1.1.0 route model into `core/` as the default, rewire errand / what_if_door / navigation,
+  fix `validate_warmup.py`, regenerate test answers.
+
 ## 2026-10-24 — Design: access roles (demo feature, not built)
 
 - **Did:** brainstormed with Utku and wrote [access-roles design](../docs/superpowers/specs/2026-10-24-access-roles-design.md):
@@ -133,6 +168,102 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   the same organiser note: merged into main's entry; branch Q-015 (factory schema) keeps its id; next free Q-016.
 - **Next:** port v1 strengths (name resolution / candidate fan-out, grounding fallback, voice transcript rewriter)
   into `agent/guide.py`; then retire one stack.
+
+## 2026-10-24 — Commit of the new UI work; lost pieces rebuilt
+
+- **Did:** before `/ship`, found parts of the UI work missing from the tree after the fast-forward to `508a1ba`
+  (`MapView.plan`, the `Scene.tsx` placeholder, `lucide-react` in package.json, the project-state handoff, the
+  visualization map-view section). Rebuilt the first three (plan cached with the export, same `center`), added a
+  short handoff to project-state. `uv run pytest` 316 passed, 1 skipped; `npm run build` OK.
+- **Learned:** keep UI work committed in small chunks; a dirty tree around merges lost files with no stash to recover.
+
+## 2026-10-24 — UI handoff: clay cutaway, spread floors, floating chat (uncommitted)
+
+- **Did:** iterated with Atahan on the scene: fixed 3D↔2D freeze (frame-delta cap) and stuck gestures (no React
+  update mid-drag); furniture orientation from data convention (+ nearest wall / nearest table); doors, stair
+  flights, edges, contact shadows; ground-plane grid; single-floor 3D view spreads floors so none overlaps;
+  "all floors" kept as plain stack; floor textures and Lab panel removed at his request.
+- **Learned:** he judges by eye and rejects cosmetic toggles; wants floor relationships visible without overlap.
+- **Next:** see project-state handoff (commit via /ship after his OK; later Guide events on the model).
+
+## 2026-10-24 — Clay cutaway look, furniture models, stacked floors, floating chat
+
+- **Did:** From Atahan's reference screenshot: clay isometric cutaway (walls cut at 0.85 m, contact shadows, one
+  soft sun), grainy warm/cool stage with iso grid; ~90 furniture types as rough coloured models
+  (`src/plan/furniture.ts`, merged per floor, tap → name card); `/plan` now carries assets (only in drawn spaces).
+  Camera tilts freely 2D↔3D by gesture (right/Ctrl/Shift-drag, two fingers), buttons snap; stacked "all floors"
+  view (tap a floor to enter); theme switch (system/light/dark); chat is a floating ask bar showing only the latest
+  exchange (mic via browser speech). Checked headless phone + desktop.
+- **Next:** step 2 = Guide events on the model (focus, route, closures, lost access).
+
+## 2026-10-24 — New UI direction "Drawing Set" + step 1: 2D building screen
+
+- **Did:** With Atahan via Impeccable: `PRODUCT.md` (roles visitor/maintainer, QR/map/search arrival, Apple Maps
+  colours, calm), direction **Drawing Set** chosen (contract in `.impeccable/surfaces/frontend-app.md`). Built step 1:
+  `core/floorplan.py` + `GET /sessions/{id}/plan` (walls with door gaps, door swing side, label points, same `center`
+  as /points), `frontend/app/src/plan/*` (orthographic r3f plan, render on demand, canvas labels that only show when
+  they fit, tap a room → place card), `src/building/*` (guide line, floor tabs, Guide sheet with chips, wide-screen
+  side panel). `Root.tsx` now opens `BuildingScreen`; old `App.tsx`/`ui/*` unused, kept as reference for porting.
+  Added `lucide-react` (ISC). Checked headless at 390×844 and 1440×900, light + dark, campus + OSM building.
+- **Next:** step 2: Guide events on the plan (focus + dim, route line, closures, lost access), then 3D, arrival, voice,
+  camera, maintainer edit.
+
+## 2026-10-24 — Scene scrapped for a from-scratch rebuild
+
+- **Did:** Atahan's call: scrap the scene/visualization (not the rest of the app). Moved `frontend/app/src/scene/*`,
+  `src/map/`, `public/map/`, `scripts/build_map_assets.py` and `frontend/prototypes/` (pointcloud + twin-lab) to the
+  gitignored `.viz-archive/`. `src/scene/` is now a placeholder (same `Scene` props, empty backdrop) so chat, Guide
+  and search keep working; `?view=map` route removed from `Root.tsx`; `maplibre-gl` uninstalled; back pill CSS moved
+  to `src/search/backPill.css`. `npm run build` OK, `check_links.py` OK.
+- **Next:** design the new scene from scratch with Atahan, step by step.
+
+## 2026-10-24 — Landing = building search; map parked
+
+- **Did:** Atahan: only 17 OSM buildings have a real position (Swiss/ResPlan/procedural have none), so put the map
+  aside. New landing `frontend/app/src/search/` (search over all 280 from `GET /buildings`, type chips derived
+  from the id, keyboard nav), `Root.tsx` search ↔ twin, map behind `?view=map`. Root `.gitignore` now ignores
+  `node_modules/` + `dist/` (twin-lab's 3,037 files showed as unversioned). WebStorm: heavy folders excluded in
+  `.idea` (its JSON-schema index loop was the machine-wide slowdown).
+- **Next:** step 2 — mesh twin replaces the point-cloud scene.
+
+## 2026-10-24 — Step 1: map view in the app
+
+- **Did:** research notes → gitignored `.notes/twin-visual-research.md`. `scripts/build_map_assets.py` →
+  `frontend/app/public/map/` (twins.json + per-twin compact geometry, 864 KB). `frontend/app/src/map/` (MapView,
+  style, geo, liftBuilding, twinLayer, map.css), `src/Root.tsx` (map landing ↔ `?building=` twin, "← Map" pill),
+  `maplibre-gl` dependency. App.tsx untouched (other session's files).
+- **Learned:** the prototype's lag came from an always-on `triggerRepaint` in the custom layer and per-frame GeoJSON
+  `setData`; fixed → ~60 fps headless through the whole flow.
+- **Changed docs:** [visualization.md](../docs/product/visualization.md) (map-view section did not survive; map parked).
+- **Next:** Atahan reviews the map; step 2 = mesh twin replaces the point cloud scene.
+
+## 2026-10-24 — Twin-lab round 2: map → walkable mesh twin (Atahan's feedback)
+
+- **Did:** Feedback: glow too bright, point cloud unnecessary, auto-rotation tiring; keep the map, mesh buildings,
+  cursor highlight; walk inside. Built `twin.html` (`src/mesh.js`, `src/furniture.js`, `src/twin.js`): chunked
+  wall boxes with door gaps + lintels, room-tinted floors, N8AO, cursor lens (walls sink, floor ring), furniture
+  as point archetypes (97 asset types → 11 shapes), first-person walk with collisions, stairs/lifts Q/E, minimap,
+  ceilings; `?entry=1` walks in through the entrance. Map: no drift/rotation, mesh twin rises floor by floor,
+  "Walk inside" → twin. Screenshot-verified (overview, lens, walk, entry, map arrival).
+- **Learned:** N8AO + OutputPass double-applies gamma unless `gammaCorrection = false`.
+- **Changed docs:** twin-lab README, [Q-015](open-questions.md#q-015) partial answer.
+- **Next:** decide accent vs D-011; port map + mesh twin into `frontend/app` (coordinate with the AI-layer session).
+
+## 2026-10-24 — Twin-lab: four visual concepts + georeferenced OSM twins
+
+- **Did:** new standalone `frontend/prototypes/twin-lab/` (Vite `:5190`, no backend): browser-side sampler
+  (`src/sample.js`: jittered-stratified surfaces with normals, façade detection, door frames, stair treads, edge
+  lines; ~1–1.7M points at 60 fps), shared engine (HDR bloom, fly-to, picking, hover tags), concepts Scan / Hologram
+  / Morph / Arrival. `scripts/georef.py` pins the 17 `osm-way*` buildings to lat/lon (`public/georef.json`).
+  Arrival: MapLibre + OpenFreeMap dark style, OSRM walking route, building lifted out of the map, twin constructs
+  in place via a three.js custom layer. Verified by headless-Chrome screenshots (puppeteer-core in scratchpad).
+- **Learned:** the kit frame of an OSM building is the way's outline in metres (x east, y north) around ~its bbox
+  centre (fit median 0.05–6.6 m). OpenFreeMap z14 building features merge neighbours into MultiPolygons, so hiding
+  one building = hide the merged feature + re-extrude its other polygons. Additive blending of ~1M points blows out
+  to white; normal blending or very low per-point gain is needed. Chromatic aberration fringes 1-px point lines.
+- **Changed docs:** twin-lab README, [project-state.md](project-state.md).
+- **Opened Q:** [Q-015](open-questions.md#q-015) visual direction / D-011.
+- **Next:** Atahan picks a direction → port into `frontend/app` (coordinate with the AI-layer session).
 
 ## 2026-10-24 — AI layer of the app: live steps, cards, voice orb, camera walk mode
 

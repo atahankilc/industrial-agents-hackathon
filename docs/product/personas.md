@@ -3,7 +3,7 @@ id: product-personas
 summary: 17 personas with special needs, ranked for the Interaction score and demo — scenario, needs, what to ask / never ask, direction style, and which data fields make each feasible (or not).
 status: proposed (product thinking; no code yet)
 sources:
-  - archive/initial-repo/README.md §1 "Put yourself in their shoes"
+  - archive/initial-repo/README-cb51a6f.md §1 "Put yourself in their shoes" (dropped from the 1.1.0 README, Q-017)
   - "Hackathon Challenge - Talk to Your Building.pdf p.1-3"
   - docs/kit/data-format.md
   - "dataset scan of all 280 buildings with core/building_map.py, 2026-10-24 (numbers in routing-profiles.md#dataset-reality-check)"

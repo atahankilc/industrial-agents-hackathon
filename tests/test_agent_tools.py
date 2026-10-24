@@ -75,7 +75,7 @@ def test_compare_routes_pending_and_applied(session):
     pending = session.call("compare_routes", {"change_id": "C1"})
     assert session.events == events and session.last_route == last_route  # predictions emit nothing
     assert pending["status"] == "pending" and pending["lost_access_count"] == 0
-    assert pending["last_route"]["before_m"] == 124.24 and pending["last_route"]["after_m"] == 132.2
+    assert pending["last_route"]["before_m"] == 61.24 and pending["last_route"]["after_m"] == 96.46
     assert pending["longer_routes_count"] > 0 and pending["max_extra_m"] == pending["longer_routes"][0]["extra_m"]
     assert "proc-campus-train-000-V02" not in session.building.closed  # comparing never applies
     session.call("apply_change", {"change_id": "C1"})

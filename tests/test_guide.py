@@ -163,11 +163,11 @@ def test_tricky_user_conversation(session):
 
     directions = turns["3.07 please"]
     route = directions.tool_calls[0]["result"]
-    assert route["step_free"] and route["length_m"] == 124.24 and LIFT_1 in route["element_path"]
+    assert route["step_free"] and route["length_m"] == 61.24 and LIFT_1 in route["element_path"]
     assert "set_profile" not in [c["name"] for c in directions.tool_calls]  # profile remembered, not re-asked
-    assert "\n1. " in directions.text and "about 124 m" in directions.text
+    assert "\n1. " in directions.text and "about 61 m" in directions.text
     assert directions.events[-1] == {"type": "route", "space_path": route["space_path"],
-                                     "element_path": route["element_path"], "length_m": 124.24,
+                                     "element_path": route["element_path"], "length_m": 61.24,
                                      "profile": "step-free, doors at least 0.8 m wide (assumed)"}
 
     broken = turns["The lift is broken!"]
@@ -181,10 +181,10 @@ def test_tricky_user_conversation(session):
     assert state["Yes, go ahead."] == (set(), {LIFT_1}, 1)
     assert [change.summary for change in session.applied] == ["close Lift 1"]
     after = confirmed.tool_calls[1]["result"]
-    assert after["length_m"] == 132.2 and LIFT_1 not in after["element_path"] and LIFT_2 in after["element_path"]
+    assert after["length_m"] == 96.46 and LIFT_1 not in after["element_path"] and LIFT_2 in after["element_path"]
     comparison = confirmed.tool_calls[2]["result"]
     assert comparison["status"] == "applied" and comparison["lost_access_count"] == 0
-    assert comparison["last_route"]["extra_m"] == 7.96 and "7.96 m longer" in confirmed.text
+    assert comparison["last_route"]["extra_m"] == 35.22 and "35.22 m longer" in confirmed.text
     assert confirmed.text.startswith("Done, Lift 1 is marked closed.")  # text written before the tool calls
     assert [event["type"] for event in confirmed.events] == ["change", "route"]
 
@@ -224,7 +224,7 @@ def test_invented_number_triggers_one_repair(session):
     turn = guide.reply("How far is meeting room 3.07 from the main lobby?")
     assert "grounding check" in client.requests[-1]["messages"][-1]["content"]
     assert "437" in client.requests[-1]["messages"][-1]["content"]
-    assert turn.text == "It's about 99 m." and turn.ungrounded == []  # 98.73 m without a profile
+    assert turn.text == "It's about 58 m." and turn.ungrounded == []  # 57.68 m without a profile
     assert [c["name"] for c in turn.tool_calls] == ["find_route"]
 
 
@@ -266,7 +266,7 @@ def test_offline_client_runs_the_same_conversation(session):
     guide = Guide(session, client=OfflineClient())
     assert "Which one" in guide.reply("Where is the printer?").text
     assert "step-free" in guide.reply("I use a wheelchair").text and session.profile.step_free
-    assert "About 120 m" in guide.reply("from Main lobby to Meeting room 3.07").text
+    assert "About 60 m" in guide.reply("from Main lobby to Meeting room 3.07").text
     assert "Shall I apply" in guide.reply("Lift 1 is broken").text and not session.applied
     turn = guide.reply("yes")
-    assert session.applied and "About 130 m" in turn.text and turn.ungrounded == []
+    assert session.applied and "About 95 m" in turn.text and turn.ungrounded == []

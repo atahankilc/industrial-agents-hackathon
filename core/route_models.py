@@ -1,22 +1,14 @@
-"""Route models and route rules for core/navigation.py — docs/kit/route-model.md, Q-014.
+"""Route model and route rules for core/navigation.py — docs/kit/route-model.md, Q-014.
 
-Two route models, chosen per call:
-- `kit` (default): `BuildingMap.graph` unchanged — anchor → door straight lines, stairs 12 m per floor, lift
-  15 m + 6 m per floor. Reproduces the dataset's warm-up and errand answers to the cm (and their tie-breaking).
-- `geodesic`: the organisers' Sunday route-scoring rule as we understand it (UNVERIFIED, Q-014). Inside each space
-  the walk goes door to door along the shortest path kept 0.15 m off the walls (core/geodesic.py). The first and
-  last space are left / entered at their anchor (representative point) — UNVERIFIED, Q-014 (2). Stairs cost 2 m
-  per metre climbed, a lift 15 m + 1 m per metre of height, both from the floors' `elevation_m`; one lift ride may
-  span several floors with one wait (stairs still go floor by floor).
+One route model: the kit 1.1.0 graph of `BuildingMap.graph` (door to door 15 cm off the walls, 30 cm door landings,
+stairs 2 m per metre climbed, a lift ride 15 m + 1 m per metre), which reproduces every expected answer. `KIT` is
+its name; `GEODESIC`, our pre-1.1.0 approximation of the same rule, is now an alias kept for callers. `route_graph`
+adds an `outside` node at the entrances that is only ever a start or an end: no way round the outside (kit 1.1.0).
 
-The geodesic graph uses the kit graph's node ids (space ids at their anchors, "door:<opening id>", "outside") plus
-door–door edges inside a space (edge attribute `space`). `expand` turns such a path back into the kit
-representation (door, space, door), so space_path / element_path / directions look the same for both models.
-
-Rules (`RouteRules`, both models; the organisers' route validity checks):
+Rules (`RouteRules`; the organisers' route validity note, Q-014/Q-015 — NOT part of the kit 1.1.0 answers):
 - production bays (factory halls: production, assembly, logistics, warehouse, additive zones, "bay") are
   destinations only — a leg may start or end in one but never pass through it;
-- `outside` is never passed through (leaving by one entrance and re-entering by another); it may be a start or end;
+- `no_outside`: kept for callers; outside is always endpoint-only now;
 - forklift: openings ≥ 3 m wide only (every opening kind), no stairs, walkway-like spaces removed; lifts allowed
   (no width in the data) — UNVERIFIED, Q-014 (4).
 Rules are hard filters: no route under them gives `reachable=False` with a reason, never a rule-breaking route."""
@@ -27,15 +19,11 @@ from dataclasses import dataclass
 
 import networkx as nx
 
-from core.building_map import DOOR_PREFIX, LIFT, OUTSIDE, BuildingMap
-from core.geodesic import space_distances
+from core.building_map import DOOR_PREFIX, LIFT, OUTSIDE, BuildingMap, cheapest, connector_cost, expand  # noqa: F401 (re-exported)
 
 KIT = "kit"
-GEODESIC = "geodesic"
+GEODESIC = "geodesic"  # alias of KIT since kit 1.1.0
 MODELS = (KIT, GEODESIC)
-STAIRS_COST_PER_M_CLIMBED = 2.0
-LIFT_WAIT_COST_M = 15.0
-LIFT_COST_PER_M = 1.0
 FORKLIFT_MIN_WIDTH_M = 3.0
 BAY_WORDS = {"production", "assembly", "logistics", "warehouse", "additive", "manufacturing", "bay", "bays"}
 WALKWAY_WORDS = {"walkway", "walkways", "pedestrian", "footpath", "footway", "sidewalk", "gehweg", "fussweg"}
@@ -83,7 +71,7 @@ def is_walkway(space: dict) -> bool:
 
 def endpoint_only(view: BuildingMap, rules: RouteRules) -> frozenset[str]:
     """Nodes a leg may start or end at but never pass through."""
-    nodes = {OUTSIDE} if rules.no_outside else set()
+    nodes = {OUTSIDE}
     if rules.bays_destination_only:
         nodes |= {space_id for space_id, space in view.spaces.items() if is_production_bay(space)}
     return frozenset(nodes)
@@ -93,79 +81,34 @@ def endpoint_only(view: BuildingMap, rules: RouteRules) -> frozenset[str]:
 
 
 def route_graph(view: BuildingMap, step_free: bool, model: str = KIT, rules: RouteRules = NO_RULES) -> nx.MultiGraph:
-    """The routing graph of `model` with the rules' global filters (forklift). Endpoint-only rules: `leg_graph`."""
+    """The routing graph (with the `outside` endpoint node) and the rules' global filters (forklift).
+    Endpoint-only nodes: `leg_graph`."""
     if model not in MODELS:
         raise ValueError(f"Unknown route model '{model}' (use one of {', '.join(MODELS)}).")
-    graph = view.graph(step_free) if model == KIT else geodesic_graph(view, step_free)
+    graph = view.graph(step_free, outside=True)
     if rules.forklift:
+        walkways = {space_id for space_id, space in view.spaces.items() if is_walkway(space)}
         graph.remove_nodes_from(
             [DOOR_PREFIX + o["id"] for o in view.openings.values() if o["width_m"] < FORKLIFT_MIN_WIDTH_M]
-            + [space_id for space_id, space in view.spaces.items() if is_walkway(space)]
+            + list(walkways)
         )
         stairs = {c["id"] for c in view.connectors.values() if c["kind"] != LIFT}
-        graph.remove_edges_from([(u, v, k) for u, v, k, via in graph.edges(keys=True, data="via") if via in stairs])
-    return graph
-
-
-def geodesic_graph(view: BuildingMap, step_free: bool) -> nx.MultiGraph:
-    graph = nx.MultiGraph()
-    spaces = [space_id for space_id in view.spaces if space_id not in view.closed]
-    graph.add_nodes_from(spaces)
-    doors: dict[str, list[dict]] = {space_id: [] for space_id in spaces}
-    for opening in view.openings.values():
-        if opening["id"] in view.closed or (step_free and not opening["step_free"]):
-            continue
-        for space_id in opening["space_ids"]:
-            if space_id == OUTSIDE:
-                graph.add_edge(OUTSIDE, DOOR_PREFIX + opening["id"], weight=0.0, via=opening["id"])
-            elif space_id in doors:
-                doors[space_id].append(opening)
-    for space_id, openings in doors.items():
-        if not openings:
-            continue
-        polygon = view.spaces[space_id]["polygon"]
-        anchor = view.anchor(space_id)
-        points = [anchor, *(tuple(opening["position"]) for opening in openings)]
-        matrix = space_distances(polygon, points)
-        nodes = [space_id, *(DOOR_PREFIX + opening["id"] for opening in openings)]
-        for (i, first), (j, second) in itertools.combinations(enumerate(nodes), 2):
-            if i == 0:
-                graph.add_edge(first, second, weight=matrix[0][j], via=openings[j - 1]["id"])
-            else:
-                graph.add_edge(first, second, weight=matrix[i][j], via=None, space=space_id)
-    elevations = {floor_id: floor["elevation_m"] for floor_id, floor in view.floors.items()}
-    for connector in view.connectors.values():
-        if connector["id"] in view.closed or (step_free and not connector["step_free"]):
-            continue
-        stops = sorted(
-            (
-                (elevations[floor_id], space_id)
-                for floor_id, space_id in zip(connector["floor_ids"], connector["space_ids"], strict=True)
-                if space_id in graph and space_id not in view.closed
-            ),
+        graph.remove_edges_from(  # stair flights, and door-to-door walks across a walkway
+            [(u, v, k) for u, v, k, data in graph.edges(keys=True, data=True)
+             if data.get("via") in stairs or data.get("space") in walkways]
         )
-        pairs = itertools.combinations(stops, 2) if connector["kind"] == LIFT else itertools.pairwise(stops)
-        for (low, low_space), (high, high_space) in pairs:
-            graph.add_edge(low_space, high_space, weight=connector_cost(connector, high - low), via=connector["id"])
     return graph
-
-
-def connector_cost(connector: dict, height_m: float) -> float:
-    height_m = abs(height_m)
-    if connector["kind"] == LIFT:
-        return LIFT_WAIT_COST_M + LIFT_COST_PER_M * height_m
-    return STAIRS_COST_PER_M_CLIMBED * height_m
 
 
 def leg_graph(graph: nx.MultiGraph, endpoints_only: frozenset[str], start: str, end: str) -> nx.MultiGraph:
     """View of `graph` where endpoint-only nodes other than `start`/`end` are gone and can't be crossed inside."""
-    if not endpoints_only:
+    blocked = endpoints_only - {start, end}
+    if not blocked:
         return graph
-    keep = {start, end}
     return nx.subgraph_view(
         graph,
-        filter_node=lambda node: node not in endpoints_only or node in keep,
-        filter_edge=lambda u, v, k: graph[u][v][k].get("space") not in endpoints_only,
+        filter_node=lambda node: node not in blocked,
+        filter_edge=lambda u, v, k: graph[u][v][k].get("space") not in blocked,
     )
 
 
@@ -183,7 +126,7 @@ def single_source(
             for neighbour, edges in graph[node].items()
             if neighbour in distances
             for data in edges.values()
-            if data.get("space") not in endpoints_only
+            if data.get("space") in (None, node) or data.get("space") not in endpoints_only
         ]
         if reached:
             distances[node] = min(reached)
@@ -193,40 +136,12 @@ def single_source(
 # ---------- paths ----------
 
 
-def cheapest(graph: nx.MultiGraph, first: str, second: str) -> dict:
-    return min(graph[first][second].values(), key=lambda edge: edge["weight"])
-
-
-def expand(graph: nx.MultiGraph, nodes: list[str]) -> tuple[list[str], nx.MultiGraph]:
-    """A Dijkstra node path → (kit-style node path, graph of the hops walked) for space/element paths + directions.
-
-    Kit paths come back unchanged with `graph` itself. In a geodesic path a door–door hop inside space S becomes
-    door → S (0 m) → door (the in-space metres), so directions report the walk when leaving S."""
-    if not any(cheapest(graph, a, b).get("space") for a, b in itertools.pairwise(nodes)):
-        return nodes, graph
-    walked = nx.MultiGraph()
-    expanded = [nodes[0]]
-
-    def hop(first: str, second: str, weight: float, via: str) -> None:
-        walked.add_edge(first, second, weight=weight, via=via)
-        expanded.append(second)
-
-    for first, second in itertools.pairwise(nodes):
-        edge = cheapest(graph, first, second)
-        if edge.get("space"):
-            hop(first, edge["space"], 0.0, first.removeprefix(DOOR_PREFIX))
-            hop(edge["space"], second, edge["weight"], second.removeprefix(DOOR_PREFIX))
-        else:
-            hop(first, second, edge["weight"], edge["via"])
-    return expanded, walked
-
-
 def sequence_length(
     view: BuildingMap,
     space_path: list[str],
     *,
     step_free: bool = False,
-    model: str = GEODESIC,
+    model: str = KIT,
     rules: RouteRules = NO_RULES,
 ) -> float | None:
     """Shortest length of a walk that visits exactly `space_path` in order — how the organisers re-measure an answer.
@@ -248,7 +163,7 @@ def sequence_length(
         hops = [
             edge["weight"]
             for edge in graph.get_edge_data(here, there, default={}).values()
-            if edge["via"] in view.connectors
+            if edge.get("via") in view.connectors
         ]
         if hops:
             exits[there] = (here, min(hops))
@@ -276,8 +191,8 @@ def inside_cost(graph: nx.MultiGraph, space: str, entry: str, leave: str) -> flo
     """Metres walked inside `space` from `entry` to `leave` (door nodes or the space's own anchor node)."""
     if entry == leave:
         return 0.0
-    if space == OUTSIDE:
-        return 0.0 if graph.has_node(OUTSIDE) else None
+    if space == OUTSIDE:  # never walked through: only a first or last stop
+        return 0.0 if graph.has_node(OUTSIDE) and OUTSIDE in (entry, leave) else None
     options = [
         data["weight"]
         for data in graph.get_edge_data(entry, leave, default={}).values()

@@ -6,7 +6,7 @@ related: [decisions.md, project-state.md, ../docs/kit/questions.md]
 
 # Open questions
 
-[Memory bank](README.md) · Next free id: **Q-016**
+[Memory bank](README.md) · Next free id: **Q-018**
 
 Template:
 
@@ -66,7 +66,8 @@ Template:
 
 <a id="q-014"></a>
 ### Q-014 — Sunday route scoring uses a different distance rule than the kit route model
-- **Status:** open · **Priority:** HIGH · **Resolve by:** ask organisers + implement a second route model
+- **Status:** partly answered by kit 1.1.0, model ported ([D-014](decisions.md#d-014)) · **Priority:** med ·
+  **Resolve by:** ask organisers (3), (4)
 - **Source:** organiser message on Discord, pasted by Atahan 2026-10-24 (summary, not verbatim):
   - Distance is measured inside each space **from door to door, ~15 cm off the walls, around corners** (never
     through walls). Furniture/machines are not obstacles. A route to an item ends in the room/bay that holds it.
@@ -104,6 +105,18 @@ Template:
   Dwellings stair blocks joined only via the street). Still open: the 5 organiser questions (sent to Atahan), the
   benchmark "no route" answer wording once the Sunday format is known (Q-001), lifts for forklifts.
   Factory schema (aisles, walkways, bays): [Q-015](#q-015).
+- **Kit 1.1.0 (2026-10-24, organisers' patch "fixed answers that conform with the ruleset"):** answers questions
+  (1), (2), (5) — see `archive/initial-repo/CHANGELOG.md` and README §3. (1) **Yes**: all train/dev expected answers
+  (warm-up routes/tours, `errand`, `what_if_door`) and the hidden test answers were recomputed with the new rule;
+  the kit model is obsolete. (2) A space's node is its `representative_point()`; it and every opening are joined by
+  the 15 cm-off-wall shortest walk; an opening "lands" 30 cm inside each space (nearest point of
+  `polygon.buffer(-0.30)`) and the opening→landing step is added; lengths rounded to 3 decimals. (5) Yes, the
+  `elevation_m` difference; lift 15 m once per ride, every pair of lift stops joined; stairs floor to floor.
+  Outside: no outdoor link at all — such routes are `reachable: false` (tours: `{"stops", "reachable": false}`).
+  The README states **no production-bay rule** for the graded answers. Reference implementation:
+  `archive/initial-repo/starter_agent/building_map.py` (1.1.0). Our `geodesic` model on dev warm-up routes (gold
+  ids, `no_outside`): reachability 189/189 right, length within 1 m 158/161 but exact (≤ 2 cm) only 3 — systematically
+  0.3–1.5 m short (missing door landings). Still open: (3), (4), lifts for forklifts.
 
 <a id="q-002"></a>
 ### Q-002 — When is code freeze and when is the Sunday building released?
@@ -198,6 +211,22 @@ Template:
 - **How to resolve:** ask which fields mark aisles / walkways / bays (and whether `production_zone` is a bay);
   meanwhile make the router take a rule set (allowed space predicate, min opening width, no-pass-through
   predicate) so it can be wired to new fields without code changes elsewhere.
+
+<a id="q-017"></a>
+### Q-017 — Kit 1.1.0 README dropped the "alignment" text: which judging/submission text is authoritative?
+- **Status:** open · **Priority:** high · **Resolve by:** ask organisers
+- **Context:** The organisers' 1.1.0 patch (commit 6a2cdec, merged as dc03c44) rewrote `README.md` from their
+  older 721f1b9 text, not from cb51a6f ("Align README with challenge brief and kickoff deck"), which our archive
+  held. Lost in 1.1.0: "The story", "What you build" (incl. "Directions, not instructions", "Put yourself in their
+  shoes"), "Sunday benchmark" (single command, `BENCHMARK.md`), "Submission and judging process" (online
+  submission, no pitch rooms). The judging row changed from **"Submission demo — demo video and technical
+  explanation"** (cb51a6f, matches [brief.md](../docs/challenge/brief.md)) to **"Pitch and demo — a 3–5 minute
+  live demo that works without a restart"** (1.1.0). Probably accidental (the CHANGELOG lists only the route-model
+  section as a README change), but UNVERIFIED.
+- **Meanwhile:** `archive/initial-repo/README.md` = 1.1.0 verbatim (route model, data, questions);
+  `archive/initial-repo/README-cb51a6f.md` = the previous text, still cited for the sections 1.1.0 dropped. Prepare
+  for both: a video + technical explanation, and a live demo that runs without a restart.
+- **How to resolve:** ask the organisers whether the cb51a6f judging/submission text still holds.
 
 <a id="q-016"></a>
 ### Q-016 — Level 3 "several buildings": what format, and how do walkways link them?

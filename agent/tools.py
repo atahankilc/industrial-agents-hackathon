@@ -7,7 +7,7 @@
 Every fact the agent states comes from these tools (D-003). The session holds what a conversation accumulates:
 the user's routing profile (step-free, minimum door width, no lifts, forklift — docs/product/routing-profiles.md),
 the route rules every route obeys (production bays destination-only, no shortcut outside — core/route_models.py,
-Q-014) and the route model (kit by default, `route_model = "geodesic"` for the Sunday scoring rule), applied
+Q-014) and the route model (the kit 1.1.0 one, door to door — the only one; `route_model` kept for callers), applied
 building changes (closures, new doors), pending changes awaiting the user's confirmation, and UI events
 (highlight rooms, draw a route). Changes go through propose → confirm → apply so the agent can show what it
 understood before it edits the plan (docs/architecture/ai-agents.md#shared-tool-layer).
@@ -96,7 +96,7 @@ class BuildingSession:
         self.events: list[dict] = []
         self.emitting = True  # off while predicting, so hypothetical routes never reach the UI
         self.last_route: dict | None = None
-        self.route_model = KIT  # "geodesic" = the Sunday scoring rule (Q-014); kit until the organisers answer
+        self.route_model = KIT  # kit 1.1.0 route model ("geodesic" is an alias since 1.1.0)
         self._ids = itertools.count(1)
 
     @classmethod

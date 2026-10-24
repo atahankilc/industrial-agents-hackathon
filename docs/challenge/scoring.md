@@ -4,7 +4,8 @@ summary: Exactly how replies are scored (Answer-line parsing, tolerances per kin
 sources:
   - benchmark/score.py
   - benchmark/evaluate.py
-  - archive/initial-repo/README.md §1 (Sunday benchmark), §6
+  - archive/initial-repo/README-cb51a6f.md §1 (Sunday benchmark; dropped from the 1.1.0 README, Q-017)
+  - archive/initial-repo/README.md §6
   - "Hackathon Challenge - Talk to Your Building.pdf p.3"
 related: [brief.md, ../kit/questions.md, ../architecture/solver-plan.md, ../guides/commands.md]
 ---

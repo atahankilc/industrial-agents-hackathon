@@ -63,8 +63,8 @@ def test_route_kinds(kind):
     misses = n - passed[kind]["answer"]
     assert misses == passed[kind]["gold_in_alternatives"]
     assert passed[kind]["answer"] / n >= 0.98
-    for metric in ("length", "space_path", "element_path"):
-        assert passed[kind][metric] == passed[kind]["answer"]
+    for metric in ("length", "space_path", "element_path"):  # a misparse may still hit an equally long route
+        assert passed[kind][metric] >= passed[kind]["answer"]
 
 
 def test_overall_accuracy():
@@ -85,7 +85,7 @@ def test_route_matches_gold_and_does_not_mutate():
     assert result.element_path == answer["element_path"]
     assert result.closed == [answer["closed_element_id"]]
     assert building.closed == set() and building.last_route is None and building.located_asset_ids == []
-    assert path_length(building, answer["space_path"], answer["element_path"], closed=["Main staircase"]) == 41.79
+    assert path_length(building, answer["space_path"], answer["element_path"], closed=["Main staircase"]) == answer["optimal_length_m"]
     json.dumps(result.to_dict())
 
 

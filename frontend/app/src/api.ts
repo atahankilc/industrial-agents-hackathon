@@ -21,6 +21,59 @@ export type PointCloud = {
   closed?: string[]
 }
 
+/** core/floorplan.py export: building metres (x right, y up). `center` maps viewer-frame route vertices back:
+ * x = vx + center[0], y = -(vz + center[1]). */
+export type PlanFloor = { id: string; level: number; name: string; elevation_m: number; height_m: number }
+export type PlanSpace = {
+  id: string
+  floor: number
+  type: string
+  room_type: string
+  name: string
+  ref: string
+  polygon: [number, number][]
+  area_m2: number
+  label: [number, number]
+  label_room_m: number
+}
+export type PlanOpening = {
+  id: string
+  floor: number
+  kind: 'door' | 'opening' | 'entrance'
+  position: [number, number]
+  width_m: number
+  step_free: boolean
+  spaces: string[]
+  entrance: boolean
+  angle: number
+  space: string | null
+  side: 1 | -1
+}
+export type PlanConnector = { id: string; name: string; kind: 'stairs' | 'lift'; spaces: string[]; step_free: boolean }
+export type PlanAsset = {
+  id: string
+  floor: number
+  space: string
+  category: 'furniture' | 'fixture' | 'machine' | 'equipment'
+  type: string
+  name: string
+  position: [number, number]
+  size: [number, number]
+  rotation_deg: number
+}
+export type Plan = {
+  building: { id: string; name: string; source: string; attribution: string }
+  floors: PlanFloor[]
+  bounds: [number, number, number, number]
+  center: [number, number]
+  spaces: PlanSpace[]
+  walls: [number, number, number, number][][]
+  openings: PlanOpening[]
+  connectors: PlanConnector[]
+  assets: PlanAsset[]
+  closed: string[]
+}
+
 /** core/directions.py: one turn-by-turn leg; `turn` is made at the start of the leg, relative to the way you face. */
 export type RouteLeg = {
   kind: 'door' | 'connector' | 'exit' | 'arrive'
@@ -98,6 +151,7 @@ export const api = {
   switchBuilding: (id: string, building: string) =>
     request<SessionSummary>(`/sessions/${id}/building`, { method: 'PUT', body: JSON.stringify({ building }) }),
   points: (id: string) => request<PointCloud>(`/sessions/${id}/points`),
+  plan: (id: string) => request<Plan>(`/sessions/${id}/plan`),
   chat: (id: string, message: string) =>
     request<ChatReply>('/chat', { method: 'POST', body: JSON.stringify({ session_id: id, message }) }),
   chatStream,

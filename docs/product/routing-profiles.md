@@ -98,12 +98,16 @@ honour today with the existing filters (`step_free`, `min_door_width_m`, `avoid_
 | `pram` | step_free, min_door_width_m 0.8 | min_door_width_m | `trolley(w)` row above: "pram 0.8" |
 | `trolley` | step_free; result `needs: ["min_door_width_m"]` unless the width is given | – | user-given (`w`) |
 | `no_lifts` | avoid_lifts | – | `no_lifts` row above |
+| `forklift` | step_free, min_door_width_m 3.0, forklift (no stairs, walkway-like spaces removed) | – | organiser rule, [Q-014](../../memory-bank/open-questions.md#q-014) |
 | `default` | resets every field ([P26](personas.md#p26--changing-constraints-user)) | – | – |
 
 A preset changes only its own fields (so `no_lifts` then `wheelchair` composes); explicit fields in the same call
 override it and are no longer marked assumed. `avoid_stairs` is not a separate field: every stairs connector in
 the data is `step_free: false`, so `step_free` already excludes stairs (it also blocks the 30 stepped entrances).
-Not presets yet: `forklift`, `crutches`, `low_stamina`, `quiet`, `low_vision`, `evacuation`, `simple` (they need
+Every Guide route also obeys the organisers' route rules (`BuildingSession.route_rules`, `core/route_models.py`):
+production bays are destinations only and there is no shortcut outside the building
+([route-model.md](../kit/route-model.md#sunday-route-model-and-route-rules-q-014)).
+Not presets yet: `crutches`, `low_stamina`, `quiet`, `low_vision`, `evacuation`, `simple` (they need
 `avoid_room_types` or soft penalties), and a mobility-scooter preset — **UNVERIFIED: no scooter door width is
 given in our sources**, so a scooter cue sets step-free only and the Guide should ask the width
 ([P21](personas.md#p21--mobility-scooter-user)).
@@ -132,7 +136,7 @@ reply ("step-free, quiet route").
 <a id="todo-preference-extraction"></a>
 ### TODO — preference extraction (gap check 2026-10-24)
 
-Today (`agent/tools.py`): `RoutingProfile` has `step_free`, `min_door_width_m`, `avoid_lifts` (+ `preset`, `assumed`);
+Today (`agent/tools.py`): `RoutingProfile` has `step_free`, `min_door_width_m`, `avoid_lifts`, `forklift` (+ `preset`, `assumed`);
 it lives in the in-memory session; the model calls `set_profile` (with a preset where one fits), and a
 deterministic safety net catches the cues it misses. Missing:
 

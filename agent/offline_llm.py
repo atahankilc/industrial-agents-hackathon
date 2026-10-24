@@ -66,6 +66,9 @@ class OfflineClient:
         last = messages[-1]["content"]
         if isinstance(last, str):
             return self.on_user(last, messages)
+        if any(block_field(block, "type") == "image" for block in last):  # a photo turn: answer its text
+            text = " ".join(block_field(block, "text") for block in last if block_field(block, "type") == "text")
+            return self.on_user(text.split("\n\n", 1)[-1], messages)
         return self.on_results(messages)
 
     # ---------- a new user message → tools ----------

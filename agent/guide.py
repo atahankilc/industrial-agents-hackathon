@@ -26,6 +26,7 @@ Without ANTHROPIC_API_KEY, `make_client()` returns the offline rule-based client
 import json
 import os
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -77,6 +78,11 @@ VOICE_STYLE = ("[voice channel] This reply will be spoken aloud. Use plain spoke
 SYSTEM_MESSAGE_MODELS = ("claude-opus-5", "claude-opus-4-8", "claude-fable-5", "claude-mythos-5", "claude-sonnet-5-5",
                          "claude-haiku-5-5")
 CHANNELS = ("text", "voice")
+PHOTO_NOTE = ("[camera photo attached, not from the building data] The user is standing where this photo was taken. "
+              "Read signs, room numbers or labels in it, then confirm them with the building tools before you rely "
+              "on them; if nothing in it is legible, say so and ask where they are.")
+PHOTO_KEPT = "[the user sent a camera photo here; it is not kept in the history]"
+PHOTO_TYPES = ("image/jpeg", "image/png", "image/webp")
 
 # A number, also when glued to a unit ("120m", "45m²"); not "3D" or "2nd" (from agent/guide_v1/grounding.py).
 UNIT = r"(?:m²|m2|km|cm|mm|min|m|s|%|x)"
@@ -349,11 +355,15 @@ class Guide:
         self.rewriter: TranscriptRewriter | None = (
             TranscriptRewriter(session.building) if isinstance(self.client, anthropic.Anthropic)
             and os.environ.get("GUIDE_REWRITER", "on").lower() != "off" else None)
+        self.on_step: Callable[[dict], None] | None = None  # live progress for the UI (backend /chat/stream)
 
-    def reply(self, text: str, channel: str = "text") -> GuideTurn:
-        """One user turn. channel="voice" asks for a spoken style and fills `GuideTurn.spoken`."""
+    def reply(self, text: str, channel: str = "text", photo: dict | None = None) -> GuideTurn:
+        """One user turn. channel="voice" asks for a spoken style and fills `GuideTurn.spoken`. `photo`
+        ({"media_type", "data": base64}) is shown to the model for this turn only, then dropped from the history."""
         if channel not in CHANNELS:
             raise ValueError(f"channel must be one of {CHANNELS}")
+        if photo is not None and photo.get("media_type") not in PHOTO_TYPES:
+            raise ValueError(f"photo media_type must be one of {PHOTO_TYPES}")
         self.turn += 1
         self.corpus.append(text)
         rewritten = self.rewriter.rewrite(text) if channel == "voice" and self.rewriter is not None else text
@@ -366,15 +376,25 @@ class Guide:
         system_role = self.model.startswith(SYSTEM_MESSAGE_MODELS)
         if channel == "voice" and not system_role:
             content = f"{VOICE_STYLE}\n\n{content}"
+        if photo is not None:
+            content = [{"type": "image", "source": {"type": "base64", "media_type": photo["media_type"],
+                                                    "data": photo["data"]}},
+                       {"type": "text", "text": f"{PHOTO_NOTE}\n\n{content}"}]
+        photo_at = len(self.messages)
         self.messages.append({"role": "user", "content": content})
         if channel == "voice" and system_role:
             self.messages.append({"role": "system", "content": VOICE_STYLE})
         first_event = len(self.session.events)
-        turn = self.run()
+        try:
+            turn = self.run()
+        finally:
+            if photo is not None:  # one turn only: never resent, never persisted
+                self.messages[photo_at] = {"role": "user", "content": f"{PHOTO_KEPT}\n\n{content[1]['text']}"}
         auto = self.profile_safety_net(text)
         if auto is not None:
             routed = any(call["name"] in PROFILE_TOOLS for call in turn.tool_calls)
             if routed and turn.stop_reason == "end_turn":
+                self.step({"kind": "check", "name": "profile"})
                 self.messages.append({"role": "user", "content": (
                     f"[profile check, not from the user] From the user's words I set their routing profile to: "
                     f"{auto['result']['summary']}. Redo any route or reachability in your reply under this profile "
@@ -387,6 +407,7 @@ class Guide:
                                      f"routing profile to: {auto['result']['summary']}.")
         missing = ungrounded(turn.text, "\n".join(self.corpus))
         if missing and turn.stop_reason == "end_turn":
+            self.step({"kind": "check", "name": "grounding"})
             self.messages.append({"role": "user", "content": (
                 "[grounding check, not from the user] Your last reply states "
                 + ", ".join(missing)
@@ -443,7 +464,9 @@ class Guide:
                 return GuideTurn("\n\n".join(said), calls, stop_reason=response.stop_reason)
             results = []
             for use in uses:
+                self.step({"kind": "tool", "name": use.name, "input": dict(use.input or {})})
                 result = self.execute(use.name, dict(use.input or {}))
+                self.step({"kind": "tool_done", "name": use.name, "ok": "error" not in result})
                 calls.append({"name": use.name, "input": dict(use.input or {}), "result": result})
                 content = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
                 self.corpus.append(content)
@@ -452,6 +475,10 @@ class Guide:
             self.messages.append({"role": "user", "content": results})
         return GuideTurn("I couldn't finish that in a reasonable number of steps. Could you narrow it down?",
                          calls, stop_reason="max_tool_rounds")
+
+    def step(self, step: dict) -> None:
+        if self.on_step is not None:
+            self.on_step(step)
 
     def execute(self, name: str, arguments: dict) -> dict:
         if name == "apply_change" and self.proposed_in_turn.get(arguments.get("change_id", "")) == self.turn:

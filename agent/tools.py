@@ -5,7 +5,9 @@
   client.messages.create(..., tools=TOOL_DEFINITIONS)   # then route every tool_use block to session.call
 
 Every fact the agent states comes from these tools (D-003). The session holds what a conversation accumulates:
-the user's routing profile (step-free, minimum door width, no lifts — docs/product/routing-profiles.md), applied
+the user's routing profile (step-free, minimum door width, no lifts, forklift — docs/product/routing-profiles.md),
+the route rules every route obeys (production bays destination-only, no shortcut outside — core/route_models.py,
+Q-014) and the route model (kit by default, `route_model = "geodesic"` for the Sunday scoring rule), applied
 building changes (closures, new doors), pending changes awaiting the user's confirmation, and UI events
 (highlight rooms, draw a route). Changes go through propose → confirm → apply so the agent can show what it
 understood before it edits the plan (docs/architecture/ai-agents.md#shared-tool-layer).
@@ -18,14 +20,13 @@ import itertools
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-import networkx as nx
-
 from agent import places
-from core import navigation
+from core import navigation, route_models
 from core.building_map import LIFT, OUTSIDE, BuildingMap, MapError
+from core.route_models import FORKLIFT_MIN_WIDTH_M, KIT, RouteRules
 from core.solvers import SOLVERS, solve
 from core.solvers.geometry import adjacent_floor, centre_3d, polygon
-from core.solvers.reachability import is_room, reachable_spaces, rooms_on_floor
+from core.solvers.reachability import is_room, rooms_on_floor
 from core.solvers.routing import with_new_door
 from core.solvers.walls import shared_wall_neighbours
 
@@ -47,8 +48,10 @@ PRESETS: dict[str, dict] = {
     "pram": {"values": {"step_free": True, "min_door_width_m": 0.8}, "assumed": ["min_door_width_m"]},
     "trolley": {"values": {"step_free": True}, "needs": ["min_door_width_m"]},
     "no_lifts": {"values": {"avoid_lifts": True}},
+    # Organiser rule (Q-014): forklift aisles and openings >= 3 m only, pedestrian walkways don't count.
+    "forklift": {"values": {"step_free": True, "min_door_width_m": FORKLIFT_MIN_WIDTH_M, "forklift": True}},
 }
-PROFILE_FIELDS = ("step_free", "min_door_width_m", "avoid_lifts")
+PROFILE_FIELDS = ("step_free", "min_door_width_m", "avoid_lifts", "forklift")
 
 
 @dataclass
@@ -56,6 +59,7 @@ class RoutingProfile:
     step_free: bool = False
     min_door_width_m: float | None = None
     avoid_lifts: bool = False
+    forklift: bool = False  # no stairs, openings >= 3 m, no walkway-like spaces (route_models.RouteRules)
     preset: str = "default"  # the last preset applied; explicit fields may refine it
     assumed: list[str] = field(default_factory=list)  # fields set from a preset default, not from the user
 
@@ -66,6 +70,8 @@ class RoutingProfile:
             parts.append(f"doors at least {self.min_door_width_m} m wide{assumed}")
         if self.avoid_lifts:
             parts.append("no lifts")
+        if self.forklift:
+            parts.append("forklift (no stairs, no walkways)")
         return ", ".join(parts)
 
 
@@ -89,6 +95,7 @@ class BuildingSession:
         self.events: list[dict] = []
         self.emitting = True  # off while predicting, so hypothetical routes never reach the UI
         self.last_route: dict | None = None
+        self.route_model = KIT  # "geodesic" = the Sunday scoring rule (Q-014); kit until the organisers answer
         self._ids = itertools.count(1)
 
     @classmethod
@@ -124,6 +131,10 @@ class BuildingSession:
             closed += [c["id"] for c in building.connectors.values() if c["kind"] == LIFT]
         return closed
 
+    def route_rules(self) -> RouteRules:
+        """Rules every Guide route obeys; the forklift rule follows the profile."""
+        return RouteRules(bays_destination_only=True, no_outside=True, forklift=self.profile.forklift)
+
     def space_summary(self, space_id: str) -> dict:
         space = self.building.spaces[space_id]
         return {
@@ -152,7 +163,8 @@ class BuildingSession:
         options = []
         for space_id in found:
             route = navigation.find_route(self.building, start, space_id, step_free=self.profile.step_free,
-                                          closed=self.profile_closures(), via=via).to_dict()
+                                          closed=self.profile_closures(), via=via, model=self.route_model,
+                                          rules=self.route_rules()).to_dict()
             options.append({**self.space_summary(space_id),
                             "length_m": route["length_m"] if route.get("reachable") else None})
         options.sort(key=lambda option: (option["length_m"] is None, option["length_m"] or 0.0))
@@ -232,6 +244,8 @@ class BuildingSession:
             step_free=self.profile.step_free,
             closed=self.profile_closures(),
             via=via or (),
+            model=self.route_model,
+            rules=self.route_rules(),
         ).to_dict()
         route["profile"] = self.profile.describe()
         if route.get("reachable") and self.emitting:
@@ -243,19 +257,14 @@ class BuildingSession:
 
     def tool_tour(self, stops: list[str]) -> dict:
         return navigation.tour(
-            self.building, [self.stop(item) for item in stops], step_free=self.profile.step_free, closed=self.profile_closures()
+            self.building, [self.stop(item) for item in stops], step_free=self.profile.step_free,
+            closed=self.profile_closures(), model=self.route_model, rules=self.route_rules(),
         ).to_dict()
 
     def tool_reachable_rooms(self, start: str, floor_id: str | None = None) -> dict:
         """Rooms reachable from `start` under the current profile and changes."""
         start_id = self.resolve(start)
-        reached = reachable_spaces(
-            self.building,
-            start_id,
-            step_free=self.profile.step_free,
-            min_width=self.profile.min_door_width_m,
-            closed=self.profile_closures(),
-        )
+        reached = set(self.space_distances(self.building, start_id))
         rooms = rooms_on_floor(self.building, reached, floor_id) if floor_id else sorted(
             space_id for space_id in reached if is_room(self.building.spaces[space_id]))
         return {"count": len(rooms), "rooms": rooms[:MAX_RESULTS * 4], "profile": self.profile.describe()}
@@ -270,7 +279,7 @@ class BuildingSession:
 
     def tool_set_profile(
         self, preset: str | None = None, step_free: bool | None = None, min_door_width_m: float | None = None,
-        avoid_lifts: bool | None = None,
+        avoid_lifts: bool | None = None, forklift: bool | None = None,
     ) -> dict:
         """Apply a persona preset (its fields only; others are kept), then explicit fields, which override it.
         preset "default" resets everything. The result says what changed and which values are assumed."""
@@ -291,7 +300,8 @@ class BuildingSession:
             self.profile.assumed += [name for name in spec.get("assumed", []) if name not in self.profile.assumed]
             self.profile.preset = preset
             needs = [name for name in spec.get("needs", []) if min_door_width_m is None]
-        explicit = {"step_free": step_free, "min_door_width_m": min_door_width_m, "avoid_lifts": avoid_lifts}
+        explicit = {"step_free": step_free, "min_door_width_m": min_door_width_m, "avoid_lifts": avoid_lifts,
+                    "forklift": forklift}
         for name, value in explicit.items():
             if value is None:
                 continue
@@ -429,16 +439,21 @@ class BuildingSession:
                 grouped[floor["name"]] = {"count": len(names), "rooms": names}
         return grouped
 
-    def room_distances(self, building: BuildingMap, start_id: str) -> dict[str, float]:
-        """Route-model metres from `start_id` to every reachable room under the profile in `building`."""
+    def space_distances(self, building: BuildingMap, start_id: str) -> dict[str, float]:
+        """Route-model metres from `start_id` to every reachable space under the profile and rules in `building`."""
         view = navigation.routing_view(building, self.profile_closures(building))
-        graph = view.graph(self.profile.step_free)
+        rules = self.route_rules()
+        graph = route_models.route_graph(view, self.profile.step_free, self.route_model, rules)
         if start_id not in graph:
             return {}
-        lengths = nx.single_source_dijkstra_path_length(graph, start_id, weight="weight")
+        lengths = route_models.single_source(graph, route_models.endpoint_only(view, rules), start_id)
+        return {node: length for node, length in lengths.items() if node in building.spaces}
+
+    def room_distances(self, building: BuildingMap, start_id: str) -> dict[str, float]:
+        """Route-model metres from `start_id` to every reachable room under the profile in `building`."""
         return {
-            node: length for node, length in lengths.items()
-            if node in building.spaces and is_room(building.spaces[node])
+            node: length for node, length in self.space_distances(building, start_id).items()
+            if is_room(building.spaces[node])
         }
 
     def predict_between(self, before: BuildingMap, after: BuildingMap) -> dict:
@@ -500,7 +515,8 @@ TOOL_DEFINITIONS: list[dict] = [
      "(omitted where floors aren't aligned), items in a room.",
      "input_schema": {"type": "object", "properties": {"space": PLACE}, "required": ["space"]}},
     {"name": "find_route", "description": "Shortest walk under the user's profile and current closures: metres, "
-     "rooms passed, followable steps.", "input_schema": {"type": "object", "properties": {
+     "rooms passed, followable steps. Routes never pass through production bays (destinations only) or outside "
+     "the building; reachable=false + reason means no route under these rules — tell the user so.", "input_schema": {"type": "object", "properties": {
          "start": PLACE, "destination": PLACE, "via": {"type": "array", "items": PLACE}},
          "required": ["start", "destination"]}},
     {"name": "tour", "description": "Visit several places in the given order.", "input_schema": {
@@ -517,11 +533,13 @@ TOOL_DEFINITIONS: list[dict] = [
          "required": ["kind", "params"]}},
     {"name": "set_profile", "description": "Remember the user's mobility constraints for every later route. "
      "preset: wheelchair or pram = step-free + doors ≥ 0.8 m (assumed); trolley = step-free, also give "
-     "min_door_width_m (ask if unknown); no_lifts; default = clear all constraints. A preset changes only its own "
+     "min_door_width_m (ask if unknown); no_lifts; forklift = openings ≥ 3 m, no stairs, no pedestrian walkways; "
+     "default = clear all constraints. A preset changes only its own "
      "fields; explicit fields override it. The result lists assumed values: name them to the user.",
      "input_schema": {"type": "object", "properties": {
          "preset": {"type": "string", "enum": list(PRESETS)}, "step_free": {"type": "boolean"},
-         "min_door_width_m": {"type": "number"}, "avoid_lifts": {"type": "boolean"}}}},
+         "min_door_width_m": {"type": "number"}, "avoid_lifts": {"type": "boolean"},
+         "forklift": {"type": "boolean"}}}},
     {"name": "propose_change", "description": "Prepare (not apply) a building change and predict its effect: the "
      "last route before/after and, from that route's start, rooms that lose access and routes that get longer. "
      "Show the summary to the user and apply only after they confirm.", "input_schema": {

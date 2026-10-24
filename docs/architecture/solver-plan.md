@@ -113,6 +113,17 @@ parser has a template per warm-up kind and `solve()` answers them (VERIFIED 2026
 All 10 misses are texts naming a room that several rooms share (OSM duplicates such as "Büro"); the parser picks
 the first candidate. The LLM parser knows these kinds too: 12/12 on reworded dev questions (live, 2026-10-24).
 
+<a id="sunday-routes"></a>
+## Sunday route questions (Q-014) — implemented, model choice open
+Route answers are scored as an ordered space list, re-measured with the organisers' rule. Our route path
+(`core/basic_parser.run_parsed` → `core/navigation.find_route` / `tour`) takes `model` and `rules`
+([route-model.md](../kit/route-model.md#sunday-route-model-and-route-rules-q-014)). Default stays the kit model
+without rules (warm-up gold 100 % with gold ids). For Sunday route questions use `model="geodesic",
+rules=SUNDAY_RULES` (+ `forklift=True` for forklift questions): on train/dev warm-up legs that scores 1.000 against
+0.930 for the kit model (0.984 with the rules) — `scripts/compare_route_models.py`. No route under the rules →
+`reachable: false`, reason starts "no route under these rules"; the answer must say so. Open: Q-014 (1)–(5),
+especially whether `outside` may be crossed (127 legs become unroutable without it).
+
 ## Answer formatting (all kinds)
 `core/formatter.py`: explanation lines, then `Answer: <number>[ unit]` (integers bare, else 2 decimals) or
 `Answer: <ref> (<name>)[, <area> m²]`. Never a ref on a number line

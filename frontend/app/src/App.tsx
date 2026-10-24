@@ -3,11 +3,13 @@
 // same view works when the conversation happens by voice through /v1/chat/completions.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api, type Building, type PointCloud, type SessionSummary, type UiEvent } from './api'
+import { api, type Building, type ChatReply, type PointCloud, type SessionSummary, type UiEvent } from './api'
 import { cloudExtent, type SpaceSets } from './scene/BuildingCloud'
 import { Scene, type Focus } from './scene/Scene'
 import { useTheme } from './theme'
-import { Chat, type Message } from './ui/Chat'
+import type { RouteCardData } from './ui/cards/Cards'
+import { Chat, type Message, type SendOptions } from './ui/Chat'
+import { addStep, followUps, settle } from './ui/guideSteps'
 
 const DEFAULT_BUILDING = 'train/proc-campus-train-000'
 const POLL_MS = 1500
@@ -148,7 +150,7 @@ export default function App() {
             closed: reopen ? current.closed.filter((i) => !spaces.includes(i)) : [...new Set([...current.closed, ...spaces])],
             lost: [],
           }))
-          setMessages((current) => [...current, { role: 'note', text: `Applied · ${event.summary}` }])
+          setMessages((current) => [...current, { role: 'applied', text: event.summary }])
           if (event.summary.startsWith('add a door') && sessionId) api.points(sessionId).then(setCloud).catch(() => {})
         }
       }
@@ -185,21 +187,74 @@ export default function App() {
 
   // ---------- conversation ----------
 
-  const send = async (text: string) => {
-    if (!sessionId) return
-    setMessages((current) => [...current, { role: 'user', text }])
+  // The reply in progress is the one `live` message: steps stream into it, then the reply fills it in. (Change
+  // notes polled meanwhile may land after it.)
+  const updateLive = (update: (message: Message) => Message) =>
+    setMessages((current) => current.map((message) => (message.live ? update(message) : message)))
+
+  const routeCard = useCallback(
+    (turn: ChatReply): RouteCardData | undefined => {
+      const event = [...turn.events].reverse().find((item) => item.type === 'route')
+      if (!cloud || event?.type !== 'route' || !event.legs?.length) return undefined
+      const name = (id: string) => cloud.spaces[index.get(id) ?? -1]?.name ?? ''
+      const floors = [...new Set(event.legs.map((leg) => leg.floor).filter((floor): floor is string => Boolean(floor)))]
+      return {
+        key: ++nonce.current,
+        from: name(event.space_path[0]),
+        to: name(event.space_path[event.space_path.length - 1]),
+        length: event.length_m ?? null,
+        profile: event.profile ?? '',
+        floors,
+        legs: event.legs,
+        event,
+      }
+    },
+    [cloud, index],
+  )
+
+  const send = async (text: string, options: SendOptions = {}): Promise<ChatReply | null> => {
+    if (!sessionId) return null
+    setMessages((current) => [
+      ...current,
+      { role: 'user', text, photo: Boolean(options.photo) },
+      { role: 'guide', text: '', steps: [], live: true },
+    ])
     setPending(true)
+    let stepKey = 0
     try {
-      const turn = await api.chat(sessionId, text)
-      setMessages((current) => [...current, { role: 'guide', text: turn.reply }])
+      const turn = await api.chatStream(sessionId, text, {
+        ...options,
+        onStep: (step) => {
+          updateLive((message) => ({ ...message, steps: addStep(message.steps ?? [], step, stepKey++) }))
+          if (step.kind === 'tool_done') void poll() // the map moves while the Guide is still writing
+        },
+      })
       await poll()
-      setSummary(await api.session(sessionId))
+      const state = await api.session(sessionId)
+      setSummary(state)
+      const names = (ids: string[]) => ids.map((id) => cloud?.spaces[index.get(id) ?? -1]?.name).filter((n): n is string => Boolean(n))
+      updateLive((message) => ({
+        ...message,
+        live: false,
+        text: turn.reply,
+        spoken: turn.spoken,
+        steps: settle(message.steps ?? []),
+        route: routeCard(turn),
+        followups: followUps(turn, { names, stepFree: state.profile.step_free, pending: state.pending.length }),
+      }))
+      return turn
     } catch (reason) {
-      setMessages((current) => [...current, { role: 'note', text: `Something went wrong: ${String(reason)}` }])
+      setMessages((current) => [
+        ...current.filter((message) => !message.live),
+        { role: 'note', text: `Something went wrong: ${String(reason)}` },
+      ])
+      return null
     } finally {
       setPending(false)
     }
   }
+
+  const showRoute = (card: RouteCardData) => applyEvents([card.event])
 
   // ---------- view ----------
 
@@ -296,7 +351,15 @@ export default function App() {
         {cloud?.building.attribution && <div className="attribution muted">{cloud.building.attribution}</div>}
       </footer>
 
-      <Chat messages={messages} pending={pending} disabled={!sessionId || !cloud} onSend={send} />
+      <Chat
+        messages={messages}
+        pending={pending}
+        disabled={!sessionId || !cloud}
+        profile={summary?.profile.summary ?? null}
+        pendingChanges={summary?.pending ?? []}
+        onSend={send}
+        onShowRoute={showRoute}
+      />
     </div>
   )
 }

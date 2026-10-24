@@ -21,6 +21,21 @@ export type PointCloud = {
   closed?: string[]
 }
 
+/** core/directions.py: one turn-by-turn leg; `turn` is made at the start of the leg, relative to the way you face. */
+export type RouteLeg = {
+  kind: 'door' | 'connector' | 'exit' | 'arrive'
+  to: string
+  to_id: string
+  floor: string | null
+  distance_m: number
+  turn: 'straight' | 'left' | 'right' | 'back'
+  turn_deg: number | null
+  via?: string
+  via_kind?: string
+  up?: boolean
+  floors?: number
+}
+
 export type RouteEvent = {
   type: 'route'
   space_path: string[]
@@ -28,6 +43,7 @@ export type RouteEvent = {
   length_m?: number
   profile?: string
   vertices?: [number, number, number, number][] // x, y, z, floor index (viewer frame)
+  legs?: RouteLeg[]
 }
 export type HighlightEvent = { type: 'highlight'; space_ids: string[]; style?: 'lost_access' }
 export type ChangeEvent = { type: 'change'; summary: string; targets: string[]; space_ids?: string[] }
@@ -38,7 +54,16 @@ export type ChatReply = {
   tool_calls: { name: string; input: Record<string, unknown> }[]
   events: UiEvent[]
   ungrounded: string[]
+  spoken?: string | null
 }
+
+/** Live progress of a turn (POST /chat/stream): a tool starting / finishing, or a self-check re-run. */
+export type ChatStep =
+  | { kind: 'tool'; name: string; input: Record<string, unknown> }
+  | { kind: 'tool_done'; name: string; ok: boolean }
+  | { kind: 'check'; name: 'profile' | 'grounding' }
+
+export type ChatOptions = { channel?: 'text' | 'voice'; photo?: string; onStep?: (step: ChatStep) => void }
 
 export type SessionSummary = {
   session_id: string
@@ -75,6 +100,36 @@ export const api = {
   points: (id: string) => request<PointCloud>(`/sessions/${id}/points`),
   chat: (id: string, message: string) =>
     request<ChatReply>('/chat', { method: 'POST', body: JSON.stringify({ session_id: id, message }) }),
+  chatStream,
   events: (id: string, after: number) =>
     request<{ events: UiEvent[]; next: number }>(`/events?session_id=${encodeURIComponent(id)}&after=${after}`),
+}
+
+/** One Guide turn over NDJSON: `onStep` fires while tools run, the promise resolves with the /chat payload. */
+async function chatStream(id: string, message: string, options: ChatOptions = {}): Promise<ChatReply> {
+  const response = await fetch(BASE + '/chat/stream', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ session_id: id, message, channel: options.channel ?? 'text', photo: options.photo }),
+  })
+  if (!response.ok || !response.body) {
+    const detail = await response.text().catch(() => '')
+    throw new Error(`${response.status} /chat/stream: ${detail.slice(0, 200)}`)
+  }
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    buffer += value ?? ''
+    const lines = buffer.split('\n')
+    buffer = done ? '' : lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line.trim()) continue
+      const item = JSON.parse(line) as { type: string } & Record<string, unknown>
+      if (item.type === 'step') options.onStep?.(item as unknown as ChatStep)
+      else if (item.type === 'reply') return item as unknown as ChatReply
+      else if (item.type === 'error') throw new Error(String(item.detail))
+    }
+    if (done) throw new Error('the reply stream ended early')
+  }
 }

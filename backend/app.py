@@ -3,7 +3,8 @@
   GUIDE_LLM=offline uv run uvicorn backend.app:app --port 8765
 
 Endpoints: /health, /buildings, /sessions (create, inspect, switch building), /sessions/{id}/points (point-cloud
-export of the session's current building, gzipped), /chat, /events (polling cursor for the map UI; route events
+export of the session's current building, gzipped), /chat, /chat/stream (the same turn as NDJSON: live tool steps,
+then the reply), /events (polling cursor for the map UI; route events
 carry `vertices`, change events `space_ids`) and the OpenAI-compatible /v1/chat/completions for ElevenLabs
 (backend/openai_compat.py).
 Guide turns are blocking (tool loop + LLM calls), so those endpoints are plain `def` and run in FastAPI's
@@ -14,7 +15,10 @@ On Vercel (vercel.json) the app is the `api` service behind the rewrite `/api/(.
 through, so every route is also reachable under `/api` (StripPrefix). CORS_ORIGINS (comma-separated) restricts
 cross-origin callers; the default `*` is for local development, the deployed frontend is same-origin."""
 
+import json
 import os
+import queue
+import threading
 
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,7 +26,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from agent.guide import llm_mode
+from agent.guide import PHOTO_TYPES, llm_mode
 from backend import openai_compat, persistence
 from backend.sessions import DEFAULT_SESSION, Conversation, SessionStore, UnknownBuilding, summary
 
@@ -62,6 +66,11 @@ class SwitchBuilding(BaseModel):
 class ChatRequest(BaseModel):
     session_id: str
     message: str
+    channel: str = "text"  # "voice": spoken-style reply, also returned as `spoken` (agent/speech.py)
+    photo: str | None = None  # data URL (jpeg/png/webp) from the camera walk mode, shown to the Guide for one turn
+
+
+PHOTO_MAX_CHARS = 1_500_000  # base64 of a ~1.1 MB image; the app sends ~1280 px JPEGs well below this
 
 
 def conversation_or_404(session_id: str) -> Conversation:
@@ -86,6 +95,7 @@ def turn_payload(conversation: Conversation, turn: object) -> dict:
         "tool_calls": [{"name": call["name"], "input": call["input"]} for call in turn.tool_calls],
         "events": conversation.view.enrich(conversation.session, turn.events, first_index),
         "ungrounded": turn.ungrounded,
+        "spoken": turn.spoken,
     }
 
 
@@ -130,9 +140,64 @@ def switch_building(session_id: str, body: SwitchBuilding) -> dict:
 def chat(body: ChatRequest) -> dict:
     conversation = conversation_or_404(body.session_id)
     with conversation.lock:
-        turn = conversation.guide.reply(body.message)
+        turn = conversation.guide.reply(body.message, channel=channel_or_422(body.channel),
+                                        photo=photo_or_422(body.photo))
         save_or_409(conversation)
         return turn_payload(conversation, turn)
+
+
+def photo_or_422(photo: str | None) -> dict | None:
+    if photo is None:
+        return None
+    header, _, data = photo.partition(",")
+    media_type = header.removeprefix("data:").removesuffix(";base64")
+    if not header.startswith("data:") or not header.endswith(";base64") or media_type not in PHOTO_TYPES or not data:
+        raise HTTPException(422, f"photo must be a base64 data URL of type {', '.join(PHOTO_TYPES)}")
+    if len(data) > PHOTO_MAX_CHARS:
+        raise HTTPException(413, "photo is too large; send a smaller image")
+    return {"media_type": media_type, "data": data}
+
+
+def channel_or_422(channel: str) -> str:
+    if channel not in ("text", "voice"):
+        raise HTTPException(422, "channel must be 'text' or 'voice'")
+    return channel
+
+
+@app.post("/chat/stream")
+def chat_stream(body: ChatRequest) -> StreamingResponse:
+    """One turn as NDJSON lines: {"type": "step", …} per tool call or check while the Guide works (the map can
+    poll /events on each `tool_done`), then {"type": "reply", …the /chat payload} or {"type": "error", "detail"}."""
+    conversation = conversation_or_404(body.session_id)
+    channel, photo = channel_or_422(body.channel), photo_or_422(body.photo)
+    lines: queue.Queue[dict | None] = queue.Queue()
+
+    def work() -> None:
+        try:
+            with conversation.lock:
+                conversation.guide.on_step = lambda step: lines.put({"type": "step", **step})
+                try:
+                    turn = conversation.guide.reply(body.message, channel=channel, photo=photo)
+                finally:
+                    conversation.guide.on_step = None
+                try:
+                    store.save(conversation)
+                except persistence.Conflict:
+                    lines.put({"type": "error", "detail": "this conversation was updated elsewhere meanwhile; "
+                                                          "send the message again"})
+                    return
+                lines.put({"type": "reply", **turn_payload(conversation, turn)})
+        except Exception as error:  # the stream has started: report instead of a status code
+            lines.put({"type": "error", "detail": f"{type(error).__name__}: {error}"[:300]})
+        finally:
+            lines.put(None)
+
+    def stream():
+        threading.Thread(target=work, daemon=True).start()
+        while (line := lines.get()) is not None:
+            yield json.dumps(line, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 
 @app.get("/events")

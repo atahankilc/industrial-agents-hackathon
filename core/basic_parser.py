@@ -20,6 +20,7 @@ from core import navigation
 from core.building_map import BuildingMap, MapError
 from core.navigation import resolve_asset_type
 from core.question_parser import ANSWER_INSTRUCTION, ParseError, Resolver, normalise
+from core.route_models import KIT, NO_RULES, RouteRules
 
 FLOOR_NAME = r"Ground floor|Floor -?\d+|Basement \d+"
 # A place: "<name> (<floor name>)" as the generator writes it, or a bare name/ref (looser phrasings).
@@ -144,8 +145,18 @@ class BasicResolver(Resolver):
             raise ParseError(f"Unknown closed element '{name}': {error}") from error
 
 
-def run_parsed(parsed: ParsedBasic, building: BuildingMap, include_steps: bool = True) -> dict:
-    """Execute a parsed warm-up question with core/navigation.py; returns the tool result as a dict."""
+def run_parsed(
+    parsed: ParsedBasic,
+    building: BuildingMap,
+    include_steps: bool = True,
+    model: str = KIT,
+    rules: RouteRules = NO_RULES,
+) -> dict:
+    """Execute a parsed warm-up question with core/navigation.py; returns the tool result as a dict.
+
+    `model`/`rules` (core/route_models.py): kit model without rules reproduces the warm-up gold answers; Sunday
+    route questions use `model="geodesic", rules=SUNDAY_RULES` (+ `forklift`) once Q-014 is answered. No route
+    under the rules → `reachable: false` with a reason starting "no route under these rules"."""
     params = parsed.params
     if parsed.kind == "locate":
         return navigation.locate(building, str(params.get("asset_type") or params["query"])).to_dict()
@@ -155,18 +166,21 @@ def run_parsed(parsed: ParsedBasic, building: BuildingMap, include_steps: bool =
     closed = (str(params["closed"]),) if "closed" in params else ()
     if parsed.kind == "tour":
         return navigation.tour(
-            building, params["stops"], step_free=step_free, closed=closed, include_steps=include_steps  # type: ignore[arg-type]
+            building, params["stops"], step_free=step_free, closed=closed, include_steps=include_steps,  # type: ignore[arg-type]
+            model=model, rules=rules,
         ).to_dict()
     return navigation.find_route(
         building, str(params["start"]), str(params["destination"]), step_free=step_free, closed=closed,
-        include_steps=include_steps,
+        include_steps=include_steps, model=model, rules=rules,
     ).to_dict()
 
 
-def answer_basic(text: str, building: BuildingMap, include_steps: bool = True) -> tuple[ParsedBasic, dict]:
+def answer_basic(
+    text: str, building: BuildingMap, include_steps: bool = True, model: str = KIT, rules: RouteRules = NO_RULES
+) -> tuple[ParsedBasic, dict]:
     """Question text → (parse, navigation result). Raises ParseError / MapError."""
     parsed = parse_basic(text, building)
-    return parsed, run_parsed(parsed, building, include_steps)
+    return parsed, run_parsed(parsed, building, include_steps, model, rules)
 
 
 __all__ = ["ParseError", "ParsedBasic", "answer_basic", "parse_basic", "run_parsed"]

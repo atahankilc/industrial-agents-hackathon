@@ -59,7 +59,7 @@ def test_trolley_preset_asks_for_the_width(session):
 
 
 def test_bad_preset_and_width_are_errors(session):
-    assert "Unknown preset" in session.call("set_profile", {"preset": "forklift"})["error"]
+    assert "Unknown preset" in session.call("set_profile", {"preset": "hovercraft"})["error"]
     assert "error" in session.call("set_profile", {"min_door_width_m": -1})
     assert session.profile == RoutingProfile()
 

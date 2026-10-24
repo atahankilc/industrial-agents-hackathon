@@ -10,6 +10,18 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Merge `origin/dev` into `1-agentic-yarag` (Utku's session)
+
+- **Did:** merged dev's 3 commits (Sunday geodesic route model + route rules, handoff, AI layer: live steps, cards,
+  voice orb, camera photo turns). Code conflicts: `Guide.__init__` keeps the rewriter and `on_step`; `agent/tools.py`
+  imports both `places` and `route_models`, `tool_tour` resolves stops and passes `model`/`rules`. Not flagged by
+  git: `destination_options` (route fan-out) now also passes `model`/`rules`, so option lengths obey the route
+  rules. `Guide.reply` auto-merged in the right order (rewrite → note → voice style → photo).
+- **Docs:** solver-plan keeps both the warm-up-kinds and the Sunday-routes sections; Q-014 takes dev's progress
+  (it implemented the branch's open details) plus a Q-015 link.
+- **Checks:** `uv run pytest -q` 301 passed, 1 skipped; live `scripts/live_guide.py` (Sonnet 5.5 low) 7 turns, all
+  end_turn, 0 ungrounded, $0.057.
+
 ## 2026-10-24 — Voice transcript rewriter (D-013) (Utku's session)
 
 - **Did:** `agent/rewriter.py`: `TranscriptRewriter` (claude-haiku-5-5, effort low, JSON schema, building vocabulary
@@ -49,6 +61,29 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Next:** port v1 strengths (name resolution / candidate fan-out, grounding fallback, voice transcript rewriter)
   into `agent/guide.py`; then retire one stack.
 
+## 2026-10-24 — AI layer of the app: live steps, cards, voice orb, camera walk mode
+
+- **Did:** (parallel to another session's visual concepts in `frontend/prototypes/twin-lab/`; file split agreed by
+  message: this session owns `src/ui/Chat.tsx`, `src/ui/cards/`, `src/voice/`, the orb, the camera view, `chat.css`,
+  `/chat/stream`.) Backend: `Guide.on_step` callback + `POST /chat/stream` (NDJSON steps → reply), `channel` and
+  `photo` on `/chat`, photo shown for one turn then replaced by a text placeholder, `core/directions.py` turn-by-turn
+  legs on route events. Frontend: live tool checklist, route card (steps, show on map, walk with camera), pending
+  change card (Apply / Keep as is → plain messages to the Guide), applied note, profile chip, follow-up chips,
+  voice mode (browser SpeechRecognition + speechSynthesis, canvas point-cloud orb, EN/DE/TR, hands-free), camera
+  walk mode (rear camera, floor arrow, spoken steps, "Where am I?" sends a frame, mic for next/back/repeat or a
+  question).
+- **Learned:** Starlette GZip flushes streamed chunks (Z_SYNC_FLUSH), so NDJSON is live behind it; `.chat` has
+  `backdrop-filter`, so the full-screen camera view must be portalled to `body`. Live Opus 5.5 photo turn: read the
+  sign "3.07 Meeting room", confirmed it with `search`, highlighted it; 5.2 s, 0 ungrounded.
+- **Changed docs:** [commands.md](../docs/guides/commands.md#backend-guide-api), [project-state.md](project-state.md).
+- **Then (Atahan: "no feedback, looks cheap"):** orb rebuilt in WebGL (three.js points, simplex-noise shader, rim +
+  depth fade, CSS glow driven by the level); always visible (large in the empty chat, small in the composer); voice
+  mode became a stage (orb, live transcript, Guide steps, spoken reply as captions); recognition never fails
+  silently (per-error messages, "didn't catch that"); the mic meter starts only on `audiostart`, and an
+  `audio-capture` error retries once without it (a parallel mic stream cost recognition the device in Chrome with a
+  fake device). Optional `--accent` (fallback `--ink`) for the other session's HUD tokens.
+- **Next:** test voice + camera on a phone over HTTPS (deployed URL); ElevenLabs can replace `useVoice` later.
+
 ## 2026-10-24 — Vercel deploy config
 
 - **Did:** `vercel.json` (services `web` = Vite `frontend/app/` and `api` = FastAPI `backend.app:app`, `/api/(.*)`
@@ -59,13 +94,36 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Changed docs:** [commands.md](../docs/guides/commands.md#deploy-vercel), [project-state.md](project-state.md#next-priorities).
 - **Next:** Atahan imports the repo into Vercel and sets the env vars; pushing `dev` needs Atahan's OK.
 
+## 2026-10-24 — Handoff: app deployed, frontend polish next
+
+- **Did:** Recorded that Atahan has deployed the app; reordered project-state "Do next": frontend polish first
+  (next session), Q-014 organiser follow-up and Q-001 output format parked by Atahan's choice; listed the small
+  gaps (numpy undeclared, `route_model` not persisted, no live smoke test yet).
+- **Next:** frontend polish ([project-state](project-state.md#-start-here-handoff-for-the-next-session-2026-10-24-evening)).
+
+## 2026-10-24 — Q-014: second route model (geodesic) + route rules
+
+- **Did:** `core/geodesic.py` (in-space door-to-door distance, polygon shrunk 0.15 m, visibility graph; subagent),
+  `core/route_models.py` (`kit` | `geodesic` per call, height-based stair/lift costs, `RouteRules`: production bays
+  destination-only, no outside shortcut, forklift; `sequence_length` = organiser-style re-measure), wired into
+  `core/navigation.py`, `core/basic_parser.run_parsed` and `agent/tools.py` (rules always on, `forklift` preset,
+  `route_model` attribute). `scripts/compare_route_models.py`; tests `tests/test_geodesic.py`,
+  `tests/test_route_models.py`. Gave Atahan the 5 organiser questions as a Discord message.
+- **Learned:** on 1,457 warm-up legs the models pick different sequences in 115 (7.9 %); kit answers would score
+  0.930 mean (0.984 with the rules), worst legs = kit lift vs new-rule stairs (score 0.36). 202 kit legs pass
+  `outside`; 127 have no route without it (Swiss stair blocks) — the outside question decides a lot. No warm-up
+  route crosses a production bay. Kit default unchanged: warm-up 2120/2130, solvers 655/655.
+- **Changed docs:** route-model.md (new section), solver-plan.md (Sunday routes), routing-profiles.md (forklift
+  preset), Q-014 progress, project-state.
+- **Next:** organiser answers → switch Sunday route questions to geodesic + rules.
+
 ## 2026-10-24 — Organiser route-scoring rules (Discord) → Q-014; session handoff
 
 - **Did:** Analysed the organisers' Discord note on how route answers are scored and compared it with our model
   and the data → [Q-014](open-questions.md#q-014) (door-to-door geodesic distance, height-based stair/lift costs,
   production bays destination-only, forklift ≥ 3 m, likely no `outside` shortcut, score = best ÷ ours). Warning added
   to [route-model.md](../docs/kit/route-model.md). Wrote the handoff in
-  [project-state.md](project-state.md#-start-here-handoff-for-the-next-session-2026-10-24-1530).
+  [project-state.md](project-state.md#-start-here-handoff-for-the-next-session-2026-10-24-evening).
 - **Learned:** under the new costs the stairs-vs-lift choice can flip; any route through a production bay would
   score 0; whether `errand` distances change too is the key question for the organisers.
 - **Next:** Q-014 implementation (see project-state).

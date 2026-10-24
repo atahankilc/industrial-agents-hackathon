@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-24** (merge of `origin/main` into `1-agentic-yarag`: both stacks side by side)
+[Memory bank](README.md) · Last updated: **2026-10-24** (`origin/dev` merged into `1-agentic-yarag`: Sunday route model, AI layer, plus the branch's place resolution, grounding and voice transcript rewriter)
 
 ## Phase
 
@@ -61,6 +61,12 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   emergence + scan, route flow, highlight / closure / lost-access states, floor solo + separation, camera fly-to,
   chat panel; light/dark. Backend serves `GET /sessions/{id}/points` (`core/pointcloud.py`) and enriches route /
   change events. Verified in Chrome with the offline Guide ([commands.md](../docs/guides/commands.md#frontend-app)).
+- **AI layer of the app** (2026-10-24): `POST /chat/stream` live tool steps, route/change cards, follow-up chips,
+  voice mode with the orb (browser speech, `frontend/app/src/voice/useVoice.ts`), camera walk mode with turn-by-turn
+  legs (`core/directions.py`) and "Where am I?" photo turns (`Guide.reply(photo=…)`, one turn only). Verified
+  headless in Chrome (offline Guide, fake camera) and one live Opus photo turn; WebGL orb + voice stage with
+  explicit recognition errors. Real-mic recognition and phone camera not yet confirmed (automation can't feed
+  Chrome's speech service).
 - **Profiles:** `set_profile` presets (wheelchair, pram, trolley, no_lifts, default) + deterministic cue safety net
   in the Guide (`tests/test_profiles.py`); live Sonnet run uses the preset itself.
 - **Voice replies:** `Guide.reply(…, channel="voice")` (used by `/v1/chat/completions`): spoken-style system
@@ -102,52 +108,54 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - none (D-006 zero-cost stack accepted 2026-10-24).
 - [Q-002](open-questions.md#q-002) times — Atahan will provide.
 
-## ▶ Start here (handoff for the next session, 2026-10-24 ~15:30)
+## ▶ Start here (handoff for the next session, 2026-10-24 evening)
 
-**Git (`dev`, not pushed — ask Atahan before pushing; never commit on `main`):** latest commits
-`188abd3` conversation persistence · `dc058f8` Sunday hardening · `46321b5` voice-ready replies · `89070ba` frontend app + point-cloud API + profile
-presets · `ed5f6c1` live Guide check · `a4e3efb` Guide loop + backend. All via `/ship` (verifier PASS).
+**Git (`dev`, not pushed — ask Atahan before pushing; never commit on `main`):** latest commits — the Q-014 route
+model commit (this session) · `ec1b33e` Vercel deploy config (+ the Q-014 handoff) · `188abd3` conversation
+persistence · `dc058f8` Sunday hardening · `46321b5` voice-ready replies. All via `/ship` (verifier PASS).
 
-**Deployment work (no longer uncommitted):** the conversation persistence on Supabase (`backend/persistence.py`,
-`supabase/`, `tests/test_persistence.py`, …) was committed as `188abd3`. The Vercel deploy config (`vercel.json`,
-`StripPrefix` / `CORS_ORIGINS` in `backend/app.py`, `tests/test_deploy.py`, the commands.md deploy section) lands in
-the commit after it, and this handoff (Q-014 in `open-questions.md`, the warning in `docs/kit/route-model.md`, this
-section and its `log.md` entry) ships together with that deploy commit.
+**Deployment work:** committed (`188abd3` Supabase persistence, `ec1b33e` Vercel config: `vercel.json`,
+`StripPrefix` / `CORS_ORIGINS` in `backend/app.py`, `tests/test_deploy.py`, commands.md deploy section). **The app
+is deployed** (Atahan, 2026-10-24; public URL not recorded here, no smoke test by Claude yet).
 
 **What works:** benchmark dev 138/138, train 515/517 (2 irreducible Q-006); parser hybrid 31/31 on paraphrases;
-Guide live on Opus 5.5 / Sonnet 5.5 (grounding check, confirm-before-apply, profile presets + cue safety net, voice
-channel); FastAPI backend (`/chat`, `/events`, `/sessions/{id}/points`, OpenAI-compatible streaming
-`/v1/chat/completions` speaking); React app `frontend/app/` (monochrome point cloud, D-011). `uv run pytest` 147
-passed (+ Atahan's persistence tests) before the merge; after merging `1-agentic-yarag`: 258 passed, 1 skipped. API spend ≈ $1.4 of $150.
+Guide live on Opus 5.5 / Sonnet 5.5; FastAPI backend; React app `frontend/app/` (D-011). **New:** second route model
+`geodesic` (door-to-door, 0.15 m off walls, height-based stair/lift costs) + route rules (production bays
+destination-only, no outside shortcut, forklift preset) — selectable per call, kit model stays default
+([route-model.md](../docs/kit/route-model.md#sunday-route-model-and-route-rules-q-014)). Guide routes always obey
+the rules. `uv run pytest` 182 passed, 1 skipped (dev); 301 passed, 1 skipped after merging into `1-agentic-yarag`. API spend ≈ $1.4 of $150.
 
 **Running locally (may still be up):** backend `uvicorn backend.app:app --port 8765` (real Claude), Vite on
 `:5181` (port 5173 is another local project). Restart commands: [commands.md](../docs/guides/commands.md#frontend-app).
 
-**▶ Do next, in order:**
-1. **[Q-014](open-questions.md#q-014) — new Sunday route scoring rule (HIGH).** Send Atahan the 5 organiser
-   questions (draft in Q-014), then build the second route model + production-bay / forklift / no-outside rules and
-   measure sequence differences on train/dev. Stays in `core/` + `agent/` (not his deploy files).
-2. Help finish the deploy if Atahan asks (Vercel: Vite frontend + FastAPI, `/api` rewrite or `VITE_API_BASE`).
-3. ElevenLabs Custom LLM wiring once there is a public URL (ask before creating anything in any account).
-4. Frontend: phone-layout check, demo GIF (needs the Chrome extension; it was disconnected), bundle split.
-5. Open for Atahan: model per channel (Q-012; proposal Opus 5.5 medium for text, Sonnet 5.5 low for voice), team
-   name for the test CSV, push `dev`.
+**▶ Do next, in order (Atahan's call 2026-10-24: frontend polish next session; Q-014 and Q-001 parked):**
+1. **Frontend polish** (`frontend/app/`): phone-layout check, demo GIF (needs the Chrome extension), bundle split,
+   closure ripple for edits, narrow doors for the active profile, draw geodesic in-space polylines
+   (`core.geodesic.space_path`) instead of straight door-to-door lines.
+2. Parked until Atahan picks them up: [Q-014](open-questions.md#q-014) organiser answers → switch Sunday route
+   questions to `model="geodesic", rules=SUNDAY_RULES` (decide `no_outside`: 127 warm-up legs become unroutable
+   without outside; start/end convention; aisle/walkway/bay markers; errand on geodesic if the rule covers it);
+   Sunday output format ([Q-001](open-questions.md#q-001)) incl. the "no route under these rules" wording.
+3. Small gaps: `numpy` used by `core/geodesic.py` but not declared in `pyproject.toml` (transitive via shapely;
+   Atahan's file); `BuildingSession.route_model` is not saved by `backend/persistence.py` (irrelevant while the app
+   stays on the kit model); live smoke test of the deployed app (needs the URL).
+4. ElevenLabs Custom LLM on the deployed `/v1/chat/completions` — ask before creating anything in any account.
+5. Open for Atahan: model per channel (Q-012), team name for the test CSV, push `dev`.
 
 **Ways of working:** session protocol in CLAUDE.md; keep `.claude/worklog/PENDING.md` current; commit only via
 `/ship`, staging/stamp/commit as separate commands; subagents get disjoint files.
 
 ## Next priorities
 
-1. Voice: ElevenLabs Custom LLM on `/v1/chat/completions` (replies are voice-ready) — needs the public deploy
-   (Atahan working on it); ask before creating anything in any account. Decide model per channel (Q-012).
-2. Frontend polish: phone layout check, closure ripple for edits, narrow doors for the active profile, run against
+1. Frontend polish (next session): phone layout check, closure ripple for edits, narrow doors for the active profile, run against
    the real Guide (key set) and record a demo GIF/video.
-3. Deploy: Supabase ✅ (project created, `conversations` table applied, sessions persisted via
+2. Voice: ElevenLabs Custom LLM on the deployed `/v1/chat/completions` (replies are voice-ready); ask before
+   creating anything in any account. Decide model per channel (Q-012).
+3. Deploy ✅ (deployed by Atahan 2026-10-24): Supabase ✅ (project created, `conversations` table applied, sessions persisted via
    `backend/persistence.py`, live round trip incl. real Claude verified 2026-10-24). Vercel config ✅ (`vercel.json`
    with services `web` + `api`, `/api` rewrite, `excludeFiles`, `maxDuration` 300; `StripPrefix` and `CORS_ORIGINS`
-   in `backend/app.py`; `tests/test_deploy.py`; `uv run pytest` 162 passed, 1 skipped). Next: Atahan imports the repo
-   into Vercel and sets the env vars (`ANTHROPIC_API_KEY`, `SUPABASE_DB_URL`), then smoke-test; the first-deploy
-   UNVERIFIED items are listed in [commands.md](../docs/guides/commands.md#deploy-vercel).
+   in `backend/app.py`; `tests/test_deploy.py`). Remaining: smoke-test the live URL; the first-deploy UNVERIFIED
+   items are listed in [commands.md](../docs/guides/commands.md#deploy-vercel).
 4. Preference extraction, remaining TODO: group composition (P20), profile lifetime/reset scope, persistence,
    soft penalties → [TODO](../docs/product/routing-profiles.md#todo-preference-extraction).
 5. Sunday hardening: wording robustness ✅ (hybrid 31/31 on paraphrases), Swiss `straight_line_3d` ✅ (generator

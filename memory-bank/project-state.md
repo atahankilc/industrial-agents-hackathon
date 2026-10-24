@@ -20,7 +20,7 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 |---|---|---|
 | 0 Foundation | docs, memory bank, CLAUDE.md | ✅ 2026-10-24 |
 | 1 Core + solvers | per-kind solvers verified on train+dev `inputs` | ✅ 2026-10-24, all rows VERIFIED in [solver-plan](../docs/architecture/solver-plan.md) |
-| 2 Benchmark runner | question text → solver → `Answer:` reply; dev score via `benchmark.evaluate`; test CSV | ✅ 2026-10-24: dev 138/138; test CSV at `submissions/test_submission.csv` (renaming to `team_<name>.csv` waits on the team name) |
+| 2 Benchmark runner | question text → solver → `Answer:` reply; dev score via `benchmark.evaluate`; test CSV | ✅ 2026-10-24: dev 138/138; test CSV at `submissions/team_jaRAG.csv` (team name jaRAG) |
 | 3 Agent + interaction | conversational agent with clarifications, directions, closures, edits | scripted tricky-user conversation works |
 | 4 App/UI + voice | 2D view with route, then stacked floors; voice | demoable |
 | 5 Build + extend | plan → building (L4), one add-in (L5) | demoable |
@@ -57,6 +57,9 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - `run_benchmark <building_dir> <questions> <answers>` (`agent/run_benchmark.py`, `[project.scripts]`): .jsonl/.json/.csv
   in; .csv (submission) or .json (reply + ids + solver result) out. Test CSV = 145 rows, same ids as
   `submission_template.csv`, replies identical to `benchmark.evaluate --submission-csv` (`tests/test_run_benchmark.py`).
+- Route paths: `BuildingMap.route()` gives per-leg `space_path` + `element_path` in the warm-up answer format,
+  exact on all 1,338 train+dev warm-up route/step-free/closure/tour questions (`tests/test_routes.py`); errand
+  returns its 2 legs; `run_benchmark` .json has `route` (20 test errands). Sunday format assumed = warm-up (Q-001).
 - `benchmark/score.py` parsing behaviour checked ([scoring.md](../docs/challenge/scoring.md#formatting-pitfalls-cost-real-points)).
 
 ## Pending decisions (Atahan)
@@ -78,8 +81,8 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 1. (Later, Atahan) Accounts per the zero-cost [stack checklist](../docs/research/stack-options.md#7-day-one-setup-checklist-human-actions--ask-before-creating-anything):
    Atahan signs up for Vercel + Supabase (free) and puts keys in `.env`; Claude then configures Vercel (frontend +
    FastAPI as Services) and the Supabase schema. First commit is pushed (`3300e6c`).
-2. Benchmark: done — `run_benchmark` ([BENCHMARK.md](../BENCHMARK.md)), `submissions/test_submission.csv` (145/145
-   answered). Open: route node ids in the structured output once the Sunday format is known ([Q-001](open-questions.md#q-001)).
+2. Benchmark: done — `run_benchmark` ([BENCHMARK.md](../BENCHMARK.md)), `submissions/team_jaRAG.csv` (145/145
+   answered). Route paths are in the .json output in the warm-up format; adjust once organisers answer [Q-001](open-questions.md#q-001) (message drafted there).
    Solvers are done; [Q-004](open-questions.md#q-004)/[Q-005](open-questions.md#q-005) stay open (rules match, few labels).
 3. In parallel: FastAPI skeleton + frontend skeleton (2D plan + route) deployed; Supabase schema.
 4. Routing profiles ([routing-profiles.md](../docs/product/routing-profiles.md)) + Guide agent + voice.

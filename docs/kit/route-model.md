@@ -46,9 +46,16 @@ lengths should match to the cm.
 
 ## Path representations in answers
 
-Warm-up route answers carry `space_path` (space ids only) and `element_path` (openings/connectors traversed;
-each opening appears **twice** — once entering the door node, once leaving it; connectors appear once). Tours
-have `legs`, each with its own paths. Example in [questions.md](questions.md#warm-up-questions).
+Warm-up route answers carry `space_path` (space ids, plus `"outside"` when the route leaves the building) and
+`element_path` (the `via` of every graph edge walked: each opening appears **twice** — space → door node, door
+node → space; a connector appears **once per floor segment**, e.g. `V08` five times from Floor 4 to Basement 1).
+On parallel edges the cheaper one is used. Tours have `legs`, each with its own paths. Example in
+[questions.md](questions.md#warm-up-questions).
+
+`BuildingMap.route()` returns the same per leg (`RouteResult.legs`, `RouteResult.element_path`); verified exact
+(length, `space_path`, `element_path`, unreachable cases) on all 1,338 train+dev warm-up route / step-free /
+closure / tour questions: `uv run pytest tests/test_routes.py -q -s` (2026-10-24). The errand solver returns its
+two legs in this format; `run_benchmark` puts them under `route` (Sunday format: [Q-001](../../memory-bank/open-questions.md#q-001)).
 
 ## Distances that are NOT the route model
 

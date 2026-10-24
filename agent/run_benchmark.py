@@ -6,7 +6,9 @@
 `building_id`. <questions> is .jsonl, .json (a list, or {"questions": [...]}) or .csv; each question needs an id
 (`id` or `question_id`) and its text (`question`). The <answers> extension picks the output: .csv writes the
 submission format (question_id,answer with the full reply); .json writes one object per question with the
-reply, its `Answer:` line, the question kind, the resolved ids and the solver's structured result."""
+reply, its `Answer:` line, the question kind, the resolved ids, the solver's structured result and, for
+routing kinds, `route` = {optimal_length_m, legs: [{from_space_id, to_space_id, optimal_length_m, space_path,
+element_path}]} in the warm-up answer format (Sunday format still open, Q-001)."""
 
 import argparse
 import csv
@@ -52,6 +54,15 @@ def write_answers(path: Path, answers: list[dict]) -> None:
         path.write_text(json.dumps(answers, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def route(result: dict | None) -> dict | None:
+    """Warm-up answer format (Q-001 working assumption): total length plus one path per stop-to-stop leg."""
+    if not result or "legs" not in result:
+        return None
+    total = result.get("total_m", sum(leg["optimal_length_m"] for leg in result["legs"]))
+    return {"optimal_length_m": round(total, 2),
+            "legs": result["legs"]}
+
+
 def run(root: Path, questions_path: Path, answers_path: Path) -> list[dict]:
     answers = []
     for question in load_questions(questions_path):
@@ -63,6 +74,7 @@ def run(root: Path, questions_path: Path, answers_path: Path) -> list[dict]:
             "kind": response.kind,
             "inputs": response.params,
             "result": response.result,
+            "route": route(response.result),
             "error": response.error,
         })
         status = "ok " if response.error is None else "ERR"

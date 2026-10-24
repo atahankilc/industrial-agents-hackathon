@@ -38,6 +38,8 @@ class RouteResult:
     steps: list[str]
     step_free: bool
     closed: list[str] = field(default_factory=list)
+    element_path: list[str] = field(default_factory=list)
+    legs: list[dict] = field(default_factory=list)
 
 
 class BuildingMap:
@@ -223,6 +225,7 @@ class BuildingMap:
         graph = self.graph(step_free)
         nodes: list[str] = []
         length = 0.0
+        legs = []
         for leg_start, leg_end in itertools.pairwise(stops):
             try:
                 leg_length, leg_nodes = nx.single_source_dijkstra(graph, leg_start, leg_end, weight="weight")
@@ -234,6 +237,7 @@ class BuildingMap:
                 ) from error
             length += leg_length
             nodes += leg_nodes if not nodes else leg_nodes[1:]
+            legs.append(self.leg(graph, leg_nodes, leg_length))
         result = RouteResult(
             start_space_id=stops[0],
             destination_space_id=stops[-1],
@@ -242,16 +246,34 @@ class BuildingMap:
             steps=self.directions(graph, nodes),
             step_free=step_free,
             closed=sorted(self.closed),
+            element_path=[element for leg in legs for element in leg["element_path"]],
+            legs=legs,
         )
         self.last_route = result
         return result
+
+    @staticmethod
+    def edge(graph: nx.MultiGraph, first: str, second: str) -> dict:
+        """The edge a shortest path uses between two nodes: the cheapest of any parallel ones (stair vs lift)."""
+        return min(graph[first][second].values(), key=lambda candidate: candidate["weight"])
+
+    def leg(self, graph: nx.MultiGraph, nodes: list[str], length: float) -> dict:
+        """One stop-to-stop leg in the warm-up answer format (questions_basic.jsonl `route` / `tour` legs):
+        `space_path` = spaces and "outside"; `element_path` = the opening or connector of every edge walked."""
+        return {
+            "from_space_id": nodes[0],
+            "to_space_id": nodes[-1],
+            "optimal_length_m": round(length, 2),
+            "space_path": [node for node in nodes if not node.startswith(DOOR_PREFIX)],
+            "element_path": [self.edge(graph, first, second)["via"] for first, second in itertools.pairwise(nodes)],
+        }
 
     def directions(self, graph: nx.MultiGraph, nodes: list[str]) -> list[str]:
         """Turn a node path into followable steps: one line per room change or floor change."""
         steps = [f"Start in {self.describe_space(nodes[0])}."]
         walked = 0.0
         for previous, current in itertools.pairwise(nodes):
-            edge = min(graph[previous][current].values(), key=lambda candidate: candidate["weight"])
+            edge = self.edge(graph, previous, current)
             walked += edge["weight"]
             element = edge["via"]
             if element in self.connectors:

@@ -125,9 +125,12 @@ def errand(bmap: BuildingMap, start: str, asset_type: str, floor_id: str, room_t
     second_leg = distances_from(graph, via).get(target)
     if second_leg is None:
         raise ValueError("target unreachable")
+    legs = [bmap.leg(graph, nodes, length)
+            for length, nodes in (nx.single_source_dijkstra(graph, start, via, weight="weight"),
+                                  nx.single_source_dijkstra(graph, via, target, weight="weight"))]
     return {"via": label(bmap, via), "target": label(bmap, target),
             "first_leg_m": round(first_leg, 2), "second_leg_m": round(second_leg, 2),
-            "total_m": round(first_leg + second_leg, 2)}
+            "total_m": round(first_leg + second_leg, 2), "legs": legs}
 
 
 def reachable_rooms(bmap: BuildingMap, start: str, floor_id: str, step_free: bool = True,

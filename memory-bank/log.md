@@ -10,6 +10,17 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Route paths in the warm-up format (Utku's session)
+
+- **Did:** cloned the organisers' repo to `upstream-challenge/` (read-only, push disabled, ignored via
+  `.git/info/exclude`) — identical to our kit copy. Read README §3–4: warm-up answers hold `space_path` and
+  `element_path`. Added `RouteResult.legs` / `.element_path` and `BuildingMap.leg()`; errand returns `legs`;
+  `run_benchmark` .json gets `route`. Submission renamed to `submissions/team_jaRAG.csv` (team name jaRAG).
+- **Result:** `tests/test_routes.py`: 1,338 / 1,338 warm-up route questions exact (length, both paths,
+  unreachable cases). `uv run pytest -q` → 30 passed. Test CSV unchanged; JSON has `route` for 20 errands.
+- **Open:** Q-001 — question for the organisers drafted there; Utku will ask. Warm-up kinds (route, tour,
+  locate…) have no parser templates/solvers yet in case Sunday asks them.
+
 ## 2026-10-24 — run_benchmark, BENCHMARK.md, test submission (Utku's session)
 
 - **Did:** `agent/run_benchmark.py` (+ `run_benchmark` script in pyproject); `agent/answer.py` now exposes

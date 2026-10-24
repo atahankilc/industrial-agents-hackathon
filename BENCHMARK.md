@@ -21,7 +21,7 @@ uv run --env-file .env run_benchmark <building_dir> <questions> <answers>
 |---|---|
 | `<building_dir>` | one building directory (contains `building.json`), or a split directory with one sub-directory per `building_id` |
 | `<questions>` | `.jsonl`, `.json` (a list or `{"questions": [...]}`) or `.csv`; each question needs `id` or `question_id`, and `question` (plus `building_id` when `<building_dir>` is a split) |
-| `<answers>` | `.csv` → submission format `question_id,answer` (full reply per question); `.json` → per question: `reply`, `answer` (the committed `Answer:` text), `kind`, `inputs` (resolved ids), `result` (solver output: room ids, distances, areas), `error` |
+| `<answers>` | `.csv` → submission format `question_id,answer` (full reply per question); `.json` → per question: `reply`, `answer` (the committed `Answer:` text), `kind`, `inputs` (resolved ids), `result` (solver output: room ids, distances, areas), `route` (routing kinds: `optimal_length_m` + `legs`, each with `space_path` and `element_path` in the warm-up answer format), `error` |
 
 Progress goes to stderr; the last line reports how many questions got no answer.
 
@@ -29,7 +29,7 @@ Progress goes to stderr; the last line reports how many questions got no answer.
 
 ```bash
 # public test set → the submission CSV (and the structured version)
-uv run --env-file .env run_benchmark data/test data/test/questions.csv submissions/test_submission.csv
+uv run --env-file .env run_benchmark data/test data/test/questions.csv submissions/team_jaRAG.csv
 uv run --env-file .env run_benchmark data/test data/test/questions.csv submissions/test_answers.json
 
 # one building with its questions
@@ -46,6 +46,7 @@ uv run --env-file .env run_benchmark data/dev/proc-campus-dev-001 data/dev/proc-
 
 ## Not covered yet
 
-- The PDF's Sunday output lists a route as ordered node ids; the `.json` output does not include route node ids
-  yet. The Sunday format is still to be announced
+- The PDF's Sunday output lists a route as ordered node ids. The `.json` output gives routes in the warm-up
+  answer format (`space_path` + `element_path` per leg, exact on all 1,338 train+dev warm-up routes); the exact
+  Sunday format is still to be announced
   ([Q-001](memory-bank/open-questions.md#q-001)).

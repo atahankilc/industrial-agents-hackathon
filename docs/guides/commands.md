@@ -44,9 +44,9 @@ Results: `agent_output/benchmark/<--name, default results>.jsonl` (question, exp
 ## Produce the test submission
 
 ```bash
-uv run --env-file .env run_benchmark data/test data/test/questions.csv submissions/test_submission.csv
+uv run --env-file .env run_benchmark data/test data/test/questions.csv submissions/team_jaRAG.csv
 # same replies via the kit evaluator (checked identical on 2026-10-24):
-uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answer:answer --submission-csv team_<name>.csv
+uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answer:answer --submission-csv submissions/team_jaRAG.csv
 ```
 
 Format rules: [scoring.md](../challenge/scoring.md#submission-format).

@@ -33,6 +33,26 @@ Template:
 - **Progress (2026-10-24):** `run_benchmark <building_dir> <questions> <answers>` exists
   ([BENCHMARK.md](../BENCHMARK.md)); `.json` output has reply, `Answer:` text, kind, resolved ids and solver
   result. Missing: route as ordered node ids.
+- **Progress (2026-10-24, upstream README §3–4):** the graph's nodes are spaces (anchor =
+  `representative_point()`), openings and one `"outside"` node. Warm-up route answers give the path as
+  `space_path` (space ids + `"outside"`) and `element_path` (the `via` of every edge walked: an opening id twice per
+  door, a connector id once per floor segment). `core.building_map` reproduces length, `space_path` and
+  `element_path` exactly on all 1,457 train+dev warm-up route/tour legs. **Working assumption until answered:**
+  Sunday routes use this warm-up format, one leg per stop-to-stop segment (as in `tour` answers).
+- **Still unknown:** (1) which of `space_path` / `element_path` Sunday wants and under which keys; (2) whether
+  Sunday questions are benchmark kinds, warm-up kinds (route, tour, locate…) or both; (3) multi-stop (errand,
+  tour): one combined path or per-leg; (4) route length tolerance; (5) is there an example `answers.json`.
+- **Message to send the organisers** (not sent yet; Utku will ask):
+  > Hi! Question about the Sunday benchmark output for Track 01. The README says the format will be announced
+  > with the release, and the PDF mentions an `answers.json` with the located item/room id, the route as an
+  > ordered list of node ids, and the route length. Could you clarify:
+  > 1. Should routes use the same fields as the warm-up answers in `questions_basic.jsonl` (`space_path` with
+  >    space ids + `"outside"`, and `element_path` with opening/connector ids), or a different node-id list?
+  > 2. Will the Sunday questions be like `questions.jsonl` (errand, largest_room, …), like
+  >    `questions_basic.jsonl` (route, tour, locate, …), or both?
+  > 3. For multi-stop questions (errand, tour): one combined path, or one path per leg as in the `tour` answers?
+  > 4. Is there an example `answers.json` (the PDF says it would be in the data folder)?
+  > Thanks!
 
 <a id="q-002"></a>
 ### Q-002 — When is code freeze and when is the Sunday building released?

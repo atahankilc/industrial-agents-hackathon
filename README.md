@@ -43,7 +43,7 @@ uv run pytest                                          # offline tests
 
 # Our agent on dev, then the test submission (function answer(building_directory, question_text) -> str)
 uv run --env-file .env python -m benchmark.evaluate data/dev --agent agent.answer:answer
-uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answer:answer --submission-csv team_<name>.csv
+uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answer:answer --submission-csv submissions/team_jaRAG.csv
 
 # One-command benchmark run (building or split dir, questions file, answers .csv or .json)
 uv run --env-file .env run_benchmark <building_dir> <questions> <answers>

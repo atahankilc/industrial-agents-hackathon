@@ -15,6 +15,7 @@
       "floor": "Floor 1",
       "area_m2": 162.33
     },
+    "route": null,
     "error": null
   },
   {
@@ -30,6 +31,7 @@
       "count": 5,
       "total_m2": 54.77
     },
+    "route": null,
     "error": null
   },
   {
@@ -59,7 +61,78 @@
       },
       "first_leg_m": 22.18,
       "second_leg_m": 29.74,
-      "total_m": 51.92
+      "total_m": 51.92,
+      "legs": [
+        {
+          "from_space_id": "osm-way363805324-F1-S010",
+          "to_space_id": "osm-way363805324-F1-S011",
+          "optimal_length_m": 22.18,
+          "space_path": [
+            "osm-way363805324-F1-S010",
+            "osm-way363805324-F1-S015",
+            "osm-way363805324-F1-S011"
+          ],
+          "element_path": [
+            "osm-way363805324-F1-O0018",
+            "osm-way363805324-F1-O0018",
+            "osm-way363805324-F1-O0019",
+            "osm-way363805324-F1-O0019"
+          ]
+        },
+        {
+          "from_space_id": "osm-way363805324-F1-S011",
+          "to_space_id": "osm-way363805324-F1-S002",
+          "optimal_length_m": 29.74,
+          "space_path": [
+            "osm-way363805324-F1-S011",
+            "osm-way363805324-F1-S015",
+            "osm-way363805324-F1-S002"
+          ],
+          "element_path": [
+            "osm-way363805324-F1-O0019",
+            "osm-way363805324-F1-O0019",
+            "osm-way363805324-F1-O0017",
+            "osm-way363805324-F1-O0017"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 51.92,
+      "legs": [
+        {
+          "from_space_id": "osm-way363805324-F1-S010",
+          "to_space_id": "osm-way363805324-F1-S011",
+          "optimal_length_m": 22.18,
+          "space_path": [
+            "osm-way363805324-F1-S010",
+            "osm-way363805324-F1-S015",
+            "osm-way363805324-F1-S011"
+          ],
+          "element_path": [
+            "osm-way363805324-F1-O0018",
+            "osm-way363805324-F1-O0018",
+            "osm-way363805324-F1-O0019",
+            "osm-way363805324-F1-O0019"
+          ]
+        },
+        {
+          "from_space_id": "osm-way363805324-F1-S011",
+          "to_space_id": "osm-way363805324-F1-S002",
+          "optimal_length_m": 29.74,
+          "space_path": [
+            "osm-way363805324-F1-S011",
+            "osm-way363805324-F1-S015",
+            "osm-way363805324-F1-S002"
+          ],
+          "element_path": [
+            "osm-way363805324-F1-O0019",
+            "osm-way363805324-F1-O0019",
+            "osm-way363805324-F1-O0017",
+            "osm-way363805324-F1-O0017"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -79,6 +152,7 @@
       "floor": "Ground floor",
       "overlap_m2": 57.74
     },
+    "route": null,
     "error": null
   },
   {
@@ -97,6 +171,7 @@
       "floor": "Floor 1",
       "overlap_m2": 39.16
     },
+    "route": null,
     "error": null
   },
   {
@@ -147,6 +222,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -161,6 +237,7 @@
     "result": {
       "distance_m": 21.16
     },
+    "route": null,
     "error": null
   },
   {
@@ -179,6 +256,7 @@
       "floor": "Floor 3",
       "area_m2": 115.03
     },
+    "route": null,
     "error": null
   },
   {
@@ -194,6 +272,7 @@
       "count": 26,
       "total_m2": 592.8
     },
+    "route": null,
     "error": null
   },
   {
@@ -223,7 +302,86 @@
       },
       "first_leg_m": 21.28,
       "second_leg_m": 55.06,
-      "total_m": 76.34
+      "total_m": 76.34,
+      "legs": [
+        {
+          "from_space_id": "osm-way43035346-F3-S016",
+          "to_space_id": "osm-way43035346-F3-S019",
+          "optimal_length_m": 21.28,
+          "space_path": [
+            "osm-way43035346-F3-S016",
+            "osm-way43035346-F3-S017",
+            "osm-way43035346-F3-S019"
+          ],
+          "element_path": [
+            "osm-way43035346-F3-O0075",
+            "osm-way43035346-F3-O0075",
+            "osm-way43035346-F3-O0153",
+            "osm-way43035346-F3-O0153"
+          ]
+        },
+        {
+          "from_space_id": "osm-way43035346-F3-S019",
+          "to_space_id": "osm-way43035346-F1-S002",
+          "optimal_length_m": 55.06,
+          "space_path": [
+            "osm-way43035346-F3-S019",
+            "osm-way43035346-F2-S009",
+            "osm-way43035346-F1-S022",
+            "osm-way43035346-F1-S016",
+            "osm-way43035346-F1-S002"
+          ],
+          "element_path": [
+            "osm-way43035346-V02",
+            "osm-way43035346-V02",
+            "osm-way43035346-F1-O0038",
+            "osm-way43035346-F1-O0038",
+            "osm-way43035346-F1-O0033",
+            "osm-way43035346-F1-O0033"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 76.34,
+      "legs": [
+        {
+          "from_space_id": "osm-way43035346-F3-S016",
+          "to_space_id": "osm-way43035346-F3-S019",
+          "optimal_length_m": 21.28,
+          "space_path": [
+            "osm-way43035346-F3-S016",
+            "osm-way43035346-F3-S017",
+            "osm-way43035346-F3-S019"
+          ],
+          "element_path": [
+            "osm-way43035346-F3-O0075",
+            "osm-way43035346-F3-O0075",
+            "osm-way43035346-F3-O0153",
+            "osm-way43035346-F3-O0153"
+          ]
+        },
+        {
+          "from_space_id": "osm-way43035346-F3-S019",
+          "to_space_id": "osm-way43035346-F1-S002",
+          "optimal_length_m": 55.06,
+          "space_path": [
+            "osm-way43035346-F3-S019",
+            "osm-way43035346-F2-S009",
+            "osm-way43035346-F1-S022",
+            "osm-way43035346-F1-S016",
+            "osm-way43035346-F1-S002"
+          ],
+          "element_path": [
+            "osm-way43035346-V02",
+            "osm-way43035346-V02",
+            "osm-way43035346-F1-O0038",
+            "osm-way43035346-F1-O0038",
+            "osm-way43035346-F1-O0033",
+            "osm-way43035346-F1-O0033"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -243,6 +401,7 @@
       "floor": "Ground floor",
       "overlap_m2": 3.26
     },
+    "route": null,
     "error": null
   },
   {
@@ -300,6 +459,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -314,6 +474,7 @@
     "result": {
       "distance_m": 11.85
     },
+    "route": null,
     "error": null
   },
   {
@@ -346,6 +507,7 @@
         "Generic room N3828"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -364,6 +526,7 @@
       "floor": "Ground floor",
       "area_m2": 559.8
     },
+    "route": null,
     "error": null
   },
   {
@@ -379,6 +542,7 @@
       "count": 41,
       "total_m2": 959.75
     },
+    "route": null,
     "error": null
   },
   {
@@ -408,7 +572,114 @@
       },
       "first_leg_m": 31.1,
       "second_leg_m": 81.04,
-      "total_m": 112.14
+      "total_m": 112.14,
+      "legs": [
+        {
+          "from_space_id": "osm-way50299584-F1-S020",
+          "to_space_id": "osm-way50299584-F-1-S029",
+          "optimal_length_m": 31.1,
+          "space_path": [
+            "osm-way50299584-F1-S020",
+            "osm-way50299584-F1-S018",
+            "outside",
+            "osm-way50299584-F-1-S023",
+            "osm-way50299584-F-1-S029"
+          ],
+          "element_path": [
+            "osm-way50299584-F1-O0163",
+            "osm-way50299584-F1-O0163",
+            "osm-way50299584-F1-O0384",
+            "osm-way50299584-F1-O0384",
+            "osm-way50299584-F-1-O0006",
+            "osm-way50299584-F-1-O0006",
+            "osm-way50299584-F-1-O0057",
+            "osm-way50299584-F-1-O0057"
+          ]
+        },
+        {
+          "from_space_id": "osm-way50299584-F-1-S029",
+          "to_space_id": "osm-way50299584-F2-S018",
+          "optimal_length_m": 81.04,
+          "space_path": [
+            "osm-way50299584-F-1-S029",
+            "osm-way50299584-F-1-S023",
+            "outside",
+            "osm-way50299584-F2-S024",
+            "osm-way50299584-F2-S037",
+            "osm-way50299584-F2-S085",
+            "osm-way50299584-F2-S018"
+          ],
+          "element_path": [
+            "osm-way50299584-F-1-O0057",
+            "osm-way50299584-F-1-O0057",
+            "osm-way50299584-F-1-O0006",
+            "osm-way50299584-F-1-O0006",
+            "osm-way50299584-F2-O0385",
+            "osm-way50299584-F2-O0385",
+            "osm-way50299584-F2-O0360",
+            "osm-way50299584-F2-O0360",
+            "osm-way50299584-F2-O0374",
+            "osm-way50299584-F2-O0374",
+            "osm-way50299584-F2-O0371",
+            "osm-way50299584-F2-O0371"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 112.14,
+      "legs": [
+        {
+          "from_space_id": "osm-way50299584-F1-S020",
+          "to_space_id": "osm-way50299584-F-1-S029",
+          "optimal_length_m": 31.1,
+          "space_path": [
+            "osm-way50299584-F1-S020",
+            "osm-way50299584-F1-S018",
+            "outside",
+            "osm-way50299584-F-1-S023",
+            "osm-way50299584-F-1-S029"
+          ],
+          "element_path": [
+            "osm-way50299584-F1-O0163",
+            "osm-way50299584-F1-O0163",
+            "osm-way50299584-F1-O0384",
+            "osm-way50299584-F1-O0384",
+            "osm-way50299584-F-1-O0006",
+            "osm-way50299584-F-1-O0006",
+            "osm-way50299584-F-1-O0057",
+            "osm-way50299584-F-1-O0057"
+          ]
+        },
+        {
+          "from_space_id": "osm-way50299584-F-1-S029",
+          "to_space_id": "osm-way50299584-F2-S018",
+          "optimal_length_m": 81.04,
+          "space_path": [
+            "osm-way50299584-F-1-S029",
+            "osm-way50299584-F-1-S023",
+            "outside",
+            "osm-way50299584-F2-S024",
+            "osm-way50299584-F2-S037",
+            "osm-way50299584-F2-S085",
+            "osm-way50299584-F2-S018"
+          ],
+          "element_path": [
+            "osm-way50299584-F-1-O0057",
+            "osm-way50299584-F-1-O0057",
+            "osm-way50299584-F-1-O0006",
+            "osm-way50299584-F-1-O0006",
+            "osm-way50299584-F2-O0385",
+            "osm-way50299584-F2-O0385",
+            "osm-way50299584-F2-O0360",
+            "osm-way50299584-F2-O0360",
+            "osm-way50299584-F2-O0374",
+            "osm-way50299584-F2-O0374",
+            "osm-way50299584-F2-O0371",
+            "osm-way50299584-F2-O0371"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -428,6 +699,7 @@
       "floor": "Ground floor",
       "overlap_m2": 10.9
     },
+    "route": null,
     "error": null
   },
   {
@@ -446,6 +718,7 @@
       "floor": "Basement 1",
       "overlap_m2": 14.65
     },
+    "route": null,
     "error": null
   },
   {
@@ -464,6 +737,7 @@
       "floor": "Floor 1",
       "overlap_m2": 12.65
     },
+    "route": null,
     "error": null
   },
   {
@@ -507,6 +781,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -521,6 +796,7 @@
     "result": {
       "distance_m": 62.01
     },
+    "route": null,
     "error": null
   },
   {
@@ -539,6 +815,7 @@
       "floor": "Ground floor",
       "area_m2": 530.16
     },
+    "route": null,
     "error": null
   },
   {
@@ -554,6 +831,7 @@
       "count": 43,
       "total_m2": 1699.55
     },
+    "route": null,
     "error": null
   },
   {
@@ -583,7 +861,100 @@
       },
       "first_leg_m": 2.49,
       "second_leg_m": 89.01,
-      "total_m": 91.51
+      "total_m": 91.51,
+      "legs": [
+        {
+          "from_space_id": "osm-way50300147-F1-S057",
+          "to_space_id": "osm-way50300147-F1-S037",
+          "optimal_length_m": 2.49,
+          "space_path": [
+            "osm-way50300147-F1-S057",
+            "osm-way50300147-F1-S037"
+          ],
+          "element_path": [
+            "osm-way50300147-F1-O0108",
+            "osm-way50300147-F1-O0108"
+          ]
+        },
+        {
+          "from_space_id": "osm-way50300147-F1-S037",
+          "to_space_id": "osm-way50300147-F2-S003",
+          "optimal_length_m": 89.01,
+          "space_path": [
+            "osm-way50300147-F1-S037",
+            "osm-way50300147-F1-S057",
+            "osm-way50300147-F1-S016",
+            "osm-way50300147-F1-S049",
+            "osm-way50300147-F1-S005",
+            "osm-way50300147-F2-S013",
+            "osm-way50300147-F2-S001",
+            "osm-way50300147-F2-S003"
+          ],
+          "element_path": [
+            "osm-way50300147-F1-O0108",
+            "osm-way50300147-F1-O0108",
+            "osm-way50300147-F1-O0106",
+            "osm-way50300147-F1-O0106",
+            "osm-way50300147-F1-O0089",
+            "osm-way50300147-F1-O0089",
+            "osm-way50300147-F1-O0268",
+            "osm-way50300147-F1-O0268",
+            "osm-way50300147-V05",
+            "osm-way50300147-F2-O0276",
+            "osm-way50300147-F2-O0276",
+            "osm-way50300147-F2-O0218",
+            "osm-way50300147-F2-O0218"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 91.51,
+      "legs": [
+        {
+          "from_space_id": "osm-way50300147-F1-S057",
+          "to_space_id": "osm-way50300147-F1-S037",
+          "optimal_length_m": 2.49,
+          "space_path": [
+            "osm-way50300147-F1-S057",
+            "osm-way50300147-F1-S037"
+          ],
+          "element_path": [
+            "osm-way50300147-F1-O0108",
+            "osm-way50300147-F1-O0108"
+          ]
+        },
+        {
+          "from_space_id": "osm-way50300147-F1-S037",
+          "to_space_id": "osm-way50300147-F2-S003",
+          "optimal_length_m": 89.01,
+          "space_path": [
+            "osm-way50300147-F1-S037",
+            "osm-way50300147-F1-S057",
+            "osm-way50300147-F1-S016",
+            "osm-way50300147-F1-S049",
+            "osm-way50300147-F1-S005",
+            "osm-way50300147-F2-S013",
+            "osm-way50300147-F2-S001",
+            "osm-way50300147-F2-S003"
+          ],
+          "element_path": [
+            "osm-way50300147-F1-O0108",
+            "osm-way50300147-F1-O0108",
+            "osm-way50300147-F1-O0106",
+            "osm-way50300147-F1-O0106",
+            "osm-way50300147-F1-O0089",
+            "osm-way50300147-F1-O0089",
+            "osm-way50300147-F1-O0268",
+            "osm-way50300147-F1-O0268",
+            "osm-way50300147-V05",
+            "osm-way50300147-F2-O0276",
+            "osm-way50300147-F2-O0276",
+            "osm-way50300147-F2-O0218",
+            "osm-way50300147-F2-O0218"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -603,6 +974,7 @@
       "floor": "Ground floor",
       "overlap_m2": 69.54
     },
+    "route": null,
     "error": null
   },
   {
@@ -621,6 +993,7 @@
       "floor": "Ground floor",
       "overlap_m2": 1.51
     },
+    "route": null,
     "error": null
   },
   {
@@ -639,6 +1012,7 @@
       "floor": "Ground floor",
       "overlap_m2": 33.87
     },
+    "route": null,
     "error": null
   },
   {
@@ -696,6 +1070,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -710,6 +1085,7 @@
     "result": {
       "distance_m": 45.49
     },
+    "route": null,
     "error": null
   },
   {
@@ -775,6 +1151,7 @@
         "Generic room -1247c"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -840,6 +1217,7 @@
         "Generic room -1247c"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -858,6 +1236,7 @@
       "floor": "Floor 1",
       "area_m2": 34.02
     },
+    "route": null,
     "error": null
   },
   {
@@ -873,6 +1252,7 @@
       "count": 4,
       "total_m2": 105.42
     },
+    "route": null,
     "error": null
   },
   {
@@ -911,6 +1291,7 @@
         "Seminar room 1.43"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -940,7 +1321,110 @@
       },
       "first_leg_m": 62.79,
       "second_leg_m": 93.89,
-      "total_m": 156.67
+      "total_m": 156.67,
+      "legs": [
+        {
+          "from_space_id": "proc-campus-test-000-F4-S027",
+          "to_space_id": "proc-campus-test-000-F4-S041",
+          "optimal_length_m": 62.79,
+          "space_path": [
+            "proc-campus-test-000-F4-S027",
+            "proc-campus-test-000-F4-S001",
+            "proc-campus-test-000-F4-S002",
+            "proc-campus-test-000-F4-S041"
+          ],
+          "element_path": [
+            "proc-campus-test-000-F4-O0236",
+            "proc-campus-test-000-F4-O0236",
+            "proc-campus-test-000-F4-O0211",
+            "proc-campus-test-000-F4-O0211",
+            "proc-campus-test-000-F4-O0250",
+            "proc-campus-test-000-F4-O0250"
+          ]
+        },
+        {
+          "from_space_id": "proc-campus-test-000-F4-S041",
+          "to_space_id": "proc-campus-test-000-F2-S009",
+          "optimal_length_m": 93.89,
+          "space_path": [
+            "proc-campus-test-000-F4-S041",
+            "proc-campus-test-000-F4-S002",
+            "proc-campus-test-000-F4-S001",
+            "proc-campus-test-000-F4-S010",
+            "proc-campus-test-000-F3-S010",
+            "proc-campus-test-000-F2-S010",
+            "proc-campus-test-000-F2-S001",
+            "proc-campus-test-000-F2-S009"
+          ],
+          "element_path": [
+            "proc-campus-test-000-F4-O0250",
+            "proc-campus-test-000-F4-O0250",
+            "proc-campus-test-000-F4-O0211",
+            "proc-campus-test-000-F4-O0211",
+            "proc-campus-test-000-F4-O0219",
+            "proc-campus-test-000-F4-O0219",
+            "proc-campus-test-000-V03",
+            "proc-campus-test-000-V03",
+            "proc-campus-test-000-F2-O0135",
+            "proc-campus-test-000-F2-O0135",
+            "proc-campus-test-000-F2-O0134",
+            "proc-campus-test-000-F2-O0134"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 156.67,
+      "legs": [
+        {
+          "from_space_id": "proc-campus-test-000-F4-S027",
+          "to_space_id": "proc-campus-test-000-F4-S041",
+          "optimal_length_m": 62.79,
+          "space_path": [
+            "proc-campus-test-000-F4-S027",
+            "proc-campus-test-000-F4-S001",
+            "proc-campus-test-000-F4-S002",
+            "proc-campus-test-000-F4-S041"
+          ],
+          "element_path": [
+            "proc-campus-test-000-F4-O0236",
+            "proc-campus-test-000-F4-O0236",
+            "proc-campus-test-000-F4-O0211",
+            "proc-campus-test-000-F4-O0211",
+            "proc-campus-test-000-F4-O0250",
+            "proc-campus-test-000-F4-O0250"
+          ]
+        },
+        {
+          "from_space_id": "proc-campus-test-000-F4-S041",
+          "to_space_id": "proc-campus-test-000-F2-S009",
+          "optimal_length_m": 93.89,
+          "space_path": [
+            "proc-campus-test-000-F4-S041",
+            "proc-campus-test-000-F4-S002",
+            "proc-campus-test-000-F4-S001",
+            "proc-campus-test-000-F4-S010",
+            "proc-campus-test-000-F3-S010",
+            "proc-campus-test-000-F2-S010",
+            "proc-campus-test-000-F2-S001",
+            "proc-campus-test-000-F2-S009"
+          ],
+          "element_path": [
+            "proc-campus-test-000-F4-O0250",
+            "proc-campus-test-000-F4-O0250",
+            "proc-campus-test-000-F4-O0211",
+            "proc-campus-test-000-F4-O0211",
+            "proc-campus-test-000-F4-O0219",
+            "proc-campus-test-000-F4-O0219",
+            "proc-campus-test-000-V03",
+            "proc-campus-test-000-V03",
+            "proc-campus-test-000-F2-O0135",
+            "proc-campus-test-000-F2-O0135",
+            "proc-campus-test-000-F2-O0134",
+            "proc-campus-test-000-F2-O0134"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -956,6 +1440,7 @@
     "result": {
       "distance_m": 41.31
     },
+    "route": null,
     "error": null
   },
   {
@@ -974,6 +1459,7 @@
       "floor": "Ground floor",
       "area_m2": 35.46
     },
+    "route": null,
     "error": null
   },
   {
@@ -989,6 +1475,7 @@
       "count": 6,
       "total_m2": 184.14
     },
+    "route": null,
     "error": null
   },
   {
@@ -1019,6 +1506,7 @@
         "Seminar room 2.26"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1048,7 +1536,94 @@
       },
       "first_leg_m": 33.21,
       "second_leg_m": 77.75,
-      "total_m": 110.95
+      "total_m": 110.95,
+      "legs": [
+        {
+          "from_space_id": "proc-campus-test-004-F0-S012",
+          "to_space_id": "proc-campus-test-004-F0-S005",
+          "optimal_length_m": 33.21,
+          "space_path": [
+            "proc-campus-test-004-F0-S012",
+            "proc-campus-test-004-F0-S001",
+            "proc-campus-test-004-F0-S005"
+          ],
+          "element_path": [
+            "proc-campus-test-004-F0-O0011",
+            "proc-campus-test-004-F0-O0011",
+            "proc-campus-test-004-F0-O0004",
+            "proc-campus-test-004-F0-O0004"
+          ]
+        },
+        {
+          "from_space_id": "proc-campus-test-004-F0-S005",
+          "to_space_id": "proc-campus-test-004-F1-S017",
+          "optimal_length_m": 77.75,
+          "space_path": [
+            "proc-campus-test-004-F0-S005",
+            "proc-campus-test-004-F0-S001",
+            "proc-campus-test-004-F0-S009",
+            "proc-campus-test-004-F1-S011",
+            "proc-campus-test-004-F1-S001",
+            "proc-campus-test-004-F1-S017"
+          ],
+          "element_path": [
+            "proc-campus-test-004-F0-O0004",
+            "proc-campus-test-004-F0-O0004",
+            "proc-campus-test-004-F0-O0008",
+            "proc-campus-test-004-F0-O0008",
+            "proc-campus-test-004-V03",
+            "proc-campus-test-004-F1-O0034",
+            "proc-campus-test-004-F1-O0034",
+            "proc-campus-test-004-F1-O0040",
+            "proc-campus-test-004-F1-O0040"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 110.95,
+      "legs": [
+        {
+          "from_space_id": "proc-campus-test-004-F0-S012",
+          "to_space_id": "proc-campus-test-004-F0-S005",
+          "optimal_length_m": 33.21,
+          "space_path": [
+            "proc-campus-test-004-F0-S012",
+            "proc-campus-test-004-F0-S001",
+            "proc-campus-test-004-F0-S005"
+          ],
+          "element_path": [
+            "proc-campus-test-004-F0-O0011",
+            "proc-campus-test-004-F0-O0011",
+            "proc-campus-test-004-F0-O0004",
+            "proc-campus-test-004-F0-O0004"
+          ]
+        },
+        {
+          "from_space_id": "proc-campus-test-004-F0-S005",
+          "to_space_id": "proc-campus-test-004-F1-S017",
+          "optimal_length_m": 77.75,
+          "space_path": [
+            "proc-campus-test-004-F0-S005",
+            "proc-campus-test-004-F0-S001",
+            "proc-campus-test-004-F0-S009",
+            "proc-campus-test-004-F1-S011",
+            "proc-campus-test-004-F1-S001",
+            "proc-campus-test-004-F1-S017"
+          ],
+          "element_path": [
+            "proc-campus-test-004-F0-O0004",
+            "proc-campus-test-004-F0-O0004",
+            "proc-campus-test-004-F0-O0008",
+            "proc-campus-test-004-F0-O0008",
+            "proc-campus-test-004-V03",
+            "proc-campus-test-004-F1-O0034",
+            "proc-campus-test-004-F1-O0034",
+            "proc-campus-test-004-F1-O0040",
+            "proc-campus-test-004-F1-O0040"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -1064,6 +1639,7 @@
     "result": {
       "distance_m": 15.06
     },
+    "route": null,
     "error": null
   },
   {
@@ -1082,6 +1658,7 @@
       "floor": "Floor 1",
       "area_m2": 41.52
     },
+    "route": null,
     "error": null
   },
   {
@@ -1097,6 +1674,7 @@
       "count": 16,
       "total_m2": 456.72
     },
+    "route": null,
     "error": null
   },
   {
@@ -1132,6 +1710,7 @@
         "Meeting room 4.47"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1161,7 +1740,100 @@
       },
       "first_leg_m": 28.61,
       "second_leg_m": 119.57,
-      "total_m": 148.19
+      "total_m": 148.19,
+      "legs": [
+        {
+          "from_space_id": "proc-campus-test-005-F2-S037",
+          "to_space_id": "proc-campus-test-005-F2-S033",
+          "optimal_length_m": 28.61,
+          "space_path": [
+            "proc-campus-test-005-F2-S037",
+            "proc-campus-test-005-F2-S002",
+            "proc-campus-test-005-F2-S033"
+          ],
+          "element_path": [
+            "proc-campus-test-005-F2-O0174",
+            "proc-campus-test-005-F2-O0174",
+            "proc-campus-test-005-F2-O0170",
+            "proc-campus-test-005-F2-O0170"
+          ]
+        },
+        {
+          "from_space_id": "proc-campus-test-005-F2-S033",
+          "to_space_id": "proc-campus-test-005-F1-S027",
+          "optimal_length_m": 119.57,
+          "space_path": [
+            "proc-campus-test-005-F2-S033",
+            "proc-campus-test-005-F2-S002",
+            "proc-campus-test-005-F2-S038",
+            "proc-campus-test-005-F1-S038",
+            "proc-campus-test-005-F1-S002",
+            "proc-campus-test-005-F1-S001",
+            "proc-campus-test-005-F1-S027"
+          ],
+          "element_path": [
+            "proc-campus-test-005-F2-O0170",
+            "proc-campus-test-005-F2-O0170",
+            "proc-campus-test-005-F2-O0175",
+            "proc-campus-test-005-F2-O0175",
+            "proc-campus-test-005-V05",
+            "proc-campus-test-005-F1-O0129",
+            "proc-campus-test-005-F1-O0129",
+            "proc-campus-test-005-F1-O0093",
+            "proc-campus-test-005-F1-O0093",
+            "proc-campus-test-005-F1-O0118",
+            "proc-campus-test-005-F1-O0118"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 148.19,
+      "legs": [
+        {
+          "from_space_id": "proc-campus-test-005-F2-S037",
+          "to_space_id": "proc-campus-test-005-F2-S033",
+          "optimal_length_m": 28.61,
+          "space_path": [
+            "proc-campus-test-005-F2-S037",
+            "proc-campus-test-005-F2-S002",
+            "proc-campus-test-005-F2-S033"
+          ],
+          "element_path": [
+            "proc-campus-test-005-F2-O0174",
+            "proc-campus-test-005-F2-O0174",
+            "proc-campus-test-005-F2-O0170",
+            "proc-campus-test-005-F2-O0170"
+          ]
+        },
+        {
+          "from_space_id": "proc-campus-test-005-F2-S033",
+          "to_space_id": "proc-campus-test-005-F1-S027",
+          "optimal_length_m": 119.57,
+          "space_path": [
+            "proc-campus-test-005-F2-S033",
+            "proc-campus-test-005-F2-S002",
+            "proc-campus-test-005-F2-S038",
+            "proc-campus-test-005-F1-S038",
+            "proc-campus-test-005-F1-S002",
+            "proc-campus-test-005-F1-S001",
+            "proc-campus-test-005-F1-S027"
+          ],
+          "element_path": [
+            "proc-campus-test-005-F2-O0170",
+            "proc-campus-test-005-F2-O0170",
+            "proc-campus-test-005-F2-O0175",
+            "proc-campus-test-005-F2-O0175",
+            "proc-campus-test-005-V05",
+            "proc-campus-test-005-F1-O0129",
+            "proc-campus-test-005-F1-O0129",
+            "proc-campus-test-005-F1-O0093",
+            "proc-campus-test-005-F1-O0093",
+            "proc-campus-test-005-F1-O0118",
+            "proc-campus-test-005-F1-O0118"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -1199,6 +1871,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1213,6 +1886,7 @@
     "result": {
       "distance_m": 39.09
     },
+    "route": null,
     "error": null
   },
   {
@@ -1231,6 +1905,7 @@
       "floor": "Floor 2",
       "area_m2": 39.66
     },
+    "route": null,
     "error": null
   },
   {
@@ -1246,6 +1921,7 @@
       "count": 3,
       "total_m2": 86.4
     },
+    "route": null,
     "error": null
   },
   {
@@ -1274,6 +1950,7 @@
         "Lab 5.28"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1303,7 +1980,98 @@
       },
       "first_leg_m": 22.14,
       "second_leg_m": 79.11,
-      "total_m": 101.25
+      "total_m": 101.25,
+      "legs": [
+        {
+          "from_space_id": "proc-campus-test-008-F3-S021",
+          "to_space_id": "proc-campus-test-008-F3-S024",
+          "optimal_length_m": 22.14,
+          "space_path": [
+            "proc-campus-test-008-F3-S021",
+            "proc-campus-test-008-F3-S001",
+            "proc-campus-test-008-F3-S024"
+          ],
+          "element_path": [
+            "proc-campus-test-008-F3-O0131",
+            "proc-campus-test-008-F3-O0131",
+            "proc-campus-test-008-F3-O0134",
+            "proc-campus-test-008-F3-O0134"
+          ]
+        },
+        {
+          "from_space_id": "proc-campus-test-008-F3-S024",
+          "to_space_id": "proc-campus-test-008-F1-S007",
+          "optimal_length_m": 79.11,
+          "space_path": [
+            "proc-campus-test-008-F3-S024",
+            "proc-campus-test-008-F3-S001",
+            "proc-campus-test-008-F3-S013",
+            "proc-campus-test-008-F2-S013",
+            "proc-campus-test-008-F1-S013",
+            "proc-campus-test-008-F1-S001",
+            "proc-campus-test-008-F1-S007"
+          ],
+          "element_path": [
+            "proc-campus-test-008-F3-O0134",
+            "proc-campus-test-008-F3-O0134",
+            "proc-campus-test-008-F3-O0123",
+            "proc-campus-test-008-F3-O0123",
+            "proc-campus-test-008-V03",
+            "proc-campus-test-008-V03",
+            "proc-campus-test-008-F1-O0067",
+            "proc-campus-test-008-F1-O0067",
+            "proc-campus-test-008-F1-O0061",
+            "proc-campus-test-008-F1-O0061"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 101.25,
+      "legs": [
+        {
+          "from_space_id": "proc-campus-test-008-F3-S021",
+          "to_space_id": "proc-campus-test-008-F3-S024",
+          "optimal_length_m": 22.14,
+          "space_path": [
+            "proc-campus-test-008-F3-S021",
+            "proc-campus-test-008-F3-S001",
+            "proc-campus-test-008-F3-S024"
+          ],
+          "element_path": [
+            "proc-campus-test-008-F3-O0131",
+            "proc-campus-test-008-F3-O0131",
+            "proc-campus-test-008-F3-O0134",
+            "proc-campus-test-008-F3-O0134"
+          ]
+        },
+        {
+          "from_space_id": "proc-campus-test-008-F3-S024",
+          "to_space_id": "proc-campus-test-008-F1-S007",
+          "optimal_length_m": 79.11,
+          "space_path": [
+            "proc-campus-test-008-F3-S024",
+            "proc-campus-test-008-F3-S001",
+            "proc-campus-test-008-F3-S013",
+            "proc-campus-test-008-F2-S013",
+            "proc-campus-test-008-F1-S013",
+            "proc-campus-test-008-F1-S001",
+            "proc-campus-test-008-F1-S007"
+          ],
+          "element_path": [
+            "proc-campus-test-008-F3-O0134",
+            "proc-campus-test-008-F3-O0134",
+            "proc-campus-test-008-F3-O0123",
+            "proc-campus-test-008-F3-O0123",
+            "proc-campus-test-008-V03",
+            "proc-campus-test-008-V03",
+            "proc-campus-test-008-F1-O0067",
+            "proc-campus-test-008-F1-O0067",
+            "proc-campus-test-008-F1-O0061",
+            "proc-campus-test-008-F1-O0061"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -1319,6 +2087,7 @@
     "result": {
       "distance_m": 33.73
     },
+    "route": null,
     "error": null
   },
   {
@@ -1337,6 +2106,7 @@
       "floor": "Floor 1",
       "area_m2": 40.02
     },
+    "route": null,
     "error": null
   },
   {
@@ -1352,6 +2122,7 @@
       "count": 3,
       "total_m2": 99.18
     },
+    "route": null,
     "error": null
   },
   {
@@ -1385,6 +2156,7 @@
         "Seminar room 1.32"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1414,7 +2186,78 @@
       },
       "first_leg_m": 22.99,
       "second_leg_m": 28.14,
-      "total_m": 51.13
+      "total_m": 51.13,
+      "legs": [
+        {
+          "from_space_id": "proc-campus-test-012-F3-S022",
+          "to_space_id": "proc-campus-test-012-F3-S026",
+          "optimal_length_m": 22.99,
+          "space_path": [
+            "proc-campus-test-012-F3-S022",
+            "proc-campus-test-012-F3-S001",
+            "proc-campus-test-012-F3-S026"
+          ],
+          "element_path": [
+            "proc-campus-test-012-F3-O0113",
+            "proc-campus-test-012-F3-O0113",
+            "proc-campus-test-012-F3-O0117",
+            "proc-campus-test-012-F3-O0117"
+          ]
+        },
+        {
+          "from_space_id": "proc-campus-test-012-F3-S026",
+          "to_space_id": "proc-campus-test-012-F3-S013",
+          "optimal_length_m": 28.14,
+          "space_path": [
+            "proc-campus-test-012-F3-S026",
+            "proc-campus-test-012-F3-S001",
+            "proc-campus-test-012-F3-S013"
+          ],
+          "element_path": [
+            "proc-campus-test-012-F3-O0117",
+            "proc-campus-test-012-F3-O0117",
+            "proc-campus-test-012-F3-O0104",
+            "proc-campus-test-012-F3-O0104"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 51.13,
+      "legs": [
+        {
+          "from_space_id": "proc-campus-test-012-F3-S022",
+          "to_space_id": "proc-campus-test-012-F3-S026",
+          "optimal_length_m": 22.99,
+          "space_path": [
+            "proc-campus-test-012-F3-S022",
+            "proc-campus-test-012-F3-S001",
+            "proc-campus-test-012-F3-S026"
+          ],
+          "element_path": [
+            "proc-campus-test-012-F3-O0113",
+            "proc-campus-test-012-F3-O0113",
+            "proc-campus-test-012-F3-O0117",
+            "proc-campus-test-012-F3-O0117"
+          ]
+        },
+        {
+          "from_space_id": "proc-campus-test-012-F3-S026",
+          "to_space_id": "proc-campus-test-012-F3-S013",
+          "optimal_length_m": 28.14,
+          "space_path": [
+            "proc-campus-test-012-F3-S026",
+            "proc-campus-test-012-F3-S001",
+            "proc-campus-test-012-F3-S013"
+          ],
+          "element_path": [
+            "proc-campus-test-012-F3-O0117",
+            "proc-campus-test-012-F3-O0117",
+            "proc-campus-test-012-F3-O0104",
+            "proc-campus-test-012-F3-O0104"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -1430,6 +2273,7 @@
     "result": {
       "distance_m": 38.46
     },
+    "route": null,
     "error": null
   },
   {
@@ -1448,6 +2292,7 @@
       "floor": "Floor 5",
       "area_m2": 40.86
     },
+    "route": null,
     "error": null
   },
   {
@@ -1463,6 +2308,7 @@
       "count": 8,
       "total_m2": 200.28
     },
+    "route": null,
     "error": null
   },
   {
@@ -1495,6 +2341,7 @@
         "Lab 3.40"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1524,7 +2371,102 @@
       },
       "first_leg_m": 41.92,
       "second_leg_m": 115.01,
-      "total_m": 156.93
+      "total_m": 156.93,
+      "legs": [
+        {
+          "from_space_id": "proc-campus-test-013-F4-S029",
+          "to_space_id": "proc-campus-test-013-F4-S021",
+          "optimal_length_m": 41.92,
+          "space_path": [
+            "proc-campus-test-013-F4-S029",
+            "proc-campus-test-013-F4-S002",
+            "proc-campus-test-013-F4-S021"
+          ],
+          "element_path": [
+            "proc-campus-test-013-F4-O0228",
+            "proc-campus-test-013-F4-O0228",
+            "proc-campus-test-013-F4-O0220",
+            "proc-campus-test-013-F4-O0220"
+          ]
+        },
+        {
+          "from_space_id": "proc-campus-test-013-F4-S021",
+          "to_space_id": "proc-campus-test-013-F1-S034",
+          "optimal_length_m": 115.01,
+          "space_path": [
+            "proc-campus-test-013-F4-S021",
+            "proc-campus-test-013-F4-S002",
+            "proc-campus-test-013-F4-S030",
+            "proc-campus-test-013-F3-S030",
+            "proc-campus-test-013-F2-S030",
+            "proc-campus-test-013-F1-S030",
+            "proc-campus-test-013-F1-S002",
+            "proc-campus-test-013-F1-S034"
+          ],
+          "element_path": [
+            "proc-campus-test-013-F4-O0220",
+            "proc-campus-test-013-F4-O0220",
+            "proc-campus-test-013-F4-O0229",
+            "proc-campus-test-013-F4-O0229",
+            "proc-campus-test-013-V05",
+            "proc-campus-test-013-V05",
+            "proc-campus-test-013-V05",
+            "proc-campus-test-013-F1-O0109",
+            "proc-campus-test-013-F1-O0109",
+            "proc-campus-test-013-F1-O0113",
+            "proc-campus-test-013-F1-O0113"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 156.93,
+      "legs": [
+        {
+          "from_space_id": "proc-campus-test-013-F4-S029",
+          "to_space_id": "proc-campus-test-013-F4-S021",
+          "optimal_length_m": 41.92,
+          "space_path": [
+            "proc-campus-test-013-F4-S029",
+            "proc-campus-test-013-F4-S002",
+            "proc-campus-test-013-F4-S021"
+          ],
+          "element_path": [
+            "proc-campus-test-013-F4-O0228",
+            "proc-campus-test-013-F4-O0228",
+            "proc-campus-test-013-F4-O0220",
+            "proc-campus-test-013-F4-O0220"
+          ]
+        },
+        {
+          "from_space_id": "proc-campus-test-013-F4-S021",
+          "to_space_id": "proc-campus-test-013-F1-S034",
+          "optimal_length_m": 115.01,
+          "space_path": [
+            "proc-campus-test-013-F4-S021",
+            "proc-campus-test-013-F4-S002",
+            "proc-campus-test-013-F4-S030",
+            "proc-campus-test-013-F3-S030",
+            "proc-campus-test-013-F2-S030",
+            "proc-campus-test-013-F1-S030",
+            "proc-campus-test-013-F1-S002",
+            "proc-campus-test-013-F1-S034"
+          ],
+          "element_path": [
+            "proc-campus-test-013-F4-O0220",
+            "proc-campus-test-013-F4-O0220",
+            "proc-campus-test-013-F4-O0229",
+            "proc-campus-test-013-F4-O0229",
+            "proc-campus-test-013-V05",
+            "proc-campus-test-013-V05",
+            "proc-campus-test-013-V05",
+            "proc-campus-test-013-F1-O0109",
+            "proc-campus-test-013-F1-O0109",
+            "proc-campus-test-013-F1-O0113",
+            "proc-campus-test-013-F1-O0113"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -1540,6 +2482,7 @@
     "result": {
       "distance_m": 36.37
     },
+    "route": null,
     "error": null
   },
   {
@@ -1555,6 +2498,7 @@
       "count": 4,
       "total_m2": 92.1
     },
+    "route": null,
     "error": null
   },
   {
@@ -1581,6 +2525,7 @@
         "Meeting room 0.44"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1638,6 +2583,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1653,6 +2599,7 @@
       "count": 5,
       "total_m2": 126.5
     },
+    "route": null,
     "error": null
   },
   {
@@ -1679,6 +2626,7 @@
         "Meeting room 0.60"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1722,6 +2670,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1736,6 +2685,7 @@
     "result": {
       "distance_m": 111.98
     },
+    "route": null,
     "error": null
   },
   {
@@ -1754,6 +2704,7 @@
       "floor": "Floor 1",
       "area_m2": 29.35
     },
+    "route": null,
     "error": null
   },
   {
@@ -1769,6 +2720,7 @@
       "count": 7,
       "total_m2": 154.2
     },
+    "route": null,
     "error": null
   },
   {
@@ -1793,6 +2745,7 @@
         "Toilet 0.55"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1822,7 +2775,94 @@
       },
       "first_leg_m": 23.8,
       "second_leg_m": 141.38,
-      "total_m": 165.19
+      "total_m": 165.19,
+      "legs": [
+        {
+          "from_space_id": "proc-factory-test-003-F1-S010",
+          "to_space_id": "proc-factory-test-003-F1-S014",
+          "optimal_length_m": 23.8,
+          "space_path": [
+            "proc-factory-test-003-F1-S010",
+            "proc-factory-test-003-F1-S001",
+            "proc-factory-test-003-F1-S014"
+          ],
+          "element_path": [
+            "proc-factory-test-003-F1-O0087",
+            "proc-factory-test-003-F1-O0087",
+            "proc-factory-test-003-F1-O0091",
+            "proc-factory-test-003-F1-O0091"
+          ]
+        },
+        {
+          "from_space_id": "proc-factory-test-003-F1-S014",
+          "to_space_id": "proc-factory-test-003-F0-S029",
+          "optimal_length_m": 141.38,
+          "space_path": [
+            "proc-factory-test-003-F1-S014",
+            "proc-factory-test-003-F1-S001",
+            "proc-factory-test-003-F1-S002",
+            "proc-factory-test-003-F0-S026",
+            "proc-factory-test-003-F0-S025",
+            "proc-factory-test-003-F0-S029"
+          ],
+          "element_path": [
+            "proc-factory-test-003-F1-O0091",
+            "proc-factory-test-003-F1-O0091",
+            "proc-factory-test-003-F1-O0079",
+            "proc-factory-test-003-F1-O0079",
+            "proc-factory-test-003-V01",
+            "proc-factory-test-003-F0-O0037",
+            "proc-factory-test-003-F0-O0037",
+            "proc-factory-test-003-F0-O0041",
+            "proc-factory-test-003-F0-O0041"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 165.19,
+      "legs": [
+        {
+          "from_space_id": "proc-factory-test-003-F1-S010",
+          "to_space_id": "proc-factory-test-003-F1-S014",
+          "optimal_length_m": 23.8,
+          "space_path": [
+            "proc-factory-test-003-F1-S010",
+            "proc-factory-test-003-F1-S001",
+            "proc-factory-test-003-F1-S014"
+          ],
+          "element_path": [
+            "proc-factory-test-003-F1-O0087",
+            "proc-factory-test-003-F1-O0087",
+            "proc-factory-test-003-F1-O0091",
+            "proc-factory-test-003-F1-O0091"
+          ]
+        },
+        {
+          "from_space_id": "proc-factory-test-003-F1-S014",
+          "to_space_id": "proc-factory-test-003-F0-S029",
+          "optimal_length_m": 141.38,
+          "space_path": [
+            "proc-factory-test-003-F1-S014",
+            "proc-factory-test-003-F1-S001",
+            "proc-factory-test-003-F1-S002",
+            "proc-factory-test-003-F0-S026",
+            "proc-factory-test-003-F0-S025",
+            "proc-factory-test-003-F0-S029"
+          ],
+          "element_path": [
+            "proc-factory-test-003-F1-O0091",
+            "proc-factory-test-003-F1-O0091",
+            "proc-factory-test-003-F1-O0079",
+            "proc-factory-test-003-F1-O0079",
+            "proc-factory-test-003-V01",
+            "proc-factory-test-003-F0-O0037",
+            "proc-factory-test-003-F0-O0037",
+            "proc-factory-test-003-F0-O0041",
+            "proc-factory-test-003-F0-O0041"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -1860,6 +2900,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1874,6 +2915,7 @@
     "result": {
       "distance_m": 32.02
     },
+    "route": null,
     "error": null
   },
   {
@@ -1889,6 +2931,7 @@
       "count": 9,
       "total_m2": 203.3
     },
+    "route": null,
     "error": null
   },
   {
@@ -1910,6 +2953,7 @@
         "Meeting room 2.15"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1946,6 +2990,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -1960,6 +3005,7 @@
     "result": {
       "distance_m": 53.09
     },
+    "route": null,
     "error": null
   },
   {
@@ -1978,6 +3024,7 @@
       "floor": "Floor 1",
       "area_m2": 28.75
     },
+    "route": null,
     "error": null
   },
   {
@@ -1993,6 +3040,7 @@
       "count": 18,
       "total_m2": 413.4
     },
+    "route": null,
     "error": null
   },
   {
@@ -2019,6 +3067,7 @@
         "Server room 0.62"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2048,7 +3097,134 @@
       },
       "first_leg_m": 201.92,
       "second_leg_m": 175.26,
-      "total_m": 377.18
+      "total_m": 377.18,
+      "legs": [
+        {
+          "from_space_id": "proc-factory-test-007-F1-S005",
+          "to_space_id": "proc-factory-test-007-F0-S011",
+          "optimal_length_m": 201.92,
+          "space_path": [
+            "proc-factory-test-007-F1-S005",
+            "proc-factory-test-007-F1-S001",
+            "proc-factory-test-007-F1-S002",
+            "proc-factory-test-007-F0-S026",
+            "proc-factory-test-007-F0-S025",
+            "proc-factory-test-007-F0-S044",
+            "proc-factory-test-007-F0-S005",
+            "proc-factory-test-007-F0-S011"
+          ],
+          "element_path": [
+            "proc-factory-test-007-F1-O0077",
+            "proc-factory-test-007-F1-O0077",
+            "proc-factory-test-007-F1-O0074",
+            "proc-factory-test-007-F1-O0074",
+            "proc-factory-test-007-V01",
+            "proc-factory-test-007-F0-O0034",
+            "proc-factory-test-007-F0-O0034",
+            "proc-factory-test-007-F0-O0053",
+            "proc-factory-test-007-F0-O0053",
+            "proc-factory-test-007-F0-O0054",
+            "proc-factory-test-007-F0-O0054",
+            "proc-factory-test-007-F0-O0007",
+            "proc-factory-test-007-F0-O0007"
+          ]
+        },
+        {
+          "from_space_id": "proc-factory-test-007-F0-S011",
+          "to_space_id": "proc-factory-test-007-F1-S010",
+          "optimal_length_m": 175.26,
+          "space_path": [
+            "proc-factory-test-007-F0-S011",
+            "proc-factory-test-007-F0-S005",
+            "proc-factory-test-007-F0-S044",
+            "proc-factory-test-007-F0-S025",
+            "proc-factory-test-007-F0-S026",
+            "proc-factory-test-007-F1-S002",
+            "proc-factory-test-007-F1-S001",
+            "proc-factory-test-007-F1-S010"
+          ],
+          "element_path": [
+            "proc-factory-test-007-F0-O0007",
+            "proc-factory-test-007-F0-O0007",
+            "proc-factory-test-007-F0-O0054",
+            "proc-factory-test-007-F0-O0054",
+            "proc-factory-test-007-F0-O0053",
+            "proc-factory-test-007-F0-O0053",
+            "proc-factory-test-007-F0-O0034",
+            "proc-factory-test-007-F0-O0034",
+            "proc-factory-test-007-V01",
+            "proc-factory-test-007-F1-O0074",
+            "proc-factory-test-007-F1-O0074",
+            "proc-factory-test-007-F1-O0082",
+            "proc-factory-test-007-F1-O0082"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 377.18,
+      "legs": [
+        {
+          "from_space_id": "proc-factory-test-007-F1-S005",
+          "to_space_id": "proc-factory-test-007-F0-S011",
+          "optimal_length_m": 201.92,
+          "space_path": [
+            "proc-factory-test-007-F1-S005",
+            "proc-factory-test-007-F1-S001",
+            "proc-factory-test-007-F1-S002",
+            "proc-factory-test-007-F0-S026",
+            "proc-factory-test-007-F0-S025",
+            "proc-factory-test-007-F0-S044",
+            "proc-factory-test-007-F0-S005",
+            "proc-factory-test-007-F0-S011"
+          ],
+          "element_path": [
+            "proc-factory-test-007-F1-O0077",
+            "proc-factory-test-007-F1-O0077",
+            "proc-factory-test-007-F1-O0074",
+            "proc-factory-test-007-F1-O0074",
+            "proc-factory-test-007-V01",
+            "proc-factory-test-007-F0-O0034",
+            "proc-factory-test-007-F0-O0034",
+            "proc-factory-test-007-F0-O0053",
+            "proc-factory-test-007-F0-O0053",
+            "proc-factory-test-007-F0-O0054",
+            "proc-factory-test-007-F0-O0054",
+            "proc-factory-test-007-F0-O0007",
+            "proc-factory-test-007-F0-O0007"
+          ]
+        },
+        {
+          "from_space_id": "proc-factory-test-007-F0-S011",
+          "to_space_id": "proc-factory-test-007-F1-S010",
+          "optimal_length_m": 175.26,
+          "space_path": [
+            "proc-factory-test-007-F0-S011",
+            "proc-factory-test-007-F0-S005",
+            "proc-factory-test-007-F0-S044",
+            "proc-factory-test-007-F0-S025",
+            "proc-factory-test-007-F0-S026",
+            "proc-factory-test-007-F1-S002",
+            "proc-factory-test-007-F1-S001",
+            "proc-factory-test-007-F1-S010"
+          ],
+          "element_path": [
+            "proc-factory-test-007-F0-O0007",
+            "proc-factory-test-007-F0-O0007",
+            "proc-factory-test-007-F0-O0054",
+            "proc-factory-test-007-F0-O0054",
+            "proc-factory-test-007-F0-O0053",
+            "proc-factory-test-007-F0-O0053",
+            "proc-factory-test-007-F0-O0034",
+            "proc-factory-test-007-F0-O0034",
+            "proc-factory-test-007-V01",
+            "proc-factory-test-007-F1-O0074",
+            "proc-factory-test-007-F1-O0074",
+            "proc-factory-test-007-F1-O0082",
+            "proc-factory-test-007-F1-O0082"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -2093,6 +3269,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2107,6 +3284,7 @@
     "result": {
       "distance_m": 34.8
     },
+    "route": null,
     "error": null
   },
   {
@@ -2122,6 +3300,7 @@
       "count": 4,
       "total_m2": 1220.16
     },
+    "route": null,
     "error": null
   },
   {
@@ -2151,6 +3330,7 @@
         "Meeting room 1.30"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2194,6 +3374,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2212,6 +3393,7 @@
       "floor": "Ground floor",
       "area_m2": 29.95
     },
+    "route": null,
     "error": null
   },
   {
@@ -2227,6 +3409,7 @@
       "count": 5,
       "total_m2": 111.6
     },
+    "route": null,
     "error": null
   },
   {
@@ -2254,6 +3437,7 @@
         "Meeting room 1.27"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2283,7 +3467,94 @@
       },
       "first_leg_m": 28.18,
       "second_leg_m": 111.53,
-      "total_m": 139.72
+      "total_m": 139.72,
+      "legs": [
+        {
+          "from_space_id": "proc-factory-test-010-F1-S012",
+          "to_space_id": "proc-factory-test-010-F1-S007",
+          "optimal_length_m": 28.18,
+          "space_path": [
+            "proc-factory-test-010-F1-S012",
+            "proc-factory-test-010-F1-S001",
+            "proc-factory-test-010-F1-S007"
+          ],
+          "element_path": [
+            "proc-factory-test-010-F1-O0073",
+            "proc-factory-test-010-F1-O0073",
+            "proc-factory-test-010-F1-O0068",
+            "proc-factory-test-010-F1-O0068"
+          ]
+        },
+        {
+          "from_space_id": "proc-factory-test-010-F1-S007",
+          "to_space_id": "proc-factory-test-010-F0-S040",
+          "optimal_length_m": 111.53,
+          "space_path": [
+            "proc-factory-test-010-F1-S007",
+            "proc-factory-test-010-F1-S001",
+            "proc-factory-test-010-F1-S002",
+            "proc-factory-test-010-F0-S022",
+            "proc-factory-test-010-F0-S021",
+            "proc-factory-test-010-F0-S040"
+          ],
+          "element_path": [
+            "proc-factory-test-010-F1-O0068",
+            "proc-factory-test-010-F1-O0068",
+            "proc-factory-test-010-F1-O0063",
+            "proc-factory-test-010-F1-O0063",
+            "proc-factory-test-010-V01",
+            "proc-factory-test-010-F0-O0031",
+            "proc-factory-test-010-F0-O0031",
+            "proc-factory-test-010-F0-O0051",
+            "proc-factory-test-010-F0-O0051"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 139.72,
+      "legs": [
+        {
+          "from_space_id": "proc-factory-test-010-F1-S012",
+          "to_space_id": "proc-factory-test-010-F1-S007",
+          "optimal_length_m": 28.18,
+          "space_path": [
+            "proc-factory-test-010-F1-S012",
+            "proc-factory-test-010-F1-S001",
+            "proc-factory-test-010-F1-S007"
+          ],
+          "element_path": [
+            "proc-factory-test-010-F1-O0073",
+            "proc-factory-test-010-F1-O0073",
+            "proc-factory-test-010-F1-O0068",
+            "proc-factory-test-010-F1-O0068"
+          ]
+        },
+        {
+          "from_space_id": "proc-factory-test-010-F1-S007",
+          "to_space_id": "proc-factory-test-010-F0-S040",
+          "optimal_length_m": 111.53,
+          "space_path": [
+            "proc-factory-test-010-F1-S007",
+            "proc-factory-test-010-F1-S001",
+            "proc-factory-test-010-F1-S002",
+            "proc-factory-test-010-F0-S022",
+            "proc-factory-test-010-F0-S021",
+            "proc-factory-test-010-F0-S040"
+          ],
+          "element_path": [
+            "proc-factory-test-010-F1-O0068",
+            "proc-factory-test-010-F1-O0068",
+            "proc-factory-test-010-F1-O0063",
+            "proc-factory-test-010-F1-O0063",
+            "proc-factory-test-010-V01",
+            "proc-factory-test-010-F0-O0031",
+            "proc-factory-test-010-F0-O0031",
+            "proc-factory-test-010-F0-O0051",
+            "proc-factory-test-010-F0-O0051"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -2328,6 +3599,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2343,6 +3615,7 @@
       "count": 7,
       "total_m2": 2079.98
     },
+    "route": null,
     "error": null
   },
   {
@@ -2367,6 +3640,7 @@
         "Server room 2.30"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2410,6 +3684,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2424,6 +3699,7 @@
     "result": {
       "distance_m": 51.42
     },
+    "route": null,
     "error": null
   },
   {
@@ -2439,6 +3715,7 @@
       "count": 4,
       "total_m2": 71.29
     },
+    "route": null,
     "error": null
   },
   {
@@ -2475,6 +3752,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2490,6 +3768,7 @@
       "count": 5,
       "total_m2": 109.7
     },
+    "route": null,
     "error": null
   },
   {
@@ -2515,6 +3794,7 @@
         "Bathroom 0.11"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2565,6 +3845,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2615,6 +3896,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2651,6 +3933,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2669,6 +3952,7 @@
       "floor": "Ground floor",
       "area_m2": 6.98
     },
+    "route": null,
     "error": null
   },
   {
@@ -2684,6 +3968,7 @@
       "count": 3,
       "total_m2": 17.65
     },
+    "route": null,
     "error": null
   },
   {
@@ -2707,6 +3992,7 @@
         "Kitchen 0.08"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2736,7 +4022,78 @@
       },
       "first_leg_m": 6.16,
       "second_leg_m": 16.31,
-      "total_m": 22.47
+      "total_m": 22.47,
+      "legs": [
+        {
+          "from_space_id": "resplan-3573-F0-S001",
+          "to_space_id": "resplan-3573-F0-S007",
+          "optimal_length_m": 6.16,
+          "space_path": [
+            "resplan-3573-F0-S001",
+            "resplan-3573-F0-S007"
+          ],
+          "element_path": [
+            "resplan-3573-F0-O0001",
+            "resplan-3573-F0-O0001"
+          ]
+        },
+        {
+          "from_space_id": "resplan-3573-F0-S007",
+          "to_space_id": "resplan-3573-F0-S006",
+          "optimal_length_m": 16.31,
+          "space_path": [
+            "resplan-3573-F0-S007",
+            "resplan-3573-F0-S001",
+            "resplan-3573-F0-S003",
+            "resplan-3573-F0-S006"
+          ],
+          "element_path": [
+            "resplan-3573-F0-O0001",
+            "resplan-3573-F0-O0001",
+            "resplan-3573-F0-O0003",
+            "resplan-3573-F0-O0003",
+            "resplan-3573-F0-O0005",
+            "resplan-3573-F0-O0005"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 22.47,
+      "legs": [
+        {
+          "from_space_id": "resplan-3573-F0-S001",
+          "to_space_id": "resplan-3573-F0-S007",
+          "optimal_length_m": 6.16,
+          "space_path": [
+            "resplan-3573-F0-S001",
+            "resplan-3573-F0-S007"
+          ],
+          "element_path": [
+            "resplan-3573-F0-O0001",
+            "resplan-3573-F0-O0001"
+          ]
+        },
+        {
+          "from_space_id": "resplan-3573-F0-S007",
+          "to_space_id": "resplan-3573-F0-S006",
+          "optimal_length_m": 16.31,
+          "space_path": [
+            "resplan-3573-F0-S007",
+            "resplan-3573-F0-S001",
+            "resplan-3573-F0-S003",
+            "resplan-3573-F0-S006"
+          ],
+          "element_path": [
+            "resplan-3573-F0-O0001",
+            "resplan-3573-F0-O0001",
+            "resplan-3573-F0-O0003",
+            "resplan-3573-F0-O0003",
+            "resplan-3573-F0-O0005",
+            "resplan-3573-F0-O0005"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -2795,6 +4152,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2815,6 +4173,7 @@
         "Kitchen 0.06"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2851,6 +4210,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2872,6 +4232,7 @@
         "Kitchen 0.06"
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2922,6 +4283,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2972,6 +4334,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -2990,6 +4353,7 @@
       "floor": "Floor 1",
       "area_m2": 30.16
     },
+    "route": null,
     "error": null
   },
   {
@@ -3005,6 +4369,7 @@
       "count": 8,
       "total_m2": 32.47
     },
+    "route": null,
     "error": null
   },
   {
@@ -3034,7 +4399,102 @@
       },
       "first_leg_m": 6.92,
       "second_leg_m": 51.37,
-      "total_m": 58.29
+      "total_m": 58.29,
+      "legs": [
+        {
+          "from_space_id": "swiss-100-F4-S007",
+          "to_space_id": "swiss-100-F4-S003",
+          "optimal_length_m": 6.92,
+          "space_path": [
+            "swiss-100-F4-S007",
+            "swiss-100-F4-S004",
+            "swiss-100-F4-S003"
+          ],
+          "element_path": [
+            "swiss-100-F4-O0190",
+            "swiss-100-F4-O0190",
+            "swiss-100-F4-O0156",
+            "swiss-100-F4-O0156"
+          ]
+        },
+        {
+          "from_space_id": "swiss-100-F4-S003",
+          "to_space_id": "swiss-100-F1-S005",
+          "optimal_length_m": 51.37,
+          "space_path": [
+            "swiss-100-F4-S003",
+            "swiss-100-F4-S004",
+            "swiss-100-F4-S045",
+            "swiss-100-F3-S045",
+            "swiss-100-F2-S045",
+            "swiss-100-F1-S045",
+            "swiss-100-F1-S007",
+            "swiss-100-F1-S005"
+          ],
+          "element_path": [
+            "swiss-100-F4-O0156",
+            "swiss-100-F4-O0156",
+            "swiss-100-F4-O0161",
+            "swiss-100-F4-O0161",
+            "swiss-100-V01",
+            "swiss-100-V01",
+            "swiss-100-V01",
+            "swiss-100-F1-O0024",
+            "swiss-100-F1-O0024",
+            "swiss-100-F1-O0061",
+            "swiss-100-F1-O0061"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 58.29,
+      "legs": [
+        {
+          "from_space_id": "swiss-100-F4-S007",
+          "to_space_id": "swiss-100-F4-S003",
+          "optimal_length_m": 6.92,
+          "space_path": [
+            "swiss-100-F4-S007",
+            "swiss-100-F4-S004",
+            "swiss-100-F4-S003"
+          ],
+          "element_path": [
+            "swiss-100-F4-O0190",
+            "swiss-100-F4-O0190",
+            "swiss-100-F4-O0156",
+            "swiss-100-F4-O0156"
+          ]
+        },
+        {
+          "from_space_id": "swiss-100-F4-S003",
+          "to_space_id": "swiss-100-F1-S005",
+          "optimal_length_m": 51.37,
+          "space_path": [
+            "swiss-100-F4-S003",
+            "swiss-100-F4-S004",
+            "swiss-100-F4-S045",
+            "swiss-100-F3-S045",
+            "swiss-100-F2-S045",
+            "swiss-100-F1-S045",
+            "swiss-100-F1-S007",
+            "swiss-100-F1-S005"
+          ],
+          "element_path": [
+            "swiss-100-F4-O0156",
+            "swiss-100-F4-O0156",
+            "swiss-100-F4-O0161",
+            "swiss-100-F4-O0161",
+            "swiss-100-V01",
+            "swiss-100-V01",
+            "swiss-100-V01",
+            "swiss-100-F1-O0024",
+            "swiss-100-F1-O0024",
+            "swiss-100-F1-O0061",
+            "swiss-100-F1-O0061"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -3051,6 +4511,7 @@
       "count": 14,
       "total_m2": 207.01
     },
+    "route": null,
     "error": null
   },
   {
@@ -3087,6 +4548,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -3105,6 +4567,7 @@
       "floor": "Ground floor",
       "area_m2": 19.34
     },
+    "route": null,
     "error": null
   },
   {
@@ -3120,6 +4583,7 @@
       "count": 8,
       "total_m2": 133.95
     },
+    "route": null,
     "error": null
   },
   {
@@ -3149,7 +4613,94 @@
       },
       "first_leg_m": 9.01,
       "second_leg_m": 29.26,
-      "total_m": 38.27
+      "total_m": 38.27,
+      "legs": [
+        {
+          "from_space_id": "swiss-1671-F1-S013",
+          "to_space_id": "swiss-1671-F1-S009",
+          "optimal_length_m": 9.01,
+          "space_path": [
+            "swiss-1671-F1-S013",
+            "swiss-1671-F1-S012",
+            "swiss-1671-F1-S009"
+          ],
+          "element_path": [
+            "swiss-1671-F1-O0029",
+            "swiss-1671-F1-O0029",
+            "swiss-1671-F1-O0027",
+            "swiss-1671-F1-O0027"
+          ]
+        },
+        {
+          "from_space_id": "swiss-1671-F1-S009",
+          "to_space_id": "swiss-1671-F0-S005",
+          "optimal_length_m": 29.26,
+          "space_path": [
+            "swiss-1671-F1-S009",
+            "swiss-1671-F1-S012",
+            "swiss-1671-F1-S017",
+            "swiss-1671-F0-S015",
+            "swiss-1671-F0-S007",
+            "swiss-1671-F0-S005"
+          ],
+          "element_path": [
+            "swiss-1671-F1-O0027",
+            "swiss-1671-F1-O0027",
+            "swiss-1671-F1-O0028",
+            "swiss-1671-F1-O0028",
+            "swiss-1671-V03",
+            "swiss-1671-F0-O0007",
+            "swiss-1671-F0-O0007",
+            "swiss-1671-F0-O0008",
+            "swiss-1671-F0-O0008"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 38.27,
+      "legs": [
+        {
+          "from_space_id": "swiss-1671-F1-S013",
+          "to_space_id": "swiss-1671-F1-S009",
+          "optimal_length_m": 9.01,
+          "space_path": [
+            "swiss-1671-F1-S013",
+            "swiss-1671-F1-S012",
+            "swiss-1671-F1-S009"
+          ],
+          "element_path": [
+            "swiss-1671-F1-O0029",
+            "swiss-1671-F1-O0029",
+            "swiss-1671-F1-O0027",
+            "swiss-1671-F1-O0027"
+          ]
+        },
+        {
+          "from_space_id": "swiss-1671-F1-S009",
+          "to_space_id": "swiss-1671-F0-S005",
+          "optimal_length_m": 29.26,
+          "space_path": [
+            "swiss-1671-F1-S009",
+            "swiss-1671-F1-S012",
+            "swiss-1671-F1-S017",
+            "swiss-1671-F0-S015",
+            "swiss-1671-F0-S007",
+            "swiss-1671-F0-S005"
+          ],
+          "element_path": [
+            "swiss-1671-F1-O0027",
+            "swiss-1671-F1-O0027",
+            "swiss-1671-F1-O0028",
+            "swiss-1671-F1-O0028",
+            "swiss-1671-V03",
+            "swiss-1671-F0-O0007",
+            "swiss-1671-F0-O0007",
+            "swiss-1671-F0-O0008",
+            "swiss-1671-F0-O0008"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -3187,6 +4738,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -3202,6 +4754,7 @@
       "count": 4,
       "total_m2": 50.66
     },
+    "route": null,
     "error": null
   },
   {
@@ -3220,6 +4773,7 @@
       "floor": "Ground floor",
       "area_m2": 6.73
     },
+    "route": null,
     "error": null
   },
   {
@@ -3235,6 +4789,7 @@
       "count": 4,
       "total_m2": 61.12
     },
+    "route": null,
     "error": null
   },
   {
@@ -3253,6 +4808,7 @@
       "floor": "Floor 3",
       "area_m2": 19.44
     },
+    "route": null,
     "error": null
   },
   {
@@ -3268,6 +4824,7 @@
       "count": 7,
       "total_m2": 34.0
     },
+    "route": null,
     "error": null
   },
   {
@@ -3297,7 +4854,94 @@
       },
       "first_leg_m": 8.36,
       "second_leg_m": 34.23,
-      "total_m": 42.59
+      "total_m": 42.59,
+      "legs": [
+        {
+          "from_space_id": "swiss-17736-F2-S008",
+          "to_space_id": "swiss-17736-F2-S001",
+          "optimal_length_m": 8.36,
+          "space_path": [
+            "swiss-17736-F2-S008",
+            "swiss-17736-F2-S004",
+            "swiss-17736-F2-S001"
+          ],
+          "element_path": [
+            "swiss-17736-F2-O0046",
+            "swiss-17736-F2-O0046",
+            "swiss-17736-F2-O0064",
+            "swiss-17736-F2-O0064"
+          ]
+        },
+        {
+          "from_space_id": "swiss-17736-F2-S001",
+          "to_space_id": "swiss-17736-F3-S003",
+          "optimal_length_m": 34.23,
+          "space_path": [
+            "swiss-17736-F2-S001",
+            "swiss-17736-F2-S004",
+            "swiss-17736-F2-S030",
+            "swiss-17736-F3-S012",
+            "swiss-17736-F3-S007",
+            "swiss-17736-F3-S003"
+          ],
+          "element_path": [
+            "swiss-17736-F2-O0064",
+            "swiss-17736-F2-O0064",
+            "swiss-17736-F2-O0042",
+            "swiss-17736-F2-O0042",
+            "swiss-17736-V01",
+            "swiss-17736-F3-O0076",
+            "swiss-17736-F3-O0076",
+            "swiss-17736-F3-O0069",
+            "swiss-17736-F3-O0069"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 42.59,
+      "legs": [
+        {
+          "from_space_id": "swiss-17736-F2-S008",
+          "to_space_id": "swiss-17736-F2-S001",
+          "optimal_length_m": 8.36,
+          "space_path": [
+            "swiss-17736-F2-S008",
+            "swiss-17736-F2-S004",
+            "swiss-17736-F2-S001"
+          ],
+          "element_path": [
+            "swiss-17736-F2-O0046",
+            "swiss-17736-F2-O0046",
+            "swiss-17736-F2-O0064",
+            "swiss-17736-F2-O0064"
+          ]
+        },
+        {
+          "from_space_id": "swiss-17736-F2-S001",
+          "to_space_id": "swiss-17736-F3-S003",
+          "optimal_length_m": 34.23,
+          "space_path": [
+            "swiss-17736-F2-S001",
+            "swiss-17736-F2-S004",
+            "swiss-17736-F2-S030",
+            "swiss-17736-F3-S012",
+            "swiss-17736-F3-S007",
+            "swiss-17736-F3-S003"
+          ],
+          "element_path": [
+            "swiss-17736-F2-O0064",
+            "swiss-17736-F2-O0064",
+            "swiss-17736-F2-O0042",
+            "swiss-17736-F2-O0042",
+            "swiss-17736-V01",
+            "swiss-17736-F3-O0076",
+            "swiss-17736-F3-O0076",
+            "swiss-17736-F3-O0069",
+            "swiss-17736-F3-O0069"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -3314,6 +4958,7 @@
       "count": 4,
       "total_m2": 20.54
     },
+    "route": null,
     "error": null
   },
   {
@@ -3329,6 +4974,7 @@
       "count": 3,
       "total_m2": 42.31
     },
+    "route": null,
     "error": null
   },
   {
@@ -3347,6 +4993,7 @@
       "floor": "Floor 2",
       "area_m2": 4.13
     },
+    "route": null,
     "error": null
   },
   {
@@ -3362,6 +5009,7 @@
       "count": 4,
       "total_m2": 12.3
     },
+    "route": null,
     "error": null
   },
   {
@@ -3391,7 +5039,106 @@
       },
       "first_leg_m": 28.77,
       "second_leg_m": 16.78,
-      "total_m": 45.56
+      "total_m": 45.56,
+      "legs": [
+        {
+          "from_space_id": "swiss-2080-F1-S022",
+          "to_space_id": "swiss-2080-F2-S008",
+          "optimal_length_m": 28.77,
+          "space_path": [
+            "swiss-2080-F1-S022",
+            "swiss-2080-F1-S020",
+            "swiss-2080-F1-S023",
+            "swiss-2080-F2-S023",
+            "swiss-2080-F2-S012",
+            "swiss-2080-F2-S008"
+          ],
+          "element_path": [
+            "swiss-2080-F1-O0044",
+            "swiss-2080-F1-O0044",
+            "swiss-2080-F1-O0036",
+            "swiss-2080-F1-O0036",
+            "swiss-2080-V01",
+            "swiss-2080-F2-O0055",
+            "swiss-2080-F2-O0055",
+            "swiss-2080-F2-O0063",
+            "swiss-2080-F2-O0063"
+          ]
+        },
+        {
+          "from_space_id": "swiss-2080-F2-S008",
+          "to_space_id": "swiss-2080-F2-S018",
+          "optimal_length_m": 16.78,
+          "space_path": [
+            "swiss-2080-F2-S008",
+            "swiss-2080-F2-S012",
+            "swiss-2080-F2-S023",
+            "swiss-2080-F2-S021",
+            "swiss-2080-F2-S018"
+          ],
+          "element_path": [
+            "swiss-2080-F2-O0063",
+            "swiss-2080-F2-O0063",
+            "swiss-2080-F2-O0055",
+            "swiss-2080-F2-O0055",
+            "swiss-2080-F2-O0059",
+            "swiss-2080-F2-O0059",
+            "swiss-2080-F2-O0065",
+            "swiss-2080-F2-O0065"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 45.56,
+      "legs": [
+        {
+          "from_space_id": "swiss-2080-F1-S022",
+          "to_space_id": "swiss-2080-F2-S008",
+          "optimal_length_m": 28.77,
+          "space_path": [
+            "swiss-2080-F1-S022",
+            "swiss-2080-F1-S020",
+            "swiss-2080-F1-S023",
+            "swiss-2080-F2-S023",
+            "swiss-2080-F2-S012",
+            "swiss-2080-F2-S008"
+          ],
+          "element_path": [
+            "swiss-2080-F1-O0044",
+            "swiss-2080-F1-O0044",
+            "swiss-2080-F1-O0036",
+            "swiss-2080-F1-O0036",
+            "swiss-2080-V01",
+            "swiss-2080-F2-O0055",
+            "swiss-2080-F2-O0055",
+            "swiss-2080-F2-O0063",
+            "swiss-2080-F2-O0063"
+          ]
+        },
+        {
+          "from_space_id": "swiss-2080-F2-S008",
+          "to_space_id": "swiss-2080-F2-S018",
+          "optimal_length_m": 16.78,
+          "space_path": [
+            "swiss-2080-F2-S008",
+            "swiss-2080-F2-S012",
+            "swiss-2080-F2-S023",
+            "swiss-2080-F2-S021",
+            "swiss-2080-F2-S018"
+          ],
+          "element_path": [
+            "swiss-2080-F2-O0063",
+            "swiss-2080-F2-O0063",
+            "swiss-2080-F2-O0055",
+            "swiss-2080-F2-O0055",
+            "swiss-2080-F2-O0059",
+            "swiss-2080-F2-O0059",
+            "swiss-2080-F2-O0065",
+            "swiss-2080-F2-O0065"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -3436,6 +5183,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -3454,6 +5202,7 @@
       "floor": "Floor 2",
       "area_m2": 3.22
     },
+    "route": null,
     "error": null
   },
   {
@@ -3469,6 +5218,7 @@
       "count": 4,
       "total_m2": 12.53
     },
+    "route": null,
     "error": null
   },
   {
@@ -3498,7 +5248,100 @@
       },
       "first_leg_m": 7.51,
       "second_leg_m": 37.99,
-      "total_m": 45.5
+      "total_m": 45.5,
+      "legs": [
+        {
+          "from_space_id": "swiss-2873-F1-S030",
+          "to_space_id": "swiss-2873-F1-S029",
+          "optimal_length_m": 7.51,
+          "space_path": [
+            "swiss-2873-F1-S030",
+            "swiss-2873-F1-S031",
+            "swiss-2873-F1-S029"
+          ],
+          "element_path": [
+            "swiss-2873-F1-O0075",
+            "swiss-2873-F1-O0075",
+            "swiss-2873-F1-O0061",
+            "swiss-2873-F1-O0061"
+          ]
+        },
+        {
+          "from_space_id": "swiss-2873-F1-S029",
+          "to_space_id": "swiss-2873-F2-S014",
+          "optimal_length_m": 37.99,
+          "space_path": [
+            "swiss-2873-F1-S029",
+            "swiss-2873-F1-S031",
+            "swiss-2873-F1-S038",
+            "swiss-2873-F1-S039",
+            "swiss-2873-F2-S037",
+            "swiss-2873-F2-S015",
+            "swiss-2873-F2-S014"
+          ],
+          "element_path": [
+            "swiss-2873-F1-O0061",
+            "swiss-2873-F1-O0061",
+            "swiss-2873-F1-O0076",
+            "swiss-2873-F1-O0076",
+            "swiss-2873-F1-O0062",
+            "swiss-2873-F1-O0062",
+            "swiss-2873-V01",
+            "swiss-2873-F2-O0092",
+            "swiss-2873-F2-O0092",
+            "swiss-2873-F2-O0089",
+            "swiss-2873-F2-O0089"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 45.5,
+      "legs": [
+        {
+          "from_space_id": "swiss-2873-F1-S030",
+          "to_space_id": "swiss-2873-F1-S029",
+          "optimal_length_m": 7.51,
+          "space_path": [
+            "swiss-2873-F1-S030",
+            "swiss-2873-F1-S031",
+            "swiss-2873-F1-S029"
+          ],
+          "element_path": [
+            "swiss-2873-F1-O0075",
+            "swiss-2873-F1-O0075",
+            "swiss-2873-F1-O0061",
+            "swiss-2873-F1-O0061"
+          ]
+        },
+        {
+          "from_space_id": "swiss-2873-F1-S029",
+          "to_space_id": "swiss-2873-F2-S014",
+          "optimal_length_m": 37.99,
+          "space_path": [
+            "swiss-2873-F1-S029",
+            "swiss-2873-F1-S031",
+            "swiss-2873-F1-S038",
+            "swiss-2873-F1-S039",
+            "swiss-2873-F2-S037",
+            "swiss-2873-F2-S015",
+            "swiss-2873-F2-S014"
+          ],
+          "element_path": [
+            "swiss-2873-F1-O0061",
+            "swiss-2873-F1-O0061",
+            "swiss-2873-F1-O0076",
+            "swiss-2873-F1-O0076",
+            "swiss-2873-F1-O0062",
+            "swiss-2873-F1-O0062",
+            "swiss-2873-V01",
+            "swiss-2873-F2-O0092",
+            "swiss-2873-F2-O0092",
+            "swiss-2873-F2-O0089",
+            "swiss-2873-F2-O0089"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -3536,6 +5379,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -3554,6 +5398,7 @@
       "floor": "Floor 4",
       "area_m2": 2.32
     },
+    "route": null,
     "error": null
   },
   {
@@ -3569,6 +5414,7 @@
       "count": 6,
       "total_m2": 16.07
     },
+    "route": null,
     "error": null
   },
   {
@@ -3598,7 +5444,110 @@
       },
       "first_leg_m": 8.03,
       "second_leg_m": 89.13,
-      "total_m": 97.16
+      "total_m": 97.16,
+      "legs": [
+        {
+          "from_space_id": "swiss-482-F4-S027",
+          "to_space_id": "swiss-482-F4-S026",
+          "optimal_length_m": 8.03,
+          "space_path": [
+            "swiss-482-F4-S027",
+            "swiss-482-F4-S024",
+            "swiss-482-F4-S026"
+          ],
+          "element_path": [
+            "swiss-482-F4-O0171",
+            "swiss-482-F4-O0171",
+            "swiss-482-F4-O0166",
+            "swiss-482-F4-O0166"
+          ]
+        },
+        {
+          "from_space_id": "swiss-482-F4-S026",
+          "to_space_id": "swiss-482-F9-S004",
+          "optimal_length_m": 89.13,
+          "space_path": [
+            "swiss-482-F4-S026",
+            "swiss-482-F4-S024",
+            "swiss-482-F4-S035",
+            "swiss-482-F5-S035",
+            "swiss-482-F6-S035",
+            "swiss-482-F7-S035",
+            "swiss-482-F8-S035",
+            "swiss-482-F9-S019",
+            "swiss-482-F9-S001",
+            "swiss-482-F9-S004"
+          ],
+          "element_path": [
+            "swiss-482-F4-O0166",
+            "swiss-482-F4-O0166",
+            "swiss-482-F4-O0165",
+            "swiss-482-F4-O0165",
+            "swiss-482-V01",
+            "swiss-482-V01",
+            "swiss-482-V01",
+            "swiss-482-V01",
+            "swiss-482-V03",
+            "swiss-482-F9-O0327",
+            "swiss-482-F9-O0327",
+            "swiss-482-F9-O0324",
+            "swiss-482-F9-O0324"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "optimal_length_m": 97.16,
+      "legs": [
+        {
+          "from_space_id": "swiss-482-F4-S027",
+          "to_space_id": "swiss-482-F4-S026",
+          "optimal_length_m": 8.03,
+          "space_path": [
+            "swiss-482-F4-S027",
+            "swiss-482-F4-S024",
+            "swiss-482-F4-S026"
+          ],
+          "element_path": [
+            "swiss-482-F4-O0171",
+            "swiss-482-F4-O0171",
+            "swiss-482-F4-O0166",
+            "swiss-482-F4-O0166"
+          ]
+        },
+        {
+          "from_space_id": "swiss-482-F4-S026",
+          "to_space_id": "swiss-482-F9-S004",
+          "optimal_length_m": 89.13,
+          "space_path": [
+            "swiss-482-F4-S026",
+            "swiss-482-F4-S024",
+            "swiss-482-F4-S035",
+            "swiss-482-F5-S035",
+            "swiss-482-F6-S035",
+            "swiss-482-F7-S035",
+            "swiss-482-F8-S035",
+            "swiss-482-F9-S019",
+            "swiss-482-F9-S001",
+            "swiss-482-F9-S004"
+          ],
+          "element_path": [
+            "swiss-482-F4-O0166",
+            "swiss-482-F4-O0166",
+            "swiss-482-F4-O0165",
+            "swiss-482-F4-O0165",
+            "swiss-482-V01",
+            "swiss-482-V01",
+            "swiss-482-V01",
+            "swiss-482-V01",
+            "swiss-482-V03",
+            "swiss-482-F9-O0327",
+            "swiss-482-F9-O0327",
+            "swiss-482-F9-O0324",
+            "swiss-482-F9-O0324"
+          ]
+        }
+      ]
     },
     "error": null
   },
@@ -3636,6 +5585,7 @@
         }
       ]
     },
+    "route": null,
     "error": null
   },
   {
@@ -3651,6 +5601,7 @@
       "count": 4,
       "total_m2": 74.92
     },
+    "route": null,
     "error": null
   }
 ]

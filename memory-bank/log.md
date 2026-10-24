@@ -10,6 +10,25 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Kit 1.1.0: corrected answers (new route model)
+
+- **Did:** Organisers published a patch (`Synera-GmbH/industrial-agents-hackathon-2026`, branch
+  `patch/fix-answers-ruleset`, commit 6a2cdec; same content merged to their `main` as dc03c44). Copied the 334 changed
+  `questions*.jsonl` (train + dev) into `data/` (`diff -rq` vs the kit: identical, `data/test` unchanged) and
+  updated `archive/initial-repo/` to 1.1.0 (README, CHANGELOG, pyproject, starter_agent). Work on `dev` directly.
+- **Learned:** in `data/` only expected answers changed (questions, buildings, manifest, test questions,
+  `benchmark/` are identical). Their 1.1.0 `README.md` was rewritten from an older text and drops the cb51a6f
+  alignment sections (story, personas, Sunday benchmark, submission process; judging row "Submission demo" →
+  "Pitch and demo, 3–5 min live") — kept the old text as `archive/initial-repo/README-cb51a6f.md`, repointed
+  personas/scoring/brief sources, opened [Q-017](open-questions.md#q-017). The graded rule = the organisers' route note, now precise in README §3 (see
+  [Q-014](open-questions.md#q-014)). With the new answers: `validate_solvers` **568/655** (errand 10/93,
+  what_if_door 0/4; all non-routing kinds still 100 %); `validate_warmup.py` crashes on the new unreachable-tour
+  shape. Our `geodesic` model is close (dev routes: reachability all right, 158/161 within 1 m, 3 exact).
+- **Changed docs:** [route-model.md](../docs/kit/route-model.md) marked outdated; Q-014 updated; Q-017 opened;
+  sources in personas.md, scoring.md, brief.md (+ judging-row warning).
+- **Next:** port the 1.1.0 route model into `core/` as the default, rewire errand / what_if_door / navigation,
+  fix `validate_warmup.py`, regenerate test answers.
+
 ## 2026-10-24 — Directions: turns, landmarks, rounded metres
 
 - **Did:** `core/directions.py`: `about_m` (whole metres < 10, steps of 5 < 100, then 10, half up), `landmark` (the

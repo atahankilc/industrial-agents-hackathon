@@ -11,11 +11,19 @@ related: [data-format.md, questions.md, starter-agent.md, ../architecture/solver
 
 # Route model (must match to the centimetre)
 
+> ⛔ **OUTDATED since kit 1.1.0 (2026-10-24).** The organisers recomputed every train/dev/test route answer with
+> the new rule (door to door 15 cm off the walls, 30 cm door landings, stairs 2 m per metre climbed, lift 15 m once
+> per ride + 1 m per metre, no outdoor link). The kit model below no longer reproduces the expected answers.
+> Authoritative now: `archive/initial-repo/README.md` §3 "The route model behind the expected answers",
+> `archive/initial-repo/CHANGELOG.md`, `archive/initial-repo/starter_agent/building_map.py` (1.1.0); line numbers
+> cited on this page refer to the 1.0.0 starter. Status: [Q-014](../../memory-bank/open-questions.md#q-014). This
+> page is rewritten when our core is ported.
+
 > ⚠ **Sunday route scoring uses a different distance rule** (door-to-door inside each space, 15 cm off walls; stairs
 > 2 m per metre climbed; lift 15 m + 1 m per metre; production bays destination-only; forklift ≥ 3 m) — see
-> [Q-014](../../memory-bank/open-questions.md#q-014). This page stays correct for the kit's own answers (warm-up
-> routes, `errand`) until the organisers say otherwise. Our implementation of the new rule, selectable per call:
-> [below](#sunday-route-model-and-route-rules-q-014).
+> [Q-014](../../memory-bank/open-questions.md#q-014). Kit 1.1.0 adopted this rule for all expected answers (banner
+> above), except the production-bay and forklift rules, which its README does not state. Our pre-1.1.0 approximation
+> of it: [below](#sunday-route-model-and-route-rules-q-014).
 
 [Docs index](../README.md) · Data it is built from: [data-format.md](data-format.md)
 

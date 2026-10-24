@@ -167,6 +167,11 @@ placeholder so the old `App.tsx` (unused, reference for porting) still compiles.
 
 ## Next priorities
 
+0. **URGENT — kit 1.1.0 route model** (2026-10-24): the organisers recomputed all route answers (train/dev/test)
+   with a new rule; `data/` is updated, our routing still uses the old kit model → errand 10/93, what_if_door 0/4,
+   warm-up routes off. Port `archive/initial-repo/starter_agent/building_map.py` (1.1.0) into `core/` as the
+   default, see [Q-014](open-questions.md#q-014) and [log](log.md). Numbers under "What works" predate this.
+
 1. Frontend polish (next session): phone layout check, closure ripple for edits, narrow doors for the active profile, run against
    the real Guide (key set) and record a demo GIF/video.
 2. Voice: ElevenLabs Custom LLM on the deployed `/v1/chat/completions` (replies are voice-ready); ask before

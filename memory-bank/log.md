@@ -10,6 +10,19 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Phase 3 Guide agent: design + plan (Utku's session, branch `1-agentic-yarag`)
+
+- **Did:** Brainstormed the Phase 3 "brain" with Utku: terminal-first, multi-turn Q&A + directions, no building
+  edits, no UI/voice yet. Wrote and got approval for the
+  [design](../docs/superpowers/specs/2026-10-24-guide-agent-design.md) and wrote the
+  [implementation plan](../docs/superpowers/plans/2026-10-24-guide-agent.md) (6 tasks, subagent-driven).
+- **Decided (in conversation):** Anthropic SDK directly, no LangChain; code (not the model) runs every candidate and
+  compares answers; grounding check on numbers + refs; closures last for the session; default model
+  `claude-opus-5-5` via `GUIDE_MODEL`.
+- **Learned:** `locate` silently picks the first of several matching assets (e.g. two 3D printers) — the Guide must
+  list or ask instead.
+- **Next:** execute the plan task by task.
+
 ## 2026-10-24 — Warm-up kinds in parser + solvers (Utku's session)
 
 - **Did:** 6 warm-up templates in `core/question_parser.py` (+ `destination`, tour `stops`, asset label → type

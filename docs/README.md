@@ -40,6 +40,8 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 ### Architecture (ours)
 - [architecture/overview.md](architecture/overview.md) — what we need (frontend, backend, DB, realtime, voice, CI), topology, collaboration flow, build order.
 - [architecture/ai-agents.md](architecture/ai-agents.md) — Building Guide, benchmark pipeline, Builder; shared tools; voice path.
+- [superpowers/specs/2026-10-24-guide-agent-design.md](superpowers/specs/2026-10-24-guide-agent-design.md) — Phase 3 design: Building Guide brain (terminal, multi-turn, grounded, clarifies only what matters).
+- [superpowers/plans/2026-10-24-guide-agent.md](superpowers/plans/2026-10-24-guide-agent.md) — Phase 3 implementation plan (6 tasks).
 - [architecture/solver-plan.md](architecture/solver-plan.md) — one deterministic function per benchmark kind.
 
 ### Product (ours)

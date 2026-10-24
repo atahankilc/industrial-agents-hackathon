@@ -133,4 +133,4 @@ parser + solvers are deterministic; spend goes to Guide conversations, Builder v
 Cache the building overview in the system prompt; keep tool results compact.
 
 ## Related
-- [overview.md](overview.md) · [solver-plan.md](solver-plan.md) · [routing-profiles.md](../product/routing-profiles.md)
+- [overview.md](overview.md) · [solver-plan.md](solver-plan.md) · [routing-profiles.md](../product/routing-profiles.md) · [Phase 3 Guide design](../superpowers/specs/2026-10-24-guide-agent-design.md)

@@ -132,13 +132,10 @@
   animation: plan-in 0.4s var(--ease) 0.6s both; /* after the model has risen (PlanView Reveal) */
 }
 
-/* over the map the fly-in is the wait: the status only shows if the building is still not there after it */
-.screen.on-map .screen-status { animation-delay: 2.4s; }
-
 @keyframes plan-in { from { opacity: 0; } }
 
 .screen-status {
-  animation: plan-in 0.3s var(--ease) 0.9s both; /* a quick open never shows it */
+  animation: plan-in 0.3s var(--ease); /* shown by BuildingScreen only once the wait is noticeable */
   position: absolute;
   inset: 0;
   display: grid;
@@ -154,8 +151,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .spin { animation-duration: 2.4s; }
-  .screen.leaving, .screen-stage { transition: none; }
-  .plan-labels, .screen-status { animation: none; }
 }
 
 /* ---------- pins (map-style markers over the model) ---------- */

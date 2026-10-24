@@ -12,7 +12,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Building } from '../api'
 import { useTheme } from '../theme'
-import { applyBlocks, attachMap, osmHeights, toLngLat, type Origin } from './bridge'
+import { applyBlocks, attachMap, FLAT_FOV, osmHeights, toLngLat, type Origin } from './bridge'
 import './map.css'
 import { BUILDINGS_FROM_ZOOM, mapStyle, modelColours } from './style'
 
@@ -22,10 +22,10 @@ const PANEL_PX = 340 // wide screens: the list panel covers the map's left edge
 const WIDE_PX = 900
 const PITCH = 50
 const FOV = 36.87 // MapLibre's own vertical field of view (degrees)
-const FLAT_FOV = 4 // while following the model's orthographic camera (./bridge.ts)
 const FLY = { zoom: 17.6, pitch: 56, bearing: -45 } // close to where the model's first framing lands (src/plan/PlanView.tsx TILTED)
 const FLY_MS = 1500
-const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches
+const CALM_FLY_MS = 1000 // with "reduce motion" on: still a flight (the move tells you where you are), just shorter
+const flyMs = () => (matchMedia('(prefers-reduced-motion: reduce)').matches ? CALM_FLY_MS : FLY_MS)
 // pins in the HUD's ink, ringed in the ground colour, on a soft disc that marks them from afar (no glow)
 const PIN = {
   light: { fill: '#111215', ring: '#F2F2EF', disc: '#111215', text: '#111215', halo: '#F2F2EF' },
@@ -39,8 +39,11 @@ const nameOf = (b: Building) => b.name ?? b.id.split('/')[1]
 /** the building open on top of the map */
 export type Focus = { id: string; origin: Origin }
 
-/** Ease the map's field of view (a narrow one flattens its perspective to match the model's camera). */
+/** Ease the map's field of view (a narrow one flattens its perspective to match the model's camera); a new ease
+ * replaces one still running, so a fly-in and a fly-out never fight over it. */
+const easing = new WeakMap<MapLibreMap, number>()
 function easeFov(map: MapLibreMap, to: number, ms: number) {
+  cancelAnimationFrame(easing.get(map) ?? 0)
   const from = map.getVerticalFieldOfView()
   if (ms <= 0 || from === to) return void map.setVerticalFieldOfView(to)
   const start = performance.now()
@@ -48,9 +51,9 @@ function easeFov(map: MapLibreMap, to: number, ms: number) {
     const t = Math.min(1, (now - start) / ms)
     const k = t * t * (3 - 2 * t)
     map.setVerticalFieldOfView(from + (to - from) * k)
-    if (t < 1) requestAnimationFrame(step)
+    if (t < 1) easing.set(map, requestAnimationFrame(step))
   }
-  requestAnimationFrame(step)
+  easing.set(map, requestAnimationFrame(step))
 }
 
 export function MapLanding({ buildings, error, focus, onOpen, onList }: {
@@ -108,6 +111,11 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     }
     mapRef.current = map
     attachMap(map)
+    // a new map (React's dev double mount makes two) has flown nowhere and framed nothing yet
+    flownTo.current = null
+    framed.current = false
+    // a building already open: the flat field of view, once the style is in (loading can reset the camera)
+    map.on('load', () => focusRef.current && map.setVerticalFieldOfView(FLAT_FOV))
     if (import.meta.env.DEV) Object.assign(window, { __map: map })
     return () => {
       attachMap(null)
@@ -255,7 +263,7 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     if (current) {
       const first = !was && !map.loaded() && !framed.current
       framed.current = true
-      const ms = first || still() ? 0 : FLY_MS
+      const ms = first ? 0 : flyMs()
       const camera = { center: toLngLat(current.origin, 0, 0), ...FLY }
       if (ms) map.flyTo({ ...camera, duration: ms, essential: true })
       else map.jumpTo(camera)
@@ -265,7 +273,7 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     }
     if (!was) return
     const bounds = pinBounds(located)
-    const ms = still() ? 0 : FLY_MS
+    const ms = flyMs()
     if (bounds) {
       const camera = map.cameraForBounds(bounds, { padding: fitPadding(), maxZoom: 15 })
       if (camera) map.flyTo({ ...camera, pitch: PITCH, bearing: 0, duration: ms, essential: true })

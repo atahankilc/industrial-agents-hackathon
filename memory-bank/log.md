@@ -22,6 +22,35 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   (1,338/1,338 exact) → v1 is the submission pipeline. Dev 138/138 with v1 (regex).
 - **Next:** Sunday building → rerun the one command into `SUBMISSION/answers.json`; video + tech explanation.
 
+## 2026-10-25 — Open building's map block as a see-through shell
+
+- **Did:** the tile blocks over the open building (same overlap test as the blue blocks' heights, now one `overlaps`
+  helper in `src/map/bridge.ts`) leave `buildings-3d` for a new see-through `buildings-3d-shell` layer instead of
+  being hidden only when their centre is inside: campus wings drawn as one block with their neighbours no longer box
+  the model in. Checked in headless Chrome (Wirtschaftswissenschaften light/dark, N8, Hauptgebäude).
+
+## 2026-10-25 — Map and model back in register (field of view, tilt cap, double mount)
+
+- **Did:** measured model vs map in px (dev-only `window.__plan` + `window.__map`): 4° map field of view was up to
+  40 px apart at the corners once the stacked view zoomed in and tilted; now 1° (≤ 10 px corners, ≤ 1 px centre).
+  Below 1°, and above 60° tilt at 1°, MapLibre drew no buildings at z15–18, so the model's tilt is capped at 60° over
+  the map (`MAX_MAP_PITCH`). React's dev double mount created a second map that kept the first one's "already flown"
+  state and ended with the default 36.87° field of view (600 px off): refs reset per map, `follow` enforces the flat
+  field of view, FOV eases cancel each other.
+- **Learned:** an orthographic model over a perspective map only lines up when the map's field of view is tiny;
+  MapLibre's high-pitch tile selection sets the floor (1°) and the tilt limit (60°).
+
+## 2026-10-25 — Map: buildings fitted onto OSM, open with all floors, transition with reduce motion
+
+- **Did:** `scripts/fit_locations.py` refits `origin` per building against its OSM way (translation; rotation adds
+  nothing) where the kit footprint is ≥ 75 % of the way: 12 buildings, up to 18 m (U-Trakt), N8 IoU 0.58 → 0.99.
+  Partial models (Wolf-Ferrari-Haus, Mensa Arcisstraße, Terminal 2, Haus der Weiterbildung, Pasing Arcaden) kept. Model blocks also take
+  their height from blocks with most corners inside (U-shaped U-Trakt). Buildings open stacked. Transition plays with
+  "reduce motion" on; the loading status uses a timer instead of a CSS delay.
+- **Learned:** Atahan's Mac has Reduce motion on, and dev's `styles.css` turns every CSS animation/transition off under
+  it: the transition looked missing because my code skipped it there too.
+- **Next:** partial models cannot match their OSM outline; marking them (or drawing only the modelled part) is open.
+
 ## 2026-10-25 — Map → building transition, city / alone views (branch `map-transition`)
 
 - **Did:** the landing map stays mounted under the building screen and follows the model's camera

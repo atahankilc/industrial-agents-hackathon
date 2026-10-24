@@ -2,13 +2,20 @@
 // its own camera (src/plan/PlanView.tsx) and the map follows it, so the city sits around the model: the kit's
 // metres run x east and y north from the building's `origin` (backend/locations.json), the same frame as the map.
 // The model's camera is orthographic and the map's perspective, so the map flattens its perspective while it follows
-// (a narrow field of view): then both agree to a few percent across a building.
+// (a 1° field of view; narrower drops tiles when tilted): then both agree to a few pixels across the screen.
 
 import type { ExpressionSpecification, Map as MapLibreMap } from 'maplibre-gl'
 import { BUILDINGS_3D_FILTER } from './style'
 
 const R = 6378137 // the sphere the (archived) georef.py projected the OSM outline with
 const TILE_PX = 512 // MapLibre's world is 512 px wide at zoom 0
+
+/** The steepest tilt the model takes while the map follows it: past 60° MapLibre switches to another tile selection
+ * and, with the narrow field of view used here, draws no buildings at street zooms (measured at z15–18). */
+export const MAX_MAP_PITCH = 60
+/** The map's field of view while it follows the model: ≤ ~10 px apart from the orthographic model at the screen
+ * edges (4° was up to 40 px); narrower, MapLibre drops tiles when tilted. */
+export const FLAT_FOV = 1
 
 export type Origin = { lat: number; lon: number }
 /** A camera in the building's metres: the ground point at the centre of the screen, pixels per metre, the tilt
@@ -32,7 +39,8 @@ export const attachMap = (next: MapLibreMap | null) => {
 /** How tall the map's own blocks are where each building stands (OSM `render_height`, the tallest block that
  * overlaps its footprint), so its accent block can wrap them; null where no block is loaded yet. In the tiles a
  * building is often one wing of a bigger block (the TUM main building is one polygon), so overlap is tested
- * both ways: the block's centre in the footprint, or the footprint's centre in the block. */
+ * three ways: the block's centre in the footprint, the footprint's centre in the block, or most of the block's
+ * corners in the footprint (a U-shaped building has its centre in the courtyard). */
 export function osmHeights(footprints: [number, number][][][]): (number | null)[] {
   const tallest: (number | null)[] = footprints.map(() => null)
   if (!map?.getSource('openmaptiles')) return tallest
@@ -43,11 +51,20 @@ export function osmHeights(footprints: [number, number][][][]): (number | null)[
     const centre = centreOf(feature.geometry)
     if (!Number.isFinite(height) || !ring || !centre) continue
     footprints.forEach((rings, i) => {
-      const overlaps = rings.some((own) => inside(centre, own)) || centres[i].some((own) => own && inside(own, ring as [number, number][]))
-      if (overlaps) tallest[i] = Math.max(tallest[i] ?? 0, height)
+      if (overlaps(ring, centre, rings, centres[i])) tallest[i] = Math.max(tallest[i] ?? 0, height)
     })
   }
   return tallest
+}
+
+/** A tile block over a footprint (rings, their centres): its centre in the footprint, the footprint's centre in it, or
+ * most of its corners in the footprint. */
+function overlaps(ring: number[][], centre: number[], rings: [number, number][][], centres: (number[] | null)[]) {
+  return (
+    rings.some((own) => inside(centre, own)) ||
+    centres.some((own) => own && inside(own, ring as [number, number][])) ||
+    ring.filter((corner) => rings.some((own) => inside(corner, own))).length >= ring.length / 2
+  )
 }
 
 type Geometry = ReturnType<MapLibreMap['querySourceFeatures']>[number]['geometry'] | { type: 'Polygon'; coordinates: number[][][] }
@@ -77,6 +94,7 @@ export const zoomFor = (scale: number, lat: number) => Math.log2((scale * metres
 /** Move the map to the model's camera (no animation: it is called on every frame the model draws). */
 export function follow(origin: Origin, view: View) {
   if (!map) return
+  if (map.getVerticalFieldOfView() !== FLAT_FOV) map.setVerticalFieldOfView(FLAT_FOV) // whatever happened before
   map.jumpTo({ center: toLngLat(origin, view.x, view.y), zoom: zoomFor(view.scale, origin.lat), pitch: view.pitch, bearing: view.bearing })
 }
 
@@ -132,18 +150,25 @@ export function showBlocks(id: string) {
   applyBlocks()
 }
 
-/** (Re)apply the hidden blocks: after tiles load and after a style swap. Blocks are matched by their centre, since
- * the tiles' building ids are not the kit's way ids (a building split into parts has several). */
+/** (Re)apply the open building's blocks: after tiles load and after a style swap. Every tile block over its footprint
+ * leaves the solid layer for the see-through shell (style.ts `buildings-3d-shell`), so the model is not boxed in by
+ * the map's own volume of it (a campus wing is often one block with its neighbours). Matched by overlap, since the
+ * tiles' building ids are not the kit's way ids. */
 export function applyBlocks() {
   if (!map?.getLayer('buildings-3d')) return
-  if (!blocks) return void map.setFilter('buildings-3d', BUILDINGS_3D_FILTER)
   const ids = new Set<number>()
-  for (const feature of map.querySourceFeatures('openmaptiles', { sourceLayer: 'building' })) {
-    const centre = centreOf(feature.geometry)
-    if (feature.id === undefined || !centre) continue
-    if (blocks.rings.some((outline) => inside(centre, outline))) ids.add(Number(feature.id))
+  if (blocks) {
+    const centres = blocks.rings.map((ring) => centreOf({ type: 'Polygon', coordinates: [ring] }))
+    for (const feature of map.querySourceFeatures('openmaptiles', { sourceLayer: 'building' })) {
+      const ring = outerRing(feature.geometry)
+      const centre = centreOf(feature.geometry)
+      if (feature.id === undefined || !ring || !centre) continue
+      if (overlaps(ring, centre, blocks.rings, centres)) ids.add(Number(feature.id))
+    }
   }
-  map.setFilter('buildings-3d', ['all', BUILDINGS_3D_FILTER as ExpressionSpecification, ['!', ['in', ['id'], ['literal', [...ids]]]]])
+  const these: ExpressionSpecification = ['in', ['id'], ['literal', [...ids]]]
+  map.setFilter('buildings-3d', ['all', BUILDINGS_3D_FILTER as ExpressionSpecification, ['!', these]])
+  if (map.getLayer('buildings-3d-shell')) map.setFilter('buildings-3d-shell', ['all', BUILDINGS_3D_FILTER as ExpressionSpecification, these])
 }
 
 function inside([px, py]: number[], ring: [number, number][]) {

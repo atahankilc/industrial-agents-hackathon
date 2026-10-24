@@ -15,7 +15,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import * as THREE from 'three'
 import type { MapControls as MapControlsImpl } from 'three-stdlib'
 import type { Plan, PlanSpace } from '../api'
-import type { View } from '../map/bridge'
+import { MAX_MAP_PITCH, type View } from '../map/bridge'
 import { assetAt, paintAsset } from './furniture'
 import { buildFloors, contains, fillOf, fromScene, paintSpace, toScene, WALL_CUT_M, type FloorGeometry } from './geometry'
 import type { PlanPalette } from './palette'
@@ -62,6 +62,7 @@ const MAX_ZOOM = 220
 const CAMERA_DISTANCE = 400
 const FLAT_POLAR = 0.0001
 const MAX_POLAR = 1.2
+const MAX_POLAR_ON_MAP = THREE.MathUtils.degToRad(MAX_MAP_PITCH) // over the map: beyond it the map drops its tiles
 const FLAT_BELOW = 0.14 // a tilt this small snaps to straight-down when the gesture ends
 const SLIDE_SECONDS = 0.5
 const GROUND_BELOW_M = 0.36 // just under the slab edge
@@ -159,7 +160,7 @@ export function PlanView(props: Props) {
           <StoryLayer plan={plan} story={story} palette={palette} shown={shown} floor={floor} stacked={stacked} lift={lift} markers={markers} markerElements={markerElements} />
         </Slide>
         </Reveal>
-        <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} insets={insets} fitKey={fitKey} onTilt={onTilt} intro={camera?.intro} ground={groundRef} />
+        <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} insets={insets} fitKey={fitKey} onTilt={onTilt} intro={camera?.intro} ground={groundRef} maxPolar={camera ? MAX_POLAR_ON_MAP : MAX_POLAR} />
         <Follow plan={plan} ground={groundRef} follow={camera?.follow} />
         <Picker plan={plan} floors={stacked ? shown : shown.filter((i) => i <= floor)} lift={lift} stacked={stacked} geometries={floors} pick={pick} />
         <LabelPainter plan={plan} floor={floor} stacked={stacked} rooms={mode === 'floor'} palette={palette} canvas={labels} selected={selected} skip={pinnedSpaces} />
@@ -611,7 +612,7 @@ function frame(plan: Plan, floors: number[], lift: (index: number) => number, vi
 /** The model rising out of the ground the first time it is drawn (the walls grow up from the floor). */
 function Reveal({ children }: { children: React.ReactNode }) {
   const group = useRef<THREE.Group>(null)
-  const t = useRef(matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 0)
+  const t = useRef(0)
   const invalidate = useThree((state) => state.invalidate)
   useLayoutEffect(() => {
     if (group.current && t.current < 1) group.current.scale.y = 0.001
@@ -637,6 +638,9 @@ function Follow({ plan, ground, follow }: { plan: Plan; ground: React.RefObject<
     sent.current = ''
     invalidate()
   }, [follow, invalidate])
+  useEffect(() => {
+    if (import.meta.env.DEV) Object.assign(window, { __plan: { camera, ground, plan } }) // alignment checks
+  }, [camera, ground, plan])
   useFrame(() => {
     if (!follow) return
     const { look, at } = scratch
@@ -666,7 +670,7 @@ type Move = { t: number; from: Pose; to: Pose; seconds?: number }
 /** Frames the shown floors (tilted, or flat if the user went flat on one floor) whenever they or fitKey change, easing there. Tilting is free in between
  * (0 = straight down … MAX_POLAR); a nearly flat tilt snaps flat when the gesture ends, and the current look
  * (flat or tilted) is reported so a flat view can stop spreading the floors. */
-function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt, intro, ground }: {
+function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt, intro, ground, maxPolar }: {
   plan: Plan
   floor: number
   floors: number[]
@@ -677,6 +681,7 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt, intro, grou
   /** the camera to start from (the map's), eased from to the first framing */
   intro?: () => View | null
   ground: React.RefObject<THREE.Mesh | null>
+  maxPolar: number
 }) {
   const camera = useThree((state) => state.camera) as THREE.OrthographicCamera
   const size = useThree((state) => state.size)
@@ -747,7 +752,7 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt, intro, grou
     if (first.current) {
       first.current = false
       const start = intro?.()
-      if (start && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      if (start) {
         // the map's camera, on the map's ground under the model
         const [X, Z] = toScene(plan, start.x, start.y)
         const y = ground.current?.getWorldPosition(new THREE.Vector3()).y ?? 0
@@ -805,7 +810,7 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt, intro, grou
       minZoom={1}
       maxZoom={MAX_ZOOM}
       minPolarAngle={FLAT_POLAR}
-      maxPolarAngle={MAX_POLAR}
+      maxPolarAngle={maxPolar}
       zoomToCursor
       onStart={onStart}
     />

@@ -32,6 +32,8 @@ type Palette = {
   /** blocks of the buildings that have a model in the app (drawn by MapLanding from their kit footprints) */
   ours: string
   oursRoof: string
+  /** the open building's own blocks, drawn see-through */
+  shell: string
   label: string
   labelMuted: string
   labelWater: string
@@ -63,6 +65,7 @@ const PALETTE: Record<'light' | 'dark', Palette> = {
     roof: '#262830',
     ours: '#1F3A5C',
     oursRoof: '#3A6FA8',
+    shell: '#8A93A3',
     label: '#A2A6AE',
     labelMuted: '#6E727A',
     labelWater: '#4F7894',
@@ -94,6 +97,7 @@ const PALETTE: Record<'light' | 'dark', Palette> = {
     roof: '#FBFBF9',
     ours: '#9FC2EC',
     oursRoof: '#D6E6F8',
+    shell: '#B9C0CA',
     label: '#2E3136',
     labelMuted: '#73777F',
     labelWater: '#3F709A',
@@ -157,6 +161,24 @@ function layers(p: Palette, dark: boolean): LayerSpecification[] {
         'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
         'fill-extrusion-opacity': 0.95,
         'fill-extrusion-vertical-gradient': true,
+      },
+    },
+
+    // the open building's own blocks, see-through (filled by src/map/bridge.ts applyBlocks): its outline stays
+    // readable around the model without boxing it in
+    {
+      id: 'buildings-3d-shell',
+      type: 'fill-extrusion',
+      ...src,
+      'source-layer': 'building',
+      minzoom: BUILDINGS_FROM_ZOOM,
+      filter: ['in', ['id'], ['literal', []]],
+      paint: {
+        'fill-extrusion-color': p.shell,
+        'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 6],
+        'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+        'fill-extrusion-opacity': dark ? 0.16 : 0.22,
+        'fill-extrusion-vertical-gradient': false,
       },
     },
 

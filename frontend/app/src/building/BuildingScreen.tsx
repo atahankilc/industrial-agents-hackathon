@@ -166,6 +166,7 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
         setPlan(next)
         const ground = next.floors.findIndex((item) => item.level === 0)
         setFloor(ground >= 0 ? ground : 0)
+        setStacked(next.floors.length > 1) // first look: the whole building, every floor stacked
       })
       .catch((reason) => !cancelled && setError(String(reason)))
     return () => {
@@ -173,6 +174,14 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
       opening.release()
     }
   }, [buildingId])
+
+  // "Opening the building…" only once the wait is noticeable: over the map the fly-in is the wait (a timer, not a CSS
+  // delay: the app's reduced-motion rule switches CSS animations off)
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), origin ? 2400 : 900)
+    return () => clearTimeout(timer)
+  }, [origin])
 
   // the map's own block of this building gives way to the model while this screen is up
   useEffect(() => {
@@ -357,7 +366,7 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
           }}
         />
       )}
-      {!plan && (
+      {!plan && (slow || error) && (
         <div className="screen-status" role="status">
           {error ? <p>Could not open this building. {error}</p> : <p>Opening the building…</p>}
         </div>

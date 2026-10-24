@@ -73,6 +73,6 @@
   .ml-locate { left: 16px; width: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ml-list button, .ml-more, .ml-locate-actions button, .ml-panel, .ml .maplibregl-ctrl-bottom-right { transition: none; }
+  .ml-list button, .ml-more, .ml-locate-actions button { transition: none; }
   .ml-locate { animation: none; }
 }

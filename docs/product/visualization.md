@@ -48,8 +48,10 @@ place card) with a floating Guide conversation.
   first framing while it rises out of the ground (`PlanView` `Reveal`, 0.9 s; also for buildings with no position).
   From then on the map follows the model's camera every frame (`src/map/bridge.ts`): the kit frame is metres x east,
   y north from `location.origin` (the fitted kit (0, 0) from `georef.py`, added to `backend/locations.json`), and
-  the map narrows its field of view to 4° so its perspective matches the orthographic model. The building's own
-  OSM blocks are hidden by matching block centres inside the plan outline (the tile ids are not the kit's way ids).
+  the map narrows its field of view to 1° so its perspective matches the orthographic model (measured ≤ 10 px apart at the screen corners, ≤ 1 px at the centre; 4° was up to 40 px; below 1° MapLibre drops its tiles when tilted), and the model tilts at most 60° over the map (past 60° MapLibre switches tile selection and, at that field of view, draws no buildings at z15–18). The map blocks over the
+  open building (overlap with the plan outline: block centre in it, its centre in the block, or most block corners in
+  it; tile ids are not the kit's way ids) move to a see-through shell layer (`buildings-3d-shell`, opacity 0.22 light /
+  0.16 dark), so a campus wing that the tiles draw as one block with its neighbours no longer boxes the model in.
   Back fades the model out (0.35 s) while the map flies out to every pin.
 - **Buildings with a model on the map:** drawn as accent-blue blocks (`MapLanding` `models` source): the kit
   footprint (`location.outline`: union of the kit's spaces on every floor, outset 0.6 m for the exterior walls,
@@ -57,6 +59,15 @@ place card) with a floating Guide conversation.
   so the blue wraps the grey block. Tinting the tiles' own blocks does not work: the TUM main building is one tile
   polygon around the whole block, its kit buildings are wings of it. Light mode got its own palette (2026-10-25):
   stronger greens and water, white roads with grey casings, brighter side light on the blocks.
+- **Fitting the kit onto the map** (`scripts/fit_locations.py`, 2026-10-25): the archived georef origins were up to
+  ~18 m off for some buildings (N8, Arcisstraße 21, U-Trakt). The script fetches each OSM way (cached in `.cache/osm/`),
+  shifts the kit's ground-floor footprint to the best overlap (a rotation search added nothing) and moves `origin`,
+  then rewrites `outline` and `height_m`. Only where the kit footprint is ≥ 75 % of the way: Wolf-Ferrari-Haus (Ottobrunn),
+  Mensa Arcisstraße, Terminal 2 (Freising), Haus der Weiterbildung and Pasing Arcaden model only part of their OSM
+  building (area ratio 0.3–0.6), so no shift can make them match. Overlap with the way after the fit: 0.78–0.99.
+- **Opening a building** shows all floors stacked (one-floor buildings: that floor). The fly-in, hand-off and rise also
+  play with the system's "reduce motion" on (flight 1.0 s instead of 1.5 s); the app's global reduced-motion CSS rule
+  (`styles.css`) still turns the fades into cuts.
 - **Two ways to show a building with a position** (menu, remembered per browser, `ttyb-building-showing`): **in the
   city** (default, the neighbours and their pins around the model; tapping a pin flies over and opens that building)
   or **alone** (the plan's own stage and grid cover the map once the model is there; meant for building managers).

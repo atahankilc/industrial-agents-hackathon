@@ -20,3 +20,6 @@ dist/
 
 # old scene/visualization code, kept locally as reference (not committed)
 .viz-archive/
+
+# OSM API responses cached by scripts/fit_locations.py
+.cache/

@@ -1,0 +1,39 @@
+{
+  "building": "data/dev/proc-campus-dev-001",
+  "turns": [
+    {
+      "user": "I'm in the main lobby and Lift 1 is out of order.",
+      "expect": {
+        "tools": [
+          "update_session"
+        ],
+        "grounded": true
+      }
+    },
+    {
+      "user": "How do I get to Lab 2.20?",
+      "expect": {
+        "asked": false,
+        "route_to": "proc-campus-dev-001-F2-S020",
+        "grounded": true
+      }
+    },
+    {
+      "user": "Lift 1 works again.",
+      "expect": {
+        "tools": [
+          "update_session"
+        ],
+        "grounded": true
+      }
+    },
+    {
+      "user": "And now, how do I get to Lab 2.20?",
+      "expect": {
+        "asked": false,
+        "route_to": "proc-campus-dev-001-F2-S020",
+        "grounded": true
+      }
+    }
+  ]
+}

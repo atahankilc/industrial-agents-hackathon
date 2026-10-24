@@ -17,7 +17,7 @@ distance, count or route that did not come from a tool result ([D-003](../../mem
 
 | Agent | Job | Model (start) | Channel | Points |
 |---|---|---|---|---|
-| **Building Guide** | conversation: find, route, react, edit; clarifies; remembers user profile | Sonnet 5.5 (Opus 5.5 for hard turns) | text chat + voice (via ElevenLabs) | Interaction 25, L1–L3 |
+| **Building Guide** | conversation: find, route, react, edit; clarifies; remembers user profile. **v1 implemented** (terminal, `agent/guide/`: 6 tools, grounding check, session; live scripted run 15/15 turns, [spec](../superpowers/specs/2026-10-24-guide-agent-design.md), [plan](../superpowers/plans/2026-10-24-guide-agent.md)); edit tools, UI and voice not yet | Opus 5.5 default (`GUIDE_MODEL`), medium effort | terminal REPL; text chat + voice (via ElevenLabs) planned | Interaction 25, L1–L3 |
 | **Benchmark pipeline** | question text → parse → solver → `Answer:` line; no free-form LLM | none; Haiku/Sonnet only as parse fallback | CLI `run_benchmark`, `benchmark.evaluate --agent` | Does it work 55 |
 | **Builder** | floor-plan image → draft `building.json` → validate → user confirms | Opus 5.5 (vision) | UI upload + chat | L4 |
 | (dev) **Claude Code subagents** | build the product: research, solvers, tests | — | this repo | — |

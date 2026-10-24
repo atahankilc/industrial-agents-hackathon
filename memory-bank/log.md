@@ -10,6 +10,20 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-24 — Guide Task 6: scripted conversations, live runner, docs (branch `1-agentic-yarag`)
+
+- **Did:** 8 scripted conversations (`tests/guide_conversations/*.json`: two-room and same-room printers, unknown
+  room, follow-up "there", wheelchair stated once, lift closed and reopened, Turkish, out of scope),
+  `scripts/eval_guide.py` (`check_turn` recomputes `route_to` lengths with `core.solvers.route` from the session
+  state; PASS/FAIL per turn + cost) and 7 offline tests in `tests/test_guide_conversations.py`; full suite 107 passed.
+- **Live run (dev campus + factory):** first run 12/15 turns; failures were prompt behaviour (closing offer "Would
+  you like directions?" counted as a question; route reused from memory instead of calling `route` after a
+  clarifying answer and after a lift reopened). Three RULES lines in `agent/guide/prompt.py` fixed it: 15/15 PASS
+  (a single run, not a stability measure), ~$0.27 per full run; after the review-round checker fixes the three changed
+  conversations re-ran 9/9 PASS (~$0.19).
+- **Changed docs:** commands.md (Guide section), ai-agents.md (Guide v1 status), project-state.md.
+- **Next:** UI / voice on top of `TurnResult`; Guide edit tools (Builder).
+
 ## 2026-10-24 — Guide Task 5: loop, prompt and REPL (branch `1-agentic-yarag`)
 
 - **Did:** Added `agent/guide/prompt.py` (cached RULES + building overview, no per-room facts), `agent/guide/guide.py`
@@ -46,7 +60,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 ## 2026-10-24 — Guide Task 1: place resolution + candidate fan-out (branch `1-agentic-yarag`)
 
 - **Did:** Added `agent/guide/resolve.py` (`resolve_places`, `resolve_elements`, `nearest_names`, `describe`,
-  `fan_out`) and `tests/test_guide_resolve.py` (11 tests); full suite 44 passed.
+  `fan_out`) and `tests/test_guide_resolve.py` (11 tests); full suite 47 passed.
 - **Next:** plan Tasks 2-6 ([plan](../docs/superpowers/plans/2026-10-24-guide-agent.md)).
 
 ## 2026-10-24 — Phase 3 Guide agent: design + plan (Utku's session, branch `1-agentic-yarag`)

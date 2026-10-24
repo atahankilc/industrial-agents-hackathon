@@ -51,6 +51,19 @@ uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answ
 
 Format rules: [scoring.md](../challenge/scoring.md#submission-format).
 
+## Talk to the Guide
+
+```bash
+# terminal REPL (multi-turn, remembers position / step-free / closures); --show-tools prints each tool call
+uv run --env-file .env python -m agent.guide data/dev/proc-campus-dev-001 --show-tools
+# scripted conversations (tests/guide_conversations/*.json) against the live API: PASS/FAIL per turn + cost, exit 1 on a failure
+uv run --env-file .env python scripts/eval_guide.py [tests/guide_conversations/lift_closure.json ...]
+# offline checks of the conversation files and of the checker (no API)
+uv run pytest tests/test_guide_conversations.py -q
+```
+
+Design: [guide-agent spec](../superpowers/specs/2026-10-24-guide-agent-design.md). A full eval run costs about $0.27.
+
 ## Sunday benchmark
 
 `uv run --env-file .env run_benchmark <building_dir> <questions> <answers>` — inputs, outputs and scores in

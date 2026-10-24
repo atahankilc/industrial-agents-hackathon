@@ -33,12 +33,13 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   pytest dev dep). Kit remainder in `archive/initial-repo/`.
 - Phase 3 in progress ([plan](../docs/superpowers/plans/2026-10-24-guide-agent.md)): `agent/guide/resolve.py` —
   resolve_places / resolve_elements / nearest_names / describe / fan_out; 11 tests in `tests/test_guide_resolve.py`;
-  full suite 44 passed.
+  full suite 47 passed.
 - `agent/guide/tools.py` — Session, TOOLS, run_tool; locate / find_places / place_info / building_fact (strict
   schemas); 12 tests in `tests/test_guide_tools.py`; full suite 56 passed.
 - `route` + `update_session` tools in `agent/guide/tools.py` (session position / step-free / closures feed routes; closures fan out as slots and never leak into `bmap.closed`); 13 tests in `tests/test_guide_route.py`; full suite 69 passed.
 - `agent/guide/grounding.py` — grounded_tokens / ungrounded / fallback_text (numbers in replies must come from tool results); 14 tests in `tests/test_guide_grounding.py`; full suite 83 passed.
 - `agent/guide/prompt.py` + `guide.py` + `__main__.py` — Guide loop (`Guide.turn` → `TurnResult`, one grounding repair then code fallback, API errors roll the turn back) and REPL `uv run --env-file .env python -m agent.guide <building_dir> [--show-tools]`; 15 tests in `tests/test_guide_loop.py` (+1 in `tests/test_guide_route.py`: `[]` for via/close/reopen means none); full suite 100 passed.
+- Guide v1 done (Phase 3, Task 6): 8 scripted conversations in `tests/guide_conversations/*.json` + `scripts/eval_guide.py` (`check_turn` recomputes `route_to` with `core.solvers.route` from the session state); 7 offline tests in `tests/test_guide_conversations.py`; full suite 107 passed. Live run (campus + factory dev): 12/15 turns first, after 3 prompt rules (re-call the tool after a clarifying answer, call `route` afresh each time, no closing offers) 15/15 PASS (single run, so not a stability measure), ~$0.27 per full run.
 - Knowledge base: [docs/](../docs/README.md) incl. architecture, agents, personas, routing profiles, research.
 - Point-cloud 3D prototype: `frontend/prototypes/pointcloud/` (exporter + three.js viewer), see
   [visualization.md](../docs/product/visualization.md).

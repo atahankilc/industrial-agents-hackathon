@@ -1,0 +1,13 @@
+{
+  "building": "data/dev/proc-campus-dev-001",
+  "turns": [
+    {
+      "user": "What's the weather like today?",
+      "expect": {
+        "tools": [],
+        "asked": false,
+        "grounded": true
+      }
+    }
+  ]
+}

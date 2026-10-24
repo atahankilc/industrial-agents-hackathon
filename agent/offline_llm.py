@@ -131,7 +131,7 @@ class OfflineClient:
                 return f"There's no route right now ({result.get('reason')})."
             steps = result["steps"]
             numbered = "\n".join(f"{index}. {step}" for index, step in enumerate(steps[1:], 1))
-            return f"{steps[0]} About {round(result['length_m'])} m, {result['profile']}:\n{numbered}"
+            return f"{steps[0]} About {result.get('about_m', round(result['length_m']))} m, {result['profile']}:\n{numbered}"
         if name == "propose_change":
             effect = result.get("effect", {})
             line = f"I understood: {result['summary']}."

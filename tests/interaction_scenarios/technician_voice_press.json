@@ -1,0 +1,10 @@
+{
+  "building": "data/dev/proc-factory-dev-004",
+  "channel": "voice",
+  "persona": "Service technician with both hands full, speaks short, says 'the press' instead of the machine name.",
+  "goal": "Get spoken directions to the press you need to service.",
+  "knows": [
+    "You are in the locker room.",
+    "Any press brake is fine if they're in the same place."
+  ]
+}

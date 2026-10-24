@@ -1,0 +1,10 @@
+{
+  "building": "data/dev/proc-campus-dev-001",
+  "channel": "text",
+  "persona": "Hurried visitor who types fast and makes typos, and changes their mind halfway.",
+  "goal": "Start by asking the way to 'meeting room 3.91' (a typo for Meeting room 3.19); after the guide answers, decide you'd rather go to the canteen first and get directions there.",
+  "knows": [
+    "You are in the main lobby.",
+    "You meant Meeting room 3.19 if the guide suggests it."
+  ]
+}

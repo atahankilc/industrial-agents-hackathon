@@ -173,6 +173,17 @@ uv run --env-file .env python scripts/eval_guide.py [tests/guide_conversations/l
 uv run pytest tests/test_guide_conversations.py -q
 ```
 
+Interaction eval: a simulated tricky user (Claude, playing a scenario from `tests/interaction_scenarios/*.json`) talks
+to the Guide, then an LLM judge scores the conversation 1–5 with the brief's Interaction rubric (asks only what it
+needs, shows what it understood, followable directions, remembers context) plus goal reached. Live API, ~$0.1–0.3
+per scenario; transcripts + verdicts in `agent_output/interaction_eval/`.
+
+```bash
+uv run --env-file .env python scripts/interaction_eval.py [tests/interaction_scenarios/first_day_coffee.json ...] \
+    [--repeat 3] [--model claude-sonnet-5-5 --effort low] [--user-model …] [--judge-model …]
+uv run pytest tests/test_interaction_eval.py -q   # offline (fake client + offline Guide)
+```
+
 The second Guide (`agent/guide_v1/`, branch `1-agentic-yarag`) and its benchmark pipeline (`agent/answer.py` →
 `core/solvers_v1.py`) sit beside the canonical ones; the backend and UI use `agent/guide.py`.
 

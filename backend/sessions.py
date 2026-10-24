@@ -25,6 +25,7 @@ from backend import persistence
 from agent.tools import BuildingSession
 from core.building_map import OUTSIDE, BuildingMap
 from core.directions import route_legs
+from core.floorplan import export_plan
 from core.pointcloud import export_points, route_vertices
 
 DATA_DIR = Path(os.environ.get("GUIDE_DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
@@ -50,22 +51,31 @@ def load_catalogue(data_dir: Path = DATA_DIR) -> dict[str, dict]:
 
 
 class MapView:
-    """Per-conversation cache of the point-cloud export and of route polylines (by event index)."""
+    """Per-conversation cache of the point-cloud export, the vector floor plan and route polylines (by event index)."""
 
     def __init__(self) -> None:
         self.lock = threading.Lock()  # own lock: /events and /points read while a Guide turn holds the turn lock
         self.building: BuildingMap | None = None  # the object the caches were built from (identity, not equality)
         self.export: dict | None = None
         self.routes: dict[int, list[list[float]]] = {}
+        self.floor_plan: dict | None = None
 
     def refresh(self, building: BuildingMap) -> dict:
         if building is not self.building:
-            self.building, self.export, self.routes = building, export_points(building), {}
+            self.building, self.export, self.routes, self.floor_plan = building, export_points(building), {}, None
         return self.export  # type: ignore[return-value]
 
     def points(self, session: BuildingSession) -> dict:
         with self.lock:
             return self.refresh(session.building)
+
+    def plan(self, session: BuildingSession) -> dict:
+        """Vector floor plan (core/floorplan.py) with the point-cloud export's centre, cached like the export."""
+        with self.lock:
+            export = self.refresh(session.building)
+            if self.floor_plan is None:
+                self.floor_plan = export_plan(session.building, export["center"])
+            return self.floor_plan
 
     def enrich(self, session: BuildingSession, events: list[dict], first_index: int) -> list[dict]:
         """Copies of `events` (session.events[first_index:...]) with route vertices + legs and change space ids.

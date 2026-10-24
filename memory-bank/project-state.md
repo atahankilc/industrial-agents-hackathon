@@ -31,8 +31,8 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `benchmark/` (official scorer), `data/` (committed, [D-005](decisions.md#d-005)), `tests/`, `pyproject.toml` (uv,
   pytest dev dep). Kit remainder in `archive/initial-repo/`.
 - Knowledge base: [docs/](../docs/README.md) incl. architecture, agents, personas, routing profiles, research.
-- Point-cloud 3D prototype: `frontend/prototypes/pointcloud/` (exporter + three.js viewer), see
-  [visualization.md](../docs/product/visualization.md).
+- App visuals: vector plan view (`frontend/app/src/plan/`, `core/floorplan.py`); the point-cloud prototype and
+  scene moved to the gitignored `.viz-archive/`, see [visualization.md](../docs/product/visualization.md).
 - Licensing: `LICENSE` (MIT, our code only), `NOTICE.md` (third-party paths + terms), `data/README.md`
   (per-source data licences) — [D-009](decisions.md#d-009) accepted.
 - Verified-commit workflow in `.claude/` (verifier + fixer agents, `/ship` skill, commit-gate hook, worklog) —
@@ -118,6 +118,14 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
     turn). Conversations updated to its tools (`set_profile`; closures as `propose_change` → "Yes" → `apply_change`).
     First live run 14/18; after the fixes (log 2026-10-24) Opus 5.5 medium **17/18** (89 s, ~$0.22), the one miss
     was the checker's `asked` rule, fixed and re-run 3/3 (~$0.03).
+  - 2026-10-24: **Interaction eval** `scripts/interaction_eval.py` — Claude plays a tricky user from
+    `tests/interaction_scenarios/*.json` (6: first day/coffee, wheelchair two trips, facility manager + lift, voice
+    technician in the factory, typo + change of mind, Turkish trolley), an LLM judge scores the brief's rubric 1–5.
+    All Opus 5.5: asks 4.17 · shows 4.17 · **directions 3.33** · remembers 4.83 · goal 5/6, ~$0.62 per run (log).
+  - 2026-10-24: **Guidance steps** `core/directions.py` `guidance_steps` / `about_m` / `landmark`: the Guide's
+    `find_route` / `tour` steps now carry turns (taken at the door you came through), a landmark item within 4 m of
+    each door, rounded metres, one line per ride, no ids; `about_m` = rounded total (`length_m` stays exact).
+    Interaction eval: directions **3.33 → 4.17**, asks 4.67, shows 4.83, remembers 5.00, goal 5/6; eval_guide 18/18.
   - Ported into the canonical Guide (2026-10-24): place resolution + described candidates + typo suggestions +
     route fan-out over an ambiguous destination (`agent/places.py`, `BuildingSession.resolve`), and grounding
     (unit-glued numbers, list lengths, clock times, half-up rounding) in `agent/guide.py`; `tests/test_places.py`.
@@ -150,6 +158,13 @@ the rules. `uv run pytest` 182 passed, 1 skipped (dev); 301 passed, 1 skipped af
 
 **Running locally (may still be up):** backend `uvicorn backend.app:app --port 8765` (real Claude), Vite on
 `:5181` (port 5173 is another local project). Restart commands: [commands.md](../docs/guides/commands.md#frontend-app).
+
+**Frontend (new UI, committed 2026-10-24):** landing = building search (`src/search/`), `Root.tsx` → `BuildingScreen`
+(`src/building/`) over a vector plan view (`src/plan/*`, data from `core/floorplan.py` via
+`GET /sessions/{id}/plan`, same `center` as `/points`). Direction "Drawing Set": `PRODUCT.md`,
+`.impeccable/surfaces/frontend-app.md`. Old point-cloud scene moved to gitignored `.viz-archive/`; `src/scene/` is a
+placeholder so the old `App.tsx` (unused, reference for porting) still compiles. Next: Guide events on the plan
+(focus + dim, route line, closures, lost access), then 3D, voice, camera, maintainer edit.
 
 **▶ Do next, in order (Atahan's call 2026-10-24: frontend polish next session; Q-014 and Q-001 parked):**
 1. **Frontend polish** (`frontend/app/`): phone-layout check, demo GIF (needs the Chrome extension), bundle split,

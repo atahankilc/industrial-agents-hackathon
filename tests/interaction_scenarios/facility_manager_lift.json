@@ -1,0 +1,11 @@
+{
+  "building": "data/dev/proc-campus-dev-001",
+  "channel": "text",
+  "persona": "Facility manager, busy, wants the map to keep up with reality.",
+  "goal": "Report that Lift 1 is out of order, see what that changes for step-free visitors, confirm the change, then get a step-free route from the main lobby to Lab 2.20 for a wheelchair visitor.",
+  "knows": [
+    "Only Lift 1 is broken; Lift 2 works.",
+    "The visitor arrives at the main lobby."
+  ],
+  "max_turns": 7
+}

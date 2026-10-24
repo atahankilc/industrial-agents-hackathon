@@ -21,6 +21,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from agent import places
+from core.directions import about_m, guidance_steps
 from core import navigation, route_models
 from core.building_map import LIFT, OUTSIDE, BuildingMap, MapError
 from core.route_models import FORKLIFT_MIN_WIDTH_M, KIT, RouteRules
@@ -248,6 +249,7 @@ class BuildingSession:
             rules=self.route_rules(),
         ).to_dict()
         route["profile"] = self.profile.describe()
+        self.guide_steps(route)
         if route.get("reachable") and self.emitting:
             self.last_route = {"start": start, "destination": destination, "via": via or []}
             self.events.append({"type": "route", "space_path": route["space_path"],
@@ -256,10 +258,22 @@ class BuildingSession:
         return route
 
     def tool_tour(self, stops: list[str]) -> dict:
-        return navigation.tour(
+        tour = navigation.tour(
             self.building, [self.stop(item) for item in stops], step_free=self.profile.step_free,
             closed=self.profile_closures(), model=self.route_model, rules=self.route_rules(),
         ).to_dict()
+        if tour.get("reachable"):
+            tour["about_m"] = about_m(tour["length_m"])
+            for leg in tour.get("legs") or []:
+                self.guide_steps(leg)
+        return tour
+
+    def guide_steps(self, route: dict) -> None:
+        """Followable steps (turns, landmarks, rounded metres, no ids) instead of the kit's step text, plus the
+        rounded total a person would say (`about_m`; `length_m` stays exact)."""
+        if route.get("reachable") and route.get("space_path"):
+            route["steps"] = guidance_steps(self.building, route["space_path"], route["element_path"])
+            route["about_m"] = about_m(route["length_m"])
 
     def tool_reachable_rooms(self, start: str, floor_id: str | None = None) -> dict:
         """Rooms reachable from `start` under the current profile and changes."""
@@ -515,7 +529,7 @@ TOOL_DEFINITIONS: list[dict] = [
      "(omitted where floors aren't aligned), items in a room.",
      "input_schema": {"type": "object", "properties": {"space": PLACE}, "required": ["space"]}},
     {"name": "find_route", "description": "Shortest walk under the user's profile and current closures: metres, "
-     "rooms passed, followable steps. Routes never pass through production bays (destinations only) or outside "
+     "rooms passed, followable steps (turns, landmarks, rounded metres) and about_m (the rounded total). Routes never pass through production bays (destinations only) or outside "
      "the building; reachable=false + reason means no route under these rules — tell the user so.", "input_schema": {"type": "object", "properties": {
          "start": PLACE, "destination": PLACE, "via": {"type": "array", "items": PLACE}},
          "required": ["start", "destination"]}},

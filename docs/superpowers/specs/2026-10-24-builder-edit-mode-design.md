@@ -8,7 +8,7 @@ sources:
   - archive/initial-repo/README.md §1, §3, judging table
   - docs/kit/data-format.md
   - agent/tools.py, backend/app.py, backend/sessions.py, backend/persistence.py, frontend/app/src/App.tsx
-related: [../plans/2026-10-24-builder-edit-mode-m1.md, ../plans/2026-10-24-builder-edit-mode-m2.md, ../plans/2026-10-24-builder-edit-mode-m3.md, ../../architecture/ai-agents.md, ../../kit/data-format.md, ../../challenge/brief.md, 2026-10-24-guide-agent-design.md]
+related: [2026-10-25-plan-import-design.md, ../plans/2026-10-24-builder-edit-mode-m1.md, ../plans/2026-10-24-builder-edit-mode-m2.md, ../plans/2026-10-24-builder-edit-mode-m3.md, ../../architecture/ai-agents.md, ../../kit/data-format.md, ../../challenge/brief.md, 2026-10-24-guide-agent-design.md]
 ---
 
 # Builder · Edit mode — design
@@ -26,7 +26,8 @@ building, then saves the copy as a new building that the Viewer and the Guide us
 Edit mode is the first of three Builder projects, agreed order (Utku, 2026-10-24):
 
 1. **Edit mode** (this document) — the edit core every later project writes into.
-2. Build from scratch — from PDF / image / conversation with a spatial-understanding model (separate design).
+2. Build from scratch — from PDF / image / conversation with a spatial-understanding model (separate design:
+   [plan import / Creator](2026-10-25-plan-import-design.md)).
 3. Scan ingest — point cloud / 3D scan → `building.json` + 2D images added to the dataset (separate design;
    candidate L5 "Capture on site").
 

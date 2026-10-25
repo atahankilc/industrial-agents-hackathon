@@ -19,7 +19,7 @@ distance, count or route that did not come from a tool result ([D-003](../../mem
 |---|---|---|---|---|
 | **Building Guide** | conversation: find, route, react, edit; clarifies; remembers user profile. **v1 implemented** (terminal, `agent/guide_v1/`: 6 tools, grounding check, session; live scripted run 16/16 turns, 9 conversations, [spec](../superpowers/specs/2026-10-24-guide-agent-design.md), [plan](../superpowers/plans/2026-10-24-guide-agent.md)); the v1 Guide has no edit tools, UI or voice — those are in the canonical `agent/guide.py` (below) | Opus 5.5 default (`GUIDE_MODEL`), medium effort | terminal REPL; text chat + voice (via ElevenLabs) planned | Interaction 25, L1–L3 |
 | **Benchmark pipeline** | question text → parse → solver → `Answer:` line; no free-form LLM | none; Haiku/Sonnet only as parse fallback | CLI `run_benchmark`, `benchmark.evaluate --agent` | Does it work 55 |
-| **Builder** | floor-plan image → draft `building.json` → validate → user confirms | Opus 5.5 (vision) | UI upload + chat | L4 |
+| **Builder** | floor-plan image → draft `building.json` → validate → user confirms; drafting from plans is the **Creator** ([design](../superpowers/specs/2026-10-25-plan-import-design.md), [plan](../superpowers/plans/2026-10-25-plan-import.md), in progress) | Opus 5.5 (vision) | UI upload + chat | L4 |
 | (dev) **Claude Code subagents** | build the product: research, solvers, tests | — | this repo | — |
 
 Model ids: [claude-api skill / docs]; switch by env var, compare cost/quality with `benchmark.evaluate`.
@@ -213,7 +213,7 @@ without the model. **Milestone 3 built (2026-10-24, deploy pending):** with `SUP
 and the Builder's conversation live in Postgres (`builder_drafts`, `saved_buildings`), so any serverless instance
 serves any request — a proposal made on one instance can be applied on another; each person edits their own draft,
 concurrent writes are version-checked (409); saved buildings are shared with everyone
-([milestone 3 plan](../superpowers/plans/2026-10-24-builder-edit-mode-m3.md)). Not yet: plan images (project 2).
+([milestone 3 plan](../superpowers/plans/2026-10-24-builder-edit-mode-m3.md)). Plan images (project 2): the Creator agent, [design](../superpowers/specs/2026-10-25-plan-import-design.md) and [plan](../superpowers/plans/2026-10-25-plan-import.md) (in progress, 2026-10-25).
 
 1. Upload plan image (PNG/PDF page) or describe changes by conversation.
 2. Claude vision drafts `floors`/`spaces`/`openings` in our schema (scale from a known dimension the user gives

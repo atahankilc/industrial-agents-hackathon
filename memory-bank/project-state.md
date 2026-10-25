@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-25** (building screen "Quiet HUD" steps 1–5 committed on `dev` together with the pulls of `origin/dev` 26b908f + b352e83: kit 1.1.0 route model, Builder Edit mode)
+[Memory bank](README.md) · Last updated: **2026-10-25** (plan import / Creator core, branch `3-plan-import`; before: building screen "Quiet HUD" steps 1–5 committed on `dev` together with the pulls of `origin/dev` 26b908f + b352e83: kit 1.1.0 route model, Builder Edit mode)
 
 ## Phase
 
@@ -50,6 +50,16 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `3300e6c` pushed to `origin/main`.
 
 ## What works (verified 2026-10-24)
+
+- **Plan import / Creator (branch `3-plan-import`, worktree `.claude/worktrees/3-plan-import`, in progress,
+  2026-10-25):** create a building from floor-plan PDFs / photos —
+  [spec](../docs/superpowers/specs/2026-10-25-plan-import-design.md) (approved by Utku),
+  [plan](../docs/superpowers/plans/2026-10-25-plan-import.md). Tasks 1–7 done: deterministic core
+  `core/plan_import/` (ingest, rectify / crop / wall mask, cells by walls / colours / boxes, labels, scale, stacking
+  + connectors, assembly + autofix + validate; 35 tests in `tests/test_plan_import_*.py`). New deps: numpy,
+  opencv-python-headless, pypdfium2, pypdf, pillow, python-multipart (no PyMuPDF, D-009). Pending: Tasks 8–14
+  (private import drafts, Creator agent, `/imports/stream`, import screen, dataset eval, demo runs). Demo inputs in
+  the main checkout's `building_plans/` (not committed).
 
 - **Builder Edit mode (branch `2-builder-edit`, in progress):** design
   [builder-edit-mode-design](../docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md) (proposed, approved by

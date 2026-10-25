@@ -10,6 +10,18 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Plan import (Creator), core stages 1–7
+
+- **Did:** designed Builder project 2 with Utku ([spec](../docs/superpowers/specs/2026-10-25-plan-import-design.md),
+  [plan](../docs/superpowers/plans/2026-10-25-plan-import.md)); built the deterministic core `core/plan_import/`
+  (ingest, rectify / crop / wall mask, cells, labels, scale, stacking, assembly) on branch `3-plan-import`
+  (worktree `.claude/worktrees/3-plan-import`). New deps: numpy, opencv-python-headless, pypdfium2, pypdf, pillow,
+  python-multipart.
+- **Learned:** door gaps close at 6 × the measured wall thickness (scale-free); "outside" must come from the
+  building footprint, not the image border (wide foyers leak); Residenz walls are shades of the fill colour →
+  separator mask with straight thin lines (hatching ignored). Urban Colab photos are only 768×1024 px.
+- **Next:** draft store import bases, Creator tools + loop, `/imports/stream`, import screen, eval, demo runs.
+
 ## 2026-10-25 — `SUBMISSION/` folder for the graded benchmark (v1 pipeline)
 
 - **Did:** organisers announced the graded folder `SUBMISSION/` with exactly `BENCHMARK.md` + `answers.json`.

@@ -15,7 +15,7 @@ import type { Building } from '../api'
 import { useTheme } from '../theme'
 import { applyBlocks, attachMap, FLAT_FOV, osmHeights, setTheme, toLngLat, type Origin } from './bridge'
 import './map.css'
-import { BUILDINGS_FROM_ZOOM, mapStyle, modelColours } from './style'
+import { BUILDINGS_FROM_ZOOM, MODEL_TONES, mapStyle, modelColours, modelTones } from './style'
 
 const MUNICH = { center: [11.575, 48.14] as [number, number], zoom: 10.5 }
 const FIT_PADDING = { top: 80, right: 60, bottom: 80, left: 60 }
@@ -35,10 +35,16 @@ const PIN = {
 
 // the layers a click opens a building from, and how far the pointer may miss them (px)
 const HIT_LAYERS = ['pins', 'pin-names', 'pin-discs', 'model-blocks', 'model-footprints']
+const MODEL_LAYERS = ['model-footprints', 'model-blocks', 'model-edges']
 const HIT_SLOP = 14
 const LOCATE_DISMISSED = 'ml-locate-dismissed' // "Not now" on the location card, remembered per browser
 
 type Located = Building & { location: NonNullable<Building['location']> }
+/** light up a building's pin and block */
+function hoverBuilding(map: MapLibreMap, id: string, on: boolean) {
+  for (const source of ['buildings', 'models']) if (map.getSource(source)) map.setFeatureState({ source, id }, { hover: on })
+}
+
 const nameOf = (b: Building) => b.name ?? b.id.split('/')[1]
 /** the building open on top of the map */
 export type Focus = { id: string; origin: Origin }
@@ -134,8 +140,8 @@ export function MapLanding({ buildings, error, focus, onOpen, onList, onImport }
     map.on('mousemove', (event) => {
       const id = hit(event.point)
       if (id === hovered) return
-      if (hovered && map.getSource('buildings')) map.setFeatureState({ source: 'buildings', id: hovered }, { hover: false })
-      if (id && map.getSource('buildings')) map.setFeatureState({ source: 'buildings', id }, { hover: true })
+      if (hovered) hoverBuilding(map, hovered, false)
+      if (id) hoverBuilding(map, id, true)
       hovered = id
       map.getCanvas().style.cursor = id ? 'pointer' : ''
     })
@@ -178,21 +184,42 @@ export function MapLanding({ buildings, error, focus, onOpen, onList, onImport }
       }
       // the buildings you can open, as blocks in the accent: their kit footprint, as tall as the kit or the OSM block
       // it stands in, whichever is taller (so the accent wraps the grey block); flat below the zoom blocks rise at
+      // (each in its tone, the one under the pointer lit up, every footprint traced: see modelColours)
       const models = modelColours(dark)
       const tall: maplibregl.ExpressionSpecification = ['+', ['max', ['get', 'height'], ['get', 'osm']], 0.4]
-      map.addSource('models', { type: 'geojson', data: modelData() })
-      map.addLayer({ id: 'model-footprints', type: 'fill', source: 'models', minzoom: 12, maxzoom: BUILDINGS_FROM_ZOOM + 0.6, paint: { 'fill-color': models.wall } })
+      const lit: maplibregl.ExpressionSpecification = ['boolean', ['feature-state', 'hover'], false]
+      const byTone = (pick: (tone: number) => maplibregl.ExpressionSpecification | string) =>
+        ['match', ['get', 'tone'], ...MODEL_TONES.slice(1).flatMap((_, i) => [i + 1, pick(i + 1)]), pick(0)] as unknown as maplibregl.ExpressionSpecification
+      map.addSource('models', { type: 'geojson', data: modelData(), promoteId: 'id' })
+      map.addLayer({
+        id: 'model-footprints',
+        type: 'fill',
+        source: 'models',
+        minzoom: 12,
+        maxzoom: BUILDINGS_FROM_ZOOM + 0.6,
+        paint: { 'fill-color': ['case', lit, models.hover, byTone((tone) => modelColours(dark, tone).wall)] },
+      })
       map.addLayer({
         id: 'model-blocks',
         type: 'fill-extrusion',
         source: 'models',
         minzoom: BUILDINGS_FROM_ZOOM,
         paint: {
-          'fill-extrusion-color': ['interpolate', ['linear'], tall, 0, models.wall, 45, models.roof],
+          'fill-extrusion-color': [
+            'case', lit, models.hover,
+            byTone((tone) => ['interpolate', ['linear'], tall, 0, modelColours(dark, tone).wall, 45, modelColours(dark, tone).roof]),
+          ],
           'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], BUILDINGS_FROM_ZOOM, 0, BUILDINGS_FROM_ZOOM + 0.6, tall],
           'fill-extrusion-opacity': 0.95,
           'fill-extrusion-vertical-gradient': true,
         },
+      })
+      map.addLayer({
+        id: 'model-edges',
+        type: 'line',
+        source: 'models',
+        minzoom: 12,
+        paint: { 'line-color': models.edge, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 0.8, 17, 1.8], 'line-opacity': 0.9 },
       })
       map.addSource('buildings', { type: 'geojson', data, promoteId: 'id' })
       const hover: maplibregl.ExpressionSpecification = ['boolean', ['feature-state', 'hover'], false]
@@ -237,13 +264,14 @@ export function MapLanding({ buildings, error, focus, onOpen, onList, onImport }
     // the OSM blocks' heights arrive with the tiles
     const modelsSource = () => map.getSource('models') as GeoJSONSource | undefined
     const heights = { key: '' }
+    const tones = modelTones(located.map((b) => b.location.outline ?? []))
     const modelData = (osm = osmHeights(located.map((b) => b.location.outline ?? []))): GeoJSONSourceSpecification['data'] => {
       heights.key = osm.join(',')
       return {
         type: 'FeatureCollection',
         features: located.map((b, i) => ({
           type: 'Feature',
-          properties: { id: b.id, height: b.location.height_m ?? 0, osm: osm[i] ?? 0 },
+          properties: { id: b.id, height: b.location.height_m ?? 0, osm: osm[i] ?? 0, tone: tones[i] ?? 0 },
           geometry: { type: 'MultiPolygon', coordinates: (b.location.outline ?? []).map((ring) => [ring]) },
         })),
       }
@@ -284,7 +312,7 @@ export function MapLanding({ buildings, error, focus, onOpen, onList, onImport }
     if (!map) return
     const id = focusRef.current?.id
     const pinFilter: maplibregl.FilterSpecification | null = id ? ['!=', ['get', 'id'], id] : null
-    for (const layer of ['pin-discs', 'pins', 'pin-names', 'model-footprints', 'model-blocks']) if (map.getLayer(layer)) map.setFilter(layer, pinFilter)
+    for (const layer of ['pin-discs', 'pins', 'pin-names', ...MODEL_LAYERS]) if (map.getLayer(layer)) map.setFilter(layer, pinFilter)
   }
 
   // fly in to the open building (or jump, if the map just appeared under it), flattening the perspective so the
@@ -390,7 +418,7 @@ export function MapLanding({ buildings, error, focus, onOpen, onList, onImport }
   // a row under the pointer (or focus) enlarges its pin
   const mark = (id: string, on: boolean) => {
     const map = mapRef.current
-    if (map?.getSource('buildings')) map.setFeatureState({ source: 'buildings', id }, { hover: on })
+    if (map) hoverBuilding(map, id, on)
   }
 
   return (

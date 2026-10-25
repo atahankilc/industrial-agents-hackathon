@@ -31,8 +31,14 @@ export type Story = {
   /** live tracking (building/useTracking): where you are on the route and which way it goes on; set by the
    * building screen, never by events */
   you?: You
+  /** the step being followed (set by the building screen, never by events): drawn on the route band */
+  step?: StepView
   outdoor?: Outdoor | null
 }
+
+/** The step being followed, in metres along the drawn line: walked up to `done`, the step from `from` to `to`, and
+ * where it ends (the next move happens there: `next` is that step, for its arrow). */
+export type StepView = { done: number; from: number; to: number; end: [number, number]; floor: number; next: GuideStep | null }
 
 export type You = { at: [number, number]; floor: number; ahead: [number, number]; stale: boolean }
 

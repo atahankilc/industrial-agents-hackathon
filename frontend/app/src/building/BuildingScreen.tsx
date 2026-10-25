@@ -41,7 +41,7 @@ import { grabFrame } from './frame'
 import { Elsewhere } from './Elsewhere'
 import { NextMove } from './NextMove'
 import { take } from './opening'
-import { routeTrack } from './tracking'
+import { routeTrack, type RouteTrack } from './tracking'
 import { askForMotion, useTracking } from './useTracking'
 import './screen.css'
 import './hud.css'
@@ -52,6 +52,7 @@ const GUIDE_PX = 250 // captions + Core on phones
 const EDIT_PX = 330 // the Builder card with an inspector in it, on phones
 const EDIT_BAR_PX = 52 // the edit bar under the top line on phones (src/edit/edit.css .edit-bar)
 const PANEL_PX = 440 // the Guide panel on wide screens
+const RAIL_PX = 72 // the floor rail on the right edge of a wide screen, with its margin
 const MOVE_PX = 132 // the next-move card under the top line on phones
 const TRACK_PX = 30 // its position line while tracking
 // spoken commands while walking with the camera (anything else goes to the Guide with the frame)
@@ -155,10 +156,12 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   // what the camera frames (an answer's rooms, items or route part), and the "you are here" figure
   const [focus, setFocus] = useState<Focus | null>(null)
   const focusKey = useRef(0)
-  const frameOn = (points: [number, number, number][], span: number) => setFocus({ key: ++focusKey.current, points, span })
+  const frameOn = (points: [number, number, number][], span: number, heading?: [number, number]) => setFocus({ key: ++focusKey.current, points, span, heading })
   const [me, setMe] = useState<Me | null>(null)
   // the route answer whose step-by-step guide was started (Start, or "start"); a new answer ends it
   const [guideKey, setGuideKey] = useState(-1)
+  // the step the Guide just moved the card to: its reply already covers it, so it isn't read out again
+  const quietStep = useRef<number | null>(null)
 
   useEffect(() => sessionStorage.removeItem(noteKey(buildingId)), [buildingId])
 
@@ -308,6 +311,15 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
       }
     }
     present(applyEvents(storyRef.current, events))
+    // the Guide talked about another step of the route being followed: the step card (and the map) go there,
+    // without reading the step out again over the reply (a new route in the same answer starts at step 1)
+    const moved = events.findLast((event) => event.type === 'route_step')
+    if (moved?.type === 'route_step' && route && !events.some((event) => event.type === 'route')) {
+      const index = Math.max(0, Math.min(route.steps.length - 1, moved.index))
+      quietStep.current = index
+      setGuideKey(storyRef.current.key)
+      onMove(index)
+    }
   }
 
   useEffect(() => {
@@ -381,7 +393,8 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
         setFloor(here)
         setStacked(false)
       }
-      frameOn(points.filter(([, , on]) => on === here), FOCUS_STEP_M)
+      // and turns to face the way the step goes, like a sat-nav (a ride keeps the current turn)
+      frameOn(points.filter(([, , on]) => on === here), FOCUS_STEP_M, to - from > 0.5 ? headingAt(track, from, to) : undefined)
     }
   }
   /** Start the step-by-step guide: step 1, read aloud, then each next one when the user says they are there. */
@@ -407,13 +420,29 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   const followed = tracking && moving && !!position && !!track
   const shownStory = useMemo(() => {
     const placed = outdoor ? { ...story, outdoor } : story
-    return position && track ? { ...placed, you: { ...track.at(position.metres), stale: position.stale } } : placed
-  }, [story, position, track, outdoor])
+    // the step being followed, on the route band: walked part, this step, where it ends; and you at its start
+    // (or where tracking puts you)
+    const stepping = moving && (guiding || walking || moveIndex > 0)
+    const from = track?.starts[moveIndex] ?? 0
+    const to = track?.starts[moveIndex + 1] ?? from
+    const end = track?.at(to)
+    const step = stepping && track && end
+      ? { done: track.toLine(position ? position.metres : from), from: track.toLine(from), to: track.toLine(to), end: end.at, floor: end.floor, next: routeSteps[moveIndex + 1] ?? null }
+      : undefined
+    const you = position && track
+      ? { ...track.at(position.metres), stale: position.stale }
+      : stepping && track && to - from > 0.5 ? { ...track.at(from + 0.01), stale: false } : undefined
+    return { ...placed, step, you }
+  }, [story, position, track, outdoor, moving, guiding, walking, moveIndex, routeSteps])
 
-  // the "you are here" figure: the Guide learns the room (and stops asking where the user is)
+  // the "you are here" figure: the Guide learns the room (and stops asking where the user is), and where in it the
+  // figure stands (the next route's line starts there)
   const placeMe = (next: Me | null) => {
     setMe(next)
-    if (sessionId && (next?.space ?? null) !== (me?.space ?? null)) void api.setLocation(sessionId, next?.space ?? null).catch(() => undefined)
+    const point = next ? next.door ?? next.at : null // outside, the route starts at the entrance
+    const before = me ? me.door ?? me.at : null
+    const moved = (next?.space ?? null) !== (me?.space ?? null) || point?.[0] !== before?.[0] || point?.[1] !== before?.[1]
+    if (sessionId && moved) void api.setLocation(sessionId, next?.space ?? null, point).catch(() => undefined)
   }
 
   // arriving from a nearby building: placed at the entrance, the route on drawn, one line in the chat
@@ -451,6 +480,11 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
     : editing
       ? { top: TOP_PX + 8 + EDIT_BAR_PX, right: 0, bottom: EDIT_PX, left: 0 }
       : { top: TOP_PX + 8 + (moving ? MOVE_PX + (followed ? TRACK_PX : 0) : 0), right: 0, bottom: GUIDE_PX, left: 0 }
+
+  // the whole building is centred on the screen: on a wide screen the Guide is a card in the bottom-left corner,
+  // not a column, so it does not push the building right (the floor rail on the right is mirrored on the left);
+  // an answer's own rooms still keep clear of the card (`insets`)
+  const frameInsets: Insets = wide ? { ...insets, left: devOpen ? DEV_PX + 16 : RAIL_PX, right: RAIL_PX } : insets
 
   const current = plan?.floors[floor]
   const rooms = plan ? plan.spaces.filter((space) => space.floor === floor && space.type === 'room').length : 0
@@ -521,6 +555,8 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
         heard: spoken,
         selected: picked,
         photo,
+        // only once the user follows it (Start, camera walk, or moved the card): a route just drawn isn't walked yet
+        routeStep: moving && (guiding || walking || moveIndex > 0) ? moveIndex : undefined,
         onStep: (step) => onLive((steps) => addStep(steps, step, key++)),
         onSay: (sentence) => (live.speech ??= voice.stream(talk)).add(sentence),
       })
@@ -595,7 +631,9 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   const { speak } = voice
   const stepText = (walking || guiding) && !muted ? routeSteps[moveIndex]?.text : undefined
   useEffect(() => {
-    if (stepText) speak(`Step ${moveIndex + 1}. ${stepText}`, { conversation: guiding && !walking, waitMs: STEP_WAIT_MS })
+    const quiet = quietStep.current === moveIndex
+    quietStep.current = null
+    if (stepText && !quiet) speak(`Step ${moveIndex + 1}. ${stepText}`, { conversation: guiding && !walking, waitMs: STEP_WAIT_MS })
     // guiding/walking only decide how; a new step text is what triggers it
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepText, moveIndex, speak])
@@ -661,6 +699,7 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
           palette={palette}
           selected={editing ? (draft.selected && draft.selected.kind !== 'opening' ? { kind: draft.selected.kind, id: draft.selected.id } : null) : selected}
           insets={insets}
+          frameInsets={frameInsets}
           fitKey={fitKey}
           onSelect={editing ? draft.setSelected : setSelected}
           onPickFloor={(index) => {
@@ -732,7 +771,7 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
         {plan && plan.floors.length > 1 && (
           <button
             type="button"
-            className="hud-chip"
+            className="hud-chip floor-chip"
             aria-haspopup="menu"
             aria-expanded={popover === 'floors'}
             aria-label={`Floor: ${stacked ? 'all floors' : current?.name}`}
@@ -792,16 +831,17 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
       )}
 
       {plan && popover && <div className="hud-scrim" onClick={() => setPopover(null)} />}
-      {plan && popover === 'floors' && (
-        <nav className="hud-pop floors" aria-label="Floors" role="menu">
-          <button type="button" role="menuitemradio" aria-checked={stacked} onClick={() => pickFloor('all')}>
+      {/* on a phone the floors open from the chip; on a wide screen they stay open on the right */}
+      {plan && plan.floors.length > 1 && (
+        <nav className={`hud-pop floors${popover === 'floors' ? ' open' : ''}`} aria-label="Floors" role="menu">
+          <button type="button" role="menuitemradio" aria-checked={stacked} onClick={() => pickFloor('all')} title="All floors">
             <span className="tab"><Layers size={15} strokeWidth={2} /></span>
-            All floors
+            <span className="name">All floors</span>
           </button>
           {[...plan.floors.keys()].reverse().map((index) => (
-            <button key={index} type="button" role="menuitemradio" aria-checked={!stacked && index === floor} onClick={() => pickFloor(index)}>
+            <button key={index} type="button" role="menuitemradio" aria-checked={!stacked && index === floor} onClick={() => pickFloor(index)} title={plan.floors[index].name}>
               <span className="tab">{floorTab(plan.floors[index].level)}</span>
-              {plan.floors[index].name}
+              <span className="name">{plan.floors[index].name}</span>
             </button>
           ))}
         </nav>
@@ -1019,4 +1059,13 @@ function suggest(plan: Plan, floorName: string): Suggestion[] {
   if (plan.floors.length > 1) out.push({ label: 'This floor', prompt: `What is on the ${floorName.toLowerCase()}?`, icon: 'floor' })
   out.push({ label: 'Help', prompt: 'What can you help me with here?', icon: 'help' })
   return out.slice(0, 5)
+}
+
+/** Which way a step goes (plan frame, unit): from its start to its end, so where it takes you is straight ahead and
+ * a short kink at the door doesn't turn the map. */
+function headingAt(track: RouteTrack, from: number, to: number): [number, number] {
+  const [x0, y0] = track.at(from).at
+  const [x1, y1] = track.at(to).at
+  const length = Math.hypot(x1 - x0, y1 - y0)
+  return length > 1e-3 ? [(x1 - x0) / length, (y1 - y0) / length] : track.at(from + 0.01).ahead
 }

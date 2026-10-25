@@ -119,10 +119,17 @@ place card) with a floating Guide conversation.
   when ≤ 4). `search`, `locate`, `room_facts` and `show_on_map` all emit highlights (items too: `asset_ids`), and the
   camera frames them (`PlanView` `focus`, ≥ 14 m across) — all floors stacked if they spread over several. A route is
   framed whole (stacked when it crosses floors); **Start** on the next-move card then frames one step at a time, reads
-  it aloud and waits for "I'm there" (button, typed or spoken "geldim" / "next").
+  it aloud and waits for "I'm there" (button, typed or spoken "geldim" / "next"). Each walking step also turns the
+  map so the step runs straight up the screen (start → end of the step, `Focus.heading`; a stairs/lift step keeps
+  the turn), with you (green dot + cone) at its start and the next move's arrow in a ringed blue disc at its end.
 - **"You are here" figure** (2026-10-25): an orange person pin, dragged out of the dock at the bottom right onto the
-  plan (a tap drops it mid-screen; tapping the dock again takes it off), dragged again to move. Its room goes to
+  plan, or the dock tapped and then the plan (Esc cancels; tapping the dock again takes it off), dragged again to move.
+  While in the hand it shows where it would land (room name, or `Near entrance · <room>`); put down off the building
+  it stays there, with a dashed line to the nearest entrance of that floor (marked "Entrance"; routes start at that
+  door); on a wall it takes the room ≤ 0.6 m away. Its room goes to
   `PUT /sessions/{id}/location`; the Guide then routes from "here" and stops asking where the user is.
+- **Framing** (2026-10-25): the whole building is centred on the screen (the wide-screen Guide is a bottom-left card,
+  not a column; the floor rail's width is mirrored left); an answer's focus still keeps clear of the Guide card.
 - **Nearby buildings** (2026-10-25, [D-021](../../memory-bank/decisions.md#d-021)): a "found nearby" card lists matches
   in neighbouring buildings (Directions / Open); a route to one ends at the exit with a dashed line across outside to
   the other entrance and a Continue badge/button, which opens that building and draws the rest from its entrance.
@@ -142,7 +149,9 @@ changing the plan's colours. Shown in the Vite dev server or with `?dev`
   before Apply, measured from the entrance room; reset), View (furniture, room colours, pins, hover, wall height,
   theme), Log (every call in words, run again, any tool by hand).
 - **On the plan** (`StoryLayer.tsx`, from map events via `story.ts`; Guide replies in the chat feed the same
-  story): route as an accent band drawn in once, start / destination / tappable floor-change badges; accent
+  story): route as an accent band drawn in once, white chevrons flowing along it the way you go (still with
+  reduced motion); while a step is followed the walked part turns grey and only the current step keeps its chevrons;
+  start / destination / tappable floor-change badges; accent
   outlines on the rooms an answer is about; a dot per item; red hatch on closed rooms, lifts and stairs; dashed
   outlines on rooms that lost access. A new answer switches to its floor and fits it.
 - **Access mode only** (`ACCESS_MODE=on`, [spec](../superpowers/specs/2026-10-25-access-profiles-design.md)):
@@ -152,7 +161,11 @@ changing the plan's colours. Shown in the Vite dev server or with `?dev`
 - **Route line**: every route event now carries `line` ([[x, y, floor_index], …], `MapView.enrich` →
   `core/routeline.py`: door to door along the shortest path inside each space (15 cm off the walls, round
   corners, doors entered at their 30 cm landing: the walk `core/building_map.py` measures since kit 1.1.0), anchors kept only for the first and last space and stairs/lifts — so the line never overshoots to a
-  corridor's centre and turns back; drawing only, lengths unchanged).
+  corridor's centre and turns back; drawing only, lengths unchanged). Since 2026-10-25: a route that starts in the
+  room of the "you are here" figure starts its line at the figure's point (`PUT /sessions/{id}/location` sends
+  `point`, the route event carries `start_point`), not at the room's anchor; and a door between two spaces whose
+  outlines overlap there (an OSM lecture hall outline that takes in its lobby) is left out of the line with its
+  landings, instead of a dip into the doorway and back.
 - An earlier visual-concepts experiment (streets, muted rooms, quiet furniture, semantic zoom) was dropped: it made
   the plan less colourful.
 - **Not verified:** a Guide reply driving the plan end to end (the offline Guide answered neither question tried);

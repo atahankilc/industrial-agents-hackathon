@@ -7,14 +7,17 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import type { Plan } from '../api'
+import type { GuideStep, Plan } from '../api'
 import { ribbon, useZoomStep } from '../plan/bands'
 import { toScene } from '../plan/geometry'
 import type { PlanPalette } from '../plan/palette'
-import type { Story } from './story'
+import { TurnIcon } from '../ui/TurnIcon'
+import type { StepView, Story } from './story'
 
-const ROUTE_PX = 7
-const CASING_PX = 12
+const ROUTE_PX = 10
+const CASING_PX = 15
+const ARROW_GAP_PX = 30 // between the chevrons on the route band
+const ARROW_SPEED_PX = 26 // how fast they flow the way you go, px per second
 const FOCUS_PX = 3
 const ROUTE_Y = 0.05
 const DRAW_IN_SECONDS = 0.9
@@ -68,19 +71,56 @@ export function routeRuns(line: [number, number, number][]): Run[] {
   return kept
 }
 
-const routeMaterial = (colour: string) =>
+/** The route band's shader: drawn in from the start (`progress`), white chevrons flowing the way you go, and while a
+ * step is followed (`stepping`) the walked part greyed out and the chevrons only on the step being walked. All
+ * lengths are metres along the line; `pixel` is metres per screen pixel, so the marks keep their size on screen. */
+const routeMaterial = (colour: string, done: string, arrows: boolean) =>
   new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
-    uniforms: { color: { value: new THREE.Color(colour) }, progress: { value: 0 }, offset: { value: 0 }, opacity: { value: 1 } },
-    vertexShader: `attribute float along; varying float vAlong;
-      void main() { vAlong = along; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `uniform vec3 color; uniform float progress; uniform float offset; uniform float opacity; varying float vAlong;
-      void main() { if (vAlong + offset > progress) discard; gl_FragColor = vec4(color, opacity); }`,
+    defines: arrows ? { ARROWS: '' } : {},
+    uniforms: {
+      color: { value: new THREE.Color(colour) },
+      doneColor: { value: new THREE.Color(done) },
+      progress: { value: 0 },
+      offset: { value: 0 },
+      opacity: { value: 1 },
+      time: { value: 0 },
+      pixel: { value: 0.1 },
+      bandHalf: { value: 0.3 },
+      stepping: { value: 0 },
+      done: { value: 0 },
+      stepTo: { value: 0 },
+    },
+    vertexShader: `attribute float along; attribute float across; varying float vAlong; varying float vAcross;
+      void main() { vAlong = along; vAcross = across; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 color; uniform vec3 doneColor; uniform float progress; uniform float offset; uniform float opacity;
+      uniform float time; uniform float pixel; uniform float bandHalf; uniform float stepping; uniform float done; uniform float stepTo;
+      varying float vAlong; varying float vAcross;
+      void main() {
+        float a = vAlong + offset;
+        if (a > progress) discard;
+        bool walked = stepping > 0.5 && a < done;
+        vec3 c = walked ? doneColor : color;
+        float alpha = opacity * (walked ? 0.7 : 1.0);
+        #ifdef ARROWS
+        if (!walked && (stepping < 0.5 || a <= stepTo)) {
+          float spacing = ${ARROW_GAP_PX.toFixed(1)} * pixel;
+          float s = mod(a - time * ${ARROW_SPEED_PX.toFixed(1)} * pixel, spacing);
+          float side = abs(vAcross);
+          // a chevron: its tip mid-band, its arms swept back at 45 degrees
+          float d = abs(s - spacing * 0.5 + side);
+          float stroke = 1.4 * pixel;
+          float mark = (1.0 - smoothstep(stroke - 0.6 * pixel, stroke + 0.6 * pixel, d)) * (1.0 - smoothstep(bandHalf * 0.6, bandHalf * 0.8, side));
+          c = mix(c, vec3(1.0), mark * 0.95);
+        }
+        #endif
+        gl_FragColor = vec4(c, alpha);
+      }`,
   })
 
-function Route({ plan, runs, palette, shown, floor, stacked, lift, routeKey }: {
+function Route({ plan, runs, palette, shown, floor, stacked, lift, routeKey, step }: {
   plan: Plan
   runs: Run[]
   palette: PlanPalette
@@ -89,10 +129,13 @@ function Route({ plan, runs, palette, shown, floor, stacked, lift, routeKey }: {
   stacked: boolean
   lift: Lift
   routeKey: number
+  step?: StepView
 }) {
   const zoom = useZoomStep()
   const invalidate = useThree((state) => state.invalidate)
   const progress = useRef(0)
+  const clock = useRef(0)
+  const still = useMemo(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false, [])
   const total = useMemo(() => {
     const last = runs[runs.length - 1]
     if (!last) return 0
@@ -109,18 +152,22 @@ function Route({ plan, runs, palette, shown, floor, stacked, lift, routeKey }: {
           const points = run.points.map(([x, y]) => toScene(plan, x, y))
           const casing = ribbon(points, CASING_PX / zoom, ROUTE_Y - 0.005)
           const line = ribbon(points, ROUTE_PX / zoom, ROUTE_Y)
-          const casingMaterial = routeMaterial(palette.halo)
-          const lineMaterial = routeMaterial(palette.selectedEdge)
+          const here = stacked || run.floor === floor
+          const casingMaterial = routeMaterial(palette.halo, palette.halo, false)
+          // chevrons only on the floor you are on: on the others the band is a faint reminder
+          const lineMaterial = routeMaterial(palette.selectedEdge, palette.labelSoft, here)
           for (const material of [casingMaterial, lineMaterial]) {
             material.uniforms.offset.value = run.offset
-            material.uniforms.opacity.value = stacked || run.floor === floor ? 1 : OTHER_FLOOR_OPACITY
+            material.uniforms.opacity.value = here ? 1 : OTHER_FLOOR_OPACITY
+            material.uniforms.pixel.value = 1 / zoom
+            material.uniforms.bandHalf.value = ROUTE_PX / zoom / 2
             // the floor you are on draws its route over the low cut walls so a tilted camera never loses it; other
             // floors keep depth so they never show through the floor above
             material.depthTest = stacked || run.floor !== floor
           }
           return { run, casing, line, casingMaterial, lineMaterial }
         }),
-    [plan, runs, shown, zoom, palette.halo, palette.selectedEdge, stacked, floor],
+    [plan, runs, shown, zoom, palette.halo, palette.selectedEdge, palette.labelSoft, stacked, floor],
   )
   useEffect(
     () => () =>
@@ -131,15 +178,24 @@ function Route({ plan, runs, palette, shown, floor, stacked, lift, routeKey }: {
     progress.current = 0
     invalidate()
   }, [routeKey, invalidate])
+  useEffect(() => invalidate(), [step, invalidate])
   useFrame((_, delta) => {
-    if (progress.current < total) {
-      progress.current = Math.min(total, progress.current + (Math.min(delta, 1 / 30) / DRAW_IN_SECONDS) * Math.max(total, 1))
-      invalidate()
-    }
+    const tick = Math.min(delta, 1 / 30)
+    if (progress.current < total) progress.current = Math.min(total, progress.current + (tick / DRAW_IN_SECONDS) * Math.max(total, 1))
+    if (!still) clock.current += tick
+    // drawn in: the end cap (which reaches past the last point) shows too
+    const shownTo = progress.current >= total ? 1e9 : progress.current
     for (const band of bands) {
-      band.casingMaterial.uniforms.progress.value = progress.current
-      band.lineMaterial.uniforms.progress.value = progress.current
+      for (const material of [band.casingMaterial, band.lineMaterial]) {
+        material.uniforms.progress.value = shownTo
+        material.uniforms.time.value = clock.current
+        material.uniforms.stepping.value = step ? 1 : 0
+        material.uniforms.done.value = step?.done ?? 0
+        material.uniforms.stepTo.value = step?.to ?? 0
+      }
     }
+    // the chevrons flow as long as a route is drawn (on-demand frames: ask for the next one)
+    if (progress.current < total || !still) invalidate()
   })
 
   // where the route changes floor and both floors are drawn apart: a dashed riser between them
@@ -246,8 +302,9 @@ function FocusFill({ plan, ids, colour, floors, lift, answerKey }: { plan: Plan;
   )
 }
 
-/** The walk outside to a nearby building: a dashed accent line on the ground from the exit to its entrance. */
-function OutdoorWalk({ plan, from, to, floor, colour, lift }: { plan: Plan; from: [number, number]; to: [number, number]; floor: number; colour: string; lift: Lift }) {
+/** A walk outside: a dashed accent line on the ground (from the exit to a nearby building's entrance, or from the
+ * "you are here" figure outside to the nearest entrance). */
+export function DashedWalk({ plan, from, to, floor, colour, lift }: { plan: Plan; from: [number, number]; to: [number, number]; floor: number; colour: string; lift: Lift }) {
   const line = useMemo(() => {
     const [ax, az] = toScene(plan, ...from)
     const [bx, bz] = toScene(plan, ...to)
@@ -312,7 +369,7 @@ function ClosedHatch({ plan, palette, floors, lift }: { plan: Plan; palette: Pla
 
 export type Marker = {
   key: string
-  kind: 'start' | 'end' | 'change' | 'item' | 'you' | 'place' | 'next' | 'me'
+  kind: 'start' | 'end' | 'change' | 'item' | 'you' | 'place' | 'next' | 'me' | 'goal'
   floor: number
   at: [number, number]
   label: string
@@ -322,6 +379,8 @@ export type Marker = {
   stale?: boolean
   /** 'item': show its name too (few items) */
   named?: boolean
+  /** 'goal': the move made there (the next step), for its arrow */
+  turn?: GuideStep
 }
 
 /** Start, destination, each floor change (tap to follow it), and the items asked about. Floor-change names come
@@ -359,6 +418,9 @@ export function storyMarkers(plan: Plan, story: Story): Marker[] {
     for (const space of plan.spaces.filter((item) => wanted.has(item.id)).slice(0, MAX_PLACE_LABELS))
       markers.push({ key: `place-${space.id}`, kind: 'place', floor: space.floor, at: space.label, label: space.name })
   }
+  // the end of the step being followed, where the next move happens (the route's own end has its badge already)
+  const step = story.step
+  if (route && step && step.next && step.to - step.from > 0.5) markers.push({ key: 'goal', kind: 'goal', floor: step.floor, at: step.end, label: step.next.text, turn: step.next })
   if (story.outdoor) markers.push({ key: 'next', kind: 'next', floor: story.outdoor.floor, at: story.outdoor.to, label: story.outdoor.label })
   if (story.you) markers.push({ key: 'you', kind: 'you', floor: story.you.floor, at: story.you.at, ahead: story.you.ahead, stale: story.you.stale, label: 'You' })
   return markers
@@ -370,9 +432,11 @@ export type MarkerActions = {
   onGoto: (floor: number) => void
   onNext?: () => void
   onMeDrop?: (x: number, y: number) => void
+  /** while the figure is dragged: where it would land there (its label), shown on the figure */
+  onMePreview?: (x: number, y: number) => string | null
 }
 
-export function StoryMarkers({ markers, elements, onGoto, onNext, onMeDrop }: { markers: Marker[]; elements: React.RefObject<Map<string, HTMLElement>> } & MarkerActions) {
+export function StoryMarkers({ markers, elements, onGoto, onNext, onMeDrop, onMePreview }: { markers: Marker[]; elements: React.RefObject<Map<string, HTMLElement>> } & MarkerActions) {
   return (
     <div className="story-markers">
       {markers.map((marker) => {
@@ -402,12 +466,16 @@ export function StoryMarkers({ markers, elements, onGoto, onNext, onMeDrop }: { 
                 {marker.label}
               </button>
             ) : marker.kind === 'me' ? (
-              <MeFigure label={marker.label} onDrop={onMeDrop} />
+              <MeFigure label={marker.label} onDrop={onMeDrop} onPreview={onMePreview} />
             ) : marker.kind === 'item' ? (
               <>
                 <i title={marker.label} />
                 {marker.named && <span>{marker.label}</span>}
               </>
+            ) : marker.kind === 'goal' && marker.turn ? (
+              <b key={marker.label} title={marker.label}>
+                <TurnIcon leg={marker.turn} size={18} stroke={2.4} />
+              </b>
             ) : marker.kind === 'you' ? (
               <b className={marker.stale ? 'stale' : ''} aria-label={marker.stale ? 'You, roughly' : 'You'}>
                 <em />
@@ -424,7 +492,13 @@ export function StoryMarkers({ markers, elements, onGoto, onNext, onMeDrop }: { 
 
 /** The "you are here" figure on the plan: drag it to where you are. While dragged it follows the pointer itself
  * (the marker tracker leaves a dragged marker alone); dropped, the plan places it (onDrop) and the tracker takes over. */
-export function MeFigure({ label, onDrop }: { label: string; onDrop?: (x: number, y: number) => void }) {
+export function MeFigure({ label, onDrop, onPreview }: { label: string; onDrop?: (x: number, y: number) => void; onPreview?: (x: number, y: number) => string | null }) {
+  const name = useRef<HTMLSpanElement>(null)
+  const end = (marker: HTMLElement) => {
+    delete marker.dataset.dragging
+    marker.classList.remove('dragging')
+    if (name.current) name.current.textContent = label // the preview wrote over it; a new label re-renders anyway
+  }
   return (
     <button
       type="button"
@@ -444,26 +518,25 @@ export function MeFigure({ label, onDrop }: { label: string; onDrop?: (x: number
         const marker = event.currentTarget.parentElement
         const box = marker?.parentElement?.getBoundingClientRect()
         if (!marker || !box || marker.dataset.dragging !== 'true') return
-        marker.style.transform = `translate(${event.clientX - box.left}px, ${event.clientY - box.top}px)`
+        const [x, y] = [event.clientX - box.left, event.clientY - box.top]
+        marker.style.transform = `translate(${x}px, ${y}px)`
+        if (onPreview && name.current) name.current.textContent = onPreview(x, y) ?? 'Not here'
       }}
       onPointerUp={(event) => {
         event.stopPropagation()
         const marker = event.currentTarget.parentElement
         const box = marker?.parentElement?.getBoundingClientRect()
         if (!marker || !box || marker.dataset.dragging !== 'true') return
-        delete marker.dataset.dragging
-        marker.classList.remove('dragging')
+        end(marker)
         onDrop?.(event.clientX - box.left, event.clientY - box.top)
       }}
       onPointerCancel={(event) => {
         const marker = event.currentTarget.parentElement
-        if (!marker) return
-        delete marker.dataset.dragging
-        marker.classList.remove('dragging')
+        if (marker) end(marker)
       }}
     >
       <PersonGlyph />
-      <span>{label}</span>
+      <span ref={name}>{label}</span>
     </button>
   )
 }
@@ -532,9 +605,9 @@ export function StoryLayer({ plan, story, palette, shown, floor, stacked, lift, 
       {story.lost.length > 0 && <Outlines plan={plan} ids={story.lost} colour={palette.labelSoft} floors={floors} lift={lift} dashed />}
       {story.focus.length > 0 && !story.route && <FocusFill plan={plan} ids={story.focus} colour={palette.selectedEdge} floors={here} lift={lift} answerKey={story.key} />}
       {story.focus.length > 0 && <Outlines plan={plan} ids={story.focus} colour={palette.selectedEdge} floors={here} lift={lift} />}
-      {runs.length > 0 && <Route plan={plan} runs={runs} palette={palette} shown={floors} floor={floor} stacked={stacked} lift={lift} routeKey={story.key} />}
+      {runs.length > 0 && <Route plan={plan} runs={runs} palette={palette} shown={floors} floor={floor} stacked={stacked} lift={lift} routeKey={story.key} step={story.step} />}
       {story.outdoor && floors.includes(story.outdoor.floor) && (
-        <OutdoorWalk plan={plan} from={story.outdoor.from} to={story.outdoor.to} floor={story.outdoor.floor} colour={palette.selectedEdge} lift={lift} />
+        <DashedWalk plan={plan} from={story.outdoor.from} to={story.outdoor.to} floor={story.outdoor.floor} colour={palette.selectedEdge} lift={lift} />
       )}
       <MarkerTracker plan={plan} markers={markers} elements={markerElements} floors={here} lift={lift} />
     </>

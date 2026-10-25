@@ -80,8 +80,10 @@
 .sheet .hud-primary:disabled { opacity: 0.4; }
 
 .sheet-quiet {
-  height: 40px;
+  height: var(--btn-lg);
+  padding: 0 16px;
   border: 0;
+  border-radius: 999px;
   background: transparent;
   color: var(--hud-ink-2);
   font-size: 14px;
@@ -194,8 +196,8 @@
   align-items: center;
   gap: 2px;
   height: 28px;
-  padding: 0 4px 0 10px;
-  border-radius: 9px;
+  padding: 0 2px 0 11px;
+  border-radius: 999px;
   background: var(--hud-solid);
   color: var(--hud-solid-ink);
   font: 500 12.5px var(--font-mono);
@@ -206,11 +208,11 @@
 .chip button {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: 50%;
   background: transparent;
   color: inherit;
   opacity: 0.7;
@@ -221,7 +223,7 @@
 
 .link-box > div { display: flex; align-items: center; gap: 8px; }
 .link-box input { font: 500 12px var(--font-mono); height: 40px; }
-.link-box .hud-icon { width: 40px; height: 40px; border-radius: 12px; }
+.link-box .hud-icon { width: var(--btn-lg); height: var(--btn-lg); }
 
 
 /* ---- preferences: rows with a control under the label, segmented choices */
@@ -234,18 +236,18 @@
   display: flex;
   gap: 2px;
   padding: 2px;
-  border: 1px solid var(--hud-line);
-  border-radius: 11px;
-  background: var(--hud-glass);
+  border: 0;
+  border-radius: 999px;
+  background: var(--hud-fill);
 }
 
 .segmented button {
   flex: 1;
   min-width: 0;
-  height: 32px;
-  padding: 0 8px;
+  height: var(--btn-sm);
+  padding: 0 10px;
   border: 0;
-  border-radius: 9px;
+  border-radius: 999px;
   background: transparent;
   color: var(--hud-ink-2);
   font-size: 13px;
@@ -275,8 +277,14 @@
 .toggle-row input:disabled { opacity: 0.4; }
 
 .sheet-quiet.danger { color: var(--hud-warn); }
-.sheet-quiet.bordered { height: 34px; padding: 0 12px; border: 1px solid var(--hud-line-2); border-radius: 11px; font-size: 13px; }
-.sheet-quiet:disabled { opacity: 0.4; }
+.sheet-quiet.bordered { height: var(--btn-md); padding: 0 14px; background: var(--hud-fill); color: var(--hud-ink); font-size: 13px; font-weight: 600; }
+.sheet-quiet.bordered.danger { background: color-mix(in srgb, var(--hud-warn) 14%, transparent); color: var(--hud-warn); }
+
+@media (hover: hover) {
+  .sheet-quiet:not(:disabled):hover { background: var(--hud-fill); }
+  .sheet-quiet.bordered:not(:disabled):hover { background: var(--hud-fill-2); }
+  .segmented button:not([aria-checked='true']):hover { color: var(--hud-ink); }
+}
 
 .confirm-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; font-size: 13.5px; color: var(--hud-ink-2); }
 
@@ -355,3 +363,59 @@
   .sheet, .sheet-scrim, .access-notice { animation: none; }
   .toggle-row input, .toggle-row input::after { transition: none; }
 }
+
+/* ---------- landing: account button top right (the map's panel is top left; on phones it sits at the bottom) ---------- */
+
+.account-corner { position: fixed; top: 16px; right: 16px; display: grid; justify-items: end; gap: 8px; }
+.access-layer > .account-button { position: fixed; top: 16px; right: 16px; }
+
+.account-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(320px, calc(100vw - 32px));
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--hud-line);
+  border-radius: 999px;
+  background: var(--hud-glass-2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+  font: 500 14px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.account-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-role { font: 500 11px/1 var(--font-mono); font-style: normal; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.7; }
+
+.account-menu {
+  display: grid;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 6px;
+  border: 1px solid var(--hud-line);
+  border-radius: 16px;
+  background: var(--hud-glass-2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+}
+
+.account-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--hud-ink);
+  font: 500 14px/1.2 var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-menu button:hover { background: var(--hud-line); }
+.account-hint { margin: 4px 12px 8px; font-size: 12px; line-height: 1.4; opacity: 0.65; }

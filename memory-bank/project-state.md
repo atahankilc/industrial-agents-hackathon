@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-25** (plan import / Creator core, branch `3-plan-import`; before: building screen "Quiet HUD" steps 1–5 committed on `dev` together with the pulls of `origin/dev` 26b908f + b352e83: kit 1.1.0 route model, Builder Edit mode)
+[Memory bank](README.md) · Last updated: **2026-10-25** (step guide faces the step + animated route band, step card and Guide in sync via `route_step` / `show_route_step`, `find_nearest` tool, route line from the figure, calmer voice, map building tones, round-button system — shipped on `dev`; before that: building screen "Quiet HUD" steps 1–5 with the pulls of `origin/dev` 26b908f + b352e83)
 
 ## Phase
 
@@ -44,6 +44,19 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   (≤ 10 px apart). City view refinements: open building's map blocks drawn as a wireframe in the model's scene,
   no z-fighting under the blue blocks, an x-ray cut-away of blocks in front (`src/map/neighbours.ts`), roads at estimated real widths, a ground line plus an underground veil
   over basements, and Back flies the map to where it was when the building was opened.
+- Building screen, 2026-10-25 later chunk ([log](log.md)): new Guide tools `find_nearest(start, query, floor_id?)`
+  (nearest room with an item kind / room kind by route length under the profile, one route + highlight, `nearest` +
+  `next_nearest`; in `PROFILE_TOOLS`, the prompt sends "nearest/closest X" to it without asking) and
+  `show_route_step(step)` (1-based card numbering, `route_step` event). `/chat` and `/chat/stream` take `route_step`
+  (the card's 0-based step) and the Guide gets a `[route note]` with the card's steps
+  ([ai-agents.md](../docs/architecture/ai-agents.md)). `PUT /sessions/{id}/location` takes the figure's `point`
+  (kept only inside the room; a move within the same room queues no new location note) and route events carry
+  `start_point`; `core/routeline.py` `route_line(..., start=)` starts the drawn line there and drops doors between
+  overlapping spaces (route lengths unchanged). Step moves turn the map to the step; the route band animates.
+  Voice: voice gate on the level meter, end pause 1700 ms (2800 ms after an open ending), steadier barge-in. Map:
+  touching kit buildings in different tones, hover lights pin + block, `model-edges` outline layer. Buttons: one
+  round system, heights `--btn-sm/md/lg` (32/36/44 px) across `hud.css`, `access.css`, `edit.css`. Not tried with a
+  live mic; button restyle and light-mode map tones not checked visually.
 - Licensing: `LICENSE` (MIT, our code only), `NOTICE.md` (third-party paths + terms), `data/README.md`
   (per-source data licences) — [D-009](decisions.md#d-009) accepted.
 - Verified-commit workflow in `.claude/` (verifier + fixer agents, `/ship` skill, commit-gate hook, worklog) —

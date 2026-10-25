@@ -60,3 +60,17 @@ def test_chat_passes_the_selection(client):  # noqa: F811
     room = next(space for space in plan["spaces"] if space["name"] == "Meeting room 3.07")
     response = client.post("/chat", json={"session_id": session_id, "message": "where is it", "selected": room["id"]})
     assert response.status_code == 200
+
+
+def test_the_figure_point_moves_only_where_the_route_line_starts(client):  # noqa: F811
+    session_id = new_session(client)
+    plan = client.get(f"/sessions/{session_id}/plan").json()
+    lobby = next(space for space in plan["spaces"] if space["name"] == "Main lobby")
+    standing = [lobby["label"][0] + 0.3, lobby["label"][1]]
+    placed = client.put(f"/sessions/{session_id}/location", json={"space_id": lobby["id"], "point": standing}).json()
+    assert placed["location"]["point"] == [round(standing[0], 3), round(standing[1], 3)]
+    routed = client.post("/chat", json={"session_id": session_id, "message": "Take me to Meeting room 3.07"}).json()
+    route = next(event for event in routed["events"] if event["type"] == "route")
+    assert route["line"][0][:2] == placed["location"]["point"]
+    off = client.put(f"/sessions/{session_id}/location", json={"space_id": lobby["id"], "point": [1e6, 1e6]}).json()
+    assert "point" not in off["location"]  # a point outside the room is not kept

@@ -3,9 +3,10 @@ id: product-visualization
 summary: App visuals — the current vector plan view (core/floorplan.py, GET /sessions/{id}/plan, frontend/app/src/plan/) and the superseded point-cloud visual language; three.js vs react-three-fiber, performance, judging fit.
 sources:
   - core/floorplan.py, backend/sessions.py (MapView.plan), frontend/app/src/plan/, frontend/app/src/building/ (verified 2026-10-24)
-  - frontend/app/src/dev/, backend/devtools.py, core/routeline.py (dev panel, verified 2026-10-24)
+  - frontend/app/src/dev/, core/routeline.py (answers on the plan, verified 2026-10-24)
   - frontend/app/src/plan/ObjectsLayer.tsx, src/plan/palette.ts (access mode, verified 2026-10-25)
   - frontend/app/src/map/bridge.ts, src/building/opening.ts, src/Root.tsx (map → building transition, verified headless 2026-10-24)
+  - frontend/app/src/building/RouteHud.tsx, src/dev/StoryLayer.tsx, core/directions.py maneuvers (route following, verified headless 2026-10-25)
   - https://threejs.org/docs/ (three.js r160)
   - https://r3f.docs.pmnd.rs/ (react-three-fiber)
 related: [../architecture/overview.md, personas.md, routing-profiles.md, ../architecture/ai-agents.md]
@@ -80,9 +81,10 @@ place card) with a floating Guide conversation.
     run before the polygon tests, and each polygon is only tested against footprints whose box it meets.
     `applyBlocks` went from 183 ms to 16 ms (about 30 ms with the x-ray blocks), `osmHeights` from 68 ms to 7 ms. The map list panel is `visibility:
     hidden` while a building is open (a see-through blurred panel is still re-blurred every frame).
-  - *Ground level:* a line traces the ground floor's outline where it meets the ground. With floors under the ground
-    shown (stacked or spread), a veil in the map's ground colour (opacity 0.7) covers the biggest basement outline,
-    so basements read as under the street.
+  - *Ground level:* a line traces the ground floor's outline where it meets the ground. Basements get no veil over
+    them (2026-10-25: the darkening made them hard to read). Instead a basement you are not on is drawn darker
+    (`PlanView.tsx` `FloorModel` `under`: its colours times `UNDER_TINT` 0.35; under the current floor at opacity
+    `UNDER_FADED_OPACITY` 0.3 instead of 0.12, so the dark reads). The basement you are on looks like any floor.
   - *Back returns to where you were:* closing a building flies the map back to the camera it had when the building
     was opened (every pin if it was opened from a link).
 - **Roads at their real width (2026-10-25):** the tiles carry no road width (OpenMapTiles `transportation`: class,
@@ -102,17 +104,16 @@ place card) with a floating Guide conversation.
   stronger greens and water, white roads with grey casings, brighter side light on the blocks.
 - **Fitting the kit onto the map** (`scripts/fit_locations.py`, 2026-10-25): the archived georef origins were up to
   ~18 m off for some buildings (N8, Arcisstraße 21, U-Trakt). The script fetches each OSM way (cached in `.cache/osm/`),
-  shifts the kit's ground-floor footprint to the best overlap (a rotation search added nothing) and moves `origin`,
-  then rewrites `outline` and `height_m`. Only where the kit footprint is ≥ 75 % of the way: Wolf-Ferrari-Haus (Ottobrunn),
-  Mensa Arcisstraße, Terminal 2 (Freising), Haus der Weiterbildung and Pasing Arcaden model only part of their OSM
-  building (area ratio 0.3–0.6), so no shift can make them match. Overlap with the way after the fit: 0.78–0.99.
-- **Opening a building** shows all floors stacked (one-floor buildings: that floor). The fly-in, hand-off and rise also
-  play with the system's "reduce motion" on (flight 1.0 s instead of 1.5 s); the app's global reduced-motion CSS rule
-  (`styles.css`) still turns the fades into cuts.
-- **Two ways to show a building with a position** (menu, remembered per browser, `ttyb-building-showing`): **in the
-  city** (default, the neighbours and their pins around the model; tapping a pin flies over and opens that building)
-  or **alone** (the plan's own stage and grid cover the map once the model is there; meant for building managers).
-  Buildings without a position only have the alone view.
+  shifts the kit's ground-floor footprint (translation only; a rotation search added nothing) and moves `origin`,
+  then rewrites `outline` and `height_m`. How it shifts depends on the area ratio (kit footprint / OSM way,
+  `MIN_RATIO` 0.75): where the kit is about the size of the way (≥ 0.75) the shift maximises the overlap (IoU,
+  `best_shift`, grid over ±20 m); where the kit models only part of the building (< 0.75: Wolf-Ferrari-Haus
+  (Ottobrunn), Mensa Arcisstraße, Terminal 2 (Freising), Haus der Weiterbildung, Pasing Arcaden, ratio 0.3–0.6) IoU
+  would drag it to the way's middle, so `smallest_inside` takes the least shift (0.5 m grid over ±20 m, within 0.5 %
+  of the best share) that puts the kit inside the way (e.g. Mensa: its north wing stuck ~7 m out of the way).
+- **Opening a building** shows all floors stacked (one-floor buildings: that floor). The app always plays full
+  motion, whatever the system's "reduce motion" setting says: `motion.ts` `reducedMotion()` returns false and the CSS
+  has no `prefers-reduced-motion` rules (2026-10-25).
 - **Not built yet:** Guide events on the plan (focus, route line, closures, lost access), 3D, maintainer edits.
 - **Guide answers on the plan** (2026-10-25, [D-020](../../memory-bank/decisions.md#d-020)): the rooms an answer is
   about are tinted in the route blue (three soft pulses, then steady) with name badges; items get a ringed dot (names
@@ -122,35 +123,40 @@ place card) with a floating Guide conversation.
   it aloud and waits for "I'm there" (button, typed or spoken "geldim" / "next"). Each walking step also turns the
   map so the step runs straight up the screen (start → end of the step, `Focus.heading`; a stairs/lift step keeps
   the turn), with you (green dot + cone) at its start and the next move's arrow in a ringed blue disc at its end.
+- **Route following, variant B** (2026-10-25, Atahan's pick from a mockup of two): no next-move card any more (it
+  stays only inside the camera walk). A slim trip pill at the top (`building/RouteHud.tsx` `TripBar`: where to, metres
+  left, step n/N, step dots, track / camera / end) and one line over the Guide's dock (`RouteBar`: "Say “start”…" +
+  Start → "Reached it? Say “I'm there”" + I'm there → "You have arrived" + Done, or Continue into the next building);
+  the Guide's last answer bubble steps aside while a step is walked (`Guide` `quiet`). The step itself is a callout
+  pinned on the map where it is made (`dev/StoryLayer.tsx` `move` marker: arrow, "Turn left · 20 m", "into … · by the
+  …"; right of the point, else left, else above it, clear of the edge buttons), and the end of the step has a small
+  ring with a "then ← …" tag. The route line is thin (6 px) with no chevrons: before Start one solid line; while
+  walking only the current step is solid, the walked part and the steps still to come are dotted, and one short light
+  runs along the solid part the way you go. The walked part eases to a new step and the
+  "you" puck glides along the line. Steps are moves, not doors: `core/directions.maneuvers` joins a straight-on door
+  into the step before it (each step carries `legs`, which `building/tracking.ts` uses to place it on the line), so
+  Hauptgebäude 0119 → Toilet 0137 is 6 steps instead of 8; the Guide's spoken steps and the `[route note]` use the
+  same list.
 - **"You are here" figure** (2026-10-25): an orange person pin, dragged out of the dock at the bottom right onto the
   plan, or the dock tapped and then the plan (Esc cancels; tapping the dock again takes it off), dragged again to move.
   While in the hand it shows where it would land (room name, or `Near entrance · <room>`); put down off the building
   it stays there, with a dashed line to the nearest entrance of that floor (marked "Entrance"; routes start at that
   door); on a wall it takes the room ≤ 0.6 m away. Its room goes to
   `PUT /sessions/{id}/location`; the Guide then routes from "here" and stops asking where the user is.
-- **Framing** (2026-10-25): the whole building is centred on the screen (the wide-screen Guide is a bottom-left card,
-  not a column; the floor rail's width is mirrored left); an answer's focus still keeps clear of the Guide card.
+- **Framing** (2026-10-25): the whole building is centred on the screen (the wide-screen Guide floats bottom left,
+  360 px wide, `GUIDE_COL_PX`; the floor rail's width is mirrored left); an answer's focus still keeps clear of the Guide card.
 - **Nearby buildings** (2026-10-25, [D-021](../../memory-bank/decisions.md#d-021)): a "found nearby" card lists matches
   in neighbouring buildings (Directions / Open); a route to one ends at the exit with a dashed line across outside to
   the other entrance and a Continue badge/button, which opens that building and draws the rest from its entrance.
 
-## Dev panel
+## Answers on the plan
 
-`frontend/app/src/dev/` (merged into the app 2026-10-24): a panel to try every Guide capability by hand through
-the backend's `/dev` endpoints (`backend/devtools.py`), and the current answer drawn over the plan without
-changing the plan's colours. Shown in the Vite dev server or with `?dev`
-([commands.md](../guides/commands.md#dev-panel)). Verified in Chrome on `train/proc-campus-train-000` and
-`dev/proc-factory-dev-003`.
+`frontend/app/src/dev/`: the current answer drawn over the plan without changing the plan's colours. (The dev
+tools panel that also lived here was removed 2026-10-25; the admin button now only toggles the Edit mode.)
+Verified in Chrome on `train/proc-campus-train-000` and `dev/proc-factory-dev-003`.
 
-- **Panel** (`DevPanel.tsx`): Find (rooms and items, one-tap examples from the building, count, "Route here"),
-  Route (searchable place pickers, "use selected" from the plan, stop on the way, ambiguous-destination picker,
-  reachable rooms, steps in words), Profile (presets with what they mean, fine-tune, rooms unreachable from the
-  entrance), Edits (lifts and stairs with open/closed state, close the selected room, add a door; impact in words
-  before Apply, measured from the entrance room; reset), View (furniture, room colours, pins, hover, wall height,
-  theme), Log (every call in words, run again, any tool by hand).
-- **On the plan** (`StoryLayer.tsx`, from map events via `story.ts`; Guide replies in the chat feed the same
-  story): route as an accent band drawn in once, white chevrons flowing along it the way you go (still with
-  reduced motion); while a step is followed the walked part turns grey and only the current step keeps its chevrons;
+- **On the plan** (`StoryLayer.tsx`, from the map events of Guide replies via `story.ts`): the thin route line of
+  variant B above (walked part and coming steps dotted, current step solid with a running light, no chevrons);
   start / destination / tappable floor-change badges; accent
   outlines on the rooms an answer is about; a dot per item; red hatch on closed rooms, lifts and stairs; dashed
   outlines on rooms that lost access. A new answer switches to its floor and fits it.

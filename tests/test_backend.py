@@ -185,6 +185,18 @@ def test_route_event_has_the_guides_steps(client):
     assert all(step["text"] and "[" not in step["text"] for step in steps)
 
 
+def test_delete_route_ends_the_shown_route_once(client):
+    session_id = new_session(client)
+    assert client.delete(f"/sessions/{session_id}/route").json() == {"ended": False}  # nothing on the map yet
+    turn = say(client, session_id, ROUTE)
+    assert any(event["type"] == "route" for event in turn["events"])
+    assert client.delete(f"/sessions/{session_id}/route").json() == {"ended": True}
+    polled = client.get("/events", params={"session_id": session_id}).json()["events"]
+    assert polled[-1] == {"type": "route_end", "arrived": False, "by": "app"}
+    assert client.delete(f"/sessions/{session_id}/route").json() == {"ended": False}  # already ended
+    assert client.delete("/sessions/missing/route").status_code == 404
+
+
 def test_change_event_has_space_ids_and_plan_update(client):
     session_id = new_session(client)
     before = client.get(f"/sessions/{session_id}/plan").json()

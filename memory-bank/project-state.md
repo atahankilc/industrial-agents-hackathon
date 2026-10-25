@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-25** (step guide faces the step + animated route band, step card and Guide in sync via `route_step` / `show_route_step`, `find_nearest` tool, route line from the figure, calmer voice, map building tones, round-button system — shipped on `dev`; before that: building screen "Quiet HUD" steps 1–5 with the pulls of `origin/dev` 26b908f + b352e83)
+[Memory bank](README.md) · Last updated: **2026-10-25** (route following variant B — `maneuvers` steps, `RouteHud` trip pill + dock line, thin route line with a step callout; floating Guide with the shader ball, hold/tap talk, history arrows; one settings corner; `open_building_settings` tool; learned preferences with Undo; street view + phone compass; opening without the freeze; Mensa fit inside its OSM way; basement veil removed — shipped on `dev`; before that: step guide faces the step + animated route band, step card and Guide in sync via `route_step` / `show_route_step`, `find_nearest` tool, route line from the figure, calmer voice, map building tones, round-button system — shipped on `dev`; before that: building screen "Quiet HUD" steps 1–5 with the pulls of `origin/dev` 26b908f + b352e83)
 
 ## Phase
 
@@ -36,14 +36,14 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   (`frontend/app/src/plan/`, `core/floorplan.py`); the point-cloud prototype and
   scene moved to the gitignored `.viz-archive/`, see [visualization.md](../docs/product/visualization.md).
 - Map → building (2026-10-25): the map stays under the building screen, flies in, then follows the model's camera
-  (`src/map/bridge.ts`); plan preloaded on the tap (`src/building/opening.ts`), model rises in; menu toggle "in the
-  city" (default, neighbour pins tappable) / "alone"; buildings with a model drawn as blue blocks on the map; new
+  (`src/map/bridge.ts`); plan preloaded on the tap (`src/building/opening.ts`), model rises in; (a menu toggle "in the
+  city" / "alone" was removed later; neighbour pins tappable); buildings with a model drawn as blue blocks on the map; new
   light map palette ([visualization.md](../docs/product/visualization.md#current-vector-plan-view-2026-10-24)).
-  Since: buildings refitted onto their OSM ways (`scripts/fit_locations.py`, 12 shifted, 5 partial models kept),
+  Since: buildings refitted onto their OSM ways (`scripts/fit_locations.py`, 12 shifted; the 5 partial models get the least shift that puts them inside their way),
   open with all floors, transition plays with "reduce motion" on, map field of view 1° + model tilt ≤ 60° over the map
   (≤ 10 px apart). City view refinements: open building's map blocks drawn as a wireframe in the model's scene,
-  no z-fighting under the blue blocks, an x-ray cut-away of blocks in front (`src/map/neighbours.ts`), roads at estimated real widths, a ground line plus an underground veil
-  over basements, and Back flies the map to where it was when the building was opened.
+  no z-fighting under the blue blocks, an x-ray cut-away of blocks in front (`src/map/neighbours.ts`), roads at estimated real widths, a ground line, no
+  underground veil (removed; a basement you are not on is drawn darker instead), and Back flies the map to where it was when the building was opened.
 - Building screen, 2026-10-25 later chunk ([log](log.md)): new Guide tools `find_nearest(start, query, floor_id?)`
   (nearest room with an item kind / room kind by route length under the profile, one route + highlight, `nearest` +
   `next_nearest`; in `PROFILE_TOOLS`, the prompt sends "nearest/closest X" to it without asking) and
@@ -116,7 +116,8 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `solve` included, plan `restricted`), remembered preferences (soft penalties, `set_preference`, `preference`
   events), moving objects (`/objects`, device tokens, missions, `scripts/sim_object.py`, Guide `send_object`).
   Frontend done (`frontend/app/src/access/`, `plan/ObjectsLayer.tsx`): sign-in, darkened spaces, Preferences,
-  Building settings (My preferences / Access / Members / Objects), live object markers — checked headless with a
+  Building settings (admin only: Access / Members / Objects; My preferences moved to the Preferences sheet
+  2026-10-25), live object markers — checked headless with a
   fake sign-in. Migration `20261025200000_access.sql` applied 2026-10-25 (Postgres stores round-trip verified live).
   **Not yet:** admin account (`ADMIN_EMAIL`), a real Supabase sign-in, invite redirect URLs in Supabase, `/events`
   polling (voice turns' preferences are not captured).
@@ -187,9 +188,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   (`NextMove.tsx`, route events carry `steps`), camera walk (`CameraWalk.tsx`), live tracking by dead reckoning
   (`tracking.ts`, `useTracking.ts`; 0.7 m stride UNVERIFIED, `?walk=sim`). Checked with `tsc` + screenshots; not on a
   real phone, camera "Where am I?" needs the real Claude Guide. Next: the plan follows the dot; calibrate the stride.
-- **Dev panel** (2026-10-24): in the app (`frontend/app/src/dev/`, backend `/dev/*`) — try every
-  Guide capability by hand (find, directions, profiles, closures with impact, display switches, log), answers
-  drawn over the plan; route events carry a plan `line` ([visualization.md](../docs/product/visualization.md#dev-panel)).
+- **Dev panel removed** (2026-10-25): the app's dev tools panel is gone; the admin button is a single Edit
+  toggle (Building settings now open only through the Guide). Answers are still drawn over the plan
+  (`frontend/app/src/dev/StoryLayer.tsx`, `story.ts`); backend `/dev/*` kept for tests
+  ([visualization.md](../docs/product/visualization.md#answers-on-the-plan)).
 - **Guide voice = ElevenLabs** (2026-10-25, [D-016](decisions.md#d-016)): `POST /tts` (`backend/tts.py`, Flash v2.5,
   voice "River") played by `frontend/app/src/voice/tts.ts`, browser voice as fallback. Voice replies are spoken while the Guide works ([D-017](decisions.md#d-017)): grounded sentences
   stream as `say` lines from `/chat/stream`, a fact-free "let me check" sentence comes first (first sound ~2.3 s).

@@ -9,6 +9,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import type { VoiceState } from '../voice/useVoice'
+import { reducedMotion } from '../motion'
 
 const GOLDEN = Math.PI * (3 - Math.sqrt(5))
 
@@ -213,7 +214,7 @@ export function VoiceOrb({ state, level, size = 132, onClick, label, className =
     scene.add(points)
 
     // Reduced motion slows the drift but keeps the response to the voice: that is feedback, not decoration.
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reduced = reducedMotion()
     let frame = 0
     let last = performance.now()
     let time = 0

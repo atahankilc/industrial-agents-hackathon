@@ -1,12 +1,20 @@
 // The Guide, voice first: no chat thread. Captions say what is happening right now (you, live, while you speak;
 // the Guide's work trail while it works — one line per lookup, from the streamed tool steps; its answer, like
-// subtitles, with the trail folded into one line above it), with the Core below as the main control.
-// Before the first question: a one-line greeting and a few things you can say. Typing is the fallback (keyboard
-// button). A tapped room or object shows its card in the same place.
+// subtitles above the ball, with the trail folded into one line above it), with the dock below. No panel: the
+// caption is a glass bubble that is there only when it has something to say, and the dock floats over the map.
+// The dock is three places: the main way to ask in the middle, the other way on the left, the options on the right.
+// Talking first (default): the Core (the ball) in the middle, a keyboard button on the left that brings the message
+// field into the middle, focused (Escape, or leaving it empty, brings the ball back). Typing first: the field in the
+// middle and a small ball on the left. The options set which comes first, how the ball listens (tap, the default,
+// or hold to talk) and turn the spoken replies off (text only); all remembered on this device.
+// While a route is followed, `routeBar` (its one-line caption and button) sits over the dock, and `quiet` keeps the
+// last answer's bubble away until there is something new to say.
+// Before the first question: a one-line greeting and a few things you can say. A tapped room or object shows its
+// card in the same place.
 // The Edit mode talks to the Builder through the same card (`persona`): its own name, greeting and chips, and
 // `card` (the selection's inspector, or the Builder's proposal) in the place of the room card.
 
-import { Accessibility, ArrowUp, Bath, Check, ChevronDown, CircleHelp, DoorOpen, Keyboard, Layers, Navigation, PencilLine, RotateCcw, UtensilsCrossed, X } from 'lucide-react'
+import { Accessibility, ArrowUp, ArrowUpDown, Bath, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, DoorOpen, Keyboard, Layers, MapPin, Navigation, PencilLine, RotateCcw, SlidersHorizontal, UtensilsCrossed, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import type { Step } from '../ui/guideSteps'
 import type { VoiceState } from '../voice/useVoice'
@@ -17,7 +25,7 @@ export type Message =
   | { role: 'guide'; text: string; live?: boolean; steps?: Step[]; spoken?: boolean; /** this answer drew a route */ route?: boolean }
   | { role: 'note'; text: string }
 
-export type Suggestion = { label: string; prompt: string; icon: 'toilet' | 'exit' | 'access' | 'food' | 'floor' | 'help' | 'edit' }
+export type Suggestion = { label: string; prompt: string; icon: 'toilet' | 'exit' | 'lift' | 'access' | 'food' | 'floor' | 'here' | 'help' | 'edit' }
 
 /** who the card talks for: the Guide (default) or the Edit mode's Builder */
 export type Persona = { who: string; greeting: ReactNode; placeholder: string }
@@ -39,6 +47,13 @@ export type VoiceView = {
   bargeIn?: boolean
   /** while listening: the microphone really captures (until then the caption says it is starting) */
   hearing?: boolean
+  /** the Guide answers aloud (useVoice `speaks`); the options menu turns it off */
+  speaks?: boolean
+  setSpeaks?: (on: boolean) => void
+  /** push to talk (useVoice `holdToTalk`, default off: a tap listens): listen while the ball is held; the options switch it */
+  holdToTalk?: boolean
+  setHoldToTalk?: (on: boolean) => void
+  hold?: () => void
   listen: () => void
   finish: () => void
   stop: () => void
@@ -59,17 +74,45 @@ type Props = {
   persona?: Persona
   /** shown in the room card's place (and over it) */
   card?: ReactNode
+  /** the Guide's height in px whenever it changes (the plan keeps its buttons above it on a phone) */
+  onHeight?: (px: number) => void
+  /** the route being followed: its caption and button, right over the dock */
+  routeBar?: ReactNode
+  /** a step is being walked: the last answer's bubble stays away (it comes back while listening or answering) */
+  quiet?: boolean
 }
 
-const ICONS = { toilet: Bath, exit: DoorOpen, access: Accessibility, food: UtensilsCrossed, floor: Layers, help: CircleHelp, edit: PencilLine }
+const ICONS = { toilet: Bath, exit: DoorOpen, lift: ArrowUpDown, access: Accessibility, food: UtensilsCrossed, floor: Layers, here: MapPin, help: CircleHelp, edit: PencilLine }
 
-export function Guide({ messages, pending, voice, info, suggestions, route, onSend, onCloseInfo, onClear, persona = GUIDE, card }: Props) {
-  const [typing, setTyping] = useState(!voice.supported)
+const FIRST_KEY = 'ttyb-guide-first'
+type Way = 'talk' | 'type'
+
+export function Guide({ messages, pending, voice, info, suggestions, route, onSend, onCloseInfo, onClear, persona = GUIDE, card, onHeight, routeBar, quiet = false }: Props) {
+  // which way of asking sits in the middle of the dock: the user's choice, or typing for now (the keyboard button);
+  // always typing without voice
+  const [first, setFirst] = useState<Way>(() => readFirst())
+  const [typingNow, setTypingNow] = useState(false)
+  const center: Way = !voice.supported || first === 'type' || typingNow ? 'type' : 'talk'
+  const chooseFirst = (way: Way) => {
+    setFirst(way)
+    setTypingNow(false)
+    writeFirst(way)
+  }
+  const [options, setOptions] = useState(false)
   const [draft, setDraft] = useState('')
   // the answer that is opened, by its place in the list: a new message closes it again
-  const [openAt, setOpenAt] = useState(-1)
-  const expanded = openAt === messages.length
-  const setExpanded = (toggle: (open: boolean) => boolean) => setOpenAt(toggle(expanded) ? messages.length : -1)
+  // earlier exchanges, one at a time (the arrows beside the question), by their place among the questions; held
+  // for this length of the conversation only, so a new message goes back to the latest by itself
+  const turns = messages.flatMap((message, index) => (message.role === 'user' ? [index] : []))
+  const [viewing, setViewing] = useState({ at: -1, turn: 0 })
+  const latest = turns.length - 1
+  const turn = viewing.at === messages.length ? viewing.turn : latest
+  const past = turn < latest
+  const viewTurn = (next: number) => setViewing({ at: messages.length, turn: Math.max(0, Math.min(latest, next)) })
+  const [openAt, setOpenAt] = useState('')
+  const openKey = `${messages.length}:${turn}`
+  const expanded = openAt === openKey
+  const setExpanded = (toggle: (open: boolean) => boolean) => setOpenAt(toggle(expanded) ? openKey : '')
   const input = useRef<HTMLInputElement>(null)
   // a long reply is cut to a few lines and fades out; a short one is shown whole, without the fade
   const reply = useRef<HTMLDivElement>(null)
@@ -78,24 +121,44 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
     const box = reply.current
     const next = !!box && box.scrollHeight > box.clientHeight + 1
     setClipped(next)
-  }, [messages, route, expanded])
+  }, [messages, route, expanded, turn])
 
+  const root = useRef<HTMLElement>(null)
   useEffect(() => {
-    if (typing) input.current?.focus()
-  }, [typing])
+    const element = root.current
+    if (!element || !onHeight) return
+    const watch = new ResizeObserver(() => onHeight(Math.round(element.offsetHeight)))
+    watch.observe(element)
+    return () => watch.disconnect()
+  }, [onHeight])
+
+  // the field comes into the middle focused
+  useEffect(() => {
+    if (typingNow) input.current?.focus()
+  }, [typingNow])
+
+  // the options menu closes on a tap anywhere else
+  const optionsBox = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!options) return
+    const close = (event: PointerEvent) => !optionsBox.current?.contains(event.target as Node) && setOptions(false)
+    addEventListener('pointerdown', close)
+    return () => removeEventListener('pointerdown', close)
+  }, [options])
 
   const submit = (text: string, tapped = false) => {
     const value = text.trim()
     if (!value || pending) return
     onSend(value, tapped)
     setDraft('')
-    if (voice.supported) setTyping(false)
   }
 
   // the latest exchange starts at the last thing the user said
-  const lastUser = messages.map((message) => message.role).lastIndexOf('user')
-  const question = lastUser >= 0 ? (messages[lastUser] as { text: string }).text : null
-  const answer = lastUser >= 0 ? messages.slice(lastUser + 1).at(-1) : messages.at(-1)
+  // the exchange shown: the latest (or an earlier one) starts at what the user said and runs to the next question
+  const asked = turns[turn] ?? -1
+  const question = asked >= 0 ? (messages[asked] as { text: string }).text : null
+  const answer = asked >= 0 ? messages.slice(asked + 1, turns[turn + 1] ?? messages.length).at(-1) : messages.at(-1)
+  const history = turns.length > 1 ? { turn, count: turns.length, go: viewTurn } : undefined
   const fresh = messages.length === 0
 
   let caption
@@ -103,7 +166,7 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
     caption = (
       <div className="caption big">
         <p className="who live">{voice.hearing === false ? 'Mic starting' : 'You · live'}</p>
-        <p className="said">{voice.interim ? lastWordSoft(voice.interim) : <em>{voice.hearing === false ? 'One moment…' : 'Listening… go ahead'}</em>}</p>
+        <p className="said">{voice.interim ? lastWordSoft(voice.interim) : <em>{voice.hearing === false ? 'One moment…' : voice.holdToTalk ? 'Listening… let go to send' : 'Listening… go ahead'}</em>}</p>
       </div>
     )
   } else if (card) {
@@ -132,7 +195,6 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
   } else if (fresh) {
     caption = (
       <div className="caption big">
-        <p className="who">{persona.who}</p>
         <p className="said">{persona.greeting}</p>
       </div>
     )
@@ -140,18 +202,12 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
     const working = answer?.role === 'guide' && answer.live
     caption = (
       <div className="caption">
-        {question && <p className="asked">{question}</p>}
+        {question && <Exchange key={turn} question={question} steps={answer?.role === 'guide' && !answer.live ? answer.steps ?? [] : []} history={history} />}
         {answer?.role === 'note' && <p className="said warn">{answer.text}</p>}
-        {working && (
-          <>
-            <p className="who">{persona.who} · working</p>
-            <Trail steps={answer.steps ?? []} live />
-          </>
-        )}
+        {working && <Thinking steps={answer.steps ?? []} />}
         {answer?.role === 'guide' && !answer.live && (
           <>
-            {!!answer.steps?.length && <FoldedTrail steps={answer.steps} />}
-            <p className={`who ${voice.state === 'speaking' ? 'speaking' : ''}`}>{voice.state === 'speaking' ? `${persona.who} · speaking` : persona.who}</p>
+            {voice.state === 'speaking' && !past && <p className="who speaking">Speaking</p>}
             <div
               ref={reply}
               className={`said reply ${expanded ? 'open' : ''} ${clipped ? 'clipped' : ''}`}
@@ -161,7 +217,7 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
               onClick={() => setExpanded((open) => !open)}
               onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && setExpanded((open) => !open)}
             >
-              {lines(answer.text, route && !!answer.route)}
+              {lines(answer.text, route && !past && !!answer.route)}
             </div>
           </>
         )}
@@ -169,12 +225,25 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
     )
   }
 
-  return (
-    <section className="guide" aria-label={persona.who}>
-      {voice.error && voice.state !== 'listening' && <p className="voice-error">{voice.error}</p>}
-      {caption}
+  // talking from the small ball gives the middle back to the ball
+  const listen = () => {
+    setTypingNow(false)
+    voice.listen()
+  }
+  const hold = voice.hold && (() => {
+    setTypingNow(false)
+    voice.hold!()
+  })
+  const ball = voice.supported && (
+    <Core state={voice.state} level={voice.level} busy={pending} hold={voice.holdToTalk} onHold={hold} onListen={listen} onFinish={voice.finish} onStop={voice.stop} />
+  )
 
-      {fresh && !info && !card && !typing && voice.state !== 'listening' && (
+  return (
+    <section ref={root} className={`guide ${center}`} aria-label={persona.who}>
+      {voice.error && voice.state !== 'listening' && <p className="voice-error">{voice.error}</p>}
+      {caption && !(quiet && !pending && voice.state !== 'listening' && !info && !card) && <div className={`guide-bubble${past && !info && !card && voice.state !== 'listening' ? ' past' : ''}`}>{caption}</div>}
+
+      {fresh && !info && !card && voice.state !== 'listening' && (
         <ul className="intents" aria-label="Things you can ask">
           {suggestions.slice(0, 3).map((item) => {
             const Icon = ICONS[item.icon]
@@ -190,101 +259,202 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
         </ul>
       )}
 
-      {typing && (
-        <form
-          className="type-bar"
-          onSubmit={(event) => {
-            event.preventDefault()
-            submit(draft)
-          }}
-        >
-          <input
-            ref={input}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder={persona.placeholder}
-            aria-label={persona.placeholder}
-            enterKeyHint="send"
-          />
-          <button type="submit" className="send" disabled={pending || !draft.trim()} aria-label="Send">
-            <ArrowUp size={18} strokeWidth={2.4} />
-          </button>
-        </form>
-      )}
-
-      {voice.supported && (
-        <div className="dock">
-          <button type="button" className="hud-side" aria-pressed={typing} onClick={() => setTyping((open) => !open)} aria-label={typing ? 'Back to voice' : 'Type instead'} title={typing ? 'Back to voice' : 'Type instead'}>
-            {typing ? <X size={20} /> : <Keyboard size={20} />}
-          </button>
-          <Core state={voice.state} level={voice.level} busy={pending} onListen={voice.listen} onFinish={voice.finish} onStop={voice.stop} />
-          <button type="button" className="hud-side" onClick={onClear} disabled={fresh || pending} aria-label="Start over" title="Start over">
-            <RotateCcw size={19} />
-          </button>
+      {routeBar}
+      <div className="dock">
+        <div className="dock-side">
+          {center === 'talk' ? (
+            <button type="button" className="hud-side" onClick={() => setTypingNow(true)} aria-label="Type instead" title="Type instead">
+              <Keyboard size={20} />
+            </button>
+          ) : (
+            ball
+          )}
         </div>
-      )}
-      {voice.supported && <p className="core-hint">{hint(voice.state, pending, voice.bargeIn, voice.hearing)}</p>}
+        <div className="dock-center">
+          {center === 'talk' ? (
+            ball
+          ) : (
+            <form
+              className="type-bar"
+              onSubmit={(event) => {
+                event.preventDefault()
+                submit(draft)
+              }}
+            >
+              <input
+                ref={input}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => event.key === 'Escape' && setTypingNow(false)}
+                // leaving it empty gives the middle back to the ball, unless the focus stays in the dock (options, send)
+                onBlur={(event) => !draft.trim() && !event.currentTarget.closest('.dock')?.contains(event.relatedTarget) && setTypingNow(false)}
+                placeholder={persona.placeholder}
+                aria-label={persona.placeholder}
+                enterKeyHint="send"
+              />
+              <button type="submit" className="send" disabled={pending || !draft.trim()} aria-label="Send">
+                <ArrowUp size={18} strokeWidth={2.4} />
+              </button>
+            </form>
+          )}
+        </div>
+        <div className="dock-side dock-options" ref={optionsBox}>
+          <button type="button" className="hud-side" aria-expanded={options} aria-haspopup="true" onClick={() => setOptions((open) => !open)} aria-label="Options" title="Options">
+            <SlidersHorizontal size={19} />
+          </button>
+          {options && (
+            <div className="hud-pop dock-pop" role="group" aria-label="Options">
+              {voice.supported && (
+                <div className="dock-row">
+                  <span>Ask by</span>
+                  <div className="dock-seg" role="radiogroup" aria-label="Ask by">
+                    {(['talk', 'type'] as const).map((way) => (
+                      <button key={way} type="button" role="radio" aria-checked={first === way} onClick={() => chooseFirst(way)}>
+                        {way === 'talk' ? 'Voice' : 'Text'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {voice.setHoldToTalk && (
+                <div className="dock-row">
+                  <span>
+                    Talk by
+                    <small>{voice.holdToTalk ? 'While you hold the ball' : 'Until you pause'}</small>
+                  </span>
+                  <div className="dock-seg" role="radiogroup" aria-label="Talk by">
+                    {([true, false] as const).map((on) => (
+                      <button key={String(on)} type="button" role="radio" aria-checked={(voice.holdToTalk ?? false) === on} onClick={() => voice.setHoldToTalk!(on)}>
+                        {on ? 'Hold' : 'Tap'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {voice.setSpeaks && (
+                <Toggle label="Spoken replies" detail="Answers are read aloud" on={voice.speaks ?? true} onChange={voice.setSpeaks} />
+              )}
+              <button
+                type="button"
+                className="dock-clear"
+                disabled={fresh || pending}
+                onClick={() => {
+                  setOptions(false)
+                  onClear()
+                }}
+              >
+                <RotateCcw size={16} aria-hidden="true" />
+                Start over
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </section>
   )
 }
 
-/** What the Guide is doing: one line per lookup, the running one with a spinner and its seconds. */
-function Trail({ steps, live = false }: { steps: Step[]; live?: boolean }) {
+/** One on/off row of the options menu. */
+function Toggle({ label, detail, on, onChange }: { label: string; detail: string; on: boolean; onChange: (on: boolean) => void }) {
   return (
-    <ol className="trail" aria-live={live ? 'polite' : undefined}>
-      {steps.length === 0 && live && (
-        <li className="running">
-          <span className="mark" aria-hidden="true" />
-          <span>Looking at the building</span>
-          <Elapsed />
-        </li>
-      )}
-      {steps.map((step, index) => (
-        <li key={step.key} className={step.state}>
-          <span className="mark" aria-hidden="true">
-            {step.state === 'done' && <Check size={10} strokeWidth={3.2} />}
-            {step.state === 'failed' && <X size={10} strokeWidth={3.2} />}
-          </span>
-          <span>{step.label}</span>
-          {live && index === steps.length - 1 && step.state === 'running' && <Elapsed />}
-          {step.state === 'failed' && <small>no result</small>}
-        </li>
-      ))}
-    </ol>
+    <button type="button" role="switch" aria-checked={on} className="dock-toggle" onClick={() => onChange(!on)}>
+      <span>
+        {label}
+        <small>{detail}</small>
+      </span>
+      <i className={on ? 'on' : ''} aria-hidden="true" />
+    </button>
   )
 }
 
-/** After the answer: the trail folds into one line ("✓ 3 checks") that opens it again. */
-function FoldedTrail({ steps }: { steps: Step[] }) {
-  const [open, setOpen] = useState(false)
-  const failed = steps.filter((step) => step.state === 'failed').length
+function readFirst(): Way {
+  try {
+    return localStorage.getItem(FIRST_KEY) === 'type' ? 'type' : 'talk'
+  } catch {
+    return 'talk'
+  }
+}
+function writeFirst(way: Way) {
+  try {
+    localStorage.setItem(FIRST_KEY, way)
+  } catch {
+    // storage unavailable: the choice just isn't remembered
+  }
+}
+
+/** While the Guide works: what it is doing right now, in one shimmering line, and a dot per lookup so far (the
+ * running one pulses). Lookups that found nothing stay quiet — the answer says what matters. */
+function Thinking({ steps }: { steps: Step[] }) {
+  const current = steps.findLast((step) => step.state === 'running') ?? steps.at(-1)
   return (
-    <div className="trail-fold">
-      <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-        <Check size={12} strokeWidth={2.6} aria-hidden="true" />
-        {steps.length} {steps.length === 1 ? 'check' : 'checks'}
-        {failed > 0 && ` · ${failed} without result`}
-        <ChevronDown size={13} className={open ? 'open' : ''} aria-hidden="true" />
-      </button>
-      {open && <Trail steps={steps} />}
+    <div className="work" aria-live="polite">
+      <p className="work-now" key={current?.key ?? -1}>
+        <span>{current ? current.label : 'Thinking'}</span>
+      </p>
+      <div className="work-meta" aria-hidden="true">
+        <ol className="work-dots">
+          {steps.map((step) => (
+            <li key={step.key} className={step.state} />
+          ))}
+        </ol>
+        <Elapsed />
+      </div>
     </div>
   )
 }
 
-/** Seconds on the running step, so a slow lookup reads as progress, not as a hang. */
+type History = { turn: number; count: number; go: (turn: number) => void }
+
+/** The question, and beside it the arrows through earlier exchanges ("‹ 2/5 ›") and, after an answer, a quiet
+ * "3 steps" that opens what the Guide looked up. */
+function Exchange({ question, steps, history }: { question: string; steps: Step[]; history?: History }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <div className="exchange">
+        <p className="asked">{question}</p>
+        {steps.length > 0 && (
+          <button type="button" className="steps-toggle" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+            {steps.length} {steps.length === 1 ? 'step' : 'steps'}
+            <ChevronDown size={13} className={open ? 'open' : ''} aria-hidden="true" />
+          </button>
+        )}
+        {history && (
+          <span className="history">
+            <button type="button" disabled={history.turn === 0} onClick={() => history.go(history.turn - 1)} aria-label="Earlier answer" title="Earlier answer">
+              <ChevronLeft size={15} />
+            </button>
+            <span aria-live="polite">{history.turn + 1}/{history.count}</span>
+            <button type="button" disabled={history.turn === history.count - 1} onClick={() => history.go(history.turn + 1)} aria-label="Later answer" title="Later answer">
+              <ChevronRight size={15} />
+            </button>
+          </span>
+        )}
+      </div>
+      {open && (
+        <ol className="trail">
+          {steps.map((step) => (
+            <li key={step.key} className={step.state}>
+              <span className="mark" aria-hidden="true">{step.state === 'done' && <Check size={9} strokeWidth={3.4} />}</span>
+              <span>{step.label}</span>
+              {step.state === 'failed' && <small>no match</small>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </>
+  )
+}
+
+/** Seconds since the Guide started, from the third on, so a slow lookup reads as progress, not as a hang. */
 function Elapsed() {
   const [seconds, setSeconds] = useState(0)
   useEffect(() => {
     const timer = setInterval(() => setSeconds((value) => value + 1), 1000)
     return () => clearInterval(timer)
   }, [])
-  return <small>{seconds > 0 ? `${seconds}s` : ''}</small>
+  return <small className="elapsed">{seconds >= 3 ? `${seconds}s` : ''}</small>
 }
-
-const hint = (state: VoiceState, pending: boolean, bargeIn = false, hearing = true) =>
-  state === 'listening' ? (hearing ? 'Release or tap to send' : 'Starting the mic…')
-    : state === 'speaking' ? (bargeIn ? 'Talk to interrupt · tap to stop' : 'Tap to stop')
-    : pending || state === 'thinking' ? 'Working' : 'Tap or hold to talk'
 
 /** The words so far, the last one still forming. */
 function lastWordSoft(text: string) {

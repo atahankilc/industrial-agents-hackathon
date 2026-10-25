@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from agent.tools import BuildingSession
-from core.directions import about_m, guidance, guidance_steps, heading_change, landmark, route_legs, turn_word
+from core.directions import about_m, guidance, guidance_steps, heading_change, landmark, maneuvers, route_legs, turn_word
 
 BUILDING = Path("data/train/proc-campus-train-000")
 
@@ -97,3 +97,26 @@ def test_tour_legs_get_guidance_steps(session):
     tour = session.call("tour", {"stops": ["Main lobby", "Meeting room 3.07", "Main lobby"]})
     assert tour["reachable"] and tour["about_m"] == about_m(tour["length_m"])
     assert all(leg["steps"][0].startswith("Start in") and "[" not in " ".join(leg["steps"]) for leg in tour["legs"])
+
+
+def test_maneuvers_join_straight_doors_and_cover_every_leg(session):
+    route = session.call("find_route", {"start": "Main lobby", "destination": "Meeting room 3.07"})
+    steps = guidance(session.building, route["space_path"], route["element_path"])
+    moves = maneuvers(steps)
+    assert [move["text"] for move in moves] == route["steps"][1:]  # the Guide says the card's steps
+    assert sum(move["legs"] for move in moves) == len(steps)  # the app places each step on the route line by legs
+    assert moves[-1]["kind"] == "arrive"
+    for before, move in zip(moves, moves[1:]):  # a straight door on the same floor never starts a step
+        assert not (move["kind"] == "door" and move["turn"] == "straight" and before["kind"] == "door"
+                    and before["floor"] == move["floor"])
+
+
+def test_maneuvers_text_for_joined_doors():
+    door = {"kind": "door", "floor": "Ground floor", "door": "door"}
+    steps = [{**door, "turn": "left", "metres": 4, "distance_m": 4.2, "to": "A", "to_id": "a", "landmark": None},
+             {**door, "turn": "straight", "metres": 2, "distance_m": 2.4, "to": "B", "to_id": "b", "landmark": "lift sign"},
+             {"kind": "arrive", "turn": "straight", "metres": 0, "to": "B", "to_id": "b", "floor": "Ground floor", "text": "You have arrived."}]
+    moves = maneuvers(steps)
+    assert [move["legs"] for move in moves] == [2, 1]
+    assert moves[0]["text"] == "Turn left and walk about 7 m through 2 doors into B (the last one by the lift sign)."
+    assert moves[0]["metres"] == 7 and moves[0]["to_id"] == "b"

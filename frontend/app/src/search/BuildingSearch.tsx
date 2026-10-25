@@ -20,7 +20,8 @@ const kindOf = (id: string) => KINDS.find((k) => k.test(id))
 const NO_LOCATION = 'nolocation'
 const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
-type Row = Building & { kind: string; kindKey: KindKey | null; haystack: string }
+// kind here is the shown label, not Building's source kind
+type Row = Omit<Building, 'kind'> & { kind: string; kindKey: KindKey | null; haystack: string }
 type Filter = KindKey | typeof NO_LOCATION
 
 export function BuildingSearch({ onOpen, onMap, onImport }: { onOpen: (id: string) => void; onMap: () => void; onImport: () => void }) {

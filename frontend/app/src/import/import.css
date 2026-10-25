@@ -46,4 +46,3 @@
 .im-end { margin: 18px 0 0; font-size: 14px; color: var(--ink); }
 
 @media (max-width: 760px) { .im-inner { padding: 8vh 16px 48px; } }
-@media (prefers-reduced-motion: reduce) { .im-pulse { animation: none; } .im-drop { transition: none; } }

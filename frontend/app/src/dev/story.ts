@@ -1,13 +1,14 @@
-// What the plan is currently showing as an answer, built only from map events (dev-panel tool calls and Guide
-// replies alike), so a hand-made answer looks exactly like one the Guide will give.
+// What the plan is currently showing as an answer, built only from the map events of the Guide's replies.
 
-import type { ElsewhereEvent, GuideStep, NextBuilding, RouteLeg } from '../api'
-import type { DevEvent } from './devApi'
+import type { ElsewhereEvent, GuideStep, NextBuilding, RouteLeg, UiEvent } from '../api'
+
+/** Route events carry the line to draw: [[x, y, floor_index], …] in plan metres. */
+export type DevEvent = UiEvent & { line?: [number, number, number][] }
 
 export type StoryRoute = {
   line: [number, number, number][]
   legs: RouteLeg[]
-  /** the Guide's followable steps, for the next-move card (Guide replies only; empty from dev-panel tools) */
+  /** the Guide's followable steps, for the next-move card (Guide replies only) */
   steps: GuideStep[]
   length_m: number | null
   profile: string | null
@@ -33,6 +34,8 @@ export type Story = {
   you?: You
   /** the step being followed (set by the building screen, never by events): drawn on the route band */
   step?: StepView
+  /** the step on the card, pinned on the map where it is made (set by the building screen whenever a route is shown) */
+  move?: Move
   outdoor?: Outdoor | null
 }
 
@@ -40,7 +43,10 @@ export type Story = {
  * where it ends (the next move happens there: `next` is that step, for its arrow). */
 export type StepView = { done: number; from: number; to: number; end: [number, number]; floor: number; next: GuideStep | null }
 
-export type You = { at: [number, number]; floor: number; ahead: [number, number]; stale: boolean }
+/** `along`: metres along the drawn line (as StepView), so the puck can glide along the route to a new place */
+export type Move = { at: [number, number]; floor: number; step: GuideStep; index: number }
+
+export type You = { at: [number, number]; floor: number; ahead: [number, number]; stale: boolean; along?: number }
 
 /** The walk outside to a nearby building (route_to_building), in this building's plan metres; set by the building
  * screen from the route's `next` and the map origin, never by events */
@@ -74,6 +80,8 @@ export function applyEvents(story: Story, events: DevEvent[]): Story {
       next = { ...next, lost: event.space_ids, key: next.key + 1 }
     } else if (event.type === 'highlight') {
       next = { focus: event.space_ids, assets: event.asset_ids ?? [], route: null, lost: [], key: next.key + 1 }
+    } else if (event.type === 'route_end') {
+      next = { ...EMPTY_STORY, key: next.key + 1 }
     } else if (event.type === 'elsewhere') {
       next = { ...EMPTY_STORY, elsewhere: event.buildings, key: next.key + 1 }
     }

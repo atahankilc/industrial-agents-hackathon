@@ -3,38 +3,98 @@
 .ml { position: fixed; inset: 0; background: var(--bg); }
 .ml-map { position: absolute; inset: 0; }
 
+/* the list panel: the HUD's glass card (building/hud.css tokens, carried on .ml), a mono micro-label header, a round
+   search field, rows as round buttons */
+.ml {
+  --font-ui: Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
 .ml-panel {
-  position: absolute; top: 16px; left: 16px; bottom: 16px; width: 324px;
+  position: absolute; top: 16px; left: 16px; bottom: 16px; width: 400px;
   display: flex; flex-direction: column; min-height: 0;
-  border: 1px solid var(--hair); border-radius: var(--radius); background: var(--panel);
-  backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--hud-line); border-radius: 24px; background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow); color: var(--hud-ink); font-family: var(--font-ui);
   overflow: hidden;
 }
-.ml-panel header { padding: 18px 18px 10px; }
-.ml-panel h1 { margin: 0; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
-.ml-panel header p { margin: 2px 0 0; font-size: 13px; color: var(--ink-3); }
-
-.ml-list { flex: 1; min-height: 0; overflow: auto; list-style: none; margin: 0; padding: 0 8px; border-top: 1px solid var(--hair); }
-.ml-list button {
-  display: grid; width: 100%; padding: 10px 10px; border: 0; border-bottom: 1px solid var(--hair);
-  background: transparent; text-align: left; cursor: pointer; border-radius: 0;
-  transition: background-color 0.15s var(--ease);
+.ml-panel header, .ml-list h2 {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0;
+  font: 500 10.5px var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hud-ink-3);
 }
-.ml-list li:last-child button { border-bottom: 0; }
-.ml-list button:hover, .ml-list button:focus-visible { background: var(--fill); outline: none; }
-.ml-name { font-size: 14.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ml-address { font-size: 12px; color: var(--ink-3); }
+.ml-panel header { padding: 16px 20px 10px; }
 
-.ml-more {
-  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex: none;
-  margin: 0; padding: 14px 18px; border: 0; border-top: 1px solid var(--hair);
-  background: transparent; color: var(--ink); font-size: 13.5px; text-align: left; cursor: pointer;
-  transition: background-color 0.15s var(--ease);
+.ml-field {
+  display: flex; align-items: center; gap: 10px; flex: none; margin: 0 12px 8px; height: var(--btn-lg); padding: 0 6px 0 16px;
+  border: 1px solid transparent; border-radius: 999px; background: var(--hud-fill);
+  transition: border-color 0.15s, background-color 0.15s;
 }
-.ml-more span:last-child { color: var(--ink-2); white-space: nowrap; }
-.ml-more:hover:not(:disabled), .ml-more:focus-visible { background: var(--fill); outline: none; }
-.ml-more:disabled { color: var(--ink-3); cursor: default; }
+.ml-field:focus-within { border-color: var(--hud-line-2); background: var(--hud-glass-2); }
+.ml-field svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.ml-field > svg { color: var(--hud-ink-3); }
+.ml-field input {
+  flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent;
+  color: var(--hud-ink); font: 500 15px var(--font-ui);
+}
+.ml-field input::placeholder { color: var(--hud-ink-3); font-weight: 400; }
+.ml-clear {
+  display: grid; place-items: center; flex: none; width: var(--btn-sm); height: var(--btn-sm); padding: 0;
+  border: 0; border-radius: 50%; background: var(--hud-fill); color: var(--hud-ink-2); cursor: pointer;
+}
+
+/* kind chips: one row under the search field, scrolling sideways on a narrow panel; the picked one solid */
+.ml-kinds {
+  display: flex; gap: 6px; flex: none; padding: 0 12px 10px; overflow-x: auto; scrollbar-width: none;
+}
+.ml-kinds::-webkit-scrollbar { display: none; }
+.ml-kinds button {
+  flex: none; height: var(--btn-sm); padding: 0 14px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--hud-fill); color: var(--hud-ink-2); font: 500 13px var(--font-ui);
+}
+.ml-kinds button[aria-pressed='true'] { background: var(--hud-solid); color: var(--hud-solid-ink); }
+.ml-kinds button:focus-visible { outline: 2px solid var(--hud-route); outline-offset: 2px; }
+.ml-list { flex: 1; min-height: 0; overflow: auto; padding: 0 6px 6px; border-top: 1px solid var(--hud-line); }
+/* a thin round thumb in the HUD's line colour, no track, inset from the card's edge; it darkens under the pointer */
+/* (Firefox only: Chrome ignores the ::-webkit-scrollbar styles once these are set) */
+@supports not selector(::-webkit-scrollbar) {
+  .ml-list { scrollbar-width: thin; scrollbar-color: var(--hud-line-2) transparent; }
+}
+.ml-list::-webkit-scrollbar { width: 14px; }
+.ml-list::-webkit-scrollbar-track { background: transparent; margin: 6px 0 18px; }
+.ml-list::-webkit-scrollbar-thumb {
+  min-height: 40px; border: 5px solid transparent; border-radius: 999px;
+  background: var(--hud-line-2) padding-box;
+}
+.ml-list::-webkit-scrollbar-thumb:hover { background: var(--hud-ink-3) padding-box; }
+.ml-list h2 { padding: 14px 14px 6px; }
+.ml-list section + section { margin-top: 4px; border-top: 1px solid var(--hud-line); }
+.ml-list ol { list-style: none; margin: 0; padding: 0; }
+/* a row picked in the list: filled, with Open on its right (a tap on the building on the map opens it too) */
+.ml-list li { position: relative; display: flex; align-items: center; border-radius: 999px; }
+.ml-list li.on { background: var(--hud-fill-2); }
+.ml-list li.on .ml-row { padding-right: 84px; }
+.ml-list .ml-enter {
+  position: absolute; right: 6px; top: 50%; translate: 0 -50%;
+  display: inline-flex; align-items: center; justify-content: center; width: auto; min-height: 0; height: var(--btn-sm); padding: 0 14px;
+  border: 0; border-radius: 999px; cursor: pointer; background: var(--hud-solid); color: var(--hud-solid-ink); font-size: 13px; font-weight: 600;
+}
+.ml-list .ml-row {
+  display: grid; width: 100%; min-height: var(--btn-lg); padding: 8px 14px; align-content: center;
+  border: 0; border-radius: 999px; background: transparent; color: var(--hud-ink); text-align: left; cursor: pointer;
+}
+.ml-list .ml-row:focus-visible, .ml-list .ml-enter:focus-visible { background: var(--hud-fill); outline: 2px solid var(--hud-route); outline-offset: -2px; }
+.ml-name { font-size: 14.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-address { font-size: 12.5px; color: var(--hud-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-empty { margin: 0; padding: 18px 14px; font-size: 13.5px; color: var(--hud-ink-2); }
+
+.ml-panel button { transition: background-color 0.15s, scale 0.12s var(--ease-out); }
+.ml-panel button:active { scale: 0.98; }
+@media (hover: hover) {
+  .ml-list li:not(.on) .ml-row:hover { background: var(--hud-fill); }
+  .ml-list .ml-enter:hover { opacity: 0.88; }
+  .ml-kinds button[aria-pressed='false']:hover { background: var(--hud-fill-2); color: var(--hud-ink); }
+  .ml-clear:hover { background: var(--hud-fill-2); color: var(--hud-ink); }
+}
 
 /* the location card: top right, clear of the list panel; a top banner on narrow screens */
 /* location ask: a centred modal over a dimmed map, the one thing to answer before browsing */
@@ -67,7 +127,63 @@
 @keyframes ml-locate-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } }
 @keyframes ml-scrim-in { from { opacity: 0; } }
 
-.ml .maplibregl-ctrl-attrib { font-size: 10px; }
+/* ---------- the map's controls (MapLibre's zoom, compass, locate, attribution) in the HUD's language ----------
+   zoom and compass share one glass pill, locate is a round glass button of its own (both 44px, building/hud.css
+   --btn-lg); the icons are masks in the HUD ink, so they follow light and dark. MapLibre still turns the compass
+   needle with the bearing and tilts it with the pitch. */
+.ml .maplibregl-ctrl-bottom-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; padding: 0 16px 16px 0; }
+.ml .maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin: 0; }
+.ml .maplibregl-ctrl-group {
+  display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid var(--hud-line); border-radius: 999px; background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+}
+.ml .maplibregl-ctrl-group button {
+  display: grid; place-items: center; width: var(--btn-lg); height: var(--btn-lg);
+  border: 0; border-radius: 999px; background: transparent; color: var(--hud-ink); cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.ml .maplibregl-ctrl-group button + button { border-top: 0; }
+.ml .maplibregl-ctrl-group button:focus-visible { outline: 2px solid var(--hud-route); outline-offset: -2px; box-shadow: none; }
+.ml .maplibregl-ctrl-group button:disabled { opacity: 0.4; cursor: default; }
+@media (hover: hover) {
+  .ml .maplibregl-ctrl-group button:not(:disabled):hover { background: var(--hud-fill); }
+}
+/* (!important: MapLibre sets each button's own icon with selectors as specific as ours) */
+.ml .maplibregl-ctrl-group .maplibregl-ctrl-icon {
+  width: 18px; height: 18px; background: currentColor !important;
+  -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat;
+}
+.ml .maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E"); }
+.ml .maplibregl-ctrl-zoom-out .maplibregl-ctrl-icon { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E"); }
+.ml .maplibregl-ctrl-compass .maplibregl-ctrl-icon { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l4 9h-8z' fill='black'/%3E%3Cpath d='M8 12h8l-4 9z' stroke-width='1.6'/%3E%3C/svg%3E"); }
+.ml .maplibregl-ctrl-geolocate .maplibregl-ctrl-icon { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 4L4 11l7 2 2 7z'/%3E%3C/svg%3E"); }
+/* locate: following you → the route blue, filled once it has a fix; no fix → the warning colour */
+.ml .maplibregl-ctrl-geolocate-active, .ml .maplibregl-ctrl-geolocate-background { color: var(--hud-route); }
+.ml .maplibregl-ctrl-geolocate-active-error, .ml .maplibregl-ctrl-geolocate-background-error { color: var(--hud-warn); }
+
+/* the attribution: a glass pill as tall as a chip (--btn-md) in the HUD's type; folded, only its "i", a round
+   button that opens it again */
+.ml .maplibregl-ctrl.maplibregl-ctrl-attrib {
+  display: flex; align-items: center; box-sizing: border-box; min-height: var(--btn-md); max-width: calc(100vw - 32px);
+  padding: 0 calc(var(--btn-md) + 2px) 0 16px;
+  border: 1px solid var(--hud-line); border-radius: 999px; background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink-2); font: 500 12px/1.35 var(--font-ui);
+}
+.ml .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) { width: var(--btn-md); padding: 0; }
+.ml .maplibregl-ctrl-attrib-inner { padding: 8px 0; }
+.ml .maplibregl-ctrl-attrib a { color: inherit; }
+.ml .maplibregl-ctrl-attrib a:hover { color: var(--hud-ink); }
+.ml .maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button {
+  top: 50%; right: 3px; width: calc(var(--btn-md) - 8px); height: calc(var(--btn-md) - 8px); translate: 0 -50%;
+  border-radius: 50%; background: var(--hud-ink-2);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5'/%3E%3Ccircle cx='12' cy='7.6' r='0.6' fill='black'/%3E%3C/svg%3E") center / 18px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5'/%3E%3Ccircle cx='12' cy='7.6' r='0.6' fill='black'/%3E%3C/svg%3E") center / 18px no-repeat;
+}
+.ml .maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button:hover { background: var(--hud-ink); }
+.ml .maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button:focus { box-shadow: none; }
 
 /* a building open on top: the panel and controls step aside, the map stays as its city */
 .ml-panel, .ml .maplibregl-ctrl-bottom-right { transition: opacity 0.45s var(--ease), transform 0.45s var(--ease); }
@@ -79,10 +195,7 @@
 @media (max-width: 899px) {
   .ml-panel { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 42vh; }
   .ml-open .ml-panel { transform: translateY(12px); }
-  .ml-panel header { padding: 14px 16px 8px; }
-  .ml .maplibregl-ctrl-bottom-right { bottom: calc(42vh + 24px); }
+  .ml-panel header { padding: 14px 18px 8px; }
+  .ml .maplibregl-ctrl-bottom-right { bottom: calc(42vh + 16px); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .ml-list button, .ml-more, .ml-locate-actions button { transition: none; }
-  .ml-locate, .ml-locate-scrim { animation: none; }
-}
+

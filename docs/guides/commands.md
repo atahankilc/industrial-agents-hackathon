@@ -200,13 +200,11 @@ In the app: "New building from floor plans" on the map, or "New from floor plans
 from `supabase/migrations/20261025180000_builder_imports.sql` must be applied before imports work with
 `SUPABASE_DB_URL`). Tests: `uv run pytest -q tests/test_plan_import_*.py tests/test_creator*.py tests/test_import*.py`.
 
-## Dev panel
+## Dev endpoints
 
-Part of the app (`frontend/app/src/dev/`, backend `/dev/*` in `backend/devtools.py`): try every Guide capability
-by hand, without an LLM — find places and items, directions, routing profiles, closures and new doors with their
-impact, plan display switches, a log of every call. Shown in the Vite dev server (`npx vite`), or in a build with
-`?dev` in the URL; open it with ` (backtick) or the wrench. No extra server or port. What it shows:
-[visualization.md](../product/visualization.md#dev-panel).
+The app's dev tools panel was removed 2026-10-25. The backend's `/dev/*` endpoints (`backend/devtools.py`: run one
+Guide tool directly, read or reset a session's routing state) remain for tests (`tests/test_devtools.py`) and
+scripts; no UI calls them.
 
 ## Deploy (Vercel)
 

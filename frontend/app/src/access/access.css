@@ -92,20 +92,26 @@
 
 .field { display: flex; flex-direction: column; margin: 0; }
 
+/* fields: round, on the card's fill like the map panel's search field; the focused one lifts to glass */
 .field input, .link-box input {
   width: 100%;
-  height: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--hud-line-2);
-  border-radius: 13px;
-  background: var(--hud-glass);
+  height: var(--btn-lg);
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--hud-fill);
   color: var(--hud-ink);
   font: inherit;
   font-size: 16px; /* no zoom on focus in iOS Safari */
+  font-weight: 500;
   outline: none;
+  transition: border-color 0.15s, background-color 0.15s;
 }
 
-.field input:focus, .chips:focus-within, .link-box input:focus { border-color: var(--hud-route); }
+.field input::placeholder, .link-box input::placeholder { color: var(--hud-ink-3); font-weight: 400; }
+.field input:focus, .link-box input:focus { border-color: var(--hud-line-2); background: var(--hud-glass-2); }
+.chips:focus-within { border-color: var(--hud-route); }
+.field:has(> input) > span { margin-left: 18px; } /* the label lines up with the text in a round field */
 
 /* ---- the public switch */
 
@@ -226,11 +232,111 @@
 .link-box .hud-icon { width: var(--btn-lg); height: var(--btn-lg); }
 
 
-/* ---- preferences: rows with a control under the label, segmented choices */
+/* ---- preferences: inset groups (one card per topic, hairlines between rows), rows with a control under the label
+   or, for short values, at the row's end; segmented choices */
 
-.pref-row { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; font-size: 15px; font-weight: 500; }
-.pref-row > span small { display: block; margin-top: 2px; font-size: 13px; font-weight: 400; color: var(--hud-ink-2); }
-.pref-note { margin-top: 12px; }
+.prefs h4 { margin: 22px 0 8px 14px; }
+.prefs > h4:first-child { margin-top: 4px; }
+
+.pref-group {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: var(--hud-fill);
+  list-style: none;
+}
+
+.pref-group > * + * { border-top: 1px solid var(--hud-line); }
+.pref-group .toggle-row, .pref-group .pref-row { padding: 12px 0; min-height: 52px; }
+.pref-group .rule-list li, .pref-group > li { padding: 8px 0; border-top: 0; }
+.pref-group > li + li { border-top: 1px solid var(--hud-line); }
+
+.pref-row { display: flex; flex-direction: column; gap: 10px; padding: 10px 0; font-size: 15px; font-weight: 500; }
+.pref-row > span small { display: block; margin-top: 2px; font-size: 13px; font-weight: 400; line-height: 1.35; color: var(--hud-ink-2); }
+/* the topic's icon, bare, in the group's tone */
+.pref-group { --tone: var(--hud-route); }
+.pref-group.tone-memory { --tone: var(--hud-route); }
+.pref-group.tone-route { --tone: #2FA36B; }
+.pref-group.tone-leave { --tone: #D9822B; }
+.pref-group.tone-guide { --tone: #7C6CF0; }
+
+.pref-label { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.pref-label > span { min-width: 0; }
+.pref-icon { flex: none; display: grid; place-items: center; width: 22px; color: var(--tone); }
+
+/* controls under a label start where its text does */
+.pref-group .pref-row:not(.inline) > :not(.pref-label) { margin-left: 36px; }
+
+.pref-group .toggle-row input:checked { background: var(--tone); }
+
+.pref-row.inline { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; }
+
+/* on the group's fill the controls step one shade up so they still read as controls */
+.pref-group .segmented { background: var(--hud-fill); }
+.pref-group .field input { height: var(--btn-md); background: var(--hud-fill); font-size: 15px; }
+.pref-group .field input:focus { background: var(--hud-glass-2); }
+.pref-group .chips { min-height: var(--btn-lg); border-color: transparent; border-radius: 22px; background: var(--hud-fill); }
+.pref-group .chips:focus-within { border-color: var(--hud-line-2); background: var(--hud-glass-2); }
+.pref-group .chips input { padding-left: 8px; font-size: 15px; }
+
+.pref-row.inline .field.compact input { width: 132px; text-align: right; padding: 0 14px; }
+
+/* a number with its unit inside the same pill */
+.field.unit { position: relative; }
+.field.unit input { padding-right: 30px; -moz-appearance: textfield; }
+.field.unit input::-webkit-inner-spin-button, .field.unit input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.field.unit em { position: absolute; right: 14px; pointer-events: none; }
+.pref-row.inline .field.unit input { width: 104px; padding-right: 30px; }
+
+/* where the preferences apply: everywhere, or only in the building on screen */
+.pref-scope { display: flex; gap: 2px; margin: 22px 0 0; padding: 3px; border-radius: 999px; background: var(--hud-fill); }
+
+.pref-scope button {
+  flex: 1;
+  min-width: 0;
+  height: var(--btn-md);
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--hud-ink-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pref-scope button span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pref-scope button[aria-selected='true'] { background: var(--hud-solid); color: var(--hud-solid-ink); }
+.pref-scope-hint { margin: 10px 14px 0; }
+
+/* a field the Guide set from what the user said */
+.pref-learned {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hud-route) 16%, transparent);
+  color: var(--hud-route);
+  font: 600 10.5px/1.5 var(--font-ui);
+  font-style: normal;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+
+.pref-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 22px;
+  padding: 16px 14px 4px;
+  border-top: 1px solid var(--hud-line);
+}
+
+.pref-footer .sheet-hint { margin: 0; }
 
 .segmented {
   display: flex;
@@ -319,18 +425,7 @@
 .tokens h4 { margin: 0; }
 .token-item { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px solid var(--hud-line); }
 
-/* ---- the account line in the "…" menu, and the notice */
-
-.hud-pop .account {
-  margin: 0;
-  padding: 8px 10px 6px;
-  font: 500 11px var(--font-mono);
-  color: var(--hud-ink-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 260px;
-}
+/* ---- the notice */
 
 .access-notice {
   position: fixed;
@@ -356,18 +451,59 @@
   .access-notice { top: calc(max(12px, env(safe-area-inset-top)) + 52px); bottom: auto; }
 }
 
+/* the Guide just learned something: a card under the top line, with Undo */
+.learned-card {
+  position: fixed;
+  top: calc(max(12px, env(safe-area-inset-top)) + 56px);
+  left: 50%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(420px, calc(100vw - 32px));
+  padding: 14px 12px 14px 14px;
+  border: 1px solid var(--hud-line);
+  border-radius: 22px;
+  background: var(--hud-glass-2);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  backdrop-filter: blur(28px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+  transform: translateX(-50%);
+  animation: sheet-fade 0.2s var(--ease-out);
+}
+
+.learned-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: color-mix(in srgb, var(--hud-route) 18%, transparent); color: var(--hud-route); }
+.learned-text { flex: 1; min-width: 0; }
+.learned-title { margin: 0; font-size: 14px; font-weight: 600; }
+.learned-title em { margin-left: 6px; font: 500 10.5px var(--font-mono); font-style: normal; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hud-ink-2); }
+.learned-what { margin: 3px 0 0; font-size: 14px; line-height: 1.35; color: var(--hud-ink-2); }
+.learned-actions { display: flex; gap: 6px; margin-top: 10px; }
+
+.learned-actions button {
+  height: var(--btn-sm);
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--hud-fill);
+  color: var(--hud-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.learned-actions button:first-child { background: var(--hud-solid); color: var(--hud-solid-ink); }
+
 @keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } }
 @keyframes sheet-fade { from { opacity: 0; } }
 
-@media (prefers-reduced-motion: reduce) {
-  .sheet, .sheet-scrim, .access-notice { animation: none; }
-  .toggle-row input, .toggle-row input::after { transition: none; }
-}
-
-/* ---------- landing: account button top right (the map's panel is top left; on phones it sits at the bottom) ---------- */
+/* ---------- the settings corner, top right: a pill on the landing (the map's panel is top left; on phones it sits at
+   the bottom), a round button as big as the HUD's over a building, in line with its top line ---------- */
 
 .account-corner { position: fixed; top: 16px; right: 16px; display: grid; justify-items: end; gap: 8px; }
-.access-layer > .account-button { position: fixed; top: 16px; right: 16px; }
+.account-corner.compact { top: max(12px, env(safe-area-inset-top)); right: 12px; }
+.account-corner.compact .account-button { justify-content: center; width: var(--btn-lg); height: var(--btn-lg); padding: 0; }
+@media (min-width: 900px) {
+  .account-corner.compact { top: 16px; right: 16px; }
+}
 
 .account-button {
   display: inline-flex;
@@ -418,4 +554,8 @@
 }
 
 .account-menu button:hover { background: var(--hud-line); }
+.account-line {
+  margin: 0; padding: 8px 12px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 500 11px var(--font-mono); color: var(--hud-ink-3);
+}
 .account-hint { margin: 4px 12px 8px; font-size: 12px; line-height: 1.4; opacity: 0.65; }

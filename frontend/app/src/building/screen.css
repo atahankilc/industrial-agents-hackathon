@@ -134,24 +134,37 @@
 
 @keyframes plan-in { from { opacity: 0; } }
 
+/* the wait for the model, from the tap: a pill over the map or the stage, faded in a beat late so a short wait shows
+   nothing; an error shows at once */
 .screen-status {
-  animation: plan-in 0.3s var(--ease); /* shown by BuildingScreen only once the wait is noticeable */
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
   padding: 24px;
-  color: var(--ink-2);
-  text-align: center;
+  pointer-events: none;
 }
+.screen-status p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 340px;
+  margin: 0;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  color: var(--ink-2);
+  font-size: 14px;
+  text-align: center;
+  animation: plan-in 0.3s var(--ease) 0.35s both;
+}
+.screen-status p svg { flex: none; color: var(--accent); }
+.screen-status.failed p { border-radius: 14px; animation-delay: 0s; pointer-events: auto; }
 
 .spin { animation: spin 0.9s linear infinite; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
-
-@media (prefers-reduced-motion: reduce) {
-  .spin { animation-duration: 2.4s; }
-}
 
 /* ---------- pins (map-style markers over the model) ---------- */
 

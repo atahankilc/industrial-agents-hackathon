@@ -35,9 +35,11 @@ type Props = {
   /** the route goes on in a nearby building */
   next?: NextBuilding | null
   onContinue?: (next: NextBuilding) => void
+  /** the guide reached the last step and the user confirms they are there: the route is done */
+  onFinish?: () => void
 }
 
-export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onCamera, inline = false, tracking = false, onTrack, position, track, guiding = false, onStart, next, onContinue }: Props) {
+export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onCamera, inline = false, tracking = false, onTrack, position, track, guiding = false, onStart, next, onContinue, onFinish }: Props) {
   const step = steps[index]
   if (!step) return null
   const last = steps.length - 1
@@ -85,7 +87,8 @@ export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onC
           )}
         </span>
       </header>
-      <button type="button" className={`move ${step.kind}`} onClick={() => go(index + 1)} disabled={index === last} aria-label={step.text}>
+      {/* keyed by the step, so a new step slides in (hud.css .next-move .move) */}
+      <button key={index} type="button" className={`move ${step.kind}`} onClick={() => go(index + 1)} disabled={index === last} aria-label={step.text}>
         <span className="arrow">
           <TurnIcon leg={step} size={30} stroke={2.2} />
         </span>
@@ -113,7 +116,7 @@ export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onC
           </li>
         ))}
       </ol>
-      {(onStart || next) && (
+      {(onStart || next || onFinish) && (
         <div className="guide-actions">
           {onStart && !guiding && (
             <button type="button" className="primary" onClick={onStart}>
@@ -125,6 +128,12 @@ export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onC
             <button type="button" className="primary" onClick={() => go(index + 1)}>
               <Check size={15} />
               I'm there — next step
+            </button>
+          )}
+          {onFinish && guiding && index === last && !next && (
+            <button type="button" className="primary" onClick={onFinish}>
+              <Check size={15} />
+              I'm here — done
             </button>
           )}
           {next && onContinue && (guiding ? index === last : true) && (
@@ -168,7 +177,7 @@ const DEFAULT_PROFILE = 'stairs allowed'
 
 const TURN = { left: 'Turn left', right: 'Turn right', back: 'Turn around', straight: '' } as const
 
-function title(step: GuideStep): string {
+export function title(step: GuideStep): string {
   const turn = TURN[step.turn]
   if (step.kind === 'arrive') return step.to_id === 'outside' ? 'You are outside' : `${step.to}`
   if (step.kind === 'exit') return turn ? `${turn} and leave the building` : 'Leave the building'
@@ -179,7 +188,7 @@ function title(step: GuideStep): string {
   return turn ? `${turn} into ${step.to}` : `Into ${step.to}`
 }
 
-function detail(step: GuideStep): string | null {
+export function detail(step: GuideStep): string | null {
   if (step.kind === 'arrive') return step.to_id === 'outside' ? null : `You have arrived${step.floor ? ` · ${step.floor}` : ''}`
   if (step.kind === 'connector') return null
   if (step.landmark) return `by the ${step.landmark}`
@@ -187,7 +196,7 @@ function detail(step: GuideStep): string | null {
 }
 
 /** How the Guide says a total distance (core/directions.about_m): whole metres below 10, steps of 5, of 10 from 100. */
-function aboutM(metres: number): number {
+export function aboutM(metres: number): number {
   const step = metres < 10 ? 1 : metres < 100 ? 5 : 10
   return Math.max(1, Math.floor(metres / step + 0.5) * step)
 }

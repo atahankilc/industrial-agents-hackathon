@@ -451,10 +451,6 @@
 .cg-actions .cg-mic.on { background: var(--ink); color: var(--bg); animation: pulse 1.2s var(--ease) infinite; }
 .cg-actions .cg-next { flex: 1; border-color: var(--accent, var(--ink)); background: var(--accent, var(--ink)); color: var(--bg); font-weight: 600; }
 
-@media (prefers-reduced-motion: reduce) {
-  .floor-arrow i { opacity: 0.9; animation: none !important; }
-}
-
 @media (max-width: 760px) {
   .floor-arrow { bottom: 44%; transform: scale(0.85); }
   .cg-text { font-size: 16px; }

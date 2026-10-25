@@ -312,7 +312,7 @@ class DraftStore:
 
     def register(self, slug: str, name: str) -> str:
         building_id = f"{USER_SPLIT}/{slug}"
-        entry = {"id": building_id, "split": USER_SPLIT, "name": name, "source": "saved"}
+        entry = {"id": building_id, "split": USER_SPLIT, "name": name, "source": "saved", "kind": "saved"}
         if (path := self.backend.building_path(slug)) is not None:
             entry["path"] = path
         self.catalogue[building_id] = entry

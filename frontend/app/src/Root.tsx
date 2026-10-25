@@ -2,23 +2,23 @@ import { useEffect, useMemo, useState } from 'react'
 import { AccessLayer } from './access/AccessLayer.tsx'
 import { startAccess, useAccess } from './access/auth'
 import { api, type Building } from './api'
-import { BuildingScreen, type Showing } from './building/BuildingScreen.tsx'
+import { BuildingScreen } from './building/BuildingScreen.tsx'
 import { prefetch } from './building/opening'
 import { MapLanding } from './map/MapLanding.tsx'
 import { BuildingSearch } from './search/BuildingSearch.tsx'
 import { ImportScreen } from './import/ImportScreen.tsx'
 
-// Landing is the map of the buildings that have a real position; the list view (?view=list) searches every
-// building, including the ones without a position. Picking one opens its twin (?building=<split>/<id>); the pill at
-// the top goes back to the map or the list, whichever it was opened from.
+// Landing is the map of the buildings that have a real position, its panel listing every building (the ones without
+// a position after them); the list view (?view=list) searches them by id and type too.
+// Picking one opens its twin (?building=<split>/<id>); the pill at the top goes back to the map or the list,
+// whichever it was opened from.
 // A building with a position opens on top of the map, which stays mounted: the map flies in, then follows the
-// model's camera. Two ways to look at it (remembered per browser): in its city, the neighbours on screen and their
-// pins tappable; or alone, the map faded out behind it. Leaving fades the model out while the map flies back.
+// model's camera, in its city: the neighbours on screen and their pins tappable. Leaving fades the model out while
+// the map flies back.
 
 type Landing = 'map' | 'list' | 'import'
 
 const LEAVE_MS = 350 // the building screen's fade-out (building/screen.css .screen.leaving)
-const SHOWING_KEY = 'ttyb-building-showing'
 
 startAccess() // GET /config; in access mode, the sign-in (src/access/auth.ts)
 
@@ -30,19 +30,11 @@ const fromUrl = () => {
   return { building: params.get('building'), landing, edit: params.get('edit') === '1' }
 }
 
-function storedShowing(): Showing {
-  try {
-    return localStorage.getItem(SHOWING_KEY) === 'alone' ? 'alone' : 'city'
-  } catch {
-    return 'city'
-  }
-}
 
 export function Root() {
   const [view, setView] = useState(fromUrl)
   const [buildings, setBuildings] = useState<Building[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [showing, setShowing] = useState(storedShowing)
   // the building on screen: it lags behind the URL while the one before fades out
   const [shown, setShown] = useState(view.building)
   // access mode: which buildings are listed depends on who is signed in
@@ -65,14 +57,6 @@ export function Root() {
     const timer = setTimeout(() => setShown(view.building), LEAVE_MS)
     return () => clearTimeout(timer)
   }, [view.building, shown])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(SHOWING_KEY, showing)
-    } catch {
-      // storage unavailable: the choice just isn't remembered
-    }
-  }, [showing])
 
   const go = (building: string | null, landing: Landing, edit = false) => {
     if (building) prefetch(building) // the session and plan load while the map flies in
@@ -99,7 +83,7 @@ export function Root() {
   return (
     <>
       {withMap && (
-        <MapLanding buildings={buildings} error={error} focus={focus} onOpen={(id) => go(id, 'map')} onList={() => go(null, 'list')} onImport={() => go(null, 'import')} />
+        <MapLanding buildings={buildings} error={error} focus={focus} onOpen={(id) => go(id, 'map')} onImport={() => go(null, 'import')} />
       )}
       {!view.building && !shown && view.landing === 'list' && (
         <BuildingSearch onOpen={(id) => go(id, 'list')} onMap={() => go(null, 'map')} onImport={() => go(null, 'import')} />
@@ -112,8 +96,6 @@ export function Root() {
           key={shown}
           buildingId={shown}
           origin={withMap ? shownOrigin : null}
-          showing={showing}
-          onShowing={setShowing}
           leaving={leaving}
           startEditing={view.edit && view.building === shown}
           onBack={() => go(null, view.landing)}

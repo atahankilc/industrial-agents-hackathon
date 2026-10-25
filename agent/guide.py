@@ -41,6 +41,11 @@ DEFAULT_EFFORT = "medium"  # override with GUIDE_EFFORT (low | medium | high | x
 MAX_TOKENS = 16000
 MAX_TOOL_ROUNDS = 12
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+# Thinking blocks are bound to the conversation prefix (system, tools, earlier messages). The history is kept
+# append-only; where it still changes (a photo turn is dropped after it), the API drops the outdated thinking
+# blocks instead of answering 400.
+THINKING_BINDING_BETA = "thinking-binding-controls-2026-08-01"
+THINKING = {"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "drop_block"}}
 
 INSTRUCTIONS = """You are the Building Guide: people talk to you to find things in one building, get directions \
 they can follow, and report or plan changes (a broken lift, a closed door, a new door).
@@ -69,9 +74,14 @@ start of every route: pass "here" as the start and never ask where they are.
 time, waiting until they say they've arrived at each step. So don't read out all the steps: give one line echoing \
 what you understood (from → to, constraints, closures), the total as about_m ("about 85 m", never the exact \
 length_m), which floors it crosses, and the first step only (from the route's steps, which carry the turns, \
-landmarks and rounded metres). The user starts the step-by-step guide with the Start button or by saying "start". \
-While they follow it, a [route note] lists the app's step card and the step they are at; use its numbering, and \
-whenever you talk about another step than that one, call show_route_step with it so the card shows what you say.
+landmarks and rounded metres). End a directions answer with one short offer to walk them there, e.g. "Say start \
+and I'll walk you there step by step." (the one offer allowed; the app also has a Start button). While a route is on \
+the map, a [route note] lists the app's step card and the step they are at; use its numbering, and whenever you \
+talk about another step than that one, call show_route_step with it so the card shows what you say. When they say \
+they've arrived somewhere on the route ("I'm at the stairs", "made it to the corridor"), call show_route_step with \
+the step after the one they reached and give that step in one line; when they reach the destination, call \
+end_route with arrived true and tell them they have arrived. When they want to stop, cancel or close the \
+directions, call end_route (arrived false; place if they say where they are).
 - If something is not in this building and search_nearby_buildings is available, look there before saying it \
 isn't here; name the building and how far it is, and use route_to_building when they want to go.
 - Changes go propose_change → show the user the summary and its effect → apply_change only after the user \
@@ -80,6 +90,8 @@ use a change_id only after a tool has returned it. After applying, re-run the af
 - To change the building itself (rename or re-purpose a room, move walls, move or widen doors, add, move or \
 remove items, or when the user wants to edit or redesign it), call open_edit_mode with their request: the app switches to the \
 Edit mode and its Builder takes over there. Say so in one line; don't describe the change as done.
+- When the user wants the building's settings or access (who may enter which rooms, its objects), call \
+open_building_settings: the app opens them. Say so in one line.
 - What search, locate and room_facts find is shown on the user's map (the map zooms to it); when they found \
 several and you mean one or a few, call show_on_map with those so the map shows exactly what you are talking \
 about. Routes and highlights appear on the map automatically, so don't offer to show them.
@@ -148,7 +160,7 @@ RESET = re.compile(
     r"(?:cast|wheel\s?chair|chair)\b|\b(?:off|done with) (?:the|my) crutches\b|\b(?:reset|clear|forget)\s+"
     r"(?:my\s+|the\s+)?(?:routing\s+)?(?:profile|constraints|preferences|settings)\b|\bi can (?:walk|use the stairs|"
     r"take the stairs|climb stairs)(?: normally)? (?:again|now)\b|\bnicht mehr im rollstuhl\b")
-NEGATED_CUES = ("wheelchair", "pram", "scooter", "trolley")
+NEGATED_CUES = ("wheelchair", "pram", "scooter", "trolley", "no_stairs")  # "I don't need step-free routes any more"
 PROFILE_TOOLS = {"find_route", "find_nearest", "tour", "reachable_rooms", "compare_routes", "propose_change"}
 
 
@@ -381,6 +393,7 @@ class Guide:
         self.usage = Usage()
         self.profile_note: str | None = None  # tells the model next turn what the safety net set
         self.location_note: str | None = None  # where the app's "you are here" figure stands, sent with the next turn
+        self.system_note: str | None = None  # a system prompt change after the first turn, sent with the next turn
         # Voice transcripts are normalised first (D-013), only when talking to the real API.
         self.rewriter: TranscriptRewriter | None = (
             TranscriptRewriter(session.building) if isinstance(self.client, anthropic.Anthropic)
@@ -410,9 +423,10 @@ class Guide:
             said = f"{rewritten}\n\n[speech transcript as heard: {text}]"
         note, self.profile_note = self.profile_note, None
         where, self.location_note = self.location_note, None
+        settings, self.system_note = self.system_note, None
         picked = self.selection_note(selected)
         on_route = self.route_note(route_step)
-        note = "\n\n".join(part for part in (where, picked, on_route, note) if part)
+        note = "\n\n".join(part for part in (settings, where, picked, on_route, note) if part)
         content = f"{note}\n\n{said}" if note else said
         system_role = self.model.startswith(SYSTEM_MESSAGE_MODELS)
         if channel == "voice" and not system_role:
@@ -474,6 +488,18 @@ class Guide:
             self.speech.finish(turn.text)  # what of the final reply was not said live
             self.speech = None
         return turn
+
+    def refresh_system(self) -> None:
+        """The session's overview or remembered preferences changed. Before the first turn the system prompt is
+        rebuilt; after it the prompt stays as it is (editing it would invalidate the cached prefix and every earlier
+        thinking block) and the next turn carries the new overview as a note."""
+        fresh = system_blocks(self.session)
+        if not self.messages:
+            self.system = fresh
+        elif fresh != self.system:
+            self.system_note = ("[settings note, from the app] The building overview and the user's settings have "
+                                "changed. This replaces the overview in your instructions:\n" + fresh[1]["text"])
+            self.corpus.append(self.system_note)
 
     def set_location(self, space_id: str | None, point: list[float] | None = None) -> dict | None:
         """The user put the app's "you are here" figure down (or took it away): the session resolves "here" to
@@ -608,7 +634,8 @@ class Guide:
             messages=self.messages,
             cache_control={"type": "ephemeral"},
             output_config={"effort": self.effort},
-            betas=[FALLBACK_BETA],
+            thinking=THINKING,
+            betas=[FALLBACK_BETA, THINKING_BINDING_BETA],
             fallbacks="default",
         )
         if self.speech is not None and isinstance(self.client, anthropic.Anthropic):

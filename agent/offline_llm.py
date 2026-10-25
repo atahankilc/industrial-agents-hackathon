@@ -34,6 +34,8 @@ CANDIDATES = re.compile(r"[\w-]+ \(([^)]+)\)")
 EDIT = re.compile(r"\b(edit|rename|redesign|re-?purpose|move (?:the |a )?wall|resize|make .+ (?:wider|bigger|smaller)|"
                   r"(?:add|put|place|remove|delete) (?:a |an |the )?(?:desk|chair|shelf|plant|item))",
                   re.IGNORECASE)
+SETTINGS = re.compile(r"\b(?:building )?settings\b|\bwho (?:can|may) (?:enter|get in)|\baccess rules?\b",
+                      re.IGNORECASE)
 HELP = ("I'm running offline without a language model, so I understand simple phrasings: \"where is the "
         "printer\", \"from Main lobby to Meeting room 3.07\", \"I use a wheelchair\", \"Lift 1 is broken\", then "
         "\"yes\" to apply a change.")
@@ -98,6 +100,8 @@ class OfflineClient:
             uses.append(tool_use("propose_change", {"action": "close", "targets": [broken["target"].strip()]}))
         elif EDIT.search(text):
             uses.append(tool_use("open_edit_mode", {"request": text.strip()}))
+        elif SETTINGS.search(text):
+            uses.append(tool_use("open_building_settings", {}))
         elif route := ROUTE.search(text):
             uses.append(tool_use("find_route", {"start": route["start"], "destination": route["destination"]}))
         elif here := I_AM_IN.search(text):
@@ -155,6 +159,8 @@ class OfflineClient:
             return f"Got it, you're in {result['location']['name']} on the {result['location']['floor']}."
         if name == "open_edit_mode":
             return "Switching to the Edit mode — the Builder takes it from here, on a copy of the building."
+        if name == "open_building_settings":
+            return "Opening the Building settings."
         if name == "compare_routes":
             line = f"{result['longer_routes_count']} routes from {result['from']} got longer"
             if result["longer_routes_count"]:

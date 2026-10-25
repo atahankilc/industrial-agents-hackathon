@@ -20,7 +20,7 @@ from dataclasses import asdict, dataclass, field
 import anthropic
 
 from agent.builder_tools import BUILDER_TOOLS, BuilderTools, Proposal
-from agent.guide import FALLBACK_BETA, MAX_TOKENS, Usage, llm_mode, ungrounded
+from agent.guide import FALLBACK_BETA, MAX_TOKENS, THINKING, THINKING_BINDING_BETA, Usage, llm_mode, ungrounded
 from backend.drafts import Draft, DraftStore
 from backend.persistence import StateError, plain_messages
 from core.edits import EditError
@@ -257,7 +257,8 @@ class Builder:
             messages=self.messages,
             cache_control={"type": "ephemeral"},
             output_config={"effort": self.effort},
-            betas=[FALLBACK_BETA],
+            thinking=THINKING,
+            betas=[FALLBACK_BETA, THINKING_BINDING_BETA],
             fallbacks="default",
         )
         usage = getattr(response, "usage", None)

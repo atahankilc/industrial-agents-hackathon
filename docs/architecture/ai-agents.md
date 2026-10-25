@@ -44,7 +44,9 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 | `show_on_map(space_ids?, asset_ids?)` | UI event (highlight rooms and items / fly to / switch floor) | no |
 | `set_my_location(place)` | the user's position ("here" from now on) + UI event `location` (the "you are here" figure) | user state only |
 | `show_route_step(step)` | moves the app's step card to `step` (1-based, the card's numbering from the `[route note]`); UI event `route_step` | no |
+| `end_route(arrived?, place?)` | takes the route off the map and ends its step guide; `arrived` makes the destination the user's position, `place` sets the one they name; UI event `route_end` | user state only |
 | `open_edit_mode(request?)` | UI event `edit_mode`: the app opens its Edit mode, the Builder takes the request | no |
+| `open_building_settings()` | UI event `settings`: the app opens the Building settings for the building's admin, and says they need the admin account to anyone else | no |
 | `search_nearby_buildings(query)` / `route_to_building(start, building, destination)` | matches / a route in the buildings next to this one (only offered when the building has located neighbours) | no |
 
 **Implemented (2026-10-24):** `agent/tools.py` — `BuildingSession` (private building copy, routing profile,
@@ -72,7 +74,7 @@ highlights it; the result is a `find_route` result with `nearest` and `next_near
 and `/chat/stream` (`backend/app.py`); `Guide.route_note` turns it into a `[route note]` listing the card's steps
 (`BuildingSession.route_card`) and the current one. `show_route_step(step)` (1-based, card numbering) emits a
 `route_step` event `{index: step - 1}` and the app moves the card there; the prompt tells the Guide to call it
-whenever it talks about another step. Test: `tests/test_route_step.py`.
+whenever it talks about another step. `end_route(arrived?, place?)` emits `route_end` (with `space_id` when the position changed): the app clears the route, stops the step guide, tracking and camera walk, and moves the figure; the prompt calls it on arrival and when the user wants to stop the directions. When the app ends a route itself (End directions, "stop"/"iptal", or the arrival) it calls `DELETE /sessions/{id}/route` and places the figure (destination, else tracking's position, else the last step reached) via the location endpoint; after a `route_end` `route_card` is empty. Test: `tests/test_route_step.py`.
 
 `compare_routes(change_id, start?)` works on a **pending** change (current building vs the building with the
 change) or an **applied** one (snapshot before vs after `apply_change`). From `start` (default: the last route's

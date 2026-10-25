@@ -24,7 +24,7 @@ from shapely.geometry import Point
 
 from agent import places
 from agent.solver_agent import ALLOWED_MODULES, namespace, run_code
-from core.directions import about_m, guidance, guidance_steps
+from core.directions import about_m, guidance, guidance_steps, maneuvers
 from core import navigation, route_models
 from core.building_map import LIFT, OUTSIDE, BuildingMap, MapError
 from core.preferences import Penalties
@@ -781,14 +781,23 @@ class BuildingSession:
             self.events.append({"type": "location", "space_id": space_id})
         return {"location": location, "note": "The app now shows the user here; pass \"here\" as the start."}
 
+    def shown_route(self) -> dict | None:
+        """The last route event, while it is still on the app's map (no `route_end` after it)."""
+        for event in reversed(self.events):
+            if event["type"] == "route_end":
+                return None
+            if event["type"] == "route":
+                return event
+        return None
+
     def route_card(self) -> list[dict]:
         """The steps of the app's next-move card for the last route shown (core/directions.guidance, as
         backend/sessions.py sends them with the route event); [] when there is none."""
-        route = next((event for event in reversed(self.events) if event["type"] == "route"), None)
+        route = self.shown_route()
         if route is None:
             return []
         try:
-            return guidance(self.building, route.get("space_path") or [], route.get("element_path") or [])
+            return maneuvers(guidance(self.building, route.get("space_path") or [], route.get("element_path") or []))
         except (KeyError, StopIteration):  # path no longer valid on this building
             return []
 
@@ -804,6 +813,24 @@ class BuildingSession:
             self.events.append({"type": "route_step", "index": int(step) - 1})
         return {"shown": int(step), "of": len(steps), "text": steps[int(step) - 1]["text"]}
 
+    def tool_end_route(self, arrived: bool = False, place: str | None = None) -> dict:
+        """Take the route off the app's map and end its step guide (event `route_end`). `arrived`: the user is at
+        its destination, which becomes "here"; else `place`, where they say they are, if given."""
+        route = self.shown_route()
+        if route is None:
+            return {"error": "No route is on the map."}
+        if place:
+            space_id = self.resolve(place)
+        else:
+            last = (route.get("space_path") or [None])[-1]
+            space_id = last if arrived and last in self.building.spaces else None
+        location = self.set_location(space_id) if space_id else None
+        if self.emitting:
+            self.events.append({"type": "route_end", "arrived": bool(arrived),
+                                **({"space_id": space_id} if space_id else {})})
+        return {"ended": True, "location": location,
+                "note": "The route is off the map." + (" The app now shows the user here." if location else "")}
+
     def tool_open_edit_mode(self, request: str | None = None) -> dict:
         """Switch the app to its Edit mode (frontend/app/src/edit/), where the Builder (agent/builder.py) takes the
         request on a draft copy; this session's building is not changed."""
@@ -812,6 +839,16 @@ class BuildingSession:
             self.events.append({"type": "edit_mode", "request": wanted})
         return {"opened": True, "request": wanted,
                 "note": "The app now shows the Edit mode; its Builder takes the request from here, on a copy."}
+
+    def tool_open_building_settings(self) -> dict:
+        """Open the app's Building settings (frontend/app/src/access/BuildingSettings.tsx, admin only): Access
+        (who may enter which rooms), Members and Objects. Personal preferences are not there: they go through
+        set_preference or the app's Preferences sheet. The app opens it for the building's admin and says why not
+        to anyone else; this session's building is not changed."""
+        if self.emitting:
+            self.events.append({"type": "settings"})
+        return {"opened": True, "note": "The app now shows the Building settings (admins only; it tells anyone "
+                                        "else that it needs the admin account)."}
 
     def asset_ref(self, reference: str) -> str | None:
         if reference in self.building.assets:
@@ -902,10 +939,15 @@ TOOL_DEFINITIONS: list[dict] = [
      "preset: wheelchair or pram = step-free + doors ≥ 0.8 m (assumed); trolley = step-free, also give "
      "min_door_width_m (ask if unknown); no_lifts; forklift = openings ≥ 3 m, no stairs, no pedestrian walkways; "
      "default = clear all constraints. A preset changes only its own "
-     "fields; explicit fields override it. The result lists assumed values: name them to the user.",
+     "fields; explicit fields override it. The result lists assumed values: name them to the user. When the user "
+     "no longer has a constraint, set just that field back (e.g. they can take stairs again: step_free false) in "
+     "one call; don't re-set fields they didn't mention.",
      "input_schema": {"type": "object", "properties": {
-         "preset": {"type": "string", "enum": list(PRESETS)}, "step_free": {"type": "boolean"},
-         "min_door_width_m": {"type": "number"}, "avoid_lifts": {"type": "boolean"},
+         "preset": {"type": "string", "enum": list(PRESETS)},
+         "step_free": {"type": "boolean", "description": "true = routes must avoid steps and stairs; "
+                       "false = stairs are fine"},
+         "min_door_width_m": {"type": "number", "description": "narrowest door the user fits through; 0 clears it"},
+         "avoid_lifts": {"type": "boolean", "description": "true = never use lifts; false = lifts are fine"},
          "forklift": {"type": "boolean"}}}},
     {"name": "propose_change", "description": "Prepare (not apply) a building change and predict its effect: the "
      "last route before/after and, from that route's start, rooms that lose access and routes that get longer. "
@@ -931,11 +973,20 @@ TOOL_DEFINITIONS: list[dict] = [
      "one the user is at (they moved on, ask what's next, or ask about a later or earlier step).",
      "input_schema": {"type": "object", "properties": {"step": {"type": "integer", "minimum": 1}},
                       "required": ["step"]}},
+    {"name": "end_route", "description": "End the route on the user's map and its step guide: call it when "
+     "the user has arrived at the destination (arrived true; that room becomes their position) or wants to stop, "
+     "cancel or close the directions (arrived false). place: where they say they are now, if they say it.",
+     "input_schema": {"type": "object", "properties": {"arrived": {"type": "boolean"}, "place": PLACE}}},
     {"name": "open_edit_mode", "description": "Switch the app to its Edit mode, where the Builder changes the "
      "building itself on a copy: rename or re-purpose rooms, move or reshape walls, move or widen doors, add, "
      "move or remove items, save as a new building. Pass the user's request in their words (or nothing when they "
      "just want to edit). Not for closing, reopening or adding a door for routing: that is propose_change.",
      "input_schema": {"type": "object", "properties": {"request": {"type": "string"}}}},
+    {"name": "open_building_settings", "description": "Open the app's Building settings (admin only): Access (who "
+     "may enter which rooms), Members and Objects. Use it when the user asks to see or change the building's "
+     "settings, access or members. Only the building's admin can use them; the app says so to anyone else. Not for "
+     "the user's personal preferences: use set_preference, or point them to the app's Preferences sheet.",
+     "input_schema": {"type": "object", "properties": {}}},
 ]
 # Only for buildings with neighbours (BuildingSession.campus).
 CAMPUS_TOOLS = [

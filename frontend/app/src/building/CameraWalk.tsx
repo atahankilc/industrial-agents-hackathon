@@ -127,7 +127,7 @@ export function CameraWalk({ steps, index, lengthM, profile, voice, answer, pend
         <NextMove steps={steps} index={index} lengthM={lengthM} profile={profile} onIndex={onIndex} onClose={onClose} inline position={position} track={track} />
         <div className="dock">
           <span className="hud-side ghost" aria-hidden="true" />
-          <Core state={voice.state} level={voice.level} busy={pending} size="small" onListen={voice.listen} onFinish={voice.finish} onStop={voice.stop} />
+          <Core state={voice.state} level={voice.level} busy={pending} size="small" hold={voice.holdToTalk} onHold={voice.hold} onListen={voice.listen} onFinish={voice.finish} onStop={voice.stop} />
           <button
             type="button"
             className="hud-side"

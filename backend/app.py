@@ -37,7 +37,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from agent.guide import PHOTO_TYPES, llm_mode, system_blocks
+from agent.guide import PHOTO_TYPES, llm_mode
 from agent.speech import speakable
 from backend import devtools, openai_compat, persistence, service_errors, stt, tts
 from backend.fleet import Fleet, fleet_from_env
@@ -296,7 +296,8 @@ def text_to_speech(body: SpeechRequest) -> StreamingResponse:
 def buildings(authorization: str | None = Header(None)) -> list[dict]:
     drafts.refresh(quiet=True)  # buildings saved on other instances; dataset buildings even if the database is down
     hidden = access.hidden_buildings(viewer_or_401(authorization))
-    return [{"id": item["id"], "split": item["split"], "name": item["name"], "location": item.get("location")}
+    return [{"id": item["id"], "split": item["split"], "name": item["name"], "kind": item.get("kind"),
+             "location": item.get("location")}
             for item in store.catalogue.values() if item["id"] not in hidden]
 
 
@@ -415,6 +416,20 @@ def put_location(session_id: str, body: LocationRequest, authorization: str | No
     return {"location": location}
 
 
+@app.delete("/sessions/{session_id}/route")
+def delete_route(session_id: str, authorization: str | None = Header(None)) -> dict:
+    """The user ended the route in the app (End directions, or the arrival): it is off the map, so the Guide gets
+    no route note for it and show_route_step / end_route no longer see it."""
+    conversation = conversation_or_404(session_id, authorization)
+    with conversation.lock:
+        session = conversation.session
+        if session.shown_route() is None:
+            return {"ended": False}
+        session.events.append({"type": "route_end", "arrived": False, "by": "app"})
+        save_or_409(conversation)
+    return {"ended": True}
+
+
 @app.post("/sessions/{session_id}/arrive")
 def post_arrive(session_id: str, body: ArriveRequest, authorization: str | None = Header(None)) -> dict:
     """Coming over from a nearby building (route_to_building → Continue): the user stands at `entrance`; the
@@ -518,7 +533,7 @@ def session_preferences(session_id: str, body: SessionPreferences, authorization
         except (TypeError, ValueError) as error:
             raise HTTPException(422, f"bad preferences: {error}") from None
         session.auto_capture = body.auto_capture
-        conversation.guide.system = system_blocks(session)
+        conversation.guide.refresh_system()
         save_or_409(conversation)
     return summary(conversation)
 

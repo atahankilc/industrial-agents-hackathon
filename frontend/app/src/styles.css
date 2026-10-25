@@ -292,10 +292,6 @@ button.icon:active { transform: scale(0.94); }
 .composer button:disabled { opacity: 0.2; cursor: default; }
 .composer button:not(:disabled):active { transform: scale(0.94); }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; }
-}
-
 /* ---------- phone: chat becomes a bottom sheet ---------- */
 
 @media (max-width: 760px) {

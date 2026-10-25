@@ -13,11 +13,18 @@ import { toScene } from '../plan/geometry'
 import type { PlanPalette } from '../plan/palette'
 import { TurnIcon } from '../ui/TurnIcon'
 import type { StepView, Story } from './story'
+import { reducedMotion } from '../motion'
+import './story.css'
 
-const ROUTE_PX = 10
-const CASING_PX = 15
-const ARROW_GAP_PX = 30 // between the chevrons on the route band
-const ARROW_SPEED_PX = 26 // how fast they flow the way you go, px per second
+const ROUTE_PX = 6
+const CASING_PX = 10
+const DOT_GAP_PX = 9 // between the dots of the walked part and of the steps still to come
+const DOT_PX = 3.2 // their size
+const COMET_PX = 34 // the light that runs along the step being walked: its length,
+const COMET_SPEED_PX = 64 // its speed (px per second)
+const COMET_REST_PX = 160 // and the pause before it runs again (as distance)
+const CASING_OPACITY = 0.5
+const STEP_EASE = 5 // how fast the walked part and the "you" puck catch up with a new step (1/s, exponential)
 const FOCUS_PX = 3
 const ROUTE_Y = 0.05
 const DRAW_IN_SECONDS = 0.9
@@ -71,15 +78,17 @@ export function routeRuns(line: [number, number, number][]): Run[] {
   return kept
 }
 
-/** The route band's shader: drawn in from the start (`progress`), white chevrons flowing the way you go, and while a
- * step is followed (`stepping`) the walked part greyed out and the chevrons only on the step being walked. All
- * lengths are metres along the line; `pixel` is metres per screen pixel, so the marks keep their size on screen. */
-const routeMaterial = (colour: string, done: string, arrows: boolean) =>
+/** The route line's shader: drawn in from the start (`progress`); before the guide starts, one solid line. While a
+ * step is followed (`stepping`) only that step (`stepFrom` to `stepTo`) is solid, the walked part (to `done`) and the
+ * steps still to come are dotted, and a short light runs along the solid part the way you go (`comet`; still under
+ * reduced motion). The casing (`CASING`) is drawn under the solid part only. All lengths are metres along the line;
+ * `pixel` is metres per screen pixel, so the marks keep their size on screen. */
+export const routeMaterial = (colour: string, done: string, comet: boolean, casing = false) =>
   new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
-    defines: arrows ? { ARROWS: '' } : {},
+    defines: casing ? { CASING: '' } : {},
     uniforms: {
       color: { value: new THREE.Color(colour) },
       doneColor: { value: new THREE.Color(done) },
@@ -91,32 +100,60 @@ const routeMaterial = (colour: string, done: string, arrows: boolean) =>
       bandHalf: { value: 0.3 },
       stepping: { value: 0 },
       done: { value: 0 },
+      stepFrom: { value: 0 },
       stepTo: { value: 0 },
+      total: { value: 0 },
+      comet: { value: comet ? 1 : 0 },
     },
     vertexShader: `attribute float along; attribute float across; varying float vAlong; varying float vAcross;
       void main() { vAlong = along; vAcross = across; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `uniform vec3 color; uniform vec3 doneColor; uniform float progress; uniform float offset; uniform float opacity;
-      uniform float time; uniform float pixel; uniform float bandHalf; uniform float stepping; uniform float done; uniform float stepTo;
+      uniform float time; uniform float pixel; uniform float bandHalf; uniform float stepping; uniform float done;
+      uniform float stepFrom; uniform float stepTo; uniform float total; uniform float comet;
       varying float vAlong; varying float vAcross;
+      // a round dot every DOT_GAP px along the centre line, 0..1
+      float dots(float a, float radius) {
+        float spacing = ${DOT_GAP_PX.toFixed(1)} * pixel;
+        float d = length(vec2(mod(a, spacing) - spacing * 0.5, vAcross));
+        return 1.0 - smoothstep(radius - 0.7 * pixel, radius + 0.7 * pixel, d);
+      }
       void main() {
         float a = vAlong + offset;
         if (a > progress) discard;
-        bool walked = stepping > 0.5 && a < done;
-        vec3 c = walked ? doneColor : color;
-        float alpha = opacity * (walked ? 0.7 : 1.0);
-        #ifdef ARROWS
-        if (!walked && (stepping < 0.5 || a <= stepTo)) {
-          float spacing = ${ARROW_GAP_PX.toFixed(1)} * pixel;
-          float s = mod(a - time * ${ARROW_SPEED_PX.toFixed(1)} * pixel, spacing);
-          float side = abs(vAcross);
-          // a chevron: its tip mid-band, its arms swept back at 45 degrees
-          float d = abs(s - spacing * 0.5 + side);
-          float stroke = 1.4 * pixel;
-          float mark = (1.0 - smoothstep(stroke - 0.6 * pixel, stroke + 0.6 * pixel, d)) * (1.0 - smoothstep(bandHalf * 0.6, bandHalf * 0.8, side));
-          c = mix(c, vec3(1.0), mark * 0.95);
-        }
+        bool following = stepping > 0.5;
+        bool walked = following && a < done;
+        bool later = following && a > stepTo;
+        #ifdef CASING
+        if (walked || later) discard;
+        gl_FragColor = vec4(color, opacity * ${CASING_OPACITY.toFixed(2)});
+        return;
         #endif
-        gl_FragColor = vec4(c, alpha);
+        float radius = ${(DOT_PX / 2).toFixed(2)} * pixel;
+        if (walked) {
+          float dot = dots(a, radius * 0.85);
+          if (dot < 0.01) discard;
+          gl_FragColor = vec4(doneColor, opacity * 0.75 * dot);
+          return;
+        }
+        if (later) {
+          float dot = dots(a, radius);
+          if (dot < 0.01) discard;
+          gl_FragColor = vec4(color, opacity * 0.6 * dot);
+          return;
+        }
+        vec3 c = color;
+        // the light: runs from the start of the solid part to its end, rests, runs again
+        float lo = following ? stepFrom : 0.0;
+        float hi = following ? stepTo : total;
+        float tail = ${COMET_PX.toFixed(1)} * pixel;
+        float cycle = (hi - lo) + tail + ${COMET_REST_PX.toFixed(1)} * pixel;
+        float head = lo + mod(time * ${COMET_SPEED_PX.toFixed(1)} * pixel, cycle);
+        float t = (head - a) / tail;
+        if (comet > 0.5 && t >= 0.0 && t <= 1.0 && a >= lo && a <= hi) {
+          float glow = (1.0 - t) * (1.0 - smoothstep(bandHalf * 0.5, bandHalf * 0.95, abs(vAcross)));
+          c = mix(c, vec3(1.0), glow * 0.85);
+        }
+        gl_FragColor = vec4(c, opacity);
       }`,
   })
 
@@ -135,7 +172,9 @@ function Route({ plan, runs, palette, shown, floor, stacked, lift, routeKey, ste
   const invalidate = useThree((state) => state.invalidate)
   const progress = useRef(0)
   const clock = useRef(0)
-  const still = useMemo(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false, [])
+  // the walked part and the step's end as drawn: they ease to a new step instead of jumping
+  const eased = useRef<{ done: number; from: number; to: number } | null>(null)
+  const still = useMemo(() => reducedMotion(), [])
   const total = useMemo(() => {
     const last = runs[runs.length - 1]
     if (!last) return 0
@@ -153,17 +192,18 @@ function Route({ plan, runs, palette, shown, floor, stacked, lift, routeKey, ste
           const casing = ribbon(points, CASING_PX / zoom, ROUTE_Y - 0.005)
           const line = ribbon(points, ROUTE_PX / zoom, ROUTE_Y)
           const here = stacked || run.floor === floor
-          const casingMaterial = routeMaterial(palette.halo, palette.halo, false)
-          // chevrons only on the floor you are on: on the others the band is a faint reminder
+          const casingMaterial = routeMaterial(palette.halo, palette.halo, false, true)
+          // the light runs only on the floor you are on: on the others the line is a faint reminder
           const lineMaterial = routeMaterial(palette.selectedEdge, palette.labelSoft, here)
           for (const material of [casingMaterial, lineMaterial]) {
             material.uniforms.offset.value = run.offset
             material.uniforms.opacity.value = here ? 1 : OTHER_FLOOR_OPACITY
             material.uniforms.pixel.value = 1 / zoom
             material.uniforms.bandHalf.value = ROUTE_PX / zoom / 2
-            // the floor you are on draws its route over the low cut walls so a tilted camera never loses it; other
-            // floors keep depth so they never show through the floor above
-            material.depthTest = stacked || run.floor !== floor
+            // the floor you are on draws its route over the low cut walls so a tilted camera never loses it; so does
+            // every floor of a stack, so the whole route shows through the floors above it; in the single-floor
+            // view the floors below keep depth so they never show through the floor above
+            material.depthTest = !stacked && run.floor !== floor
           }
           return { run, casing, line, casingMaterial, lineMaterial }
         }),
@@ -183,6 +223,17 @@ function Route({ plan, runs, palette, shown, floor, stacked, lift, routeKey, ste
     const tick = Math.min(delta, 1 / 30)
     if (progress.current < total) progress.current = Math.min(total, progress.current + (tick / DRAW_IN_SECONDS) * Math.max(total, 1))
     if (!still) clock.current += tick
+    if (!step) eased.current = null
+    else if (!eased.current || still) eased.current = { done: step.done, from: step.from, to: step.to }
+    else {
+      const k = 1 - Math.exp(-STEP_EASE * tick)
+      const shown = eased.current
+      shown.done += (step.done - shown.done) * k
+      shown.from += (step.from - shown.from) * k
+      shown.to += (step.to - shown.to) * k
+      if (Math.abs(step.done - shown.done) + Math.abs(step.from - shown.from) + Math.abs(step.to - shown.to) < 0.02) eased.current = { done: step.done, from: step.from, to: step.to }
+    }
+    const easing = !!step && !!eased.current && (eased.current.done !== step.done || eased.current.from !== step.from || eased.current.to !== step.to)
     // drawn in: the end cap (which reaches past the last point) shows too
     const shownTo = progress.current >= total ? 1e9 : progress.current
     for (const band of bands) {
@@ -190,12 +241,14 @@ function Route({ plan, runs, palette, shown, floor, stacked, lift, routeKey, ste
         material.uniforms.progress.value = shownTo
         material.uniforms.time.value = clock.current
         material.uniforms.stepping.value = step ? 1 : 0
-        material.uniforms.done.value = step?.done ?? 0
-        material.uniforms.stepTo.value = step?.to ?? 0
+        material.uniforms.done.value = eased.current?.done ?? 0
+        material.uniforms.stepFrom.value = eased.current?.from ?? 0
+        material.uniforms.stepTo.value = eased.current?.to ?? 0
+        material.uniforms.total.value = total
       }
     }
-    // the chevrons flow as long as a route is drawn (on-demand frames: ask for the next one)
-    if (progress.current < total || !still) invalidate()
+    // the light runs as long as a route is drawn (on-demand frames: ask for the next one)
+    if (progress.current < total || !still || easing) invalidate()
   })
 
   // where the route changes floor and both floors are drawn apart: a dashed riser between them
@@ -369,7 +422,7 @@ function ClosedHatch({ plan, palette, floors, lift }: { plan: Plan; palette: Pla
 
 export type Marker = {
   key: string
-  kind: 'start' | 'end' | 'change' | 'item' | 'you' | 'place' | 'next' | 'me' | 'goal'
+  kind: 'start' | 'end' | 'change' | 'item' | 'you' | 'place' | 'next' | 'me' | 'goal' | 'move'
   floor: number
   at: [number, number]
   label: string
@@ -379,8 +432,10 @@ export type Marker = {
   stale?: boolean
   /** 'item': show its name too (few items) */
   named?: boolean
-  /** 'goal': the move made there (the next step), for its arrow */
+  /** 'goal': the move made there (the next step), for its arrow; 'move': the step on the card */
   turn?: GuideStep
+  /** 'you': metres along the route's line, to glide there along the route */
+  along?: number
 }
 
 /** Start, destination, each floor change (tap to follow it), and the items asked about. Floor-change names come
@@ -393,7 +448,8 @@ export function storyMarkers(plan: Plan, story: Story): Marker[] {
   if (route && runs.length) {
     const first = runs[0]
     const last = runs[runs.length - 1]
-    markers.push({ key: 'start', kind: 'start', floor: first.floor, at: first.points[0], label: route.space_path[0] === 'outside' ? 'Entrance' : 'Start' })
+    // the first step's callout stands at the start already
+    if (!story.move) markers.push({ key: 'start', kind: 'start', floor: first.floor, at: first.points[0], label: route.space_path[0] === 'outside' ? 'Entrance' : 'Start' })
     const arrive = route.legs.find((leg) => leg.kind === 'arrive')
     const end = route.next ? 'Exit' : arrive?.to_id === 'outside' ? 'Way out' : arrive?.to ?? 'Destination'
     markers.push({ key: 'end', kind: 'end', floor: last.floor, at: last.points[last.points.length - 1], label: end })
@@ -421,8 +477,10 @@ export function storyMarkers(plan: Plan, story: Story): Marker[] {
   // the end of the step being followed, where the next move happens (the route's own end has its badge already)
   const step = story.step
   if (route && step && step.next && step.to - step.from > 0.5) markers.push({ key: 'goal', kind: 'goal', floor: step.floor, at: step.end, label: step.next.text, turn: step.next })
+  // the step on the card, where it is made
+  if (route && story.move) markers.push({ key: 'move', kind: 'move', floor: story.move.floor, at: story.move.at, label: story.move.step.text, turn: story.move.step })
   if (story.outdoor) markers.push({ key: 'next', kind: 'next', floor: story.outdoor.floor, at: story.outdoor.to, label: story.outdoor.label })
-  if (story.you) markers.push({ key: 'you', kind: 'you', floor: story.you.floor, at: story.you.at, ahead: story.you.ahead, stale: story.you.stale, label: 'You' })
+  if (story.you) markers.push({ key: 'you', kind: 'you', floor: story.you.floor, at: story.you.at, ahead: story.you.ahead, stale: story.you.stale, along: story.you.along, label: 'You' })
   return markers
 }
 
@@ -473,9 +531,11 @@ export function StoryMarkers({ markers, elements, onGoto, onNext, onMeDrop, onMe
                 {marker.named && <span>{marker.label}</span>}
               </>
             ) : marker.kind === 'goal' && marker.turn ? (
-              <b key={marker.label} title={marker.label}>
-                <TurnIcon leg={marker.turn} size={18} stroke={2.4} />
-              </b>
+              <div key={marker.label} className="then" title={marker.label}>
+                then <TurnIcon leg={marker.turn} size={12} stroke={2.6} /> {thenWhere(marker.turn)}
+              </div>
+            ) : marker.kind === 'move' && marker.turn ? (
+              <MoveCallout key={marker.label} step={marker.turn} />
             ) : marker.kind === 'you' ? (
               <b className={marker.stale ? 'stale' : ''} aria-label={marker.stale ? 'You, roughly' : 'You'}>
                 <em />
@@ -486,6 +546,40 @@ export function StoryMarkers({ markers, elements, onGoto, onNext, onMeDrop, onMe
           </div>
         )
       })}
+    </div>
+  )
+}
+
+const TURN_WORD = { left: 'Turn left', right: 'Turn right', back: 'Turn around', straight: 'Straight on' } as const
+
+/** Where the next step goes, in a word or two, for the "then …" tag at the end of the step being walked. */
+function thenWhere(step: GuideStep): string {
+  if (step.kind === 'arrive') return step.to_id === 'outside' ? 'outside' : 'arrive'
+  if (step.kind === 'connector') return `${step.via ?? 'stairs'} ${step.up ? 'up' : 'down'}`
+  if (step.kind === 'exit') return 'out'
+  return step.to
+}
+
+/** The step on the card, as a callout pinned where it is made: its arrow, the move and metres, where it leads. */
+function MoveCallout({ step }: { step: GuideStep }) {
+  const [head, sub] =
+    step.kind === 'arrive'
+      ? [step.to_id === 'outside' ? 'Outside' : step.to, 'You have arrived']
+      : step.kind === 'connector'
+        ? [`${step.via ?? 'Stairs'} ${step.up ? 'up' : 'down'}`, `to ${step.floor}`]
+        : [
+            `${TURN_WORD[step.turn]}${step.metres > 0 ? ` · ${step.metres} m` : ''}`,
+            `${step.kind === 'exit' ? 'and leave the building' : `into ${step.to}`}${step.landmark ? ` · by the ${step.landmark}` : ''}`,
+          ]
+  return (
+    <div className={`callout ${step.kind}`}>
+      <b>
+        <TurnIcon leg={step} size={17} stroke={2.6} />
+      </b>
+      <div>
+        <strong>{head}</strong>
+        <small>{sub}</small>
+      </div>
     </div>
   )
 }
@@ -553,27 +647,82 @@ export function PersonGlyph({ size = 20 }: { size?: number }) {
   )
 }
 
-function MarkerTracker({ plan, markers, elements, floors, lift }: { plan: Plan; markers: Marker[]; elements: React.RefObject<Map<string, HTMLElement>>; floors: number[]; lift: Lift }) {
+/** The point `metres` along the route's runs (clamped to its ends), with its floor. */
+function pointAlong(runs: Run[], metres: number): { at: [number, number]; floor: number } | null {
+  for (let r = 0; r < runs.length; r++) {
+    const { points, offset, floor } = runs[r]
+    let distance = offset
+    for (let i = 1; i < points.length; i++) {
+      const [ax, ay] = points[i - 1]
+      const [bx, by] = points[i]
+      const length = Math.hypot(bx - ax, by - ay)
+      if (metres <= distance + length || (r === runs.length - 1 && i === points.length - 1)) {
+        const t = length > 0 ? Math.max(0, Math.min(1, (metres - distance) / length)) : 0
+        return { at: [ax + (bx - ax) * t, ay + (by - ay) * t], floor }
+      }
+      distance += length
+    }
+    // a floor change: between two runs the puck waits at the end of this one
+    const next = runs[r + 1]
+    if (next && metres < next.offset) return { at: points[points.length - 1], floor }
+  }
+  return runs.length ? { at: runs[0].points[0], floor: runs[0].floor } : null
+}
+
+const GLIDE_MAX_M = 80 // a jump farther than this (a new route, a fix far away) is not glided
+const CALLOUT_GAP_PX = 26 // the step's callout starts this far right of its point (hud.css .story-marker.move)
+const EDGE_PX = 80 // the floor rail and the round buttons along the right edge
+const SIDE_PX = 12 // and the left edge's margin
+const CALLOUT_RISE_PX = 58 // above the point when it fits on neither side
+
+function MarkerTracker({ plan, markers, elements, floors, lift, runs }: { plan: Plan; markers: Marker[]; elements: React.RefObject<Map<string, HTMLElement>>; floors: number[]; lift: Lift; runs: Run[] }) {
   const { camera, size, invalidate } = useThree()
   const point = useMemo(() => new THREE.Vector3(), [])
-  useFrame(() => {
+  // where the "you" puck is drawn, in metres along the route: it glides to a new step instead of jumping
+  const glide = useRef<{ runs: Run[]; along: number } | null>(null)
+  const still = useMemo(() => reducedMotion(), [])
+  useFrame((_, delta) => {
     for (const marker of markers) {
       const node = elements.current.get(marker.key)
       if (!node || node.dataset.dragging) continue
-      const [X, Z] = toScene(plan, marker.at[0], marker.at[1])
-      point.set(X, lift(marker.floor) + ROUTE_Y, Z).project(camera)
+      let { at, floor } = marker
+      if (marker.along !== undefined && runs.length) {
+        const shown = glide.current
+        if (!shown || shown.runs !== runs || still || Math.abs(shown.along - marker.along) > GLIDE_MAX_M) glide.current = { runs, along: marker.along }
+        else {
+          shown.along += (marker.along - shown.along) * (1 - Math.exp(-STEP_EASE * Math.min(delta, 1 / 30)))
+          if (Math.abs(marker.along - shown.along) < 0.02) shown.along = marker.along
+          else invalidate()
+        }
+        const placed = pointAlong(runs, glide.current!.along)
+        if (placed) ({ at, floor } = placed)
+      }
+      const [X, Z] = toScene(plan, at[0], at[1])
+      point.set(X, lift(floor) + ROUTE_Y, Z).project(camera)
       const x = ((point.x + 1) / 2) * size.width
       const y = ((1 - point.y) / 2) * size.height
       node.style.transform = `translate(${x}px, ${y}px)`
+      // the step's callout: right of its point, else left of it, else above it, always clear of the screen's edges
+      if (marker.kind === 'move') {
+        const box = node.firstElementChild as HTMLElement | null
+        const width = box?.offsetWidth ?? 0
+        const right = x + CALLOUT_GAP_PX
+        const left = x - CALLOUT_GAP_PX - width
+        const [dx, dy] = right + width <= size.width - EDGE_PX ? [CALLOUT_GAP_PX, 0]
+          : left >= SIDE_PX ? [-CALLOUT_GAP_PX - width, 0]
+          : [Math.max(SIDE_PX, Math.min(size.width - EDGE_PX - width, x - width / 2)) - x, -CALLOUT_RISE_PX]
+        node.style.setProperty('--callout-x', `${dx}px`)
+        node.style.setProperty('--callout-y', `${dy}px`)
+      }
       if (marker.ahead) {
         // the cone points where the route goes on, as seen on screen
-        const [AX, AZ] = toScene(plan, marker.at[0] + marker.ahead[0], marker.at[1] + marker.ahead[1])
-        point.set(AX, lift(marker.floor) + ROUTE_Y, AZ).project(camera)
+        const [AX, AZ] = toScene(plan, at[0] + marker.ahead[0], at[1] + marker.ahead[1])
+        point.set(AX, lift(floor) + ROUTE_Y, AZ).project(camera)
         const ax = ((point.x + 1) / 2) * size.width
         const ay = ((1 - point.y) / 2) * size.height
         node.style.setProperty('--heading', `${Math.atan2(ay - y, ax - x) + Math.PI / 2}rad`)
       }
-      node.style.visibility = floors.includes(marker.floor) && x > -40 && y > -40 && x < size.width + 40 && y < size.height + 40 ? 'visible' : 'hidden'
+      node.style.visibility = floors.includes(floor) && x > -40 && y > -40 && x < size.width + 40 && y < size.height + 40 ? 'visible' : 'hidden'
     }
   })
   useEffect(() => invalidate(), [markers, floors, invalidate])
@@ -609,7 +758,7 @@ export function StoryLayer({ plan, story, palette, shown, floor, stacked, lift, 
       {story.outdoor && floors.includes(story.outdoor.floor) && (
         <DashedWalk plan={plan} from={story.outdoor.from} to={story.outdoor.to} floor={story.outdoor.floor} colour={palette.selectedEdge} lift={lift} />
       )}
-      <MarkerTracker plan={plan} markers={markers} elements={markerElements} floors={here} lift={lift} />
+      <MarkerTracker plan={plan} markers={markers} elements={markerElements} floors={here} lift={lift} runs={runs} />
     </>
   )
 }

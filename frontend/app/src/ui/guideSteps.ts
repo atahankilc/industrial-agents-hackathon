@@ -30,6 +30,15 @@ export function stepLabel(step: ChatStep): string {
     case 'apply_change': return 'Applying the change'
     case 'compare_routes': return 'Comparing routes before and after'
     case 'show_on_map': return 'Highlighting it on the map'
+    case 'find_nearest': return `Finding the nearest ${clip(input.query)}`
+    case 'set_my_location': return `Placing you at ${clip(input.place)}`
+    case 'show_route_step': return `Going to step ${clip(input.step)}`
+    case 'search_nearby_buildings': return 'Looking at the buildings nearby'
+    case 'route_to_building': return 'Finding the way to the next building'
+    case 'open_edit_mode': return 'Opening the edit mode'
+    case 'open_building_settings': return 'Opening the building settings'
+    case 'set_preference': return 'Remembering how you like it'
+    case 'send_object': return `Sending ${clip(input.object)}`
     // the Edit mode's Builder (agent/builder_tools.py)
     case 'overview': return 'Reading the building'
     case 'find': return `Looking for “${clip(input.query)}”`

@@ -24,12 +24,12 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from agent.guide import Guide, make_client, system_blocks
+from agent.guide import Guide, make_client
 from backend import persistence
 from agent.tools import BuildingSession
 from core.access import filter_building, restricted_names, restricted_polygons
 from core.building_map import OUTSIDE, BuildingMap
-from core.directions import guidance, route_legs
+from core.directions import guidance, maneuvers, route_legs
 from core.floorplan import export_plan
 from core.routeline import route_line
 
@@ -40,22 +40,34 @@ DEMO_BUILDING = "train/proc-campus-train-000"  # the offline client's example ph
 LOCATIONS = Path(__file__).resolve().parent / "locations.json"  # real positions of the OSM buildings (see its "about")
 
 
+def building_kind(row: dict) -> str | None:
+    """What the landing list filters by, from the manifest's `source` (and, for procedural buildings, the
+    campus/factory generator in their `path`): "campus", "factory", "home" (resplan, swiss_dwellings) or "real"
+    (osm_indoor: mapped buildings of any use); None for a source not listed here."""
+    source, path = row.get("source"), row.get("path", "")
+    if source == "procedural":
+        return "factory" if "/proc-factory-" in path else "campus" if "/proc-campus-" in path else None
+    return {"resplan": "home", "swiss_dwellings": "home", "osm_indoor": "real"}.get(source)
+
+
 def load_catalogue(data_dir: Path = DATA_DIR) -> dict[str, dict]:
-    """building id → {"id", "split", "name", "path", "location"} for every split directory that holds a
+    """building id → {"id", "split", "name", "kind", "path", "location"} for every split directory that holds a
     building.json; `location` is {"lat", "lon", "address"} plus optional "origin", "outline", "height_m" (see the "about" field
     of backend/locations.json) for a building with a known real position, else None."""
-    names: dict[str, str] = {}
+    rows: dict[str, dict] = {}
     manifest = data_dir / "manifest.csv"
     if manifest.exists():
         with manifest.open(newline="", encoding="utf-8") as handle:
-            names = {row["path"]: row["name"] for row in csv.DictReader(handle)}
+            rows = {row["path"]: row for row in csv.DictReader(handle)}
     located = json.loads(LOCATIONS.read_text(encoding="utf-8"))["buildings"] if LOCATIONS.exists() else {}
     catalogue = {}
     for split in SPLITS:
         for file in sorted((data_dir / split).glob("*/building.json")):
             building_id = f"{split}/{file.parent.name}"
-            catalogue[building_id] = {"id": building_id, "split": split, "name": names.get(building_id),
-                                      "path": file.parent, "location": located.get(file.parent.name)}
+            row = rows.get(building_id, {})
+            catalogue[building_id] = {"id": building_id, "split": split, "name": row.get("name"),
+                                      "kind": building_kind(row), "path": file.parent,
+                                      "location": located.get(file.parent.name)}
     return catalogue
 
 
@@ -100,7 +112,7 @@ def safe_steps(building: BuildingMap, event: dict) -> list[dict]:
     """The Guide's followable steps (core/directions.guidance: turns where a person makes them, landmarks, rounded
     metres) as data, for the app's next-move card; the same steps the Guide says."""
     try:
-        return guidance(building, event.get("space_path") or [], event.get("element_path") or [])
+        return maneuvers(guidance(building, event.get("space_path") or [], event.get("element_path") or []))
     except (KeyError, StopIteration):  # path no longer valid on this building
         return []
 
@@ -204,7 +216,7 @@ class SessionStore:
                 session = self.load_session(conversation.building, restricted)
                 guide = Guide(session, client=make_client())
             session.preferences_enabled = conversation.session.preferences_enabled
-            guide.system = system_blocks(session)
+            guide.refresh_system()
             conversation.session, conversation.guide = session, guide
             conversation.restricted = restricted
             data = self.base_data(conversation.building)

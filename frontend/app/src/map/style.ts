@@ -130,23 +130,22 @@ const ROAD_M: Record<string, number> = { motorway: 24, trunk: 22, primary: 18, s
 const CURB_M = 1.5 // the light theme's casing: the kerb either side, together
 // pixels per metre at zoom 0 at the buildings' latitude (Munich, 48.1°: every building on the map is in Bavaria)
 const PX_PER_M = 512 / (2 * Math.PI * 6378137 * Math.cos((48.1 * Math.PI) / 180))
-const metres = (classes: string[], extra = 0): ExpressionSpecification =>
-  ['+', ['match', ['get', 'class'], ...classes.flatMap((name) => [name, ROAD_M[name] ?? 6]), 6], extra] as unknown as ExpressionSpecification
-/** a road's width: `start` px at `from`, its real width from z15 on (pixels per metre double every zoom level) */
-const metric = (from: number, start: number, classes: string[], extra = 0): ExpressionSpecification => [
+// Every width below is a function of zoom alone, one layer per class with its width as a constant. A width that also
+// reads the feature (a `match` on class inside the zoom curve) is a "composite" expression: MapLibre bakes it per tile
+// at the tile's zoom and the next, clamped, so in a tilted view (far tiles load at a lower zoom) and on every turn of
+// the camera the same street is drawn at different widths. A zoom-only width is evaluated from the camera, the same
+// on every tile.
+/** a road's width: `start` px at `from`, its real width (`metres`) from z15 on (pixels per metre double every zoom level) */
+const metric = (from: number, start: number, metres: number): ExpressionSpecification => [
   'interpolate', ['exponential', 2], ['zoom'],
   ...(from < 15 ? [from, start] : []),
-  15, ['*', metres(classes, extra), PX_PER_M * 2 ** 15],
-  22, ['*', metres(classes, extra), PX_PER_M * 2 ** 22],
+  15, metres * PX_PER_M * 2 ** 15,
+  22, metres * PX_PER_M * 2 ** 22,
 ] as ExpressionSpecification
 // walkways: a sidewalk or footway, a pedestrian street, a platform, a cycle path (UNVERIFIED typical widths, metres)
 const WALK_M = { footway: 2.5, pedestrian: 4, platform: 3, cycleway: 2 }
-/** a walkway's width: its real width from z15 on, as the roads (`metres` may be a per-feature expression) */
-const walkWidth = (metres: number | ExpressionSpecification): ExpressionSpecification => [
-  'interpolate', ['exponential', 2], ['zoom'],
-  15, ['*', metres, PX_PER_M * 2 ** 15],
-  22, ['*', metres, PX_PER_M * 2 ** 22],
-] as unknown as ExpressionSpecification
+/** a walkway's width: its real width from z15 on, as the roads */
+const walkWidth = (metres: number): ExpressionSpecification => metric(15, 0, metres)
 const roadClass = (...classes: string[]): ExpressionSpecification => ['all', LINES, ['match', ['get', 'class'], classes, true, false], ['!=', ['get', 'brunnel'], 'tunnel']]
 
 function layers(p: Palette, dark: boolean): LayerSpecification[] {
@@ -162,12 +161,28 @@ function layers(p: Palette, dark: boolean): LayerSpecification[] {
     'fill-extrusion-vertical-gradient': true,
   } satisfies FillExtrusionLayerSpecification['paint']
   // `casing` / `start`: their width in px at `from`, before the real width takes over
+  // one layer per class (see `metric`); all the group's casings under all its fills, so its junctions join cleanly
   const road = (id: string, classes: string[], from: number, casing: number | null, start: number, colour: string, casingColour = p.casing): LayerSpecification[] => [
     ...(casing
-      ? [{ id: `${id}-casing`, type: 'line', ...src, 'source-layer': 'transportation', minzoom: from, filter: roadClass(...classes), layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': casingColour, 'line-width': metric(from, casing, classes, CURB_M) } } satisfies LayerSpecification]
+      ? classes.map((name) => ({ id: `${id}-casing-${name}`, type: 'line', ...src, 'source-layer': 'transportation', minzoom: from, filter: roadClass(name), layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': casingColour, 'line-width': metric(from, casing, (ROAD_M[name] ?? 6) + CURB_M) } }) satisfies LayerSpecification)
       : []),
-    { id, type: 'line', ...src, 'source-layer': 'transportation', minzoom: from, filter: roadClass(...classes), layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': colour, 'line-width': metric(from, start, classes) } },
+    ...classes.map((name) => ({ id: `${id}-${name}`, type: 'line', ...src, 'source-layer': 'transportation', minzoom: from, filter: roadClass(name), layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': colour, 'line-width': metric(from, start, ROAD_M[name] ?? 6) } }) satisfies LayerSpecification),
   ]
+  // walkways by kind, each at its own width (one layer per width, as the roads)
+  const walk = (id: string, subclass: ExpressionSpecification, metres: number): LayerSpecification => ({
+    id,
+    type: 'line',
+    ...src,
+    'source-layer': 'transportation',
+    minzoom: 15,
+    filter: ['all', roadClass('path', 'pedestrian'), subclass],
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': ['match', ['get', 'surface'], 'unpaved', p.walkUnpaved, p.walk],
+      'line-width': walkWidth(metres),
+      'line-opacity': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.5, 1],
+    },
+  })
   return [
     { id: 'land', type: 'background', paint: { 'background-color': p.land } },
     { id: 'urban', type: 'fill', ...src, 'source-layer': 'landuse', filter: ['all', AREAS, ['match', ['get', 'class'], ['residential', 'suburb', 'neighbourhood', 'commercial', 'retail', 'industrial', 'railway', 'school', 'university', 'college', 'hospital'], true, false]], paint: { 'fill-color': p.urban, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0, 11, 1] } },
@@ -184,20 +199,9 @@ function layers(p: Palette, dark: boolean): LayerSpecification[] {
     // squares and pedestrian zones the tiles carry as areas, in the road colour
     { id: 'pedestrian-area', type: 'fill', ...src, 'source-layer': 'transportation', minzoom: 14, filter: ['all', AREAS, ['match', ['get', 'class'], ['path', 'pedestrian'], true, false]], paint: { 'fill-color': p.minor, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0, 15, 1] } },
     // walkways and cycle paths as calm solid lines at their width, steps as treads (indoor corridors left out)
-    {
-      id: 'walk',
-      type: 'line',
-      ...src,
-      'source-layer': 'transportation',
-      minzoom: 15,
-      filter: ['all', roadClass('path', 'pedestrian'), ['match', ['get', 'subclass'], ['steps', 'cycleway', 'corridor'], false, true]],
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': ['match', ['get', 'surface'], 'unpaved', p.walkUnpaved, p.walk],
-        'line-width': walkWidth(['match', ['get', 'subclass'], 'pedestrian', WALK_M.pedestrian, 'platform', WALK_M.platform, WALK_M.footway]),
-        'line-opacity': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.5, 1],
-      },
-    },
+    walk('walk', ['match', ['get', 'subclass'], ['steps', 'cycleway', 'corridor', 'pedestrian', 'platform'], false, true], WALK_M.footway),
+    walk('walk-pedestrian', ['==', ['get', 'subclass'], 'pedestrian'], WALK_M.pedestrian),
+    walk('walk-platform', ['==', ['get', 'subclass'], 'platform'], WALK_M.platform),
     {
       id: 'cycle',
       type: 'line',
@@ -218,12 +222,12 @@ function layers(p: Palette, dark: boolean): LayerSpecification[] {
       // treads: dashes a fifth of the width long (the dash array is in line widths)
       paint: { 'line-color': p.steps, 'line-width': walkWidth(WALK_M.footway), 'line-dasharray': [0.2, 0.2] },
     },
-    { id: 'rail', type: 'line', ...src, 'source-layer': 'transportation', minzoom: 11, filter: roadClass('rail', 'transit'), paint: { 'line-color': p.rail, 'line-width': metric(11, 0.8, ['rail', 'transit']) } },
+    { id: 'rail', type: 'line', ...src, 'source-layer': 'transportation', minzoom: 11, filter: roadClass('rail', 'transit'), paint: { 'line-color': p.rail, 'line-width': metric(11, 0.8, ROAD_M.rail) } },
     ...road('road-minor', ['minor', 'service', 'track'], 13, dark ? null : 1.6, 1.2, p.minor),
     ...road('road-mid', ['tertiary'], 11, dark ? null : 1.4, 1, p.mid),
     ...road('road-major', ['primary', 'secondary'], 8, dark ? null : 1.4, 0.5, p.major),
     ...road('road-motorway', ['motorway', 'trunk'], 5, 1.2, 0.6, p.motorway, p.motorwayCasing),
-    { id: 'bridge-motorway', type: 'line', ...src, 'source-layer': 'transportation', minzoom: 12, filter: ['all', LINES, ['==', ['get', 'brunnel'], 'bridge'], ['match', ['get', 'class'], ['motorway', 'trunk', 'primary'], true, false]], layout: { 'line-cap': 'round' }, paint: { 'line-color': p.motorway, 'line-width': metric(12, 1.5, ['motorway', 'trunk', 'primary']) } },
+    ...(['motorway', 'trunk', 'primary'] as const).map((name) => ({ id: `bridge-${name}`, type: 'line', ...src, 'source-layer': 'transportation', minzoom: 12, filter: ['all', LINES, ['==', ['get', 'brunnel'], 'bridge'], ['==', ['get', 'class'], name]], layout: { 'line-cap': 'round' }, paint: { 'line-color': p.motorway, 'line-width': metric(12, 1.5, ROAD_M[name]) } }) satisfies LayerSpecification),
 
     { id: 'buildings-3d', type: 'fill-extrusion', ...src, 'source-layer': 'building', minzoom: BUILDINGS_FROM_ZOOM, filter: BUILDINGS_3D_FILTER, paint: solid },
     // pieces of tile blocks put back (src/map/bridge.ts applyBlocks): the tiles merge blocks of the same look into one

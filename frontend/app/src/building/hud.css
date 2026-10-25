@@ -2,7 +2,7 @@
    and the Core. Dark is the reference look; light keeps the same structure on pale glass. No glow anywhere: depth
    comes from the glass and a scrim, motion only while the Guide listens, thinks or speaks. */
 
-.screen, .access-layer {
+.screen, .access-layer, .ml {
   --hud-glass: rgba(255, 255, 255, 0.74);
   --hud-glass-2: rgba(255, 255, 255, 0.86);
   --hud-line: rgba(20, 22, 26, 0.1);
@@ -17,6 +17,8 @@
   --hud-route: #2F6BFF;
   --hud-live: #0FA67A;
   --hud-warn: #C46A00;
+  --hud-admin: #FF9F0A;
+  --hud-admin-ink: #1A1205;
   --hud-scrim: rgba(240, 239, 236, 0.92);
   --hud-core: radial-gradient(circle at 50% 38%, #FFFFFF, #E9E9EC 72%);
   --hud-tick: rgba(17, 18, 21, 0.28);
@@ -31,7 +33,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .screen, :root:not([data-theme='light']) .access-layer {
+  :root:not([data-theme='light']) .screen, :root:not([data-theme='light']) .access-layer, :root:not([data-theme='light']) .ml {
     --hud-glass: rgba(18, 19, 23, 0.72);
     --hud-glass-2: rgba(30, 31, 37, 0.8);
     --hud-line: rgba(255, 255, 255, 0.12);
@@ -46,6 +48,8 @@
     --hud-route: #4B85FF;
     --hud-live: #7CF0C6;
     --hud-warn: #FFB547;
+    --hud-admin: #FF9F0A;
+    --hud-admin-ink: #1A1205;
     --hud-scrim: rgba(12, 13, 15, 0.9);
     --hud-core: radial-gradient(circle at 50% 38%, #2C2E35, #141518 72%);
     --hud-tick: rgba(255, 255, 255, 0.3);
@@ -54,7 +58,7 @@
   }
 }
 
-:root[data-theme='dark'] .screen, :root[data-theme='dark'] .access-layer {
+:root[data-theme='dark'] .screen, :root[data-theme='dark'] .access-layer, :root[data-theme='dark'] .ml {
   --hud-glass: rgba(18, 19, 23, 0.72);
   --hud-glass-2: rgba(30, 31, 37, 0.8);
   --hud-line: rgba(255, 255, 255, 0.12);
@@ -69,6 +73,8 @@
   --hud-route: #4B85FF;
   --hud-live: #7CF0C6;
   --hud-warn: #FFB547;
+  --hud-admin: #FF9F0A;
+  --hud-admin-ink: #1A1205;
   --hud-scrim: rgba(12, 13, 15, 0.9);
   --hud-core: radial-gradient(circle at 50% 38%, #2C2E35, #141518 72%);
   --hud-tick: rgba(255, 255, 255, 0.3);
@@ -111,7 +117,7 @@
   color: var(--hud-ink-2);
 }
 
-.screen .hud-primary {
+.screen .hud-primary, .access-layer .hud-primary {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -137,7 +143,7 @@
   .hud-btn:not(:disabled):hover, .hud-chip:hover, .hud-side:not(:disabled):not([aria-pressed='true']):hover,
   .plan-compass:hover, .me-dock:hover { background: var(--hud-glass-2); }
   .hud-icon:not(:disabled):hover { background: var(--hud-fill-2); color: var(--hud-ink); }
-  .screen .hud-primary:not(:disabled):hover, .type-bar .send:not(:disabled):hover { opacity: 0.88; }
+  .screen .hud-primary:not(:disabled):hover, .access-layer .hud-primary:not(:disabled):hover, .type-bar .send:not(:disabled):hover { opacity: 0.88; }
 }
 
 /* ---------- top line ---------- */
@@ -154,40 +160,54 @@
 }
 
 .hud-top > * { pointer-events: auto; }
-
-@media (min-width: 900px) {
-  .hud-top { right: auto; width: 520px; left: 16px; top: 16px; }
-  .dev-open .hud-top { left: 388px; }
+/* on a phone the line stops short of the settings corner on its right (src/access/access.css .account-corner.compact) */
+@media (max-width: 899px) {
+  .hud-top { right: calc(12px + var(--btn-lg) + 8px); }
 }
 
+@media (min-width: 900px) {
+  /* as wide as the name needs, up to the account button on the right */
+  .hud-top { right: auto; max-width: calc(100vw - 32px - var(--btn-lg) - 16px); left: 16px; top: 16px; }
+}
+
+/* the name (over a status line where there is one, e.g. the camera walk); on a wide screen the pill hugs it. A long
+   name takes a second line before it is cut. */
 .hud-place {
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
   height: var(--btn-lg);
-  padding: 0 18px;
+  padding: 0 20px;
   border-radius: 999px;
-  line-height: var(--btn-lg);
+}
+
+@media (min-width: 900px) {
+  .hud-place { flex: 0 1 auto; min-width: 160px; }
 }
 
 .hud-place h1 {
-  flex: none;
-  max-width: 62%;
+  display: -webkit-box;
   margin: 0;
   font-size: 15px;
   font-weight: 600;
+  line-height: 1.15;
   letter-spacing: -0.01em;
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
+
+.hud-place:has(p) h1 { -webkit-line-clamp: 1; line-clamp: 1; }
 
 .hud-place p {
   min-width: 0;
   margin: 0;
-  font: 500 10.5px var(--font-mono);
+  font: 500 9.5px/1.2 var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--hud-ink-2);
@@ -210,6 +230,12 @@
 
 .hud-chip svg:last-child { color: var(--hud-ink-3); }
 
+/* on a phone the floor chip is a round button like its neighbours, so the name keeps the room */
+@media (max-width: 899px) {
+  .hud-chip { justify-content: center; min-width: var(--btn-lg); padding: 0; }
+  .hud-chip svg:last-child:not(:first-child) { display: none; }
+}
+
 /* ---------- popovers (floors, menu) ---------- */
 
 .hud-scrim { position: absolute; inset: 0; }
@@ -231,11 +257,29 @@
 }
 
 @media (min-width: 900px) {
-  .hud-pop { right: auto; left: calc(16px + 520px - 210px); top: 68px; }
-  .dev-open .hud-pop { left: calc(388px + 520px - 210px); }
+  .hud-pop { top: 68px; }
 }
 
-/* floors: a popover from the chip on a phone, always open on the right edge on a wide screen */
+/* the admin button, bottom right over the plan's own round buttons (placed inline from the screen's insets): a solid
+   accent so whoever may change the building finds it; it turns the Edit mode on and off */
+.admin-corner { position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: flex-end; }
+
+.admin-button {
+  display: grid;
+  place-items: center;
+  width: var(--btn-lg);
+  height: var(--btn-lg);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--hud-admin);
+  color: var(--hud-admin-ink);
+  box-shadow: var(--hud-shadow);
+}
+
+.admin-corner .admin-button[aria-pressed='true'] { background: var(--hud-solid); color: var(--hud-solid-ink); }
+
+/* floors: a popover from the chip on a phone, always open in the middle of the right edge on a wide screen */
 .hud-pop.floors:not(.open) { display: none; }
 .hud-pop.floors button { padding-left: 6px; }
 
@@ -246,6 +290,7 @@
     left: auto;
     right: 16px;
     top: 50%;
+    bottom: auto;
     gap: 2px;
     min-width: 0;
     padding: 5px;
@@ -255,7 +300,10 @@
   }
   .screen .hud-pop.floors .name { display: none; }
   .screen .hud-pop.floors button { justify-content: center; width: var(--btn-md); height: var(--btn-md); padding: 0; }
-  .screen .hud-pop.floors .tab { width: var(--btn-md); height: var(--btn-md); border: 0; }
+  /* the rail and its floors in the plan buttons' colours: their glass, hairline and ink; the shown floor solid */
+  .screen .hud-pop.floors { background: var(--hud-glass); -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4); }
+  .screen .hud-pop.floors .tab { width: var(--btn-md); height: var(--btn-md); border: 1px solid var(--hud-line); background: var(--hud-glass); color: var(--hud-ink); }
+  .screen .hud-pop.floors button[aria-checked='true'] .tab { background: var(--hud-solid); color: var(--hud-solid-ink); border-color: transparent; }
 }
 
 .hud-pop button {
@@ -301,6 +349,9 @@
 
 /* ---------- the Guide (bottom) ---------- */
 
+/* no panel: a column floating over the plan — on a phone across the bottom, centred; on a wide screen in the
+   bottom-left corner, left-aligned (the plan's buttons and the floor rail take the bottom-right corner). Only the
+   bubble, the chips and the dock's buttons have glass of their own. */
 .guide {
   position: absolute;
   left: 0;
@@ -308,34 +359,42 @@
   bottom: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 72px 20px calc(14px + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, transparent, var(--hud-scrim) 38%);
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px calc(12px + env(safe-area-inset-bottom));
   pointer-events: none;
+  animation: guide-in 0.32s var(--ease-out);
 }
 
-.guide > * { pointer-events: auto; }
+.guide > * { pointer-events: auto; width: 100%; max-width: 360px; }
+@keyframes guide-in { from { opacity: 0; transform: translateY(8px); } }
 
 @media (min-width: 900px) {
-  .guide {
-    left: 16px;
-    right: auto;
-    bottom: 16px;
-    width: 440px;
-    padding: 20px 20px 14px;
-    border: 1px solid var(--hud-line);
-    border-radius: 24px;
-    background: var(--hud-glass);
-    -webkit-backdrop-filter: blur(22px) saturate(1.4);
-    backdrop-filter: blur(22px) saturate(1.4);
-    box-shadow: var(--hud-shadow);
-  }
-  .dev-open .guide { left: 388px; }
+  .guide { left: 16px; right: auto; bottom: 8px; width: 360px; padding: 0; }
 }
+
+.guide-bubble {
+  padding: 11px 15px;
+  border: 1px solid var(--hud-line);
+  border-radius: 20px;
+  background: var(--hud-glass-2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  backdrop-filter: blur(24px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  animation: hud-in 0.2s var(--ease-out);
+}
+
+/* the bubble is as wide as what it says (up to 360 px) and its type sits in scale with the dock's 44 px buttons */
+.guide > .guide-bubble { width: fit-content; max-width: min(100%, 360px); text-align: left; }
+.guide .said { font-size: 15px; line-height: 1.42; letter-spacing: -0.005em; }
+.guide .caption.big .said { font-size: 16.5px; line-height: 1.35; letter-spacing: -0.01em; }
+.guide .said.warn { font-size: 14px; }
+.guide .place-card h2 { font-size: 18px; }
+.guide .who { margin-bottom: 5px !important; }
 
 .caption p { margin: 0; }
 
-.who, .asked, .core-hint, .voice-error {
+.who, .core-hint, .voice-error {
   font: 500 10.5px var(--font-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -355,17 +414,15 @@
 .who.speaking { color: var(--hud-route); }
 
 .asked {
-  margin-bottom: 12px !important;
-  letter-spacing: 0.02em;
+  margin: 0 0 6px !important;
+  font: 500 13px/1.35 var(--font);
+  letter-spacing: 0;
   text-transform: none;
-  font-size: 12px;
-  color: var(--hud-ink-2);
+  color: var(--hud-ink-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-.asked::before { content: '› '; color: var(--hud-ink-3); }
 
 .said {
   color: var(--hud-ink);
@@ -382,7 +439,7 @@
 
 .reply {
   position: relative;
-  max-height: 5.6em;
+  max-height: 7.2em;
   overflow: hidden;
   cursor: pointer;
 }
@@ -402,62 +459,76 @@
 
 .reply p + p { margin-top: 4px; }
 
-/* the work trail: one mono line per lookup, hairlines between, like a log */
-.trail {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font: 500 12.5px/1.35 var(--font-mono);
-  color: var(--hud-ink-2);
+/* while the Guide works: what it does now, one line with a light sweeping across it, then a dot per lookup */
+.work { display: flex; flex-direction: column; gap: 8px; padding: 2px 0; }
+.work-now { margin: 0; font-size: 15px; font-weight: 500; letter-spacing: -0.005em; animation: hud-in 0.24s var(--ease-out); }
+.work-now span {
+  background: linear-gradient(90deg, var(--hud-ink-3) 0%, var(--hud-ink-3) 35%, var(--hud-ink) 50%, var(--hud-ink-3) 65%, var(--hud-ink-3) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: thinking-sweep 1.8s linear infinite;
 }
+@keyframes thinking-sweep { from { background-position: 100% 0; } to { background-position: -150% 0; } }
 
-.trail li {
-  display: grid;
-  grid-template-columns: 16px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 0;
-  border-top: 1px solid var(--hud-line);
-  animation: hud-in 0.24s var(--ease-out);
-}
+.work-meta { display: flex; align-items: center; gap: 10px; min-height: 8px; }
+.work-dots { display: flex; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.work-dots li { width: 6px; height: 6px; border-radius: 50%; background: var(--hud-ink-2); animation: hud-in 0.24s var(--ease-out); }
+.work-dots li.failed { background: transparent; box-shadow: inset 0 0 0 1px var(--hud-ink-3); }
+.work-dots li.running { background: var(--hud-route); animation: thinking-pulse 1s ease-in-out infinite; }
+@keyframes thinking-pulse { 50% { opacity: 0.35; transform: scale(0.8); } }
+.work .elapsed { margin-left: auto; font: 500 11px var(--font-mono); color: var(--hud-ink-3); font-variant-numeric: tabular-nums; }
 
-.trail li:last-child { border-bottom: 1px solid var(--hud-line); }
-.trail li > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.trail li small { font-size: 11px; color: var(--hud-ink-3); font-variant-numeric: tabular-nums; }
-.trail li.running { color: var(--hud-ink); }
-.trail li.failed > span:nth-child(2) { color: var(--hud-ink-3); text-decoration: line-through; text-decoration-color: var(--hud-line-2); }
+/* after the answer: the question with a quiet "3 steps" beside it; open, the steps as a thin timeline */
+.exchange { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.exchange .asked { flex: 1; min-width: 0; margin: 0 !important; }
 
-.trail .mark {
+/* earlier answers, one at a time: ‹ 2/5 › beside the question (a new question goes back to the latest) */
+.history { flex: none; display: inline-flex; align-items: center; gap: 1px; margin-right: -4px; }
+.history button {
   display: grid;
   place-items: center;
-  width: 14px;
-  height: 14px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
+  background: transparent;
+  color: var(--hud-ink-2);
+}
+.screen .history button:disabled { opacity: 0.3; }
+.history span { min-width: 26px; text-align: center; font: 500 11px var(--font-mono); color: var(--hud-ink-3); font-variant-numeric: tabular-nums; }
+.guide-bubble.past { border-style: dashed; }
+@media (hover: hover) {
+  .history button:not(:disabled):hover { background: var(--hud-fill); color: var(--hud-ink); }
 }
 
-.trail .done .mark { background: var(--hud-ink-2); color: var(--hud-solid-ink); }
-.trail .failed .mark { background: var(--hud-warn); color: #111; }
-.trail .running .mark { border: 1.5px solid var(--hud-line-2); border-top-color: var(--hud-ink); animation: spin 0.9s linear infinite; }
-
-.trail-fold { margin-bottom: 12px; }
-
-.trail-fold > button {
+.steps-toggle {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: var(--btn-sm);
-  padding: 0 12px 0 10px;
+  gap: 3px;
+  height: 22px;
+  padding: 0 6px 0 9px;
   border: 0;
   border-radius: 999px;
   background: var(--hud-fill);
-  color: var(--hud-ink-2);
-  font: 500 11px var(--font-mono);
-  letter-spacing: 0.04em;
+  color: var(--hud-ink-3);
+  font-size: 12px;
+  font-weight: 500;
 }
+.steps-toggle svg { transition: transform 0.2s var(--ease-out); }
+.steps-toggle svg.open { transform: rotate(180deg); }
 
-.trail-fold > button svg:last-child { transition: transform 0.2s var(--ease-out); }
-.trail-fold > button svg.open { transform: rotate(180deg); }
-.trail-fold .trail { margin-top: 10px; max-height: 26vh; overflow-y: auto; }
+.trail { position: relative; margin: 4px 0 10px; padding: 0; list-style: none; max-height: 26vh; overflow-y: auto; font-size: 13px; color: var(--hud-ink-2); }
+.trail::before { content: ''; position: absolute; left: 6px; top: 10px; bottom: 10px; width: 1px; background: var(--hud-line-2); }
+.trail li { position: relative; display: grid; grid-template-columns: 13px 1fr auto; align-items: center; gap: 10px; padding: 4px 0; animation: hud-in 0.2s var(--ease-out); }
+.trail li > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trail li small { font-size: 11.5px; color: var(--hud-ink-3); }
+.trail li.failed > span:nth-child(2) { color: var(--hud-ink-3); }
+.trail .mark { display: grid; place-items: center; width: 13px; height: 13px; border-radius: 50%; background: var(--hud-glass-2); box-shadow: inset 0 0 0 1px var(--hud-line-2); color: var(--hud-ink-2); }
+.trail .done .mark { background: var(--hud-ink-2); box-shadow: none; color: var(--hud-solid-ink); }
 
 .voice-error { margin: 0; letter-spacing: 0.02em; text-transform: none; font-size: 12.5px; color: var(--hud-warn); }
 
@@ -487,33 +558,40 @@
 
 .intents svg { color: var(--hud-ink-2); }
 
+/* the message field: the same glass and height (44) as the dock's round buttons; focus only deepens the glass,
+   and the send button stays a quiet arrow until there is something to send */
 .type-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 4px 4px 18px;
-  border: 1px solid var(--hud-line-2);
+  gap: 6px;
+  height: var(--btn-lg);
+  padding: 0 4px 0 16px;
+  border: 1px solid var(--hud-line);
   border-radius: 999px;
-  background: var(--hud-glass-2);
+  background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  transition: background-color 0.2s, border-color 0.2s;
 }
 
 .type-bar input {
   flex: 1;
   min-width: 0;
-  height: var(--btn-md);
+  height: 100%;
   border: 0;
   background: transparent;
   color: var(--hud-ink);
   font: inherit;
-  font-size: 16px;
+  font-size: 15px;
   outline: none;
 }
 
 .type-bar input::placeholder { color: var(--hud-ink-3); }
 .screen .type-bar input:focus-visible { outline: none; }
-.type-bar:focus-within { border-color: var(--hud-route); }
+.type-bar:focus-within { background: var(--hud-glass-2); border-color: var(--hud-line-2); }
 
 .type-bar .send {
+  flex: none;
   display: grid;
   place-items: center;
   width: var(--btn-md);
@@ -522,12 +600,39 @@
   border-radius: 50%;
   background: var(--hud-solid);
   color: var(--hud-solid-ink);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.type-bar .send:disabled { background: transparent; color: var(--hud-ink-3); }
+
+@media (max-width: 899px) {
+  .type-bar input { font-size: 16px; } /* iOS zooms into a field under 16 px */
 }
 
 
 /* ---------- dock + Core ---------- */
 
-.dock { display: flex; align-items: center; justify-content: center; gap: 30px; margin-top: 4px; }
+/* three places: the other way of asking on the left, the main one in the middle, the options on the right */
+/* one height in both arrangements, so swapping the middle never moves the buttons under a finger */
+.dock { display: grid; grid-template-columns: var(--btn-lg) 1fr var(--btn-lg); align-items: center; gap: 12px; min-height: 76px; }
+.guide.talk > .dock { max-width: 248px; }
+.dock-side { position: relative; display: grid; place-items: center; }
+.dock-center { display: flex; justify-content: center; min-width: 0; }
+.dock-center .type-bar { flex: 1; min-width: 0; }
+.dock-side .core { width: var(--btn-lg); height: var(--btn-lg); }
+.dock-center .core { width: 76px; height: 76px; }
+/* the chips: one row that scrolls sideways on a phone (the dock never moves), wrapped on a wide screen */
+.guide .intents { flex-wrap: nowrap; justify-content: center; overflow-x: auto; scrollbar-width: none; }
+.guide .intents::-webkit-scrollbar { display: none; }
+.guide .intents li { flex: none; }
+@media (max-width: 899px) {
+  .guide .intents { justify-content: flex-start; width: calc(100% + 32px); margin: 0 -16px; padding: 0 16px; }
+  .guide .intents li:first-child { margin-left: auto; }
+  .guide .intents li:last-child { margin-right: auto; }
+}
+@media (min-width: 900px) {
+  .guide .intents { flex-wrap: wrap; }
+}
 
 .hud-side {
   display: grid;
@@ -538,16 +643,69 @@
   border-radius: 50%;
 }
 
-.hud-side[aria-pressed='true'] { background: var(--hud-solid); border-color: transparent; color: var(--hud-solid-ink); }
+.hud-side[aria-pressed='true'], .hud-side[aria-expanded='true'] { background: var(--hud-solid); border-color: transparent; color: var(--hud-solid-ink); }
 
-.core-hint { margin: -6px 0 0; text-align: center; color: var(--hud-ink-3); }
+.guide .voice-error { width: auto; padding: 8px 14px; border-radius: 999px; background: var(--hud-glass-2); text-align: center; }
 
+/* the options: a popover opening upward from its button */
+.screen .hud-pop.dock-pop {
+  top: auto;
+  left: auto;
+  right: 0;
+  bottom: calc(100% + 8px);
+  min-width: 248px;
+}
+
+.hud-pop .dock-toggle { justify-content: space-between; height: auto; min-height: 52px; padding: 8px 12px 8px 14px; }
+.dock-toggle > span { display: flex; flex-direction: column; gap: 1px; }
+.dock-toggle small { font-size: 12px; font-weight: 400; color: var(--hud-ink-3); }
+.dock-toggle:disabled { opacity: 0.5; }
+
+/* a switch: a pill with a knob, the route blue when on */
+.dock-toggle i {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--hud-fill-2);
+  transition: background-color 0.2s var(--ease-out);
+}
+
+.dock-toggle i::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s var(--ease-out);
+}
+
+.dock-toggle i.on { background: var(--hud-route); }
+.dock-toggle i.on::after { transform: translateX(16px); }
+
+.dock-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 8px 8px 8px 14px; font-size: 14px; font-weight: 500; }
+.dock-row > span { display: flex; flex-direction: column; gap: 1px; }
+.dock-row small { font-size: 12px; font-weight: 400; color: var(--hud-ink-3); }
+.dock-seg { display: flex; gap: 2px; padding: 2px; border-radius: 999px; background: var(--hud-fill); }
+.hud-pop .dock-seg button { height: var(--btn-sm); padding: 0 12px; font-size: 13px; color: var(--hud-ink-2); }
+.hud-pop .dock-seg button[aria-checked='true'] { background: var(--hud-solid); color: var(--hud-solid-ink); }
+
+.hud-pop .dock-clear { margin-top: 2px; border-top: 1px solid var(--hud-line); border-radius: 0 0 16px 16px; }
+.hud-pop .dock-clear:disabled { color: var(--hud-ink-3); }
+
+/* the ball: a canvas painted by Core.tsx over the same palette as a CSS gradient (shown until WebGL draws) */
 .core {
   position: relative;
+  flex: none;
   display: grid;
   place-items: center;
-  width: 84px;
-  height: 84px;
+  width: 64px;
+  height: 64px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -555,63 +713,31 @@
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
 }
 
-.core:disabled { cursor: default; }
+.core:disabled, .screen .core:disabled { cursor: default; opacity: 1; } /* the ball shows its work, never greyed out */
 .core.small { width: 60px; height: 60px; }
 
-.core-ring { position: absolute; inset: 0; border-radius: 50%; border: 1px solid var(--hud-line-2); background: var(--hud-core); }
-.core-ticks { position: absolute; inset: 10px; pointer-events: none; }
-
-.core-ticks i {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 2px;
-  height: 50%;
-  margin-left: -1px;
-  transform-origin: 50% 100%;
-}
-
-.core-ticks i::before {
-  content: '';
-  display: block;
-  width: 2px;
-  height: 17px; /* 4px at rest + 13px at full level, scaled (no layout per audio frame) */
-  border-radius: 1px;
-  background: var(--hud-tick);
-  transform: scaleY(calc((4 + var(--h, var(--rest)) * 13) / 17));
-  transform-origin: 50% 0;
-  transition: transform 0.08s linear;
-}
-
-.core.small .core-ticks { inset: 7px; }
-.core.small .core-ticks i::before { height: 11px; transform: scaleY(calc((3 + var(--h, var(--rest)) * 8) / 11)); }
-
-.core-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--hud-tick-on); transition: background-color 0.2s, transform 0.2s var(--ease-out); }
-.core.small .core-dot { width: 10px; height: 10px; }
-
-.core.listening .core-ticks i::before { background: var(--hud-tick-on); }
-.core.listening .core-dot { transform: scale(0.8); }
-.core.speaking .core-ticks i::before, .core.speaking .core-dot { background: var(--hud-route); }
-
-.core-arc {
-  position: absolute;
-  inset: -1px;
+.core-ball {
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
-  border: 1.5px solid transparent;
-  border-top-color: var(--hud-ink);
-  animation: spin 1.6s linear infinite;
+  background: radial-gradient(circle at 34% 30%, #E3ECFA, #8DB2F2 34%, #3D6BE0 70%, #22378F);
+  transform: scale(var(--swell, 1));
+  transition: transform 0.25s var(--ease-out);
 }
 
+.core-ball.ready { background: transparent; }
+.core.listening .core-ball { transform: scale(calc(var(--swell, 1) * 1.06)); }
+.core.thinking .core-ball { animation: core-breathe 1.6s ease-in-out infinite; }
+
+@media (hover: hover) {
+  .core:not(:disabled):hover .core-ball { transform: scale(calc(var(--swell, 1) * 1.04)); }
+}
+
+@keyframes core-breathe { 50% { transform: scale(0.94); } }
 @keyframes hud-blink { 50% { opacity: 0.25; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .core-arc, .trail .running .mark { animation-duration: 3s; }
-  .trail li { animation: none; }
-  .who.live::before { animation: none; }
-  .core-ticks i::before { transition: none; }
-}
 
 /* ---------- next move (route as a road sign) ---------- */
 
@@ -711,7 +837,19 @@
 }
 
 .next-move .segments button.done::before { background: var(--hud-ink-2); }
-.next-move .segments button.now::before { background: var(--hud-route); }
+/* the step being walked fills from the left when it comes up */
+.next-move .segments button.now::before {
+  background: linear-gradient(var(--hud-route), var(--hud-route)) left / 100% 100% no-repeat, var(--hud-line-2);
+  animation: segment-fill 0.5s var(--ease-out) both;
+}
+
+/* a new step slides in from the way you go; its arrow settles in after it */
+.next-move .move { animation: move-in 0.32s var(--ease-out) both; }
+.next-move .move .arrow svg { animation: arrow-in 0.42s var(--ease-out) 0.06s both; }
+
+@keyframes move-in { from { opacity: 0; transform: translateX(16px); } }
+@keyframes arrow-in { from { opacity: 0; transform: scale(0.6); } }
+@keyframes segment-fill { from { background-size: 0% 100%, auto; } }
 
 /* .screen: `.screen button` (0,1,1) would otherwise hand it the panel's ink, unreadable on the solid fill in dark */
 .screen .hud-pill {
@@ -749,6 +887,8 @@
   --hud-route: #4B85FF;
   --hud-live: #7CF0C6;
   --hud-warn: #FFB547;
+  --hud-admin: #FF9F0A;
+  --hud-admin-ink: #1A1205;
   --hud-core: radial-gradient(circle at 50% 38%, #2C2E35, #141518 72%);
   --hud-tick: rgba(255, 255, 255, 0.34);
   --hud-tick-on: #F5F6F8;
@@ -1161,6 +1301,115 @@
 .me-ghost .me-figure { transform: translate(-50%, calc(-100% + 6px)) scale(1.12); filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.18)); }
 .me-dock.armed, .me-dock.armed:hover { background: var(--hud-me); color: #FFFFFF; border-color: transparent; }
 .plan.placing { cursor: crosshair; }
+/* street view: its button sits over the compass; armed (no figure), the next tap on the plan picks where to stand */
+.plan-street {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: var(--btn-lg);
+  height: var(--btn-lg);
+  padding: 0;
+  border: 1px solid var(--hud-line);
+  border-radius: 50%;
+  background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+  cursor: pointer;
+}
+.plan-street:hover { background: var(--hud-glass-2); }
+/* heading-up: the compass in the solid tone while the map turns with the phone */
+.plan-compass.heading-up, .plan-compass.heading-up:hover { background: var(--hud-solid); border-color: transparent; }
+.plan-compass.heading-up .plan-compass-rose line, .plan-compass.heading-up .plan-compass-rose .needle-s { stroke: var(--hud-solid-ink); fill: var(--hud-solid-ink); opacity: 0.5; }
+.plan-compass.heading-up .plan-compass-rose .needle-n, .plan-compass.heading-up .plan-compass-rose b { fill: var(--hud-solid-ink); color: var(--hud-solid-ink); }
+.plan-street.armed, .plan-street.armed:hover { background: var(--hud-solid); color: var(--hud-solid-ink); border-color: transparent; }
+/* street view itself: its own canvas over the whole plan (whose own overlays hide meanwhile), under the screen's HUD
+   (top bar, Guide, step card), fading in as the camera comes down */
+/* (!important: the pin and marker trackers set visibility inline) */
+.plan.in-street > :not(.street), .plan.in-street > :not(.street) * { visibility: hidden !important; }
+.street { position: absolute; inset: 0; z-index: 0; animation: street-in 0.25s var(--ease-out); cursor: grab; }
+@keyframes street-in { from { opacity: 0; } }
+.street-bar { position: absolute; display: flex; align-items: center; gap: 8px; pointer-events: none; }
+.street-bar > * { pointer-events: auto; }
+.street:active { cursor: grabbing; }
+.street canvas { display: block; }
+.street-back {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--btn-lg);
+  padding: 0 16px 0 12px;
+  border: 1px solid var(--hud-line);
+  border-radius: 999px;
+  background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+  font: 600 13px/1 var(--font-ui);
+  cursor: pointer;
+}
+.street-back:hover { background: var(--hud-glass-2); }
+.street-compass {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--btn-lg);
+  height: var(--btn-lg);
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--hud-line);
+  border-radius: 50%;
+  background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+  cursor: pointer;
+}
+.street-compass.on, .street-compass.on:hover { background: var(--hud-solid); color: var(--hud-solid-ink); border-color: transparent; }
+.street-room {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+  font: 600 13px/1.25 var(--font-ui);
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.street-room small { font: 500 11px/1.2 var(--font-mono); color: var(--hud-ink-3); }
+.street-hint {
+  position: absolute;
+  left: 50%;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--hud-solid);
+  color: var(--hud-solid-ink);
+  font: 500 12px/1.3 var(--font-ui);
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 0;
+  animation: street-hint 6s var(--ease-out) 0.6s;
+}
+.street-hint.shown { opacity: 0.92; animation: street-in 0.2s var(--ease-out); }
+@keyframes street-hint { 0%, 100% { opacity: 0; } 8%, 80% { opacity: 0.92; } }
+@media (max-width: 560px) {
+  .street-back span { display: none; }
+  .street-back { padding: 0; width: var(--btn-lg); justify-content: center; }
+}
 .me-hint {
   position: absolute;
   z-index: 3;
@@ -1222,46 +1471,157 @@
 @keyframes story-pop { from { opacity: 0; scale: 0.7; } to { opacity: 1; scale: 1; } }
 @keyframes story-ring { from { opacity: 0.9; scale: 0.4; } to { opacity: 0; scale: 1.4; } }
 
-@media (prefers-reduced-motion: reduce) {
-  .story-marker.place span, .story-marker.item i::after { animation: none; }
-}
-
 /* hover for the filled buttons in cards (the solid ones dim a little instead) */
 @media (hover: hover) {
-  .trail-fold > button:hover, .guide-actions button:not(.primary):not(:disabled):hover,
+  .steps-toggle:hover, .guide-actions button:not(.primary):not(:disabled):hover,
   .screen .next-move.elsewhere .acts button:not(.go):hover { background: var(--hud-fill-2); }
   .guide-actions button.primary:not(:disabled):hover, .screen .next-move.elsewhere .acts button.go:hover,
   .screen .hud-pill:hover { opacity: 0.88; }
   .intents button:hover { background: var(--hud-glass-2); }
 }
 
-/* the end of the step being followed: the next move's arrow in a disc on the route, ringed while you walk to it
-   (src/dev/StoryLayer.tsx 'goal'); keyed on the step so it pops in again at each one */
+/* the end of the step being followed: a small ring on the line with what comes next ("then ← Toilet 0135B");
+   src/dev/StoryLayer.tsx 'goal', keyed on the step so it pops in again at each one */
 .story-marker.goal { z-index: 1; }
-.story-marker.goal b {
+.story-marker.goal .then {
   position: absolute;
-  left: -17px;
-  top: -17px;
+  left: 12px;
+  top: -11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--hud-line);
+  border-radius: 7px;
+  background: var(--hud-glass-2);
+  color: var(--hud-ink-2);
+  font: 500 10.5px var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  animation: story-pop 0.36s var(--ease-out) both;
+}
+.story-marker.goal .then::before {
+  content: '';
+  position: absolute;
+  left: -18px;
+  top: 4px;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2.5px solid var(--hud-route);
+  background: var(--hud-solid-ink);
+}
+
+/* the step on the trip bar, pinned on the map where it is made (StoryLayer 'move'): its arrow, the move and metres,
+   where it leads; it slides in at each step */
+.story-marker.move { z-index: 2; }
+.story-marker.move .callout {
+  position: absolute;
+  left: var(--callout-x, 26px); /* placed by StoryLayer's MarkerTracker */
+  top: calc(var(--callout-y, 0px) - 23px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 15px 5px 5px;
+  border: 1px solid var(--hud-line);
+  border-radius: 999px;
+  background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+  white-space: nowrap;
+  animation: callout-in 0.34s var(--ease-out) both;
+}
+.story-marker.move .callout > b {
   display: grid;
   place-items: center;
+  flex: none;
   width: 34px;
   height: 34px;
   border-radius: 50%;
   background: var(--hud-route);
   color: #FFFFFF;
-  border: 3px solid var(--surface);
-  box-shadow: var(--shadow-float);
-  animation: story-pop 0.36s var(--ease-out) both;
 }
-.story-marker.goal b::after {
-  content: '';
+.story-marker.move .callout.arrive > b { background: var(--hud-solid); color: var(--hud-solid-ink); }
+.story-marker.move .callout strong { display: block; font: 600 14.5px/1.15 var(--font-ui); letter-spacing: -0.01em; }
+.story-marker.move .callout small { display: block; max-width: 230px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: var(--hud-ink-2); }
+@keyframes callout-in { from { opacity: 0; transform: translateX(-8px); } }
+
+/* ---------- the route being followed: trip pill at the top, one line over the dock (./RouteHud.tsx) ---------- */
+
+.trip-bar {
   position: absolute;
-  inset: -9px;
-  border-radius: 50%;
-  border: 2px solid var(--hud-route);
-  opacity: 0;
-  animation: story-ring 1.8s var(--ease-out) 0.4s infinite;
+  top: calc(max(12px, env(safe-area-inset-top)) + 56px);
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 6px 0 16px;
+  border: 1px solid var(--hud-line);
+  border-radius: 999px;
+  background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+  animation: hud-in 0.24s var(--ease-out);
 }
-@media (prefers-reduced-motion: reduce) {
-  .story-marker.goal b, .story-marker.goal b::after { animation: none; }
+
+@media (min-width: 900px) {
+  .trip-bar { left: 50%; right: auto; top: 16px; max-width: 620px; translate: -50% 0; }
 }
+
+.trip-main { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; }
+.trip-to { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; font: 600 14px var(--font-ui); white-space: nowrap; text-overflow: ellipsis; }
+.trip-to svg { flex: none; color: var(--hud-route); }
+.trip-meta { flex: none; font: 500 11px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--hud-ink-2); white-space: nowrap; }
+.trip-steps { display: flex; flex: none; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.screen .trip-steps button { display: block; width: 16px; height: 16px; padding: 6px 0; border: 0; background: transparent; }
+.trip-steps button::before { content: ''; display: block; height: 4px; border-radius: 2px; background: var(--hud-line-2); transition: background-color 0.2s; }
+.trip-steps button.done::before { background: var(--hud-ink-2); }
+.trip-steps button.now::before {
+  background: linear-gradient(var(--hud-route), var(--hud-route)) left / 100% 100% no-repeat, var(--hud-line-2);
+  animation: segment-fill 0.5s var(--ease-out) both;
+}
+.trip-actions { display: flex; flex: none; gap: 2px; }
+.trip-bar .hud-icon.track[aria-pressed='true'] { background: var(--hud-live); color: #0E0F11; }
+@media (max-width: 520px) { .trip-steps { display: none; } }
+
+.route-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 7px 7px 16px;
+  border: 1px solid var(--hud-line);
+  border-radius: 999px;
+  background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  animation: hud-in 0.24s var(--ease-out);
+}
+.route-bar p { min-width: 0; margin: 0; font-size: 14px; line-height: 1.3; color: var(--hud-ink); }
+.route-bar p i { display: inline-block; width: 7px; height: 7px; margin-right: 9px; border-radius: 50%; background: var(--hud-live); vertical-align: 1px; }
+.route-bar em { font-style: normal; color: var(--hud-ink-2); }
+.screen .route-go {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: var(--btn-md);
+  padding: 0 16px 0 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--hud-solid);
+  color: var(--hud-solid-ink);
+  font: 600 13.5px var(--font-ui);
+  white-space: nowrap;
+}
+@media (hover: hover) { .screen .route-go:hover { opacity: 0.88; } }

@@ -7,10 +7,14 @@ export const apiUrl = () => new URL(BASE, location.origin).href.replace(/\/$/, '
 /** `location`: real position (centre of the OSM outline) for the kit's OpenStreetMap buildings, else null;
  * `origin` is where the building's own metres start (x east, y north from it), which puts the model on the map;
  * `outline` its footprint, which marks its block on the map. */
+export type BuildingKind = 'campus' | 'factory' | 'home' | 'real' | 'saved'
+
 export type Building = {
   id: string
   split: string
   name: string | null
+  /** what the landing list filters by (backend/sessions.py building_kind); null for an unknown source */
+  kind: BuildingKind | null
   location: {
     lat: number
     lon: number
@@ -116,6 +120,9 @@ export type GuideStep = {
   via_kind?: string
   up?: boolean
   floors?: number
+  /** how many route legs this step covers (core/directions.maneuvers joins straight-on doors), and doors passed */
+  legs?: number
+  doors?: number
   text: string
 }
 
@@ -158,13 +165,18 @@ export type ChangeEvent = { type: 'change'; summary: string; targets: string[]; 
 export type PreferenceEvent = { type: 'preference'; scope: 'global' | 'building'; values: Record<string, unknown> }
 /** The Guide switched the app to the Edit mode (agent/tools.py open_edit_mode); `request` goes on to the Builder. */
 export type EditModeEvent = { type: 'edit_mode'; request: string | null }
+/** The Guide opened the Building settings (agent/tools.py open_building_settings): the app shows them to the admin. */
+export type SettingsEvent = { type: 'settings' }
 /** The user told the Guide where they are (agent/tools.py set_my_location): the "you are here" figure goes there. */
 export type LocationEvent = { type: 'location'; space_id: string }
 /** The Guide talked about another step of the route being followed (agent/tools.py show_route_step): the step card
  * goes there. */
 export type RouteStepEvent = { type: 'route_step'; index: number }
+/** The Guide ended the route (agent/tools.py end_route): off the map, the step guide stops; `space_id`: where the
+ * user is now (the destination when `arrived`, or the place they named), the figure goes there. */
+export type RouteEndEvent = { type: 'route_end'; arrived: boolean; space_id?: string }
 
-export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent | ElsewhereEvent | EditModeEvent | LocationEvent | RouteStepEvent
+export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent | ElsewhereEvent | EditModeEvent | SettingsEvent | LocationEvent | RouteStepEvent | RouteEndEvent
 
 export type ChatReply = {
   reply: string
@@ -343,7 +355,9 @@ export type Preferences = {
   /** per building only: saved places (space ids) */
   favourites?: string[]
 }
-export type PreferenceStore = { remember: boolean; auto_capture: boolean; global: Preferences; buildings: Record<string, Preferences> }
+/** Which fields the Guide set (heard from the user) and nobody has changed since, everywhere and per building. */
+export type Learned = { global: string[]; buildings: Record<string, string[]> }
+export type PreferenceStore = { remember: boolean; auto_capture: boolean; global: Preferences; buildings: Record<string, Preferences>; learned?: Learned }
 
 /** backend/fleet.py `Fleet.public`: a moving object; trail and mission `line` points are [x, y, floor index]. */
 export type ObjectKind = 'forklift' | 'robot' | 'agv' | 'cart' | 'other'
@@ -417,6 +431,8 @@ export const api = {
    * (plan metres) is where in the room it stands, so a route's line starts there */
   setLocation: (id: string, spaceId: string | null, point: [number, number] | null = null) =>
     request<{ location: UserLocation | null }>(`/sessions/${id}/location`, { method: 'PUT', body: JSON.stringify({ space_id: spaceId, point }) }),
+  /** the user ended the route in the app: the Guide no longer sees it on the map */
+  endRoute: (id: string) => request<{ ended: boolean }>(`/sessions/${id}/route`, { method: 'DELETE' }),
   /** coming over from a nearby building: placed at `entrance`, the route on to `destination` as events */
   arrive: (id: string, entrance: string, destination: string, fromSession: string | null) =>
     request<{ route: { reachable: boolean; reason?: string; about_m?: number }; location: UserLocation; events: UiEvent[] }>(`/sessions/${id}/arrive`, {

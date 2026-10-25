@@ -203,8 +203,8 @@ class Campus:
             "inside_there": {"about_m": about_m(inside_there["length_m"]),
                              "entrance_into": there.describe_space(entrance_space),
                              "steps": guidance_steps(there, inside_there["space_path"], inside_there["element_path"])},
-            "app": "The map shows the way to the exit; the user taps 'Continue' to open the other building with its "
-                   "part of the route.",
+            "app": "The map shows the way to the exit, with a Continue button. When the user is at the exit or wants "
+                   "to go on, call open_nearby_building: the app opens the other building with its part of the route.",
         }
 
 

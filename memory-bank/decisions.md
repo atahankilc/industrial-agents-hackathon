@@ -310,8 +310,11 @@ Template:
 - **Status:** proposed · **Date:** 2026-10-25 · **By:** Atahan (asked: the Guide read the whole route at once while
   the plan showed one floor), built by Claude
 - **Context:** Route answers listed every step in text and voice; the plan jumped to the start floor only.
-- **Decision:** The Guide's directions are one echo line, the total (about_m), the floors crossed and the first step
-  (INSTRUCTIONS + VOICE_STYLE in `agent/guide.py`). The app frames the whole route (all floors stacked when it
+- **Decision:** The Guide's directions are an overview: "found it", one echo line, the total (about_m), the floors
+  crossed, at most a landmark or two — no step, no "do you want to start?" — ending in "Say start or press Start when
+  you're ready." in the user's language (INSTRUCTIONS + VOICE_STYLE in `agent/guide.py`; amended 2026-10-25, Atahan
+  asked: the first step plus a start question came before Start). Asked for no steps, the Guide describes the whole
+  route in a few sentences instead. The app frames the whole route (all floors stacked when it
   crosses floors); Start (or "start"/"başla") begins the guide: each step is framed, read aloud, and the next one
   comes on "I'm there" / "geldim" / "next" (button, typed or spoken; hands-free voice keeps listening).
 - **Consequences:** The interaction eval's "directions" rubric judged full step lists; its scores may drop until the

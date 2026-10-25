@@ -59,6 +59,8 @@ const ACTIONS_RIGHT_PX = 2 // the plan's own buttons (street view, compass, figu
 const RAIL_PX = 72 // the floor rail on the right edge of a wide screen, with its margin
 const CALLOUT_PX = 96 // room beyond the floor rail for the step callout beside a route's start (it reaches ~260px right)
 const MOVE_PX = 56 // the trip pill under the top line (./RouteHud.tsx)
+const OPEN_DELAY_MS = 1500 // the Guide opening a nearby building: its one-line reply shows first ...
+const OPEN_MAX_MS = 15000 // ... and is heard to its end, but no longer than this
 const TRACK_PX = 30 // its position line while tracking
 // spoken commands while walking with the camera (anything else goes to the Guide with the frame)
 const NEXT = /^\s*(next|weiter|nächste|sonraki|ileri|done|okay|ok|tamam|geldim|vardım|arrived|i'?m there|i'?m here|here|da|angekommen)\b/i
@@ -141,6 +143,8 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   const align = useRef<SVGGElement>(null)
   // a request the Guide handed over with open_edit_mode, sent to the Builder once the draft is open
   const handOver = useRef<{ text: string; spoken: boolean } | null>(null)
+  // a nearby building the Guide opened (open_nearby_building), gone to once its reply has been said
+  const opening = useRef<{ go: () => void; at: number } | null>(null)
   const [pending, setPending] = useState(false)
   const [popover, setPopover] = useState<'floors' | null>(null)
   // access mode (src/access/): who is signed in, and the building settings sheet (admin)
@@ -298,6 +302,15 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
     if (events.some((event) => event.type === 'settings')) {
       if (access.mode && access.admin) setSettingsOpen(true)
       else setMessages((list) => [...list, { role: 'note', text: access.mode ? 'Building settings need its admin account.' : 'Building settings come with sign-in.' }])
+    }
+    // the Guide opened a nearby building: a route to it (in this answer or already on the map) goes on there, like
+    // its Continue; once the reply has been read and heard (the voice watch below)
+    const opened = events.findLast((event) => event.type === 'open_building')
+    if (opened?.type === 'open_building' && !editing) {
+      const routed = events.findLast((event) => event.type === 'route' && !!event.next_building)
+      const next = (routed?.type === 'route' ? routed.next_building : null) ?? storyRef.current.route?.next ?? null
+      setMessages((list) => [...list, { role: 'note', text: `Opening ${opened.name}…` }])
+      opening.current = { go: () => (next?.building === opened.building ? continueTo(next) : onOpen(opened.building)), at: Date.now() }
     }
     // access mode: what the Guide heard you prefer, remembered when you let it
     for (const event of events) {
@@ -727,6 +740,23 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   // talk over the reply); silence or a tap ends it. Typed questions and walk-mode steps don't (voice/useVoice.ts).
   // Scribe listens for this conversation's building names (keyterms, voice/scribe.ts).
   useEffect(() => setScribeSession(sessionId), [sessionId])
+  // the building the Guide opened: after OPEN_DELAY_MS, once the voice is no longer saying the reply (or about to)
+  const voiceState = useRef(voice.state)
+  useEffect(() => {
+    voiceState.current = voice.state
+  }, [voice.state])
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const open = opening.current
+      if (!open) return
+      const waited = Date.now() - open.at
+      const talking = voiceState.current === 'speaking' || voiceState.current === 'thinking'
+      if (waited < OPEN_DELAY_MS || (talking && waited < OPEN_MAX_MS)) return
+      opening.current = null
+      open.go()
+    }, 250)
+    return () => window.clearInterval(timer)
+  }, [])
 
   // walking with the camera, or the step-by-step guide: each step is read aloud when it comes up (not on mute); the
   // guide then listens for "I'm there" when the conversation is hands-free

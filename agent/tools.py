@@ -875,6 +875,19 @@ class BuildingSession:
             return {"error": "This building has no known neighbours."}
         return self.campus.route(self, start, building, destination)
 
+    def tool_open_nearby_building(self, building: str) -> dict:
+        """Open a nearby building in the app (frontend/app/src/building/BuildingScreen.tsx `open_building`). When the
+        route on the map leads there (route_to_building), the app continues it: the user stands at its entrance and
+        the rest of the route is drawn. This session's building is not changed; the Guide there starts afresh."""
+        if self.campus is None:
+            return {"error": "This building has no known neighbours."}
+        target = self.campus.resolve_building(building)
+        name = self.campus.catalogue[target].get("name") or target
+        if self.emitting:
+            self.events.append({"type": "open_building", "building": target, "name": name})
+        return {"opened": True, "building": name,
+                "note": "The app now opens it; a route there on the map continues inside it. Say so in one line."}
+
 
 # What propose_change adds from compare_routes, so a proposal already says who loses access and how much longer.
 IMPACT_KEYS = ("from", "reachable_rooms_before", "reachable_rooms_after", "lost_access_count",
@@ -995,10 +1008,17 @@ CAMPUS_TOOLS = [
      "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}},
     {"name": "route_to_building", "description": "Route from a place here to a place in a nearby building: inside "
      "here to the best exit, outside (straight line, rounded), inside there. The app shows the first part and a "
-     "Continue button; give the totals and the first steps.", "input_schema": {"type": "object", "properties": {
+     "Continue button; give the totals and the floors as an overview (no steps). When the user is at the exit or asks to go on / go in, "
+     "call open_nearby_building.", "input_schema": {"type": "object", "properties": {
          "start": PLACE, "building": {"type": "string", "description": "nearby building id or name"},
          "destination": {"type": "string", "description": "place in that building"}},
          "required": ["start", "building", "destination"]}},
+    {"name": "open_nearby_building", "description": "Open a nearby building in the app. Use it when the user wants "
+     "to go into, open, switch to or look at a nearby building, or to go on with a route_to_building route (they are "
+     "at the exit, \"continue\", \"let's go in\"): the app then continues that route inside it. Never tell the "
+     "user to tap Continue or that you can't open it.",
+     "input_schema": {"type": "object", "properties": {
+         "building": {"type": "string", "description": "nearby building id or name"}}, "required": ["building"]}},
 ]
 
 # Access mode only (BuildingSession.preferences_enabled): set_profile with route preferences, and set_preference.

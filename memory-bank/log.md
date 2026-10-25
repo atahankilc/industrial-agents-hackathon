@@ -1780,3 +1780,26 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   `mayChange`) toggles the Edit mode directly (`aria-pressed`), no menu. Building settings now open only through the
   Guide (`open_building_settings`); the account hint says so. Backend `/dev/*` kept (tests use it). Checked:
   `tsc -b` clean (after session -20's BuildingSearch.tsx type fix), `vite build` OK; not checked in a browser.
+
+## 2026-10-25 — Guide opens nearby buildings itself
+
+- Problem: asked to go between buildings, the Guide said it could not open another building — it had no tool for
+  it, and `route_to_building`'s result told it the user taps Continue.
+- New Guide tool `open_nearby_building(building)` (`agent/tools.py`, only with located neighbours) → UI event
+  `open_building`; `BuildingScreen.tsx` opens it once the reply has been said (at least `OPEN_DELAY_MS` 1.5 s, then
+  while the voice is `thinking`/`speaking`, at most `OPEN_MAX_MS` 15 s), going
+  through `continueTo` (arrival at the entrance + rest of the route) when the route on the map leads there.
+  Prompt + `route_to_building` description + campus `app` note point to it. Test:
+  `test_the_guide_opens_a_nearby_building_itself`. Checked: `uv run pytest -q` 989 passed, `tsc --noEmit` clean;
+  not tried in a browser or with a live LLM. Offline client has no phrasing for it.
+
+## 2026-10-25 — Directions: overview + "say start", no first step
+
+- Atahan asked: after finding a route the Guide gave the first step and asked whether to start. Now (`agent/guide.py`
+  INSTRUCTIONS + VOICE_STYLE, [D-020](decisions.md#d-020) amended) a directions answer is an overview — found it,
+  echo line, about_m, floors, a landmark or two — ending in "Say start or press Start when you're ready." in the
+  user's language; "no steps" gets the whole route in a few sentences. Step-by-step after Start was already the
+  app's (`BuildingScreen.tsx` reads each step, "I'm there" moves on). Offline client's route reply follows it;
+  `route_to_building` description asks for an overview too. Test: `test_directions_are_an_overview_that_ends_in_the_start_line`.
+- Checked: `uv run pytest -q` 989 passed before the new test; live Opus (scratch script, train campus 000): English
+  and Turkish route replies are overviews ending in the Start line, "No steps please" gives the full way.

@@ -35,6 +35,7 @@ export function stepLabel(step: ChatStep): string {
     case 'show_route_step': return `Going to step ${clip(input.step)}`
     case 'search_nearby_buildings': return 'Looking at the buildings nearby'
     case 'route_to_building': return 'Finding the way to the next building'
+    case 'open_nearby_building': return `Opening ${clip(input.building)}`
     case 'open_edit_mode': return 'Opening the edit mode'
     case 'open_building_settings': return 'Opening the building settings'
     case 'set_preference': return 'Remembering how you like it'

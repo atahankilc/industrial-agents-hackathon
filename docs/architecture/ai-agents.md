@@ -48,6 +48,7 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 | `open_edit_mode(request?)` | UI event `edit_mode`: the app opens its Edit mode, the Builder takes the request | no |
 | `open_building_settings()` | UI event `settings`: the app opens the Building settings for the building's admin, and says they need the admin account to anyone else | no |
 | `search_nearby_buildings(query)` / `route_to_building(start, building, destination)` | matches / a route in the buildings next to this one (only offered when the building has located neighbours) | no |
+| `open_nearby_building(building)` | UI event `open_building`: the app opens that neighbour; a `route_to_building` route to it on the map goes on inside it (same path as its Continue button). Only with located neighbours | no |
 
 **Implemented (2026-10-24):** `agent/tools.py` — `BuildingSession` (private building copy, routing profile,
 pending/applied changes, UI events) + `TOOL_DEFINITIONS` (Anthropic tool schemas) for building_overview, search,
@@ -99,8 +100,9 @@ events — so one call answers "what happens if…", and the model never counts 
 - **Profile once, remember always.** Infer constraints (wheelchair, trolley width, no lifts, quiet) from the
   conversation, confirm once in one line, store in the session/user profile → used by every later route
   without asking twice ([routing-profiles.md](../product/routing-profiles.md)).
-- **Echo understanding in one line** (from → to, constraints, closures), then the total, the floors crossed and the
-  first step only: the app shows the whole route and guides step by step
+- **Echo understanding in one line** (from → to, constraints, closures), then the total and the floors crossed — an
+  overview, no step — ending in "Say start or press Start when you're ready."; after Start the app reads the steps
+  one by one; "no steps" gets the whole route in a few sentences instead
   ([D-020](../../memory-bank/decisions.md#d-020)). With the app's "you are here" figure placed, "here" is the start
   and the Guide never asks where the user is. Not in this building → `search_nearby_buildings` /
   `route_to_building` for located buildings ([D-021](../../memory-bank/decisions.md#d-021), `agent/campus.py`).

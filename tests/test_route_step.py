@@ -63,3 +63,12 @@ def test_end_route_cancelled_keeps_the_position_unless_told(session):
     routed(session)
     result = session.call("end_route", {"arrived": False, "place": "Main lobby"})
     assert result["location"]["name"] == "Main lobby" and session.events[-1]["space_id"] == result["location"]["space_id"]
+
+
+def test_directions_are_an_overview_that_ends_in_the_start_line():
+    """D-020: no first step and no "do you want to start?"; the app reads the steps after Start."""
+    from agent.guide import INSTRUCTIONS, VOICE_STYLE
+
+    for text in (INSTRUCTIONS, VOICE_STYLE):
+        assert "Say start or press Start" in text and "first step only" not in text
+    assert "don't want step by step" in INSTRUCTIONS

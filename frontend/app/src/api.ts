@@ -176,7 +176,11 @@ export type RouteStepEvent = { type: 'route_step'; index: number }
  * user is now (the destination when `arrived`, or the place they named), the figure goes there. */
 export type RouteEndEvent = { type: 'route_end'; arrived: boolean; space_id?: string }
 
-export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent | ElsewhereEvent | EditModeEvent | SettingsEvent | LocationEvent | RouteStepEvent | RouteEndEvent
+/** The Guide opened a nearby building (agent/tools.py open_nearby_building): the app goes there, continuing a route
+ * to it (route_to_building's `next_building`) when one is on the map. */
+export type OpenBuildingEvent = { type: 'open_building'; building: string; name: string }
+
+export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent | ElsewhereEvent | EditModeEvent | SettingsEvent | LocationEvent | RouteStepEvent | RouteEndEvent | OpenBuildingEvent
 
 export type ChatReply = {
   reply: string

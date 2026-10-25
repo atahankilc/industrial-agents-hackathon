@@ -160,8 +160,11 @@ export type PreferenceEvent = { type: 'preference'; scope: 'global' | 'building'
 export type EditModeEvent = { type: 'edit_mode'; request: string | null }
 /** The user told the Guide where they are (agent/tools.py set_my_location): the "you are here" figure goes there. */
 export type LocationEvent = { type: 'location'; space_id: string }
+/** The Guide talked about another step of the route being followed (agent/tools.py show_route_step): the step card
+ * goes there. */
+export type RouteStepEvent = { type: 'route_step'; index: number }
 
-export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent | ElsewhereEvent | EditModeEvent | LocationEvent
+export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent | ElsewhereEvent | EditModeEvent | LocationEvent | RouteStepEvent
 
 export type ChatReply = {
   reply: string
@@ -186,6 +189,8 @@ export type ChatOptions = {
   /** the space or asset id selected on the plan while asking, so "this room" / "there" mean it */
   selected?: string
   photo?: string
+  /** the step card's step (0-based) while the user follows a route step by step, so the Guide knows where they are */
+  routeStep?: number
   onStep?: (step: ChatStep) => void
   onSay?: (text: string) => void
 }
@@ -260,6 +265,20 @@ export class ApiError extends Error {
   }
 }
 
+/** A Guide / Builder turn that failed on the server, e.g. the Claude API credit ran out (backend/service_errors.py):
+ * `message` is a sentence to show as is; `code` is credits | auth | busy | unavailable | offline | internal | conflict. */
+export class ServiceError extends Error {
+  code: string
+  constructor(message: string, code: string) {
+    super(message)
+    this.code = code
+  }
+}
+
+function streamError(item: Record<string, unknown>): ServiceError {
+  return new ServiceError(String(item.message ?? item.detail), String(item.code ?? 'internal'))
+}
+
 /** JSON headers plus the bearer token when signed in (also used by src/dev/devApi.ts). */
 export async function headers(extra?: HeadersInit): Promise<HeadersInit> {
   if (gate) await gate.catch(() => undefined)
@@ -270,6 +289,12 @@ async function failed(response: Response, path: string): Promise<ApiError> {
   const detail = await response.text().catch(() => '')
   if (response.status === 401 && token) onUnauthorized?.()
   if (response.status === 403) return new ApiError(403, 'Only the building admin can do this')
+  try {
+    const body = JSON.parse(detail) as { detail?: unknown; code?: unknown }
+    if (typeof body.code === 'string' && typeof body.detail === 'string') return new ApiError(response.status, body.detail) // readable already
+  } catch {
+    // not JSON: fall through to the raw text
+  }
   return new ApiError(response.status, `${response.status} ${path}: ${detail.slice(0, 200)}`)
 }
 
@@ -380,9 +405,10 @@ export const api = {
   switchBuilding: (id: string, building: string) =>
     request<SessionSummary>(`/sessions/${id}/building`, { method: 'PUT', body: JSON.stringify({ building }) }),
   plan: (id: string) => request<Plan>(`/sessions/${id}/plan`),
-  /** the "you are here" figure's room (null = taken away): the Guide routes from there without asking */
-  setLocation: (id: string, spaceId: string | null) =>
-    request<{ location: UserLocation | null }>(`/sessions/${id}/location`, { method: 'PUT', body: JSON.stringify({ space_id: spaceId }) }),
+  /** the "you are here" figure's room (null = taken away): the Guide routes from there without asking; `point`
+   * (plan metres) is where in the room it stands, so a route's line starts there */
+  setLocation: (id: string, spaceId: string | null, point: [number, number] | null = null) =>
+    request<{ location: UserLocation | null }>(`/sessions/${id}/location`, { method: 'PUT', body: JSON.stringify({ space_id: spaceId, point }) }),
   /** coming over from a nearby building: placed at `entrance`, the route on to `destination` as events */
   arrive: (id: string, entrance: string, destination: string, fromSession: string | null) =>
     request<{ route: { reachable: boolean; reason?: string; about_m?: number }; location: UserLocation; events: UiEvent[] }>(`/sessions/${id}/arrive`, {
@@ -430,7 +456,7 @@ async function chatStream(id: string, message: string, options: ChatOptions = {}
   const response = await fetch(BASE + '/chat/stream', {
     method: 'POST',
     headers: await headers(),
-    body: JSON.stringify({ session_id: id, message, channel: options.channel ?? 'text', heard: options.heard, selected: options.selected, photo: options.photo }),
+    body: JSON.stringify({ session_id: id, message, channel: options.channel ?? 'text', heard: options.heard, selected: options.selected, photo: options.photo, route_step: options.routeStep }),
   })
   if (!response.ok || !response.body) throw await failed(response, '/chat/stream')
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
@@ -446,7 +472,7 @@ async function chatStream(id: string, message: string, options: ChatOptions = {}
       if (item.type === 'step') options.onStep?.(item as unknown as ChatStep)
       else if (item.type === 'say') options.onSay?.(String(item.text))
       else if (item.type === 'reply') return item as unknown as ChatReply
-      else if (item.type === 'error') throw new Error(String(item.detail))
+      else if (item.type === 'error') throw streamError(item)
     }
     if (done) throw new Error('the reply stream ended early')
   }
@@ -472,7 +498,7 @@ async function builderStream(draftId: string, message: string, onStep?: (step: B
       const item = JSON.parse(line) as { type: string } & Record<string, unknown>
       if (item.type === 'step') onStep?.(item as unknown as BuilderStep)
       else if (item.type === 'reply') return item as unknown as BuilderReply
-      else if (item.type === 'error') throw new Error(String(item.detail))
+      else if (item.type === 'error') throw streamError(item)
     }
     if (done) throw new Error('the reply stream ended early')
   }

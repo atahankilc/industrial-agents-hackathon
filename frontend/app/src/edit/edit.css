@@ -51,16 +51,16 @@
 
 .edit-bar {
   position: absolute;
-  top: calc(max(12px, env(safe-area-inset-top)) + 48px);
+  top: calc(max(12px, env(safe-area-inset-top)) + 52px);
   left: 12px;
   right: 12px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 4px;
+  gap: 4px;
+  height: var(--btn-lg);
+  padding: 0 3px;
   border: 1px solid var(--hud-line);
-  border-radius: 15px;
+  border-radius: 999px;
   background: var(--hud-glass);
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
   backdrop-filter: blur(18px) saturate(1.4);
@@ -68,9 +68,8 @@
   animation: hud-in 0.2s var(--ease-out);
 }
 @media (min-width: 900px) {
-  .edit-bar { top: 16px; left: auto; right: 16px; height: 42px; }
+  .edit-bar { top: 16px; left: auto; right: 16px; }
 }
-.edit-bar button:disabled { opacity: 0.4; cursor: default; }
 .edit-bar .edit-status { margin: 0 10px; color: var(--hud-ink-2); font-size: 13px; }
 .edit-bar .edit-tools { display: flex; gap: 2px; flex: 1; }
 .edit-bar .edit-tools button {
@@ -79,10 +78,10 @@
   justify-content: center;
   gap: 6px;
   flex: 1;
-  height: 34px;
-  padding: 0 10px;
+  height: var(--btn-md);
+  padding: 0 12px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 999px;
   background: transparent;
   color: var(--hud-ink);
   font-size: 13px;
@@ -94,11 +93,11 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  min-width: 34px;
-  height: 34px;
-  padding: 0 8px;
+  min-width: var(--btn-md);
+  height: var(--btn-md);
+  padding: 0 10px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 999px;
   background: transparent;
   color: var(--hud-ink);
   font-size: 13px;
@@ -107,21 +106,21 @@
 .edit-bar .edit-problems { color: var(--hud-live); }
 .edit-bar .edit-problems.has-errors { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .edit-bar .edit-save-button, .edit-bar .edit-done {
-  height: 34px;
+  height: var(--btn-md);
   padding: 0 14px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
 }
 .edit-bar .edit-save-button { background: var(--hud-solid); color: var(--hud-solid-ink); }
-.edit-bar .edit-done { border: 1px solid var(--hud-line-2); background: transparent; color: var(--hud-ink); }
+.edit-bar .edit-done { background: var(--hud-fill); color: var(--hud-ink); }
 .edit-bar .edit-discard {
-  height: 34px;
-  padding: 0 12px;
+  height: var(--btn-md);
+  padding: 0 14px;
   border: 0;
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
   color: var(--danger);
   font-size: 13px;
   font-weight: 600;
@@ -135,7 +134,7 @@
 .edit-issues {
   position: absolute;
   z-index: 3;
-  top: calc(max(12px, env(safe-area-inset-top)) + 100px);
+  top: calc(max(12px, env(safe-area-inset-top)) + 104px);
   right: 12px;
   width: min(360px, calc(100vw - 24px));
   max-height: 50vh;
@@ -153,7 +152,7 @@
   animation: hud-in 0.16s var(--ease-out);
 }
 @media (min-width: 900px) {
-  .edit-issues { top: 66px; right: 16px; }
+  .edit-issues { top: 68px; right: 16px; }
 }
 .edit-issues .who { margin: 4px 2px 0 !important; }
 .edit-issues .issue {
@@ -172,7 +171,7 @@
 .edit-toast {
   position: absolute;
   z-index: 3;
-  top: calc(max(12px, env(safe-area-inset-top)) + 100px);
+  top: calc(max(12px, env(safe-area-inset-top)) + 104px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -180,8 +179,8 @@
   gap: 10px;
   max-width: min(480px, calc(100vw - 24px));
   margin: 0;
-  padding: 9px 8px 9px 14px;
-  border-radius: 13px;
+  padding: 6px 6px 6px 16px;
+  border-radius: 22px;
   background: var(--hud-solid);
   color: var(--hud-solid-ink);
   box-shadow: var(--hud-shadow);
@@ -193,7 +192,7 @@
 @media (min-width: 900px) {
   .edit-toast { top: 70px; }
 }
-.screen .edit-toast button { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: inherit; opacity: 0.7; }
+.screen .edit-toast button { flex: none; display: grid; place-items: center; width: var(--btn-sm); height: var(--btn-sm); padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; opacity: 0.7; }
 
 /* ---------- in the Guide's card: the inspector, the Builder's proposal ---------- */
 
@@ -257,15 +256,15 @@
 .inspector .field input[type='checkbox']:checked { background: var(--hud-live); }
 .inspector .field input[type='checkbox']:checked::after { transform: translateX(17px); }
 
-.inspector .stepper, .inspector .segmented { display: flex; align-items: center; gap: 4px; justify-self: start; padding: 3px; border: 1px solid var(--hud-line); border-radius: 11px; background: var(--hud-glass-2); }
+.inspector .stepper, .inspector .segmented { display: flex; align-items: center; gap: 2px; justify-self: start; padding: 2px; border: 0; border-radius: 999px; background: var(--hud-fill); }
 .edit-card .stepper button, .edit-card .segmented button {
   display: grid;
   place-items: center;
-  min-width: 30px;
-  height: 28px;
-  padding: 0 10px;
+  min-width: var(--btn-sm);
+  height: var(--btn-sm);
+  padding: 0 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
   color: var(--hud-ink);
   font-size: 13px;
@@ -273,7 +272,6 @@
 }
 .edit-card .stepper button { padding: 0; }
 .edit-card .segmented button[aria-checked='true'] { background: var(--hud-solid); color: var(--hud-solid-ink); }
-.edit-card button:disabled { opacity: 0.4; cursor: default; }
 .inspector .stepper output { min-width: 58px; text-align: center; font: 600 13px var(--font-mono); font-variant-numeric: tabular-nums; }
 
 .edit-card .inspector-delete {
@@ -281,30 +279,30 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  height: 34px;
+  height: var(--btn-md);
   margin-top: 10px;
-  padding: 0 12px 0 10px;
-  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
-  border-radius: 10px;
-  background: transparent;
+  padding: 0 14px 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
   color: var(--danger);
   font-size: 13px;
   font-weight: 600;
 }
-.edit-card .inspector-delete:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.edit-card .inspector-delete:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 20%, transparent); }
 
 .inspector .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .edit-card .presets button {
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--hud-line);
-  border-radius: 16px;
-  background: var(--hud-glass-2);
+  height: var(--btn-md);
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--hud-fill);
   color: var(--hud-ink);
   font-size: 13px;
   font-weight: 500;
 }
-.edit-card .presets button[aria-checked='true'] { border-color: transparent; background: var(--hud-solid); color: var(--hud-solid-ink); }
+.edit-card .presets button[aria-checked='true'] { background: var(--hud-solid); color: var(--hud-solid-ink); }
 
 /* buttons in cards and the save sheet */
 .edit-card .edit-card-button, .edit-card .edit-primary, .edit-save .edit-card-button, .edit-save .edit-primary {
@@ -312,13 +310,13 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 12px;
+  height: var(--btn-lg);
+  padding: 0 18px;
+  border-radius: 999px;
   font-size: 14px;
   font-weight: 600;
 }
-.edit-card .edit-card-button, .edit-save .edit-card-button { border: 1px solid var(--hud-line); background: transparent; color: var(--hud-ink); }
+.edit-card .edit-card-button, .edit-save .edit-card-button { border: 0; background: var(--hud-fill); color: var(--hud-ink); }
 .edit-card .edit-primary, .edit-save .edit-primary { border: 0; background: var(--hud-solid); color: var(--hud-solid-ink); }
 
 /* ---------- save sheet ---------- */
@@ -351,3 +349,11 @@
 .edit-save input:focus { border-color: var(--hud-route); }
 .edit-save .warn { margin: 0; color: var(--danger); font-size: 13px; }
 .edit-save .row { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (hover: hover) {
+  .edit-bar .edit-tools button:not([aria-checked='true']):not(:disabled):hover, .edit-bar .edit-icon:not(:disabled):hover,
+  .edit-card .stepper button:not(:disabled):hover, .edit-card .segmented button:not([aria-checked='true']):hover { background: var(--hud-fill); }
+  .edit-bar .edit-done:hover, .edit-card .presets button:not([aria-checked='true']):hover,
+  .edit-card .edit-card-button:not(:disabled):hover, .edit-save .edit-card-button:not(:disabled):hover { background: var(--hud-fill-2); }
+  .edit-bar .edit-save-button:not(:disabled):hover, .edit-card .edit-primary:not(:disabled):hover, .edit-save .edit-primary:not(:disabled):hover { opacity: 0.88; }
+}

@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import pytest
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Point
 
 from core.building_map import BuildingMap
 from core.floorplan import floor_indices
@@ -71,3 +71,28 @@ def test_skipped_anchors_leave_a_straight_line_inside_the_space(building: Buildi
             if shape.intersects(segment.interpolate(0.5, normalized=True)):
                 assert shape.buffer(0.05).contains(segment)
     assert len(anchors) > len(skipped)
+
+
+def test_line_starts_where_the_user_stands(building: BuildingMap) -> None:
+    ids = rooms(building)
+    route = find_route(building, ids[0], ids[-1]).to_dict()
+    here = building.anchor(ids[0])
+    standing = (here[0] + 0.4, here[1])
+    assert polygon(building.spaces[ids[0]]).contains(Point(standing))
+    line = route_line(building, route["space_path"], route["element_path"], start=standing)
+    assert line[0][:2] == [round(standing[0], 3), round(standing[1], 3)]
+    assert line[1:] == route_line(building, route["space_path"], route["element_path"])[1:]
+
+
+def test_a_door_between_overlapping_spaces_is_not_drawn_as_a_dip() -> None:
+    # dev OSM building: the lecture hall's outline takes in Lobby 0.22; their door O0008 sits on the wall of the
+    # Regieraum both of them border, so the line used to dip into that doorway and turn back
+    osm = BuildingMap.load(DATA / "dev" / "osm-way27917482")
+    hall, lobby, beyond = "osm-way27917482-F0-S036", "osm-way27917482-F0-S022", "osm-way27917482-F0-S026"
+    door, onward = "osm-way27917482-F0-O0008", "osm-way27917482-F0-O0002"
+    line = route_line(osm, [hall, lobby, beyond], [door, onward])
+    points = [tuple(p[:2]) for p in line]
+    x, y = osm.openings[door]["position"]
+    assert (round(x, 3), round(y, 3)) not in points
+    x, y = osm.openings[onward]["position"]
+    assert (round(x, 3), round(y, 3)) in points  # a real door between two rooms stays on the line

@@ -112,7 +112,7 @@ export function Root() {
           onOpen={(id) => go(id, view.landing)}
         />
       )}
-      <AccessLayer />
+      <AccessLayer landing={!shown} />
     </>
   )
 }

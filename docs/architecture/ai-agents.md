@@ -35,12 +35,15 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 | `search(query, floor?)` | ranked spaces/assets with ids | no |
 | `room_facts(space)` | area, centre, floor, neighbours (shared walls), above/below (omitted on Swiss Dwellings buildings, floors not aligned — [solver-plan](solver-plan.md#straight_line_3d)), doors + widths | no |
 | `find_route(from, to, via?, profile)` | node path, metres, steps with landmarks, profile used | no |
+| `find_nearest(start, query, floor_id?, closed?)` | the nearest room holding that item kind (or matching room kind/name) by route length under the profile: a `find_route` result plus `nearest` and `next_nearest` (the next 2, with `about_m`); emits one route (to the nearest) + a highlight. `closed`: closures for this question only, used for the ranking and the final route; only the 12 candidates nearest in a straight line are routed to (`core/route_query.shortlist`) | no |
+| `compute(code)` | what the Python prints: code over a copy of the building in the solver agent's sandbox (`agent/solver_agent.py`: restricted builtins, module whitelist, 30 s limit); its `route()` routes as `find_route` does (the Guide's route rules, the user's profile and closures, "here"), so code and tools never disagree; access-mode preference penalties are not applied ([D-022](../../memory-bank/decisions.md#d-022)) | no (works on a copy) |
 | `compare_routes(before/after change)` | diff: rooms that lost access, extra metres | no |
 | `set_profile(...)` | the active [routing profile](../product/routing-profiles.md) for this user | user state only |
 | `propose_change(kind, …)` | a **pending** change (close lift, add door, move asset) + its predicted effect | no — needs confirm |
 | `apply_change(change_id)` | committed edit event, broadcast to all clients | **yes** |
 | `show_on_map(space_ids?, asset_ids?)` | UI event (highlight rooms and items / fly to / switch floor) | no |
 | `set_my_location(place)` | the user's position ("here" from now on) + UI event `location` (the "you are here" figure) | user state only |
+| `show_route_step(step)` | moves the app's step card to `step` (1-based, the card's numbering from the `[route note]`); UI event `route_step` | no |
 | `open_edit_mode(request?)` | UI event `edit_mode`: the app opens its Edit mode, the Builder takes the request | no |
 | `search_nearby_buildings(query)` / `route_to_building(start, building, destination)` | matches / a route in the buildings next to this one (only offered when the building has located neighbours) | no |
 
@@ -48,7 +51,7 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 pending/applied changes, UI events) + `TOOL_DEFINITIONS` (Anthropic tool schemas) for building_overview, search,
 locate, count_assets, room_facts, find_route, tour, reachable_rooms, solve (every benchmark kind), set_profile,
 propose_change, apply_change, compare_routes, show_on_map (`space_ids` and `asset_ids`), set_my_location,
-open_edit_mode. Since 2026-10-25: `set_my_location(place)` makes that space the user's position and emits a
+open_edit_mode, find_nearest, show_route_step, compute. Since 2026-10-25: `set_my_location(place)` makes that space the user's position and emits a
 `location` event (the app moves its "you are here" figure there); every place argument then also accepts "here"
 (`HERE` in `agent/tools.py`: "here", "me", "my location", …; unknown position → an error telling the model to ask).
 `open_edit_mode(request?)` emits an `edit_mode` event and the app switches to its Edit mode, where the Builder
@@ -58,6 +61,18 @@ has located neighbours (`BuildingSession.campus`). Errors come back as `{"error"
 search or ask. Profile → constraints: `min_door_width_m` and `avoid_lifts` act as closures of narrow openings /
 lifts. Built on `core/navigation.py` (locate, count, find_route, tour; gold path format) and `core/solvers/`.
 Tests: `tests/test_agent_tools.py`.
+
+**Nearest place and the step card (2026-10-25):** `find_nearest(start, query, floor_id?, closed?)` takes the rooms
+holding an item of kind `query` (via `locate`), else the rooms whose kind/name matches, keeps only the 12 nearest
+in a straight line (`core/route_query.shortlist`), ranks the reachable ones by route length under the user's profile
+plus `closed` (closures for this question only, e.g. "the lift is out of order"; also applied to the final route), routes to the nearest (one `route` event, so the map shows only that route) and
+highlights it; the result is a `find_route` result with `nearest` and `next_nearest` (the next 2, each with
+`about_m`). The system prompt sends "nearest/closest X" to it without asking which; it is in `PROFILE_TOOLS`
+(`agent/guide.py`). While a route is followed the app sends `route_step` (the card's 0-based step) with `/chat`
+and `/chat/stream` (`backend/app.py`); `Guide.route_note` turns it into a `[route note]` listing the card's steps
+(`BuildingSession.route_card`) and the current one. `show_route_step(step)` (1-based, card numbering) emits a
+`route_step` event `{index: step - 1}` and the app moves the card there; the prompt tells the Guide to call it
+whenever it talks about another step. Test: `tests/test_route_step.py`.
 
 `compare_routes(change_id, start?)` works on a **pending** change (current building vs the building with the
 change) or an **applied** one (snapshot before vs after `apply_change`). From `start` (default: the last route's

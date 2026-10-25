@@ -20,11 +20,15 @@ import itertools
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from shapely.geometry import Point
+
 from agent import places
-from core.directions import about_m, guidance_steps
+from agent.solver_agent import ALLOWED_MODULES, namespace, run_code
+from core.directions import about_m, guidance, guidance_steps
 from core import navigation, route_models
 from core.building_map import LIFT, OUTSIDE, BuildingMap, MapError
 from core.preferences import Penalties
+from core.route_query import route_query, shortlist
 from core.route_models import FORKLIFT_MIN_WIDTH_M, KIT, RouteRules
 from core.solvers import SOLVERS, solve
 from core.solvers.geometry import adjacent_floor, centre_3d, polygon
@@ -139,8 +143,8 @@ class BuildingSession:
         self.guide_preferences: dict = {}  # GUIDE_PREFERENCES values (language, reply_style, voice)
         # Access mode, admin only: (object name or id, destination) → dispatch result (backend/fleet.py).
         self.object_dispatch = None
-        # Where the user is, from the app's "you are here" figure: {"space_id", "name", "floor"} or None. "here"
-        # as a place means this space (HERE), so the Guide never has to ask.
+        # Where the user is, from the app's "you are here" figure: {"space_id", "name", "floor"} (+ "point", where
+        # in the room it stands) or None. "here" as a place means this space (HERE), so the Guide never has to ask.
         self.user_location: dict | None = None
         # Buildings nearby (agent/campus.py), set by the backend for buildings with a real position; None = none.
         self.campus = None
@@ -228,15 +232,25 @@ class BuildingSession:
             raise MapError(places.problem(self.building, reference, found))
         return found[0]
 
-    def set_location(self, space_id: str | None) -> dict | None:
-        """The app's "you are here" figure was put down in `space_id` (None = taken away)."""
+    def set_location(self, space_id: str | None, point: list[float] | None = None) -> dict | None:
+        """The app's "you are here" figure was put down in `space_id` (None = taken away), at `point` (plan metres;
+        kept only if it lies in that space). Routes are measured from the space's anchor as always; the point only
+        moves where the drawn line starts (`start_point` of a route event, core/routeline.py)."""
         if space_id is None:
             self.user_location = None
             return None
         space = self.building.spaces[space_id]
         self.user_location = {"space_id": space_id, "name": space["name"], "ref": space.get("ref"),
                               "floor": self.building.floor_name(space["floor_id"])}
+        if point is not None and polygon(space).buffer(0.05).contains(Point(point[0], point[1])):
+            self.user_location["point"] = [round(point[0], 3), round(point[1], 3)]
         return self.user_location
+
+    def start_point(self, space_id: str) -> dict:
+        """For a route event starting in `space_id`: {"start_point": the figure's point} when the figure stands
+        there, else nothing (the drawn line starts at the anchor)."""
+        location = self.user_location or {}
+        return {"start_point": location["point"]} if location.get("space_id") == space_id and "point" in location else {}
 
     def highlight(self, space_ids: list[str], asset_ids: list[str] = ()) -> None:
         """Show these rooms (and items in them) on the user's map, as the answer."""
@@ -331,7 +345,8 @@ class BuildingSession:
             ][:MAX_RESULTS],
         }
 
-    def tool_find_route(self, start: str, destination: str, via: list[str] | None = None) -> dict:
+    def tool_find_route(self, start: str, destination: str, via: list[str] | None = None,
+                        closed: list[str] | None = None) -> dict:
         start, via = self.stop(start), [self.stop(item) for item in via or ()]
         if destination != OUTSIDE and (options := self.destination_options(start, destination, via)):
             return options
@@ -341,7 +356,7 @@ class BuildingSession:
             start,
             destination,
             step_free=self.profile.step_free,
-            closed=self.profile_closures(),
+            closed=[*self.profile_closures(), *(closed or [])],
             via=via or (),
             model=self.route_model,
             rules=self.route_rules(),
@@ -353,7 +368,46 @@ class BuildingSession:
             self.last_route = {"start": start, "destination": destination, "via": via or []}
             self.events.append({"type": "route", "space_path": route["space_path"],
                                 "element_path": route["element_path"], "length_m": route["length_m"],
-                                "profile": route["profile"]})
+                                "profile": route["profile"], **self.start_point(start)})
+        return route
+
+    def tool_find_nearest(self, start: str, query: str, floor_id: str | None = None,
+                          closed: list[str] | None = None) -> dict:
+        """The nearest room holding `query` (an item kind like "toilet", or a room kind/name) by walking distance
+        under the profile: routes to it (one route event, the map shows only that one) and lists the next ones.
+        `closed`: closures for this question only (names or ids). Only the 12 candidates nearest in a straight line
+        are routed to (core/route_query.shortlist), so big buildings with many matches stay fast."""
+        start = self.stop(start)
+        closures = [*self.profile_closures(), *(closed or [])]
+        found = navigation.locate(self.building, query, floor_id).to_dict()
+        spaces = list(dict.fromkeys(hit["space_id"] for hit in found.get("assets") or []))
+        if not spaces:
+            spaces = [hit["id"] for hit in self.building.search(query) if hit["kind"] == "space"
+                      and floor_id in (None, self.building.spaces[hit["id"]]["floor_id"])]
+        spaces = [space for space in spaces if space != start]
+        if spaces and start != OUTSIDE:
+            spaces = shortlist(self.building, start, spaces)
+        if not spaces:
+            result = {"error": f"Nothing matching '{query}' in this building."}
+            if self.campus is not None and self.campus.neighbours():
+                result["hint"] = "search_nearby_buildings looks in the buildings next to this one."
+            return result
+        ranked = []
+        for space_id in spaces:
+            route = navigation.find_route(self.building, start, space_id, step_free=self.profile.step_free,
+                                          closed=closures, model=self.route_model,
+                                          rules=self.route_rules(), penalties=self.profile.penalties()).to_dict()
+            if route.get("reachable"):
+                ranked.append((route["length_m"], space_id))
+        if not ranked:
+            return {"error": f"No room with '{query}' is reachable from here under the current profile.",
+                    "profile": self.profile.describe()}
+        ranked.sort()
+        route = self.tool_find_route(start, ranked[0][1], closed=closed)
+        route["nearest"] = self.space_summary(ranked[0][1])
+        route["next_nearest"] = [{**self.space_summary(space_id), "about_m": about_m(length)}
+                                 for length, space_id in ranked[1:3]]
+        self.highlight([ranked[0][1]])
         return route
 
     def tool_tour(self, stops: list[str]) -> dict:
@@ -367,6 +421,33 @@ class BuildingSession:
             for leg in tour.get("legs") or []:
                 self.guide_steps(leg)
         return tour
+
+    def tool_compute(self, code: str) -> dict:
+        """Run Python over a copy of the building (the solver agent's sandbox): {"output"} or {"output", "error"}.
+        Its route() routes as find_route does — the Guide's rules (production bays destination-only), the user's
+        profile and its closures — so code and tools never disagree on whether a route exists."""
+        view = copy.deepcopy(self.building)
+        scope = namespace(view)
+
+        def place(reference: str) -> list[str]:
+            if reference.strip().lower() in HERE:
+                return [self.resolve(reference)]
+            return scope["place"](reference) or [view.resolve_space(reference)]
+
+        def route(start: str, destination: str, stops: list[str] | tuple[str, ...] = (), step_free: bool | None = None,
+                  forklift: bool | None = None, min_width: float | None = None,
+                  closed: list[str] | tuple[str, ...] = ()) -> dict:
+            rules = self.route_rules()
+            if forklift is not None:
+                rules = RouteRules(bays_destination_only=rules.bays_destination_only, no_outside=rules.no_outside,
+                                   forklift=forklift)
+            return route_query(view, [place(start), *[place(stop) for stop in stops], place(destination)],
+                               step_free=self.profile.step_free if step_free is None else step_free,
+                               min_width=min_width, closed=[*self.profile_closures(view), *closed], rules=rules,
+                               include_steps=False)
+
+        scope["route"] = route
+        return run_code(code, scope)
 
     def guide_steps(self, route: dict) -> None:
         """Followable steps (turns, landmarks, rounded metres, no ids) instead of the kit's step text, plus the
@@ -700,6 +781,29 @@ class BuildingSession:
             self.events.append({"type": "location", "space_id": space_id})
         return {"location": location, "note": "The app now shows the user here; pass \"here\" as the start."}
 
+    def route_card(self) -> list[dict]:
+        """The steps of the app's next-move card for the last route shown (core/directions.guidance, as
+        backend/sessions.py sends them with the route event); [] when there is none."""
+        route = next((event for event in reversed(self.events) if event["type"] == "route"), None)
+        if route is None:
+            return []
+        try:
+            return guidance(self.building, route.get("space_path") or [], route.get("element_path") or [])
+        except (KeyError, StopIteration):  # path no longer valid on this building
+            return []
+
+    def tool_show_route_step(self, step: int) -> dict:
+        """Move the app's step card (and the map) to step `step` (1-based, the card's numbering) of the route the
+        user is following (event `route_step`)."""
+        steps = self.route_card()
+        if not steps:
+            return {"error": "No route is on the map."}
+        if not 1 <= int(step) <= len(steps):
+            return {"error": f"The route has steps 1 to {len(steps)}."}
+        if self.emitting:
+            self.events.append({"type": "route_step", "index": int(step) - 1})
+        return {"shown": int(step), "of": len(steps), "text": steps[int(step) - 1]["text"]}
+
     def tool_open_edit_mode(self, request: str | None = None) -> dict:
         """Switch the app to its Edit mode (frontend/app/src/edit/), where the Builder (agent/builder.py) takes the
         request on a draft copy; this session's building is not changed."""
@@ -761,6 +865,27 @@ TOOL_DEFINITIONS: list[dict] = [
      "the building; reachable=false + reason means no route under these rules — tell the user so.", "input_schema": {"type": "object", "properties": {
          "start": PLACE, "destination": PLACE, "via": {"type": "array", "items": PLACE}},
          "required": ["start", "destination"]}},
+    {"name": "find_nearest", "description": "The nearest place with something (\"nearest toilet\", \"closest "
+     "kitchen\", \"a meeting room near me\"): ranks every room holding that item kind (or of that room kind/name) by "
+     "walking distance under the user's profile, routes to the nearest (the map shows that route only; the result "
+     "is a find_route result) and lists the next two with about_m. Use it instead of several find_route calls. "
+     "closed: lifts, stairs, rooms, corridors or doors closed for THIS question only (\"the lift is out of order\"); "
+     "use propose_change for lasting closures.",
+     "input_schema": {"type": "object", "properties": {
+         "start": PLACE, "query": {"type": "string", "description": "item or room kind, e.g. toilet, kitchen"},
+         "floor_id": {"type": "string", "description": "only when the user restricts the floor"},
+         "closed": {"type": "array", "items": {"type": "string"}}},
+         "required": ["start", "query"]}},
+    {"name": "compute", "description": "Exact building analytics no other tool covers (the smallest / second-largest "
+     "room, how many rooms of a kind, the narrowest door on a route, lists by any criterion). Runs Python over a copy "
+     "of the building and returns what it prints. In scope: b (the BuildingMap: b.spaces, b.floors, b.openings, "
+     "b.connectors, b.assets, dicts by id), spaces(floor=None, room_type=None, type=None), floor_id(name_or_level), "
+     "area(space_id) m², polygon(space_id), place(phrase, floor=None, item=False), route(start, destination, "
+     "stops=(), step_free=None, forklift=None, min_width=None, closed=()) — routes exactly as find_route (your route "
+     "rules, the user's profile) —, solve(kind, **inputs), describe(space_id), "
+     "math, Counter, Polygon, Point, nx; importable: " + ", ".join(sorted(ALLOWED_MODULES)) + ". \"Rooms\" = spaces "
+     "with type room. Print only what you need; state only numbers it printed.", "input_schema": {
+         "type": "object", "properties": {"code": {"type": "string"}}, "required": ["code"]}},
     {"name": "tour", "description": "Visit several places in the given order.", "input_schema": {
         "type": "object", "properties": {"stops": {"type": "array", "items": PLACE}}, "required": ["stops"]}},
     {"name": "reachable_rooms", "description": "Rooms the user can reach from a place under their profile.",
@@ -801,6 +926,11 @@ TOOL_DEFINITIONS: list[dict] = [
     {"name": "set_my_location", "description": "The user says where they are now (\"I'm in the lobby\", \"I'm at "
      "Lab 2.17\"): it becomes \"here\" for later routes, and the app puts its you-are-here figure there and zooms to "
      "it.", "input_schema": {"type": "object", "properties": {"place": PLACE}, "required": ["place"]}},
+    {"name": "show_route_step", "description": "Move the app's step card to a step of the route the user is "
+     "following, numbered as in the [route note]: call it whenever your reply is about a different step than the "
+     "one the user is at (they moved on, ask what's next, or ask about a later or earlier step).",
+     "input_schema": {"type": "object", "properties": {"step": {"type": "integer", "minimum": 1}},
+                      "required": ["step"]}},
     {"name": "open_edit_mode", "description": "Switch the app to its Edit mode, where the Builder changes the "
      "building itself on a copy: rename or re-purpose rooms, move or reshape walls, move or widen doors, add, "
      "move or remove items, save as a new building. Pass the user's request in their words (or nothing when they "

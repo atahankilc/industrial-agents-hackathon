@@ -27,6 +27,7 @@ import queue
 import threading
 from pathlib import Path
 
+import anthropic
 import psycopg
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,7 +38,7 @@ from pydantic import BaseModel
 
 from agent.guide import PHOTO_TYPES, llm_mode, system_blocks
 from agent.speech import speakable
-from backend import devtools, openai_compat, persistence, stt, tts
+from backend import devtools, openai_compat, persistence, service_errors, stt, tts
 from backend.fleet import Fleet, fleet_from_env
 from backend.fleet import router as fleet_router
 from backend.access import Access, AuthError, AuthUnavailable, BuildingAccess, Member, Viewer
@@ -97,6 +98,14 @@ UPDATED_ELSEWHERE = "this draft was updated elsewhere meanwhile; try again"
 DB_DOWN = "the database is unavailable right now; try again in a moment"
 
 
+@app.exception_handler(anthropic.APIError)
+def claude_failed(request: Request, error: anthropic.APIError) -> JSONResponse:
+    """A Claude call failed on a plain request (/chat, Builder, …): the readable sentence, not a 500 trace."""
+    readable = service_errors.friendly(error)
+    return JSONResponse({"detail": readable["message"], "code": readable["code"]},
+                        status_code=service_errors.STATUS[readable["code"]])
+
+
 @app.exception_handler(persistence.Conflict)
 def conflict_409(request: Request, error: persistence.Conflict) -> JSONResponse:
     return JSONResponse({"detail": UPDATED_ELSEWHERE}, status_code=409)
@@ -138,10 +147,12 @@ class ChatRequest(BaseModel):
     photo: str | None = None  # data URL (jpeg/png/webp) from the camera walk mode, shown to the Guide for one turn
     heard: bool = True  # voice channel: the message is a speech transcript; false for a tapped button read aloud
     selected: str | None = None  # the space or asset id tapped on the plan while asking ("how do I get there?")
+    route_step: int | None = None  # the step card's step (0-based) while a route is on the map
 
 
 class LocationRequest(BaseModel):
     space_id: str | None = None  # the room the "you are here" figure stands in; None = taken away
+    point: list[float] | None = None  # where in that room (plan metres): the drawn route line starts there
 
 
 class ArriveRequest(BaseModel):
@@ -321,7 +332,7 @@ def chat(body: ChatRequest, authorization: str | None = Header(None)) -> dict:
     with conversation.lock:
         turn = conversation.guide.reply(body.message, channel=channel_or_422(body.channel),
                                         photo=photo_or_422(body.photo), heard=body.heard,
-                                        selected=body.selected)
+                                        selected=body.selected, route_step=body.route_step)
         save_or_409(conversation)
         return turn_payload(conversation, turn)
 
@@ -361,19 +372,20 @@ def chat_stream(body: ChatRequest, authorization: str | None = Header(None)) -> 
                 conversation.guide.on_say = lambda text: lines.put({"type": "say", "text": text})
                 try:
                     turn = conversation.guide.reply(body.message, channel=channel, photo=photo, heard=body.heard,
-                                                    selected=body.selected)
+                                                    selected=body.selected, route_step=body.route_step)
                 finally:
                     conversation.guide.on_step = None
                     conversation.guide.on_say = None
                 try:
                     store.save(conversation)
                 except persistence.Conflict:
-                    lines.put({"type": "error", "detail": "this conversation was updated elsewhere meanwhile; "
-                                                          "send the message again"})
+                    lines.put({"type": "error", "code": "conflict",
+                               "message": "This conversation was updated elsewhere meanwhile. Send the message again.",
+                               "detail": "this conversation was updated elsewhere meanwhile; send the message again"})
                     return
                 lines.put({"type": "reply", **turn_payload(conversation, turn)})
         except Exception as error:  # the stream has started: report instead of a status code
-            lines.put({"type": "error", "detail": f"{type(error).__name__}: {error}"[:300]})
+            lines.put(service_errors.error_line(error))
         finally:
             lines.put(None)
 
@@ -392,7 +404,7 @@ def put_location(session_id: str, body: LocationRequest, authorization: str | No
     with conversation.lock:
         if body.space_id is not None and body.space_id not in conversation.session.building.spaces:
             raise HTTPException(422, f"unknown space {body.space_id!r}")
-        location = conversation.guide.set_location(body.space_id)
+        location = conversation.guide.set_location(body.space_id, body.point)
         save_or_409(conversation)
     return {"location": location}
 
@@ -752,15 +764,16 @@ def draft_chat_stream(draft_id: str, body: BuilderMessage) -> StreamingResponse:
                 try:
                     store_builder(builder)
                 except persistence.Conflict:
-                    lines.put({"type": "error", "detail": "this conversation was updated elsewhere meanwhile; "
-                                                          "send the message again"})
+                    lines.put({"type": "error", "code": "conflict",
+                               "message": "This conversation was updated elsewhere meanwhile. Send the message again.",
+                               "detail": "this conversation was updated elsewhere meanwhile; send the message again"})
                     return
                 lines.put({"type": "reply", "reply": turn.text,
                            "tool_calls": [{"name": call["name"], "input": call["input"]} for call in turn.tool_calls],
                            "proposal": proposal_payload(draft, turn.proposal), "applied": turn.applied,
                            "ungrounded": turn.ungrounded, "state": drafts.state(draft)})
         except Exception as error:  # the stream has started: report instead of a status code
-            lines.put({"type": "error", "detail": f"{type(error).__name__}: {error}"[:300]})
+            lines.put(service_errors.error_line(error))
         finally:
             lines.put(None)
 

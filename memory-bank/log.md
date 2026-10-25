@@ -10,6 +10,126 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 08:30 — Chat Guide gets the Sunday layers; readable Claude API errors; dev c3ab8f0 merged (branch `4-sunday-agent`)
+
+- **Did:** merged `origin/dev` (6fa882e step card / `find_nearest` / route line from the figure, c3ab8f0 landing
+  account button). The chat Guide (`agent/tools.py`) gets `compute` (the solver agent's Python sandbox; its
+  `route()` routes exactly as `find_route`: the Guide's rules, the user's profile, its closures) and Atahan's
+  `find_nearest` gets `closed` (closures for one question) and a 12-candidate straight-line shortlist (a
+  `route_to_nearest` tool of ours was dropped in favour of it). Claude API failures become a readable sentence + code
+  (`backend/service_errors.py`: credits, auth, busy, unavailable, offline, internal) in the Guide and Builder streams
+  and as 503/429 on plain requests; the app shows it (and says it on voice turns) instead of
+  `BadRequestError: Error code: 400 - {...}`.
+- **Learned (old dev Guide vs new, one run each, ~$2.4):** capability set (5 questions with code-computed answers,
+  proc-factory-dev-004) 3/5 → **5/5** (old miscounted rooms as 31 spaces and first routed a wheelchair user through the
+  closed lift); `eval_guide` 17/18 → 18/18; interaction judge asks 3.33 → 3.83, shows 4.17 → 4.00, directions 3.67 =
+  3.67, remembers 4.17 → 4.33, goal 4/6 → 3/6 (noise level). The judge found one real bug: `compute`'s `route()`
+  ignored the bay rule and profile, so it contradicted `find_route` (technician scenario) — fixed, rerun: goal reached.
+  Out of API credit, the app used to show a raw error string — now the readable note.
+- **Docs:** `docs/architecture/ai-agents.md` updated: `find_nearest(start, query, floor_id?, closed?)` (per-question
+  closures, 12-candidate shortlist) and the new `compute(code)` tool in the tool table and the implemented list.
+- **Next:** ship, push to PR #2; ElevenLabs key is empty in `.env` (browser voice in use).
+
+## 2026-10-25 — Round buttons, one size system (not committed)
+
+- **Did:** buttons across `building/hud.css`, `access/access.css` and `edit/edit.css` are round with three heights,
+  32 / 36 / 44 px (`--btn-sm` / `--btn-md` / `--btn-lg`), filled with `--hud-fill` / `--hud-fill-2` variants, and share
+  one set of press / hover / disabled rules. Floors: a popover on phones, the rail on wide screens.
+- **Checked:** `npx tsc -b` clean. Not checked visually in this commit pass.
+
+## 2026-10-25 — `find_nearest`: "nearest toilet" without asking (not committed)
+
+- **Did:** new Guide tool `find_nearest(start, query, floor_id?)` (`agent/tools.py`): rooms holding that item kind
+  (else rooms of that kind/name), ranked by route length under the profile; routes to the nearest (one `route`
+  event) + `highlight`, returns `nearest` and `next_nearest` (next 2, with `about_m`). System prompt
+  (`agent/guide.py`): "nearest/closest X" → `find_nearest`, take them there without asking; added to
+  `PROFILE_TOOLS`. Also in `Guide.set_location`: moving the figure within the same room only updates the point and
+  queues no new location note. The app sends `routeStep` only while the route is being followed (guiding, walking,
+  or past step 1; `BuildingScreen.tsx`).
+- **Checked:** smoke run on `proc-campus-train-000`, from Main lobby, query "toilet" → Toilet 0.14 at 17.99 m
+  (about 20), next Toilet 1.16 about 35 m and Toilet 0.16 about 45 m; events `route`, `highlight`. No unit test yet.
+
+## 2026-10-25 — Step guide: map faces the step, animated route band (not committed)
+
+- **Did:** step moves (`BuildingScreen.onMove`) pass a heading (step start → end, `RouteTrack.at`) into `Focus`;
+  `PlanView` Rig turns the camera to it (azimuth = atan2(-hx, hy)). Route band shader (`StoryLayer` Route) draws
+  flowing chevrons (`ribbon` now carries `across`, and exact along/across in the round joints), greys the walked
+  part and keeps chevrons on the current step only (`Story.step`, `RouteTrack.toLine`); a `goal` marker shows the
+  next step's TurnIcon at the step's end; without tracking the "you" dot sits at the step start.
+- **Learned:** `half` is a reserved word in GLSL ES — a uniform named that silently fails to compile the shader.
+  Heading from only the first few metres turned the map by a door kink; start → end keeps the goal straight ahead.
+- **Checked:** `tsc -b`, `vite build`, browser run (U-Trakt, N0177 → N0111, steps 1–4 screenshotted).
+
+## 2026-10-25 — Building centred on open; "you are here" figure placement reworked (not committed)
+
+- Wide screens framed the building as if the Guide were a full-height left column (480 px) → it sat right of centre.
+  `PlanView` `frameInsets` (whole-building fits) now mirror the floor rail; `insets` still used for answer focus.
+- Figure: the drag ghost lived inside the dock, whose `backdrop-filter` made it the containing block of the fixed
+  ghost (invisible while dragging) → moved over the plan, with a live label of where it would land. A tap on the dock
+  no longer drops it mid-screen: it arms placing (next tap on the plan, Esc cancels). Off the building it stays where
+  it was put, with a dashed line to the nearest entrance of that floor and an "Entrance" marker (`Me.door`, sent as
+  the location point so routes start at the door); on a wall → room within 0.6 m. First version snapped the figure
+  onto the door and left the placing ghost frozen while panning (looked like two figures) — both fixed.
+- Checks: `tsc -b`, `vite build`; headless Chromium (Playwright) runs of tap-place, dock drag, figure drag in/out,
+  pan while placing and after: one figure each time.
+
+## 2026-10-25 — Voice less jumpy: longer end pause, voice gate, steadier barge-in (not committed)
+
+- **User report:** voice cuts the user off mid-sentence, the Guide's own reply keeps getting interrupted, and it
+  "hears" things in silence.
+- **Changes** (`frontend/app/src/voice/useVoice.ts`, `bargeIn.ts`):
+  - end-of-utterance pause 1000 → 1700 ms; 2800 ms when the last word leaves the sentence open (`OPEN_ENDINGS`:
+    "and", "to the", "ve", "için", "um", …).
+  - voice gate: the level meter counts frames above `VOICE_LEVEL` (0.12); words recognised before ~8 voiced frames
+    neither show nor extend the listen, and a listen that never heard a voice sends nothing (logged). Ungated when
+    the meter could not open, and for words carried over from barge-in.
+  - barge-in: grace 1000 → 1500 ms, "talk" needs ≥4 own words (was 3) held over 700 ms of results (was two results
+    in a row); carry pause 2000 → 2500 ms.
+- **Checks:** `npx tsc -b` clean; oxlint shows only the 3 pre-existing `react(immutability)` warnings.
+  Not tried in the running app; `VOICE_LEVEL` may need tuning per mic.
+
+## 2026-10-25 — Step card and Guide in sync (not committed)
+
+- **Did:** user report: in route mode the voice Guide talked about step 2 or 3 while the step card stayed put. The
+  card only moved on short local commands ("next", "back"); longer turns went to the Guide, which neither knew the
+  card's step nor could move it. Now: the app sends `route_step` (the card's 0-based step, while a route is on the
+  map) with `/chat` and `/chat/stream`; the Guide gets a `[route note]` listing the card's steps and the current one
+  (`Guide.route_note`, `BuildingSession.route_card`); new tool `show_route_step` (1-based, card numbering) emits a
+  `route_step` event; the app moves the card/map there, starts the step guide if needed, and doesn't read that step
+  aloud again over the reply (`quietStep`). System prompt tells the Guide to call it when it talks about another step.
+- **Learned:** find_route's `steps` (core/directions.guidance_steps) add a "Start in …" line before the card's steps,
+  so the Guide's "step 2" was the card's step 1 — the route note gives the card's numbering.
+- **Checked:** `uv run pytest` 815 passed, 2 skipped (new `tests/test_route_step.py`); `tsc -b` clean; `npm run
+  build` ok. Not checked live with the LLM (restart uvicorn to pick it up).
+
+## 2026-10-25 — Route line: starts at the figure, no dip at overlapping-space doors (not committed)
+
+- **Did:** user report (CIT building `dev/osm-way27917482`, from Friedrich L. Bauer Hörsaal the line dipped into a
+  Regieraum doorway and the route always started at the room's centre). `core/routeline.py`: `route_line(...,
+  start=)` starts the line at a given point in the first space; a door whose two landings each lie in the other space
+  (`overlap_at`) is dropped with its landings. Backend: `PUT /sessions/{id}/location` takes `point` (kept in
+  `user_location` only if inside the room), route events carry `start_point` when the route starts in the figure's
+  room (`BuildingSession.start_point`, also `agent/campus.py`); a move within the same room sends no new location
+  note. App: `api.setLocation(..., point)`, `placeMe` sends it when the figure moves.
+- **Learned:** in that building the hall's OSM outline contains all of Lobby 0.22; their only door `F0-O0008` sits on
+  the Regieraum's wall, so both landings fall on the same side. All 392 routes from the hall leave through it. Route
+  lengths (anchor-based, kit model) are unchanged; only the drawing moved. Random sample of 1,976 route doors on dev:
+  none dropped (the rule only fires on overlaps).
+- **Checked:** `uv run pytest` 813 passed, 2 skipped; `tsc -b` clean; TestClient on the CIT building: line starts at
+  the figure point and has no point at `O0008`. Not checked in the running app (the local uvicorn on :8765 has no
+  `--reload`; restart it).
+
+## 2026-10-25 — Map: whole building clickable, touching buildings told apart (not committed)
+
+- **Did:** `map/style.ts`: `MODEL_TONES` + `modelTones` (greedy colouring: kit buildings whose outlines come within
+  ~4 m get different shades), `modelColours(dark, tone)` with `hover` and `edge` colours. `map/MapLanding.tsx`: models
+  source keyed by id (`promoteId`), blocks and footprints coloured by `tone` and lit on hover (pin and block together,
+  `hoverBuilding`), new `model-edges` line layer tracing every footprint; hidden for the open building like the rest.
+  `map/bridge.ts`: neighbours around an open building use the same tone; `model-edges` filtered with `model-blocks`.
+- **Checked:** `tsc -b` clean, oxlint clean on `src/map`; Chrome (dark): campus around Arcisstraße 21 shows alternating
+  shades + outlines, hover lights the whole Hauptgebäude block, a click at the far end of the Thierschbau wing opened
+  `train/osm-way61408163`. Light mode not checked visually.
+
 ## 2026-10-25 — Calmer barge-in, readable nearby-buildings card, bigger map click target (not committed)
 
 - **Did:** Barge-in no longer fires on one stray word: `voice/bargeIn.ts` `interruption` now needs a stop word in a

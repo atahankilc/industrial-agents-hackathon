@@ -225,8 +225,9 @@ has no swing info. Next: Guide events on the plan
 ## Next priorities
 
 00. **Submission (2026-10-25):** `SUBMISSION/BENCHMARK.md` + `SUBMISSION/answers.json` (v1, test set) exist. When the
-   Sunday building is released: `PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 <building_dir>
-   <questions> SUBMISSION/answers.json`, check errors, ship. Keep the folder to exactly those two files.
+   Sunday building is released: `uv run python -m agent.run_benchmark_v1 <building_dir> <questions>
+   SUBMISSION/answers.json` (hybrid, `.env` read automatically — **not** `PARSER_MODE=regex`, which answered 1 of 14
+   reworded questions), check errors, ship. Keep the folder to exactly those two files.
 
 ‼ **Submission (organisers' Discord note, 2026-10-25 00:10, ~14 h to the deadline) — before anything else:**
 - [x] `SUBMISSION/` with exactly `BENCHMARK.md` + `answers.json` (8537ca0, v1 pipeline, 145 test answers, ids match

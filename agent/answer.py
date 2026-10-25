@@ -65,6 +65,7 @@ class Response:
     params: dict = field(default_factory=dict)
     result: dict | None = None
     error: str | None = None
+    parser: str | None = None
 
 
 def reply(parsed: ParsedQuestion, bmap: BuildingMap, result: dict) -> str:
@@ -77,14 +78,20 @@ def reply(parsed: ParsedQuestion, bmap: BuildingMap, result: dict) -> str:
 
 
 def respond(building_directory: Path, question_text: str) -> Response:
-    """The reply plus what produced it (kind, resolved ids, solver result) for structured outputs."""
-    bmap = building(Path(building_directory))
+    """The reply plus what produced it (kind, resolved ids, solver result, parser) for structured outputs.
+
+    Never raises: unknown wording, an API error or an unreadable building becomes an error reply without an
+    `Answer:` line, so one bad question cannot stop a benchmark run."""
     try:
+        bmap = building(Path(building_directory))
         parsed = QuestionUnderstanding().parse(question_text, bmap)
         result = solve(bmap, parsed.kind, parsed.params)
-        return Response(reply(parsed, bmap, result), parsed.kind, parsed.params, result)
+        return Response(reply(parsed, bmap, result), parsed.kind, parsed.params, result,
+                        parser=parsed.notes.get("parser"))
     except (ParseError, ValueError, KeyError) as error:
         return Response(f"I could not answer this: {error}", error=str(error))
+    except Exception as error:  # noqa: BLE001 — anything else (network, geometry) is still one failed question
+        return Response(f"I could not answer this: {error}", error=f"{type(error).__name__}: {error}")
 
 
 def answer(building_directory: Path, question_text: str) -> str:

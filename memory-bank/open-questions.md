@@ -243,6 +243,9 @@ Template:
   `SUBMISSION/BENCHMARK.md` + `SUBMISSION/answers.json` from `agent.run_benchmark_v1`: a list of 145 objects
   (`question_id`, `reply`, `answer`, `kind`, `inputs`, `result`, `route`, `error`), ids = `data/test/questions.csv`,
   0 errors (checked 2026-10-25). The schema is our own, see [BENCHMARK.md](../SUBMISSION/BENCHMARK.md).
+  **Since branch `4-sunday-agent` (2026-10-25):** also `parser` and the PDF's top-level ids (`item_id`, `space_id`,
+  whole-route `space_path`, `element_path`, `length_m`, `reachable`); `--layout dict` keys it by question id. The 145
+  replies are unchanged.
 - **Unknown:** (1) does `answers.json` hold the 145 test questions, the Sunday building's questions, or both;
   (2) its schema (the image may show it; links to [Q-001](#q-001)).
 - **How to resolve:** compare with the Discord image; if Sunday questions belong there, regenerate with

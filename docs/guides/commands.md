@@ -224,9 +224,12 @@ Design: [guide-agent spec](../superpowers/specs/2026-10-24-guide-agent-design.md
 
 ## Sunday benchmark
 
-`PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> SUBMISSION/answers.json` —
-documented in [`SUBMISSION/BENCHMARK.md`](../../SUBMISSION/BENCHMARK.md) (v1 is the submission pipeline: it also
-answers the warm-up kinds, routes included; `agent.run_benchmark` has no solvers for them). Output format still unannounced →
+`uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> SUBMISSION/answers.json` (default `hybrid`:
+templates first, the LLM only for unseen wording; `.env` is read automatically; `--layout dict` keys the .json by
+question id) — documented in [`SUBMISSION/BENCHMARK.md`](../../SUBMISSION/BENCHMARK.md) (v1 is the submission
+pipeline: it also answers the warm-up kinds, routes included; `agent.run_benchmark` has no solvers for them). Do not
+use `PARSER_MODE=regex` on Sunday: on 14 reworded questions it answered 1 (2026-10-25). A failing question becomes an
+`error` entry and the run goes on; the file is rewritten after every question. Output format still unannounced →
 [Q-001](../../memory-bank/open-questions.md#q-001).
 
 ## Related

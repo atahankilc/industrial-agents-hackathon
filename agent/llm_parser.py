@@ -17,6 +17,7 @@ MODEL = os.environ.get("PARSER_LLM_MODEL", "claude-opus-5-5")
 EFFORT = os.environ.get("PARSER_LLM_EFFORT", "medium")
 MAX_TOKENS = 16000
 MAX_ATTEMPTS = 2
+API_RETRIES = 4  # the SDK retries connection errors, 429 and 5xx with backoff; a benchmark run must not lose a question
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 KINDS = [
     "largest_room",
@@ -157,7 +158,7 @@ def slots_to_groups(slots: dict) -> tuple[str, dict[str, str | None]]:
 
 class LlmQuestionParser:
     def __init__(self, client: anthropic.Anthropic | None = None) -> None:
-        self.client = client or anthropic.Anthropic()
+        self.client = client or anthropic.Anthropic(max_retries=API_RETRIES)
         self.usage = LlmUsage()
 
     def parse(self, text: str, building_map: BuildingMap) -> ParsedQuestion:

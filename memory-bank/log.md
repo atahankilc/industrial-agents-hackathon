@@ -10,6 +10,25 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 03:00 — Sunday hardening P0: crash-safe runner, hybrid by default (branch `4-sunday-agent`)
+
+- **Did:** probed the v1 pipeline with 14 Sunday-style questions on `proc-factory-dev-004` (paraphrases, no floor
+  name, item as destination, blocked aisle, forklift, step-free + closure, new analytics). `regex` answered 1/14;
+  `hybrid` 11/14 without an error, but at least 4 of those answer a different question (wheelchair route → `locate`,
+  forklift → plain step-free route, closure + step-free → closure only, "narrowest door" → route length), 3 errors
+  (space closure, "smallest office", "how many rooms" → `unsupported`). Then P0: `respond` never raises (API /
+  geometry / unreadable building → `error` entry), the runner rewrites the answers file after every question (via a
+  `.partial` file), reads `.env` itself, records `parser` and the PDF's top-level ids (`item_id`, `space_id`, whole
+  `space_path`, `element_path`, `length_m`, `reachable`), `--layout dict`; LLM parser `max_retries=4`.
+  `SUBMISSION/answers.json` regenerated: 145 replies, results and routes unchanged, new keys only. BENCHMARK.md,
+  commands.md and the state say `hybrid` for Sunday.
+- **Learned:** the LLM parser must squeeze every question into one of 15 fixed templates, so combined constraints
+  and new kinds become near-miss kinds — silently wrong answers, worse than errors. `core.navigation.find_route`
+  already handles space/door closures, item endpoints, step-free + closures and `RouteRules` (forklift, bays).
+  Rehearsal of the Sunday command on one dev building: 27 questions in 73 s (14 template, 13 LLM at ~5 s each).
+- **Next:** P1 — compositional route spec into `find_route`, agentic tool-use fallback for unsupported kinds,
+  answer-type check, nearest-of-many items.
+
 ## 2026-10-25 — `SUBMISSION/` folder for the graded benchmark (v1 pipeline)
 
 - **Did:** organisers announced the graded folder `SUBMISSION/` with exactly `BENCHMARK.md` + `answers.json`.

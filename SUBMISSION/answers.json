@@ -4,10 +4,17 @@
     "reply": "The largest generic room is Generic room 1.02 (1.02, Floor 1) at 162.33 m².\nAnswer: 1.02, 162.33 m²",
     "answer": "1.02, 162.33 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "osm-way363805324-F1",
       "room_type": "generic_room"
     },
+    "item_id": null,
+    "space_id": "osm-way363805324-F1-S002",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way363805324-F1-S002",
       "name": "Generic room 1.02",
@@ -23,10 +30,17 @@
     "reply": "5 rooms of that type add up to 54.77 m².\nAnswer: 54.77 m²",
     "answer": "54.77 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "osm-way363805324-F0",
       "room_type": "generic_room"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 5,
       "total_m2": 54.77
@@ -39,6 +53,7 @@
     "reply": "Nearest one is in Gemeinschaftsbüro (114, Floor 1), 14.84 m away; from there to Generic room 1.02 (1.02, Floor 1) is 30.06 m.\nAnswer: 44.90 m",
     "answer": "44.90 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way363805324-F1-S010",
       "asset_type": "office_chair",
@@ -46,6 +61,29 @@
       "room_type": "generic_room",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "osm-way363805324-F1-S010",
+      "osm-way363805324-F1-S015",
+      "osm-way363805324-F1-S011",
+      "osm-way363805324-F1-S015",
+      "osm-way363805324-F1-S009",
+      "osm-way363805324-F1-S008",
+      "osm-way363805324-F1-S015",
+      "osm-way363805324-F1-S002"
+    ],
+    "element_path": [
+      "osm-way363805324-F1-O0018",
+      "osm-way363805324-F1-O0019",
+      "osm-way363805324-F1-O0019",
+      "osm-way363805324-F1-O0020",
+      "osm-way363805324-F1-O0021",
+      "osm-way363805324-F1-O0027",
+      "osm-way363805324-F1-O0017"
+    ],
+    "length_m": 44.9,
     "result": {
       "via": {
         "space_id": "osm-way363805324-F1-S011",
@@ -145,10 +183,17 @@
     "reply": "The room directly below it is Großer Saal (E01, Ground floor) (57.74 m² of overlap).\nAnswer: E01",
     "answer": "E01",
     "kind": "room_stacked",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way363805324-F1-S012",
       "direction": "below"
     },
+    "item_id": null,
+    "space_id": "osm-way363805324-F0-S001",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way363805324-F0-S001",
       "name": "Großer Saal",
@@ -164,10 +209,17 @@
     "reply": "The room directly above it is Generic room 1.10 (1.10, Floor 1) (39.16 m² of overlap).\nAnswer: 1.10",
     "answer": "1.10",
     "kind": "room_stacked",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way363805324-F0-S016",
       "direction": "above"
     },
+    "item_id": null,
+    "space_id": "osm-way363805324-F1-S010",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way363805324-F1-S010",
       "name": "Generic room 1.10",
@@ -183,9 +235,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Musik- und Tanraum (U13, Basement 1), Generic room -1.10 (-1.10, Basement 1), Generic room -1.11 (-1.11, Basement 1), Generic room -1.12 (-1.12, Basement 1), Generic room -1.13 (-1.13, Basement 1).\nAnswer: 5",
     "answer": "5",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way363805324-F-1-S009"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 5,
       "rooms": [
@@ -234,10 +293,17 @@
     "reply": "Centre to centre, through floors and walls: 21.16 m.\nAnswer: 21.16 m",
     "answer": "21.16 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "osm-way363805324-F-1-S011",
       "second": "osm-way363805324-F1-S012"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 21.16
     },
@@ -249,10 +315,17 @@
     "reply": "The largest generic room is Generic room N3806 (N3806, Floor 3) at 115.03 m².\nAnswer: N3806, 115.03 m²",
     "answer": "N3806, 115.03 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "osm-way43035346-F3",
       "room_type": "generic_room"
     },
+    "item_id": null,
+    "space_id": "osm-way43035346-F3-S012",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way43035346-F3-S012",
       "name": "Generic room N3806",
@@ -268,10 +341,17 @@
     "reply": "26 rooms of that type add up to 592.80 m².\nAnswer: 592.80 m²",
     "answer": "592.80 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "osm-way43035346-F1",
       "room_type": "generic_room"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 26,
       "total_m2": 592.8
@@ -284,6 +364,7 @@
     "reply": "Nearest one is in Stairwell N3834 (N3834, Floor 3), 21.26 m away; from there to Generic room N1838 (N1838, Floor 1) is 32.73 m.\nAnswer: 53.98 m",
     "answer": "53.98 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way43035346-F3-S016",
       "asset_type": "fire_extinguisher",
@@ -291,6 +372,27 @@
       "room_type": "generic_room",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "osm-way43035346-F3-S016",
+      "osm-way43035346-F3-S017",
+      "osm-way43035346-F3-S019",
+      "osm-way43035346-F2-S009",
+      "osm-way43035346-F1-S022",
+      "osm-way43035346-F1-S016",
+      "osm-way43035346-F1-S002"
+    ],
+    "element_path": [
+      "osm-way43035346-F3-O0075",
+      "osm-way43035346-F3-O0153",
+      "osm-way43035346-V02",
+      "osm-way43035346-V02",
+      "osm-way43035346-F1-O0038",
+      "osm-way43035346-F1-O0033"
+    ],
+    "length_m": 53.98,
     "result": {
       "via": {
         "space_id": "osm-way43035346-F3-S019",
@@ -386,10 +488,17 @@
     "reply": "The room directly above it is Generic room N0806 (N0806, Ground floor) (3.26 m² of overlap).\nAnswer: N0806",
     "answer": "N0806",
     "kind": "room_stacked",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way43035346-F-1-S014",
       "direction": "above"
     },
+    "item_id": null,
+    "space_id": "osm-way43035346-F0-S014",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way43035346-F0-S014",
       "name": "Generic room N0806",
@@ -405,9 +514,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Generic room -1.07 (-1.07, Basement 1), Generic room N-1806B (N-1806B, Basement 1), Generic room N-1806A (N-1806A, Basement 1), Generic room N-1841 (N-1841, Basement 1), Generic room N-1842 (N-1842, Basement 1), Generic room -1.26 (-1.26, Basement 1).\nAnswer: 6",
     "answer": "6",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way43035346-F-1-S012"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 6,
       "rooms": [
@@ -463,10 +579,17 @@
     "reply": "Centre to centre, through floors and walls: 11.85 m.\nAnswer: 11.85 m",
     "answer": "11.85 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "osm-way43035346-F-1-S022",
       "second": "osm-way43035346-F2-S026"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 11.85
     },
@@ -478,12 +601,19 @@
     "reply": "Rooms counted: none.\nAnswer: 0",
     "answer": "0",
     "kind": "what_if_door",
+    "parser": "regex",
     "inputs": {
       "first": "osm-way43035346-F0-S011",
       "second": "osm-way43035346-F0-S012",
       "floor_id": "osm-way43035346-F3",
       "door_floor_id": "osm-way43035346-F0"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 0,
       "rooms": []
@@ -496,10 +626,17 @@
     "reply": "The largest generic room is Generic room 0566 (0566, Ground floor) at 559.80 m².\nAnswer: 0566, 559.80 m²",
     "answer": "0566, 559.80 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "osm-way50299584-F0",
       "room_type": "generic_room"
     },
+    "item_id": null,
+    "space_id": "osm-way50299584-F0-S043",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way50299584-F0-S043",
       "name": "Generic room 0566",
@@ -515,10 +652,17 @@
     "reply": "41 rooms of that type add up to 959.75 m².\nAnswer: 959.75 m²",
     "answer": "959.75 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "osm-way50299584-F3",
       "room_type": "generic_room"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 41,
       "total_m2": 959.75
@@ -531,6 +675,7 @@
     "reply": "Nearest one is in Corridor 2591 (2591, Floor 2), 56.15 m away; from there to Generic room 2538 (2538, Floor 2) is 47.21 m.\nAnswer: 103.36 m",
     "answer": "103.36 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way50299584-F1-S020",
       "asset_type": "coat_rack",
@@ -538,6 +683,33 @@
       "room_type": "generic_room",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "osm-way50299584-F1-S020",
+      "osm-way50299584-F1-S018",
+      "osm-way50299584-F1-S016",
+      "osm-way50299584-F1-S065",
+      "osm-way50299584-F1-S064",
+      "osm-way50299584-F2-S027",
+      "osm-way50299584-F2-S006",
+      "osm-way50299584-F2-S037",
+      "osm-way50299584-F2-S085",
+      "osm-way50299584-F2-S018"
+    ],
+    "element_path": [
+      "osm-way50299584-F1-O0163",
+      "osm-way50299584-F1-O0188",
+      "osm-way50299584-F1-O0187",
+      "osm-way50299584-F1-O0391",
+      "osm-way50299584-V05",
+      "osm-way50299584-F2-O0394",
+      "osm-way50299584-F2-O0205",
+      "osm-way50299584-F2-O0374",
+      "osm-way50299584-F2-O0371"
+    ],
+    "length_m": 103.36,
     "result": {
       "via": {
         "space_id": "osm-way50299584-F2-S006",
@@ -645,10 +817,17 @@
     "reply": "The room directly above it is Generic room 0583 (0583, Ground floor) (10.90 m² of overlap).\nAnswer: 0583",
     "answer": "0583",
     "kind": "room_stacked",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way50299584-F-1-S046",
       "direction": "above"
     },
+    "item_id": null,
+    "space_id": "osm-way50299584-F0-S013",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way50299584-F0-S013",
       "name": "Generic room 0583",
@@ -664,10 +843,17 @@
     "reply": "The room directly below it is Generic room -1530 (-1530, Basement 1) (14.65 m² of overlap).\nAnswer: -1530",
     "answer": "-1530",
     "kind": "room_stacked",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way50299584-F0-S002",
       "direction": "below"
     },
+    "item_id": null,
+    "space_id": "osm-way50299584-F-1-S037",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way50299584-F-1-S037",
       "name": "Generic room -1530",
@@ -683,10 +869,17 @@
     "reply": "The room directly above it is Generic room 1530 (1530, Floor 1) (12.65 m² of overlap).\nAnswer: 1530",
     "answer": "1530",
     "kind": "room_stacked",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way50299584-F0-S012",
       "direction": "above"
     },
+    "item_id": null,
+    "space_id": "osm-way50299584-F1-S033",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way50299584-F1-S033",
       "name": "Generic room 1530",
@@ -702,9 +895,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Generic room 2530 (2530, Floor 2), Generic room 2523 (2523, Floor 2), Generic room 2522A (2522A, Floor 2), Generic room 2523A (2523A, Floor 2).\nAnswer: 4",
     "answer": "4",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way50299584-F2-S030"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "rooms": [
@@ -746,10 +946,17 @@
     "reply": "Centre to centre, through floors and walls: 62.01 m.\nAnswer: 62.01 m",
     "answer": "62.01 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "osm-way50299584-F3-S022",
       "second": "osm-way50299584-F1-S068"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 62.01
     },
@@ -761,10 +968,17 @@
     "reply": "The largest generic room is Generic room 0219 (0219, Ground floor) at 530.16 m².\nAnswer: 0219, 530.16 m²",
     "answer": "0219, 530.16 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "osm-way50300147-F0",
       "room_type": "generic_room"
     },
+    "item_id": null,
+    "space_id": "osm-way50300147-F0-S047",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way50300147-F0-S047",
       "name": "Generic room 0219",
@@ -780,10 +994,17 @@
     "reply": "43 rooms of that type add up to 1699.55 m².\nAnswer: 1699.55 m²",
     "answer": "1699.55 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "osm-way50300147-F1",
       "room_type": "generic_room"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 43,
       "total_m2": 1699.55
@@ -796,6 +1017,7 @@
     "reply": "Nearest one is in Generic room 1211B (1211B, Floor 1), 2.71 m away; from there to Generic room 2221 (2221, Floor 2) is 75.53 m.\nAnswer: 78.24 m",
     "answer": "78.24 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way50300147-F1-S057",
       "asset_type": "desk",
@@ -803,6 +1025,31 @@
       "room_type": "generic_room",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "osm-way50300147-F1-S057",
+      "osm-way50300147-F1-S037",
+      "osm-way50300147-F1-S057",
+      "osm-way50300147-F1-S016",
+      "osm-way50300147-F1-S049",
+      "osm-way50300147-F1-S005",
+      "osm-way50300147-F2-S013",
+      "osm-way50300147-F2-S001",
+      "osm-way50300147-F2-S003"
+    ],
+    "element_path": [
+      "osm-way50300147-F1-O0108",
+      "osm-way50300147-F1-O0108",
+      "osm-way50300147-F1-O0106",
+      "osm-way50300147-F1-O0089",
+      "osm-way50300147-F1-O0268",
+      "osm-way50300147-V05",
+      "osm-way50300147-F2-O0276",
+      "osm-way50300147-F2-O0218"
+    ],
+    "length_m": 78.24,
     "result": {
       "via": {
         "space_id": "osm-way50300147-F1-S037",
@@ -906,10 +1153,17 @@
     "reply": "The room directly above it is Generic room 0260 (0260, Ground floor) (69.54 m² of overlap).\nAnswer: 0260",
     "answer": "0260",
     "kind": "room_stacked",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way50300147-F-1-S061",
       "direction": "above"
     },
+    "item_id": null,
+    "space_id": "osm-way50300147-F0-S019",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way50300147-F0-S019",
       "name": "Generic room 0260",
@@ -925,10 +1179,17 @@
     "reply": "The room directly below it is Generic room 0219 (0219, Ground floor) (1.51 m² of overlap).\nAnswer: 0219",
     "answer": "0219",
     "kind": "room_stacked",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way50300147-F1-S054",
       "direction": "below"
     },
+    "item_id": null,
+    "space_id": "osm-way50300147-F0-S047",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way50300147-F0-S047",
       "name": "Generic room 0219",
@@ -944,10 +1205,17 @@
     "reply": "The room directly above it is Generic room 0209 (0209, Ground floor) (33.87 m² of overlap).\nAnswer: 0209",
     "answer": "0209",
     "kind": "room_stacked",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way50300147-F-1-S032",
       "direction": "above"
     },
+    "item_id": null,
+    "space_id": "osm-way50300147-F0-S054",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "osm-way50300147-F0-S054",
       "name": "Generic room 0209",
@@ -963,9 +1231,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Generic room -1247e (-1247e, Basement 1), Generic room -1206 (-1206, Basement 1), Generic room -1202 (-1202, Basement 1), Generic room -1247d (-1247d, Basement 1), Generic room -1247f (-1247f, Basement 1), Generic room -1247c (-1247c, Basement 1).\nAnswer: 6",
     "answer": "6",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "osm-way50300147-F-1-S038"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 6,
       "rooms": [
@@ -1021,10 +1296,17 @@
     "reply": "Centre to centre, through floors and walls: 45.49 m.\nAnswer: 45.49 m",
     "answer": "45.49 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "osm-way50300147-F2-S036",
       "second": "osm-way50300147-F-1-S011"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 45.49
     },
@@ -1036,12 +1318,19 @@
     "reply": "Rooms counted: Generic room -1263, Generic room -1237, Generic room -1265, Generic room -1235, Generic room -1217, Generic room -1255, Generic room -1213, Generic room -1209, Generic room -1207B, Generic room -1205, Generic room -1265A, Generic room -1249, Generic room -1257, Generic room -1237A, Generic room -1275, Generic room -1260a, Generic room -1247e, Generic room -1216, Generic room -1207A, Generic room -1220, Generic room -1218A, Generic room -1208, Generic room -1211, Generic room -1206, Generic room -1267, Generic room -1247, Generic room -1202, Generic room -1227, Generic room -1249B, Generic room -1239, Generic room -1237B, Generic room -1221, Generic room -1267A, Generic room -1247a, Generic room -1247d, Generic room -1229, Generic room -1210, Generic room -1247b, Generic room -1207, Generic room -1212, Generic room -1271, Generic room -1241, Generic room -1245, Generic room -1215, Generic room -1214, Generic room -1247f, Generic room -1247c.\nAnswer: 47",
     "answer": "47",
     "kind": "what_if_door",
+    "parser": "regex",
     "inputs": {
       "first": "osm-way50300147-F0-S014",
       "second": "osm-way50300147-F0-S028",
       "floor_id": "osm-way50300147-F-1",
       "door_floor_id": "osm-way50300147-F0"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 47,
       "rooms": [
@@ -1102,12 +1391,19 @@
     "reply": "Rooms counted: Generic room -1263, Generic room -1237, Generic room -1265, Generic room -1235, Generic room -1217, Generic room -1255, Generic room -1213, Generic room -1209, Generic room -1207B, Generic room -1205, Generic room -1265A, Generic room -1249, Generic room -1257, Generic room -1237A, Generic room -1275, Generic room -1260a, Generic room -1247e, Generic room -1216, Generic room -1207A, Generic room -1220, Generic room -1218A, Generic room -1208, Generic room -1211, Generic room -1206, Generic room -1267, Generic room -1247, Generic room -1202, Generic room -1227, Generic room -1249B, Generic room -1239, Generic room -1237B, Generic room -1221, Generic room -1267A, Generic room -1247a, Generic room -1247d, Generic room -1229, Generic room -1210, Generic room -1247b, Generic room -1207, Generic room -1212, Generic room -1271, Generic room -1241, Generic room -1245, Generic room -1215, Generic room -1214, Generic room -1247f, Generic room -1247c.\nAnswer: 47",
     "answer": "47",
     "kind": "what_if_door",
+    "parser": "regex",
     "inputs": {
       "first": "osm-way50300147-F0-S001",
       "second": "osm-way50300147-F0-S006",
       "floor_id": "osm-way50300147-F-1",
       "door_floor_id": "osm-way50300147-F0"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 47,
       "rooms": [
@@ -1168,10 +1464,17 @@
     "reply": "The largest toilet is Toilet 1.25 (1.25, Floor 1) at 34.02 m².\nAnswer: 1.25, 34.02 m²",
     "answer": "1.25, 34.02 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-campus-test-000-F1",
       "room_type": "toilet"
     },
+    "item_id": null,
+    "space_id": "proc-campus-test-000-F1-S025",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "proc-campus-test-000-F1-S025",
       "name": "Toilet 1.25",
@@ -1187,10 +1490,17 @@
     "reply": "4 rooms of that type add up to 105.42 m².\nAnswer: 105.42 m²",
     "answer": "105.42 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-campus-test-000-F-1",
       "room_type": "server_room"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "total_m2": 105.42
@@ -1203,11 +1513,18 @@
     "reply": "Rooms counted: Lab 1.03, Lab 1.08, Storage 1.12, Seminar room 1.14, Lab 1.18, Toilet 1.21, Seminar room 1.22, Storage 1.23, Storage 1.24, Toilet 1.25, Storage 1.26, Library 1.27, Toilet 1.29, Storage 1.31, Lab 1.32, Lab 1.33, Seminar room 1.34, Seminar room 1.38, Lab 1.40, Lab 1.41, Seminar room 1.43.\nAnswer: 21",
     "answer": "21",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-000-F0-S014",
       "floor_id": "proc-campus-test-000-F1",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 21,
       "rooms": [
@@ -1242,6 +1559,7 @@
     "reply": "Nearest one is in Kitchen 4.41 (4.41, Floor 4), 45.30 m away; from there to Meeting room 2.09 (2.09, Floor 2) is 82.94 m.\nAnswer: 128.24 m",
     "answer": "128.24 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-000-F4-S027",
       "asset_type": "coffee_machine",
@@ -1249,6 +1567,35 @@
       "room_type": "meeting_room",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "proc-campus-test-000-F4-S027",
+      "proc-campus-test-000-F4-S001",
+      "proc-campus-test-000-F4-S002",
+      "proc-campus-test-000-F4-S041",
+      "proc-campus-test-000-F4-S002",
+      "proc-campus-test-000-F4-S001",
+      "proc-campus-test-000-F4-S010",
+      "proc-campus-test-000-F3-S010",
+      "proc-campus-test-000-F2-S010",
+      "proc-campus-test-000-F2-S001",
+      "proc-campus-test-000-F2-S009"
+    ],
+    "element_path": [
+      "proc-campus-test-000-F4-O0236",
+      "proc-campus-test-000-F4-O0211",
+      "proc-campus-test-000-F4-O0250",
+      "proc-campus-test-000-F4-O0250",
+      "proc-campus-test-000-F4-O0211",
+      "proc-campus-test-000-F4-O0219",
+      "proc-campus-test-000-V03",
+      "proc-campus-test-000-V03",
+      "proc-campus-test-000-F2-O0135",
+      "proc-campus-test-000-F2-O0134"
+    ],
+    "length_m": 128.24,
     "result": {
       "via": {
         "space_id": "proc-campus-test-000-F4-S041",
@@ -1360,10 +1707,17 @@
     "reply": "Centre to centre, through floors and walls: 41.31 m.\nAnswer: 41.31 m",
     "answer": "41.31 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "proc-campus-test-000-F2-S023",
       "second": "proc-campus-test-000-F0-S036"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 41.31
     },
@@ -1375,10 +1729,17 @@
     "reply": "The largest meeting room is Meeting room 0.15 (0.15, Ground floor) at 35.46 m².\nAnswer: 0.15, 35.46 m²",
     "answer": "0.15, 35.46 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-campus-test-004-F0",
       "room_type": "meeting_room"
     },
+    "item_id": null,
+    "space_id": "proc-campus-test-004-F0-S015",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "proc-campus-test-004-F0-S015",
       "name": "Meeting room 0.15",
@@ -1394,10 +1755,17 @@
     "reply": "6 rooms of that type add up to 184.14 m².\nAnswer: 184.14 m²",
     "answer": "184.14 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-campus-test-004-F1",
       "room_type": "office"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 6,
       "total_m2": 184.14
@@ -1410,11 +1778,18 @@
     "reply": "Rooms counted: Seminar room 2.06, Storage 2.09, Seminar room 2.10, Lab 2.13, Seminar room 2.15, Seminar room 2.16, Toilet 2.18, Lab 2.20, Meeting room 2.22, Lab 2.23, Toilet 2.24, Seminar room 2.25, Seminar room 2.26.\nAnswer: 13",
     "answer": "13",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-004-F0-S014",
       "floor_id": "proc-campus-test-004-F2",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 13,
       "rooms": [
@@ -1441,6 +1816,7 @@
     "reply": "Nearest one is in Kitchen 0.05 (0.05, Ground floor), 33.56 m away; from there to Lab 1.17 (1.17, Floor 1) is 40.73 m.\nAnswer: 74.29 m",
     "answer": "74.29 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-004-F0-S012",
       "asset_type": "stove",
@@ -1448,6 +1824,29 @@
       "room_type": "lab",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "proc-campus-test-004-F0-S012",
+      "proc-campus-test-004-F0-S001",
+      "proc-campus-test-004-F0-S005",
+      "proc-campus-test-004-F0-S001",
+      "proc-campus-test-004-F0-S002",
+      "proc-campus-test-004-F1-S004",
+      "proc-campus-test-004-F1-S001",
+      "proc-campus-test-004-F1-S017"
+    ],
+    "element_path": [
+      "proc-campus-test-004-F0-O0011",
+      "proc-campus-test-004-F0-O0004",
+      "proc-campus-test-004-F0-O0004",
+      "proc-campus-test-004-F0-O0001",
+      "proc-campus-test-004-V01",
+      "proc-campus-test-004-F1-O0027",
+      "proc-campus-test-004-F1-O0040"
+    ],
+    "length_m": 74.29,
     "result": {
       "via": {
         "space_id": "proc-campus-test-004-F0-S005",
@@ -1547,10 +1946,17 @@
     "reply": "Centre to centre, through floors and walls: 15.06 m.\nAnswer: 15.06 m",
     "answer": "15.06 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "proc-campus-test-004-F1-S017",
       "second": "proc-campus-test-004-F3-S019"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 15.06
     },
@@ -1562,10 +1968,17 @@
     "reply": "The largest meeting room is Meeting room 1.13 (1.13, Floor 1) at 41.52 m².\nAnswer: 1.13, 41.52 m²",
     "answer": "1.13, 41.52 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-campus-test-005-F1",
       "room_type": "meeting_room"
     },
+    "item_id": null,
+    "space_id": "proc-campus-test-005-F1-S013",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "proc-campus-test-005-F1-S013",
       "name": "Meeting room 1.13",
@@ -1581,10 +1994,17 @@
     "reply": "16 rooms of that type add up to 456.72 m².\nAnswer: 456.72 m²",
     "answer": "456.72 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-campus-test-005-F0",
       "room_type": "office"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 16,
       "total_m2": 456.72
@@ -1597,11 +2017,18 @@
     "reply": "Rooms counted: Lab 4.04, Meeting room 4.05, Seminar room 4.06, Lab 4.09, Lab 4.10, Meeting room 4.21, Lab 4.22, Toilet 4.23, Meeting room 4.24, Storage 4.26, Storage 4.27, Seminar room 4.30, Toilet 4.31, Seminar room 4.33, Seminar room 4.34, Storage 4.35, Seminar room 4.41, Meeting room 4.47.\nAnswer: 18",
     "answer": "18",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-005-F0-S015",
       "floor_id": "proc-campus-test-005-F4",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 18,
       "rooms": [
@@ -1633,6 +2060,7 @@
     "reply": "Nearest one is in Kitchen 2.33 (2.33, Floor 2), 29.09 m away; from there to Storage 1.27 (1.27, Floor 1) is 60.43 m.\nAnswer: 89.51 m",
     "answer": "89.51 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-005-F2-S037",
       "asset_type": "kitchen_counter",
@@ -1640,6 +2068,31 @@
       "room_type": "storage",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "proc-campus-test-005-F2-S037",
+      "proc-campus-test-005-F2-S002",
+      "proc-campus-test-005-F2-S033",
+      "proc-campus-test-005-F2-S002",
+      "proc-campus-test-005-F2-S001",
+      "proc-campus-test-005-F2-S015",
+      "proc-campus-test-005-F1-S015",
+      "proc-campus-test-005-F1-S001",
+      "proc-campus-test-005-F1-S027"
+    ],
+    "element_path": [
+      "proc-campus-test-005-F2-O0174",
+      "proc-campus-test-005-F2-O0170",
+      "proc-campus-test-005-F2-O0170",
+      "proc-campus-test-005-F2-O0139",
+      "proc-campus-test-005-F2-O0152",
+      "proc-campus-test-005-V03",
+      "proc-campus-test-005-F1-O0106",
+      "proc-campus-test-005-F1-O0118"
+    ],
+    "length_m": 89.51,
     "result": {
       "via": {
         "space_id": "proc-campus-test-005-F2-S033",
@@ -1743,9 +2196,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Storage -1.30 (-1.30, Basement 1), Locker room -1.40 (-1.40, Basement 1), Locker room -1.41 (-1.41, Basement 1).\nAnswer: 3",
     "answer": "3",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-005-F-1-S031"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "rooms": [
@@ -1780,10 +2240,17 @@
     "reply": "Centre to centre, through floors and walls: 39.09 m.\nAnswer: 39.09 m",
     "answer": "39.09 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "proc-campus-test-005-F4-S010",
       "second": "proc-campus-test-005-F2-S041"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 39.09
     },
@@ -1795,10 +2262,17 @@
     "reply": "The largest office is Office 2.19 (2.19, Floor 2) at 39.66 m².\nAnswer: 2.19, 39.66 m²",
     "answer": "2.19, 39.66 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-campus-test-008-F2",
       "room_type": "office"
     },
+    "item_id": null,
+    "space_id": "proc-campus-test-008-F2-S019",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "proc-campus-test-008-F2-S019",
       "name": "Office 2.19",
@@ -1814,10 +2288,17 @@
     "reply": "3 rooms of that type add up to 86.40 m².\nAnswer: 86.40 m²",
     "answer": "86.40 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-campus-test-008-F1",
       "room_type": "meeting_room"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "total_m2": 86.4
@@ -1830,11 +2311,18 @@
     "reply": "Rooms counted: Lab 5.02, Lab 5.03, Seminar room 5.04, Meeting room 5.08, Storage 5.10, Seminar room 5.12, Lab 5.16, Storage 5.18, Toilet 5.20, Toilet 5.26, Lab 5.28.\nAnswer: 11",
     "answer": "11",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-008-F0-S013",
       "floor_id": "proc-campus-test-008-F5",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 11,
       "rooms": [
@@ -1859,6 +2347,7 @@
     "reply": "Nearest one is in Office 3.24 (3.24, Floor 3), 22.46 m away; from there to Meeting room 1.07 (1.07, Floor 1) is 56.45 m.\nAnswer: 78.91 m",
     "answer": "78.91 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-008-F3-S021",
       "asset_type": "plant",
@@ -1866,6 +2355,31 @@
       "room_type": "meeting_room",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "proc-campus-test-008-F3-S021",
+      "proc-campus-test-008-F3-S001",
+      "proc-campus-test-008-F3-S024",
+      "proc-campus-test-008-F3-S001",
+      "proc-campus-test-008-F3-S005",
+      "proc-campus-test-008-F2-S005",
+      "proc-campus-test-008-F1-S005",
+      "proc-campus-test-008-F1-S001",
+      "proc-campus-test-008-F1-S007"
+    ],
+    "element_path": [
+      "proc-campus-test-008-F3-O0131",
+      "proc-campus-test-008-F3-O0134",
+      "proc-campus-test-008-F3-O0134",
+      "proc-campus-test-008-F3-O0115",
+      "proc-campus-test-008-V01",
+      "proc-campus-test-008-V01",
+      "proc-campus-test-008-F1-O0059",
+      "proc-campus-test-008-F1-O0061"
+    ],
+    "length_m": 78.91,
     "result": {
       "via": {
         "space_id": "proc-campus-test-008-F3-S024",
@@ -1969,10 +2483,17 @@
     "reply": "Centre to centre, through floors and walls: 33.73 m.\nAnswer: 33.73 m",
     "answer": "33.73 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "proc-campus-test-008-F1-S025",
       "second": "proc-campus-test-008-F-1-S019"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 33.73
     },
@@ -1984,10 +2505,17 @@
     "reply": "The largest office is Office 1.12 (1.12, Floor 1) at 40.02 m².\nAnswer: 1.12, 40.02 m²",
     "answer": "1.12, 40.02 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-campus-test-012-F1",
       "room_type": "office"
     },
+    "item_id": null,
+    "space_id": "proc-campus-test-012-F1-S012",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "proc-campus-test-012-F1-S012",
       "name": "Office 1.12",
@@ -2003,10 +2531,17 @@
     "reply": "3 rooms of that type add up to 99.18 m².\nAnswer: 99.18 m²",
     "answer": "99.18 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-campus-test-012-F4",
       "room_type": "toilet"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "total_m2": 99.18
@@ -2019,11 +2554,18 @@
     "reply": "Rooms counted: Meeting room 1.02, Lab 1.03, Meeting room 1.07, Seminar room 1.08, Meeting room 1.11, Library 1.13, Storage 1.17, Lab 1.18, Toilet 1.20, Meeting room 1.24, Toilet 1.25, Storage 1.26, Seminar room 1.27, Makerspace 1.29, Toilet 1.30, Seminar room 1.32.\nAnswer: 16",
     "answer": "16",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-012-F0-S018",
       "floor_id": "proc-campus-test-012-F1",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 16,
       "rooms": [
@@ -2053,6 +2595,7 @@
     "reply": "Nearest one is in Office 3.23 (3.23, Floor 3), 9.77 m away; from there to Lab 3.13 (3.13, Floor 3) is 34.06 m.\nAnswer: 43.83 m",
     "answer": "43.83 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-012-F3-S022",
       "asset_type": "plant",
@@ -2060,6 +2603,23 @@
       "room_type": "lab",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "proc-campus-test-012-F3-S022",
+      "proc-campus-test-012-F3-S001",
+      "proc-campus-test-012-F3-S023",
+      "proc-campus-test-012-F3-S001",
+      "proc-campus-test-012-F3-S013"
+    ],
+    "element_path": [
+      "proc-campus-test-012-F3-O0113",
+      "proc-campus-test-012-F3-O0114",
+      "proc-campus-test-012-F3-O0114",
+      "proc-campus-test-012-F3-O0104"
+    ],
+    "length_m": 43.83,
     "result": {
       "via": {
         "space_id": "proc-campus-test-012-F3-S023",
@@ -2147,10 +2707,17 @@
     "reply": "Centre to centre, through floors and walls: 38.46 m.\nAnswer: 38.46 m",
     "answer": "38.46 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "proc-campus-test-012-F4-S028",
       "second": "proc-campus-test-012-F0-S006"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 38.46
     },
@@ -2162,10 +2729,17 @@
     "reply": "The largest storage is Storage 5.26 (5.26, Floor 5) at 40.86 m².\nAnswer: 5.26, 40.86 m²",
     "answer": "5.26, 40.86 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-campus-test-013-F5",
       "room_type": "storage"
     },
+    "item_id": null,
+    "space_id": "proc-campus-test-013-F5-S026",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "proc-campus-test-013-F5-S026",
       "name": "Storage 5.26",
@@ -2181,10 +2755,17 @@
     "reply": "8 rooms of that type add up to 200.28 m².\nAnswer: 200.28 m²",
     "answer": "200.28 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-campus-test-013-F1",
       "room_type": "lab"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 8,
       "total_m2": 200.28
@@ -2197,11 +2778,18 @@
     "reply": "Rooms counted: Storage 3.07, Meeting room 3.13, Lab 3.14, Seminar room 3.15, Toilet 3.17, Seminar room 3.18, Toilet 3.20, Lab 3.21, Lab 3.22, Lab 3.23, Lab 3.26, Storage 3.33, Meeting room 3.34, Seminar room 3.36, Lab 3.40.\nAnswer: 15",
     "answer": "15",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-013-F0-S010",
       "floor_id": "proc-campus-test-013-F3",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 15,
       "rooms": [
@@ -2230,6 +2818,7 @@
     "reply": "Nearest one is in Lab 5.38 (5.38, Floor 5), 35.49 m away; from there to Lab 1.34 (1.34, Floor 1) is 81.12 m.\nAnswer: 116.61 m",
     "answer": "116.61 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "proc-campus-test-013-F4-S029",
       "asset_type": "chemical_cabinet",
@@ -2237,6 +2826,41 @@
       "room_type": "lab",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "proc-campus-test-013-F4-S029",
+      "proc-campus-test-013-F4-S002",
+      "proc-campus-test-013-F4-S030",
+      "proc-campus-test-013-F5-S030",
+      "proc-campus-test-013-F5-S002",
+      "proc-campus-test-013-F5-S038",
+      "proc-campus-test-013-F5-S002",
+      "proc-campus-test-013-F5-S030",
+      "proc-campus-test-013-F4-S030",
+      "proc-campus-test-013-F3-S030",
+      "proc-campus-test-013-F2-S030",
+      "proc-campus-test-013-F1-S030",
+      "proc-campus-test-013-F1-S002",
+      "proc-campus-test-013-F1-S034"
+    ],
+    "element_path": [
+      "proc-campus-test-013-F4-O0228",
+      "proc-campus-test-013-F4-O0229",
+      "proc-campus-test-013-V05",
+      "proc-campus-test-013-F5-O0269",
+      "proc-campus-test-013-F5-O0277",
+      "proc-campus-test-013-F5-O0277",
+      "proc-campus-test-013-F5-O0269",
+      "proc-campus-test-013-V05",
+      "proc-campus-test-013-V05",
+      "proc-campus-test-013-V05",
+      "proc-campus-test-013-V05",
+      "proc-campus-test-013-F1-O0109",
+      "proc-campus-test-013-F1-O0113"
+    ],
+    "length_m": 116.61,
     "result": {
       "via": {
         "space_id": "proc-campus-test-013-F5-S038",
@@ -2360,10 +2984,17 @@
     "reply": "Centre to centre, through floors and walls: 36.37 m.\nAnswer: 36.37 m",
     "answer": "36.37 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "proc-campus-test-013-F5-S035",
       "second": "proc-campus-test-013-F1-S007"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 36.37
     },
@@ -2375,10 +3006,17 @@
     "reply": "4 rooms of that type add up to 92.10 m².\nAnswer: 92.10 m²",
     "answer": "92.10 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-factory-test-001-F0",
       "room_type": "meeting_room"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "total_m2": 92.1
@@ -2391,11 +3029,18 @@
     "reply": "Rooms counted: Server room 0.24, Meeting room 0.25, Toilet 0.26, Quality lab 0.30, Meeting room 0.34, Meeting room 0.39, Server room 0.41, Server room 0.42, Meeting room 0.44.\nAnswer: 9",
     "answer": "9",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-001-F0-S011",
       "floor_id": "proc-factory-test-001-F0",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 9,
       "rooms": [
@@ -2418,9 +3063,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Assembly zone H-A1 (H-A1, Ground floor), Production zone H-A3 (H-A3, Ground floor), Office 0.22 (0.22, Ground floor), Office 0.23 (0.23, Ground floor), Server room 0.24 (0.24, Ground floor), Meeting room 0.25 (0.25, Ground floor).\nAnswer: 6",
     "answer": "6",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-001-F0-S002"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 6,
       "rooms": [
@@ -2476,10 +3128,17 @@
     "reply": "5 rooms of that type add up to 126.50 m².\nAnswer: 126.50 m²",
     "answer": "126.50 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-factory-test-002-F0",
       "room_type": "meeting_room"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 5,
       "total_m2": 126.5
@@ -2492,11 +3151,18 @@
     "reply": "Rooms counted: Meeting room 0.44, Server room 0.45, Server room 0.46, Toilet 0.48, Meeting room 0.50, Meeting room 0.51, Quality lab 0.53, Meeting room 0.54, Meeting room 0.60.\nAnswer: 9",
     "answer": "9",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-002-F0-S031",
       "floor_id": "proc-factory-test-002-F0",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 9,
       "rooms": [
@@ -2519,9 +3185,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Warehouse zone H-A1 (H-A1, Ground floor), Production zone H-A2 (H-A2, Ground floor), Office 0.37 (0.37, Ground floor), Office 0.39 (0.39, Ground floor).\nAnswer: 4",
     "answer": "4",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-002-F0-S038"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "rooms": [
@@ -2563,10 +3236,17 @@
     "reply": "Centre to centre, through floors and walls: 111.98 m.\nAnswer: 111.98 m",
     "answer": "111.98 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "proc-factory-test-002-F2-S020",
       "second": "proc-factory-test-002-F0-S024"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 111.98
     },
@@ -2578,10 +3258,17 @@
     "reply": "The largest meeting room is Meeting room 1.17 (1.17, Floor 1) at 29.35 m².\nAnswer: 1.17, 29.35 m²",
     "answer": "1.17, 29.35 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-factory-test-003-F1",
       "room_type": "meeting_room"
     },
+    "item_id": null,
+    "space_id": "proc-factory-test-003-F1-S017",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "proc-factory-test-003-F1-S017",
       "name": "Meeting room 1.17",
@@ -2597,10 +3284,17 @@
     "reply": "7 rooms of that type add up to 154.20 m².\nAnswer: 154.20 m²",
     "answer": "154.20 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-factory-test-003-F2",
       "room_type": "meeting_room"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 7,
       "total_m2": 154.2
@@ -2613,11 +3307,18 @@
     "reply": "Rooms counted: Server room 0.31, Meeting room 0.40, Quality lab 0.41, Server room 0.43, Server room 0.47, Meeting room 0.50, Toilet 0.55.\nAnswer: 7",
     "answer": "7",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-003-F0-S025",
       "floor_id": "proc-factory-test-003-F0",
       "min_width": 1.1
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 7,
       "rooms": [
@@ -2638,6 +3339,7 @@
     "reply": "Nearest one is in Server room 1.14 (1.14, Floor 1), 24.23 m away; from there to Kitchen 0.29 (0.29, Ground floor) is 65.63 m.\nAnswer: 89.86 m",
     "answer": "89.86 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-003-F1-S010",
       "asset_type": "server_rack",
@@ -2645,6 +3347,29 @@
       "room_type": "kitchen",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "proc-factory-test-003-F1-S010",
+      "proc-factory-test-003-F1-S001",
+      "proc-factory-test-003-F1-S014",
+      "proc-factory-test-003-F1-S001",
+      "proc-factory-test-003-F1-S002",
+      "proc-factory-test-003-F0-S026",
+      "proc-factory-test-003-F0-S025",
+      "proc-factory-test-003-F0-S029"
+    ],
+    "element_path": [
+      "proc-factory-test-003-F1-O0087",
+      "proc-factory-test-003-F1-O0091",
+      "proc-factory-test-003-F1-O0091",
+      "proc-factory-test-003-F1-O0079",
+      "proc-factory-test-003-V01",
+      "proc-factory-test-003-F0-O0037",
+      "proc-factory-test-003-F0-O0041"
+    ],
+    "length_m": 89.86,
     "result": {
       "via": {
         "space_id": "proc-factory-test-003-F1-S014",
@@ -2744,9 +3469,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Warehouse zone H-A2 (H-A2, Ground floor), Office 0.32 (0.32, Ground floor), Kitchen 0.34 (0.34, Ground floor).\nAnswer: 3",
     "answer": "3",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-003-F0-S033"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "rooms": [
@@ -2781,10 +3513,17 @@
     "reply": "Centre to centre, through floors and walls: 32.02 m.\nAnswer: 32.02 m",
     "answer": "32.02 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "proc-factory-test-003-F2-S027",
       "second": "proc-factory-test-003-F0-S058"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 32.02
     },
@@ -2796,10 +3535,17 @@
     "reply": "9 rooms of that type add up to 203.30 m².\nAnswer: 203.30 m²",
     "answer": "203.30 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-factory-test-006-F2",
       "room_type": "office"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 9,
       "total_m2": 203.3
@@ -2812,11 +3558,18 @@
     "reply": "Rooms counted: Toilet 2.08, Meeting room 2.11, Meeting room 2.13, Meeting room 2.15.\nAnswer: 4",
     "answer": "4",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-006-F0-S008",
       "floor_id": "proc-factory-test-006-F2",
       "min_width": 1.1
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "rooms": [
@@ -2834,9 +3587,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Additive zone H-A2 (H-A2, Ground floor), Server room 0.19 (0.19, Ground floor), Meeting room 0.21 (0.21, Ground floor).\nAnswer: 3",
     "answer": "3",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-006-F0-S020"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "rooms": [
@@ -2871,10 +3631,17 @@
     "reply": "Centre to centre, through floors and walls: 53.09 m.\nAnswer: 53.09 m",
     "answer": "53.09 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "proc-factory-test-006-F0-S012",
       "second": "proc-factory-test-006-F2-S010"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 53.09
     },
@@ -2886,10 +3653,17 @@
     "reply": "The largest kitchen is Kitchen 1.10 (1.10, Floor 1) at 28.75 m².\nAnswer: 1.10, 28.75 m²",
     "answer": "1.10, 28.75 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-factory-test-007-F1",
       "room_type": "kitchen"
     },
+    "item_id": null,
+    "space_id": "proc-factory-test-007-F1-S010",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "proc-factory-test-007-F1-S010",
       "name": "Kitchen 1.10",
@@ -2905,10 +3679,17 @@
     "reply": "18 rooms of that type add up to 413.40 m².\nAnswer: 413.40 m²",
     "answer": "413.40 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-factory-test-007-F1",
       "room_type": "office"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 18,
       "total_m2": 413.4
@@ -2921,11 +3702,18 @@
     "reply": "Rooms counted: Server room 0.31, Toilet 0.32, Server room 0.34, Meeting room 0.46, Quality lab 0.48, Server room 0.50, Meeting room 0.55, Server room 0.58, Server room 0.62.\nAnswer: 9",
     "answer": "9",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-007-F0-S019",
       "floor_id": "proc-factory-test-007-F0",
       "min_width": 1.1
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 9,
       "rooms": [
@@ -2948,6 +3736,7 @@
     "reply": "Nearest one is in Production zone H-B2 (H-B2, Ground floor), 97.02 m away; from there to Kitchen 1.10 (1.10, Floor 1) is 123.59 m.\nAnswer: 220.61 m",
     "answer": "220.61 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-007-F1-S005",
       "asset_type": "drill_press",
@@ -2955,6 +3744,55 @@
       "room_type": "kitchen",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "proc-factory-test-007-F1-S005",
+      "proc-factory-test-007-F1-S001",
+      "proc-factory-test-007-F1-S002",
+      "proc-factory-test-007-F0-S026",
+      "proc-factory-test-007-F0-S025",
+      "proc-factory-test-007-F0-S028",
+      "proc-factory-test-007-F0-S001",
+      "proc-factory-test-007-F0-S007",
+      "proc-factory-test-007-F0-S013",
+      "proc-factory-test-007-F0-S014",
+      "proc-factory-test-007-F0-S008",
+      "proc-factory-test-007-F0-S014",
+      "proc-factory-test-007-F0-S013",
+      "proc-factory-test-007-F0-S007",
+      "proc-factory-test-007-F0-S001",
+      "proc-factory-test-007-F0-S028",
+      "proc-factory-test-007-F0-S025",
+      "proc-factory-test-007-F0-S026",
+      "proc-factory-test-007-F1-S002",
+      "proc-factory-test-007-F1-S001",
+      "proc-factory-test-007-F1-S010"
+    ],
+    "element_path": [
+      "proc-factory-test-007-F1-O0077",
+      "proc-factory-test-007-F1-O0074",
+      "proc-factory-test-007-V01",
+      "proc-factory-test-007-F0-O0034",
+      "proc-factory-test-007-F0-O0036",
+      "proc-factory-test-007-F0-O0037",
+      "proc-factory-test-007-F0-O0001",
+      "proc-factory-test-007-F0-O0009",
+      "proc-factory-test-007-F0-O0017",
+      "proc-factory-test-007-F0-O0010",
+      "proc-factory-test-007-F0-O0010",
+      "proc-factory-test-007-F0-O0017",
+      "proc-factory-test-007-F0-O0009",
+      "proc-factory-test-007-F0-O0001",
+      "proc-factory-test-007-F0-O0037",
+      "proc-factory-test-007-F0-O0036",
+      "proc-factory-test-007-F0-O0034",
+      "proc-factory-test-007-V01",
+      "proc-factory-test-007-F1-O0074",
+      "proc-factory-test-007-F1-O0082"
+    ],
+    "length_m": 220.61,
     "result": {
       "via": {
         "space_id": "proc-factory-test-007-F0-S008",
@@ -3106,9 +3944,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Production zone H-A4 (H-A4, Ground floor), Warehouse zone H-A5 (H-A5, Ground floor), Office 0.42 (0.42, Ground floor), Hall access 0.44 (0.44, Ground floor).\nAnswer: 4",
     "answer": "4",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-007-F0-S043"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "rooms": [
@@ -3150,10 +3995,17 @@
     "reply": "Centre to centre, through floors and walls: 34.80 m.\nAnswer: 34.80 m",
     "answer": "34.80 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "proc-factory-test-007-F0-S004",
       "second": "proc-factory-test-007-F2-S010"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 34.8
     },
@@ -3165,10 +4017,17 @@
     "reply": "4 rooms of that type add up to 1220.16 m².\nAnswer: 1220.16 m²",
     "answer": "1220.16 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-factory-test-009-F0",
       "room_type": "production_zone"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "total_m2": 1220.16
@@ -3181,11 +4040,18 @@
     "reply": "Rooms counted: Server room 1.05, Server room 1.09, Meeting room 1.11, Meeting room 1.12, Server room 1.13, Meeting room 1.16, Server room 1.18, Meeting room 1.19, Meeting room 1.20, Meeting room 1.21, Toilet 1.23, Meeting room 1.30.\nAnswer: 12",
     "answer": "12",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-009-F0-S021",
       "floor_id": "proc-factory-test-009-F1",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 12,
       "rooms": [
@@ -3211,9 +4077,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Additive zone H-A1 (H-A1, Ground floor), Warehouse zone H-A2 (H-A2, Ground floor), Meeting room 0.26 (0.26, Ground floor), Kitchen 0.28 (0.28, Ground floor).\nAnswer: 4",
     "answer": "4",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-009-F0-S027"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "rooms": [
@@ -3255,10 +4128,17 @@
     "reply": "The largest meeting room is Meeting room 0.40 (0.40, Ground floor) at 29.95 m².\nAnswer: 0.40, 29.95 m²",
     "answer": "0.40, 29.95 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-factory-test-010-F0",
       "room_type": "meeting_room"
     },
+    "item_id": null,
+    "space_id": "proc-factory-test-010-F0-S040",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "proc-factory-test-010-F0-S040",
       "name": "Meeting room 0.40",
@@ -3274,10 +4154,17 @@
     "reply": "5 rooms of that type add up to 111.60 m².\nAnswer: 111.60 m²",
     "answer": "111.60 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-factory-test-010-F0",
       "room_type": "meeting_room"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 5,
       "total_m2": 111.6
@@ -3290,11 +4177,18 @@
     "reply": "Rooms counted: Toilet 1.05, Meeting room 1.06, Server room 1.07, Meeting room 1.15, Server room 1.16, Server room 1.17, Meeting room 1.18, Meeting room 1.19, Meeting room 1.20, Meeting room 1.27.\nAnswer: 10",
     "answer": "10",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-010-F0-S017",
       "floor_id": "proc-factory-test-010-F1",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 10,
       "rooms": [
@@ -3318,6 +4212,7 @@
     "reply": "Nearest one is in Server room 1.16 (1.16, Floor 1), 21.48 m away; from there to Meeting room 0.40 (0.40, Ground floor) is 91.55 m.\nAnswer: 113.02 m",
     "answer": "113.02 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-010-F1-S012",
       "asset_type": "ups_unit",
@@ -3325,6 +4220,29 @@
       "room_type": "meeting_room",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "proc-factory-test-010-F1-S012",
+      "proc-factory-test-010-F1-S001",
+      "proc-factory-test-010-F1-S016",
+      "proc-factory-test-010-F1-S001",
+      "proc-factory-test-010-F1-S002",
+      "proc-factory-test-010-F0-S022",
+      "proc-factory-test-010-F0-S021",
+      "proc-factory-test-010-F0-S040"
+    ],
+    "element_path": [
+      "proc-factory-test-010-F1-O0073",
+      "proc-factory-test-010-F1-O0077",
+      "proc-factory-test-010-F1-O0077",
+      "proc-factory-test-010-F1-O0063",
+      "proc-factory-test-010-V01",
+      "proc-factory-test-010-F0-O0031",
+      "proc-factory-test-010-F0-O0051"
+    ],
+    "length_m": 113.02,
     "result": {
       "via": {
         "space_id": "proc-factory-test-010-F1-S016",
@@ -3424,9 +4342,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Assembly zone H-A1 (H-A1, Ground floor), Assembly zone H-A2 (H-A2, Ground floor), Server room 0.26 (0.26, Ground floor), Office 0.28 (0.28, Ground floor).\nAnswer: 4",
     "answer": "4",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-010-F0-S027"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "rooms": [
@@ -3468,10 +4393,17 @@
     "reply": "7 rooms of that type add up to 2079.98 m².\nAnswer: 2079.98 m²",
     "answer": "2079.98 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "proc-factory-test-011-F0",
       "room_type": "production_zone"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 7,
       "total_m2": 2079.98
@@ -3484,11 +4416,18 @@
     "reply": "Rooms counted: Server room 2.07, Server room 2.08, Toilet 2.10, Meeting room 2.12, Meeting room 2.21, Meeting room 2.26, Server room 2.30.\nAnswer: 7",
     "answer": "7",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-011-F0-S023",
       "floor_id": "proc-factory-test-011-F2",
       "min_width": 1.1
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 7,
       "rooms": [
@@ -3509,9 +4448,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Assembly zone H-A3 (H-A3, Ground floor), Additive zone H-A4 (H-A4, Ground floor), Office 0.40 (0.40, Ground floor), Office 0.42 (0.42, Ground floor).\nAnswer: 4",
     "answer": "4",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "proc-factory-test-011-F0-S041"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "rooms": [
@@ -3553,10 +4499,17 @@
     "reply": "Centre to centre, through floors and walls: 51.42 m.\nAnswer: 51.42 m",
     "answer": "51.42 m",
     "kind": "straight_line_3d",
+    "parser": "regex",
     "inputs": {
       "first": "proc-factory-test-011-F0-S008",
       "second": "proc-factory-test-011-F2-S004"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "distance_m": 51.42
     },
@@ -3568,10 +4521,17 @@
     "reply": "4 rooms of that type add up to 71.29 m².\nAnswer: 71.29 m²",
     "answer": "71.29 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "resplan-1153-F0",
       "room_type": "bedroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "total_m2": 71.29
@@ -3584,9 +4544,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Living room 0.01 (0.01, Ground floor), Bedroom 0.04 (0.04, Ground floor), Bathroom 0.06 (0.06, Ground floor).\nAnswer: 3",
     "answer": "3",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-1153-F0-S003"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "rooms": [
@@ -3621,10 +4588,17 @@
     "reply": "5 rooms of that type add up to 109.70 m².\nAnswer: 109.70 m²",
     "answer": "109.70 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "resplan-12469-F0",
       "room_type": "bedroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 5,
       "total_m2": 109.7
@@ -3637,11 +4611,18 @@
     "reply": "Rooms counted: Living room 0.01, Bedroom 0.02, Bedroom 0.03, Bedroom 0.05, Bedroom 0.06, Bathroom 0.08, Bathroom 0.09, Bathroom 0.11.\nAnswer: 8",
     "answer": "8",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-12469-F0-S001",
       "floor_id": "resplan-12469-F0",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 8,
       "rooms": [
@@ -3663,9 +4644,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Living room 0.01 (0.01, Ground floor), Bathroom 0.07 (0.07, Ground floor), Bathroom 0.08 (0.08, Ground floor), Bathroom 0.09 (0.09, Ground floor), Bathroom 0.10 (0.10, Ground floor).\nAnswer: 5",
     "answer": "5",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-12469-F0-S005"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 5,
       "rooms": [
@@ -3714,9 +4702,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Bedroom 0.02 (0.02, Ground floor), Bedroom 0.03 (0.03, Ground floor), Bathroom 0.04 (0.04, Ground floor), Bathroom 0.05 (0.05, Ground floor), Kitchen 0.06 (0.06, Ground floor).\nAnswer: 5",
     "answer": "5",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-12962-F0-S001"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 5,
       "rooms": [
@@ -3765,9 +4760,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Living room 0.01 (0.01, Ground floor), Bathroom 0.04 (0.04, Ground floor), Kitchen 0.05 (0.05, Ground floor).\nAnswer: 3",
     "answer": "3",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-14307-F0-S002"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "rooms": [
@@ -3802,10 +4804,17 @@
     "reply": "The largest bathroom is Bathroom 0.06 (0.06, Ground floor) at 6.98 m².\nAnswer: 0.06, 6.98 m²",
     "answer": "0.06, 6.98 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "resplan-3573-F0",
       "room_type": "bathroom"
     },
+    "item_id": null,
+    "space_id": "resplan-3573-F0-S006",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "resplan-3573-F0-S006",
       "name": "Bathroom 0.06",
@@ -3821,10 +4830,17 @@
     "reply": "3 rooms of that type add up to 17.65 m².\nAnswer: 17.65 m²",
     "answer": "17.65 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "resplan-3573-F0",
       "room_type": "bathroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "total_m2": 17.65
@@ -3837,11 +4853,18 @@
     "reply": "Rooms counted: Living room 0.01, Bedroom 0.02, Bedroom 0.03, Bedroom 0.04, Bathroom 0.06, Kitchen 0.08.\nAnswer: 6",
     "answer": "6",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-3573-F0-S001",
       "floor_id": "resplan-3573-F0",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 6,
       "rooms": [
@@ -3861,6 +4884,7 @@
     "reply": "Nearest one is in Bathroom 0.07 (0.07, Ground floor), 6.20 m away; from there to Bathroom 0.06 (0.06, Ground floor) is 12.38 m.\nAnswer: 18.58 m",
     "answer": "18.58 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-3573-F0-S001",
       "asset_type": "sink",
@@ -3868,6 +4892,23 @@
       "room_type": "bathroom",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "resplan-3573-F0-S001",
+      "resplan-3573-F0-S007",
+      "resplan-3573-F0-S001",
+      "resplan-3573-F0-S003",
+      "resplan-3573-F0-S006"
+    ],
+    "element_path": [
+      "resplan-3573-F0-O0001",
+      "resplan-3573-F0-O0001",
+      "resplan-3573-F0-O0003",
+      "resplan-3573-F0-O0005"
+    ],
+    "length_m": 18.58,
     "result": {
       "via": {
         "space_id": "resplan-3573-F0-S007",
@@ -3955,9 +4996,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Bedroom 0.02 (0.02, Ground floor), Bedroom 0.03 (0.03, Ground floor), Bedroom 0.04 (0.04, Ground floor), Bathroom 0.06 (0.06, Ground floor), Bathroom 0.07 (0.07, Ground floor), Kitchen 0.08 (0.08, Ground floor).\nAnswer: 6",
     "answer": "6",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-3573-F0-S001"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 6,
       "rooms": [
@@ -4013,11 +5061,18 @@
     "reply": "Rooms counted: Living room 0.01, Bedroom 0.03, Kitchen 0.06.\nAnswer: 3",
     "answer": "3",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-6532-F0-S001",
       "floor_id": "resplan-6532-F0",
       "min_width": 1.0
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "rooms": [
@@ -4034,9 +5089,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Living room 0.01 (0.01, Ground floor), Bathroom 0.04 (0.04, Ground floor), Kitchen 0.06 (0.06, Ground floor).\nAnswer: 3",
     "answer": "3",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-6532-F0-S003"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "rooms": [
@@ -4071,11 +5133,18 @@
     "reply": "Rooms counted: Living room 0.01, Bedroom 0.02, Bedroom 0.03, Kitchen 0.06.\nAnswer: 4",
     "answer": "4",
     "kind": "wide_delivery_count",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-8357-F0-S001",
       "floor_id": "resplan-8357-F0",
       "min_width": 1.1
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "rooms": [
@@ -4093,9 +5162,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Bedroom 0.02 (0.02, Ground floor), Bedroom 0.03 (0.03, Ground floor), Bathroom 0.04 (0.04, Ground floor), Bathroom 0.05 (0.05, Ground floor), Kitchen 0.06 (0.06, Ground floor).\nAnswer: 5",
     "answer": "5",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-8357-F0-S001"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 5,
       "rooms": [
@@ -4144,9 +5220,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Bedroom 0.02 (0.02, Ground floor), Bedroom 0.03 (0.03, Ground floor), Bathroom 0.04 (0.04, Ground floor), Bathroom 0.05 (0.05, Ground floor), Kitchen 0.06 (0.06, Ground floor).\nAnswer: 5",
     "answer": "5",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "resplan-9751-F0-S001"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 5,
       "rooms": [
@@ -4195,10 +5278,17 @@
     "reply": "The largest living room is Living room 1.05 (apartment 4) (1.05, Floor 1) at 30.16 m².\nAnswer: 1.05, 30.16 m²",
     "answer": "1.05, 30.16 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-100-F1",
       "room_type": "living_room"
     },
+    "item_id": null,
+    "space_id": "swiss-100-F1-S005",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "swiss-100-F1-S005",
       "name": "Living room 1.05 (apartment 4)",
@@ -4214,10 +5304,17 @@
     "reply": "8 rooms of that type add up to 32.47 m².\nAnswer: 32.47 m²",
     "answer": "32.47 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-100-F5",
       "room_type": "bathroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 8,
       "total_m2": 32.47
@@ -4230,6 +5327,7 @@
     "reply": "Nearest one is in Kitchen 4.03 (apartment 16) (4.03, Floor 4), 7.07 m away; from there to Living room 1.05 (apartment 4) (1.05, Floor 1) is 32.13 m.\nAnswer: 39.20 m",
     "answer": "39.20 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "swiss-100-F4-S007",
       "asset_type": "microwave",
@@ -4237,6 +5335,33 @@
       "room_type": "living_room",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "swiss-100-F4-S007",
+      "swiss-100-F4-S004",
+      "swiss-100-F4-S003",
+      "swiss-100-F4-S004",
+      "swiss-100-F4-S045",
+      "swiss-100-F3-S045",
+      "swiss-100-F2-S045",
+      "swiss-100-F1-S045",
+      "swiss-100-F1-S007",
+      "swiss-100-F1-S005"
+    ],
+    "element_path": [
+      "swiss-100-F4-O0190",
+      "swiss-100-F4-O0156",
+      "swiss-100-F4-O0156",
+      "swiss-100-F4-O0161",
+      "swiss-100-V01",
+      "swiss-100-V01",
+      "swiss-100-V01",
+      "swiss-100-F1-O0024",
+      "swiss-100-F1-O0061"
+    ],
+    "length_m": 39.2,
     "result": {
       "via": {
         "space_id": "swiss-100-F4-S003",
@@ -4344,10 +5469,17 @@
     "reply": "14 rooms of that type add up to 207.01 m².\nAnswer: 207.01 m²",
     "answer": "207.01 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-1195-F3",
       "room_type": "bedroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 14,
       "total_m2": 207.01
@@ -4360,9 +5492,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Bedroom 1.11 (apartment 7) (1.11, Floor 1), Bathroom 1.30 (apartment 10) (1.30, Floor 1), Kitchen 1.31 (apartment 10) (1.31, Floor 1).\nAnswer: 3",
     "answer": "3",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "swiss-1195-F1-S034"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "rooms": [
@@ -4397,10 +5536,17 @@
     "reply": "The largest bedroom is Bedroom 0.05 (apartment 1) (0.05, Ground floor) at 19.34 m².\nAnswer: 0.05, 19.34 m²",
     "answer": "0.05, 19.34 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-1671-F0",
       "room_type": "bedroom"
     },
+    "item_id": null,
+    "space_id": "swiss-1671-F0-S005",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "swiss-1671-F0-S005",
       "name": "Bedroom 0.05 (apartment 1)",
@@ -4416,10 +5562,17 @@
     "reply": "8 rooms of that type add up to 133.95 m².\nAnswer: 133.95 m²",
     "answer": "133.95 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-1671-F2",
       "room_type": "bedroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 8,
       "total_m2": 133.95
@@ -4432,6 +5585,7 @@
     "reply": "Nearest one is in Kitchen 1.09 (apartment 4) (1.09, Floor 1), 9.38 m away; from there to Bedroom 0.05 (apartment 1) (0.05, Ground floor) is 18.11 m.\nAnswer: 27.49 m",
     "answer": "27.49 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "swiss-1671-F1-S013",
       "asset_type": "kitchen_counter",
@@ -4439,6 +5593,29 @@
       "room_type": "bedroom",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "swiss-1671-F1-S013",
+      "swiss-1671-F1-S012",
+      "swiss-1671-F1-S009",
+      "swiss-1671-F1-S012",
+      "swiss-1671-F1-S017",
+      "swiss-1671-F0-S015",
+      "swiss-1671-F0-S007",
+      "swiss-1671-F0-S005"
+    ],
+    "element_path": [
+      "swiss-1671-F1-O0029",
+      "swiss-1671-F1-O0027",
+      "swiss-1671-F1-O0027",
+      "swiss-1671-F1-O0028",
+      "swiss-1671-V03",
+      "swiss-1671-F0-O0007",
+      "swiss-1671-F0-O0008"
+    ],
+    "length_m": 27.49,
     "result": {
       "via": {
         "space_id": "swiss-1671-F1-S009",
@@ -4538,9 +5715,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Storage 2.08 (apartment 6) (2.08, Floor 2), Bedroom 2.12 (apartment 6) (2.12, Floor 2), Bathroom 2.14 (apartment 6) (2.14, Floor 2).\nAnswer: 3",
     "answer": "3",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "swiss-1671-F2-S009"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "rooms": [
@@ -4575,10 +5759,17 @@
     "reply": "4 rooms of that type add up to 50.66 m².\nAnswer: 50.66 m²",
     "answer": "50.66 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-17033-F1",
       "room_type": "bedroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "total_m2": 50.66
@@ -4591,10 +5782,17 @@
     "reply": "The largest kitchen is Kitchen 0.06 (apartment 1) (0.06, Ground floor) at 6.73 m².\nAnswer: 0.06, 6.73 m²",
     "answer": "0.06, 6.73 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-1760-F0",
       "room_type": "kitchen"
     },
+    "item_id": null,
+    "space_id": "swiss-1760-F0-S006",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "swiss-1760-F0-S006",
       "name": "Kitchen 0.06 (apartment 1)",
@@ -4610,10 +5808,17 @@
     "reply": "4 rooms of that type add up to 61.12 m².\nAnswer: 61.12 m²",
     "answer": "61.12 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-1760-F0",
       "room_type": "living_room"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "total_m2": 61.12
@@ -4626,10 +5831,17 @@
     "reply": "The largest bedroom is Bedroom 3.03 (apartment 8) (3.03, Floor 3) at 19.44 m².\nAnswer: 3.03, 19.44 m²",
     "answer": "3.03, 19.44 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-17736-F3",
       "room_type": "bedroom"
     },
+    "item_id": null,
+    "space_id": "swiss-17736-F3-S003",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "swiss-17736-F3-S003",
       "name": "Bedroom 3.03 (apartment 8)",
@@ -4645,10 +5857,17 @@
     "reply": "7 rooms of that type add up to 34.00 m².\nAnswer: 34.00 m²",
     "answer": "34.00 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-17736-F2",
       "room_type": "bathroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 7,
       "total_m2": 34.0
@@ -4661,6 +5880,7 @@
     "reply": "Nearest one is in Living room 2.01 (apartment 5) (2.01, Floor 2), 6.57 m away; from there to Bedroom 3.03 (apartment 8) (3.03, Floor 3) is 27.58 m.\nAnswer: 34.14 m",
     "answer": "34.14 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "swiss-17736-F2-S008",
       "asset_type": "sofa",
@@ -4668,6 +5888,29 @@
       "room_type": "bedroom",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "swiss-17736-F2-S008",
+      "swiss-17736-F2-S004",
+      "swiss-17736-F2-S001",
+      "swiss-17736-F2-S004",
+      "swiss-17736-F2-S030",
+      "swiss-17736-F3-S012",
+      "swiss-17736-F3-S007",
+      "swiss-17736-F3-S003"
+    ],
+    "element_path": [
+      "swiss-17736-F2-O0046",
+      "swiss-17736-F2-O0064",
+      "swiss-17736-F2-O0064",
+      "swiss-17736-F2-O0042",
+      "swiss-17736-V01",
+      "swiss-17736-F3-O0076",
+      "swiss-17736-F3-O0069"
+    ],
+    "length_m": 34.14,
     "result": {
       "via": {
         "space_id": "swiss-17736-F2-S001",
@@ -4767,10 +6010,17 @@
     "reply": "4 rooms of that type add up to 20.54 m².\nAnswer: 20.54 m²",
     "answer": "20.54 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-1825-F3",
       "room_type": "bathroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "total_m2": 20.54
@@ -4783,10 +6033,17 @@
     "reply": "3 rooms of that type add up to 42.31 m².\nAnswer: 42.31 m²",
     "answer": "42.31 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-2-F3",
       "room_type": "bedroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "total_m2": 42.31
@@ -4799,10 +6056,17 @@
     "reply": "The largest bathroom is Bathroom 2.15 (apartment 8) (2.15, Floor 2) at 4.13 m².\nAnswer: 2.15, 4.13 m²",
     "answer": "2.15, 4.13 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-2080-F2",
       "room_type": "bathroom"
     },
+    "item_id": null,
+    "space_id": "swiss-2080-F2-S015",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "swiss-2080-F2-S015",
       "name": "Bathroom 2.15 (apartment 8)",
@@ -4818,10 +6082,17 @@
     "reply": "4 rooms of that type add up to 12.30 m².\nAnswer: 12.30 m²",
     "answer": "12.30 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-2080-F3",
       "room_type": "bathroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "total_m2": 12.3
@@ -4834,6 +6105,7 @@
     "reply": "Nearest one is in Living room 2.08 (apartment 8) (2.08, Floor 2), 23.27 m away; from there to Bedroom 2.18 (apartment 9) (2.18, Floor 2) is 15.01 m.\nAnswer: 38.28 m",
     "answer": "38.28 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "swiss-2080-F1-S022",
       "asset_type": "dining_table",
@@ -4841,6 +6113,33 @@
       "room_type": "bedroom",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "swiss-2080-F1-S022",
+      "swiss-2080-F1-S020",
+      "swiss-2080-F1-S023",
+      "swiss-2080-F2-S023",
+      "swiss-2080-F2-S012",
+      "swiss-2080-F2-S008",
+      "swiss-2080-F2-S012",
+      "swiss-2080-F2-S023",
+      "swiss-2080-F2-S021",
+      "swiss-2080-F2-S018"
+    ],
+    "element_path": [
+      "swiss-2080-F1-O0044",
+      "swiss-2080-F1-O0036",
+      "swiss-2080-V01",
+      "swiss-2080-F2-O0055",
+      "swiss-2080-F2-O0063",
+      "swiss-2080-F2-O0063",
+      "swiss-2080-F2-O0055",
+      "swiss-2080-F2-O0059",
+      "swiss-2080-F2-O0065"
+    ],
+    "length_m": 38.28,
     "result": {
       "via": {
         "space_id": "swiss-2080-F2-S008",
@@ -4948,9 +6247,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Bathroom 2.01 (apartment 7) (2.01, Floor 2), Bedroom 2.06 (apartment 7) (2.06, Floor 2), Bedroom 2.18 (apartment 9) (2.18, Floor 2), Bathroom 2.19 (apartment 9) (2.19, Floor 2).\nAnswer: 4",
     "answer": "4",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "swiss-2080-F2-S020"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "rooms": [
@@ -4992,10 +6298,17 @@
     "reply": "The largest storage is Storage 2.14 (apartment 10) (2.14, Floor 2) at 3.22 m².\nAnswer: 2.14, 3.22 m²",
     "answer": "2.14, 3.22 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-2873-F2",
       "room_type": "storage"
     },
+    "item_id": null,
+    "space_id": "swiss-2873-F2-S014",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "swiss-2873-F2-S014",
       "name": "Storage 2.14 (apartment 10)",
@@ -5011,10 +6324,17 @@
     "reply": "4 rooms of that type add up to 12.53 m².\nAnswer: 12.53 m²",
     "answer": "12.53 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-2873-F0",
       "room_type": "storage"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "total_m2": 12.53
@@ -5027,6 +6347,7 @@
     "reply": "Nearest one is in Balcony 1.29 (apartment 8) (1.29, Floor 1), 6.77 m away; from there to Storage 2.14 (apartment 10) (2.14, Floor 2) is 27.50 m.\nAnswer: 34.27 m",
     "answer": "34.27 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "swiss-2873-F1-S030",
       "asset_type": "outdoor_chair",
@@ -5034,6 +6355,31 @@
       "room_type": "storage",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "swiss-2873-F1-S030",
+      "swiss-2873-F1-S031",
+      "swiss-2873-F1-S029",
+      "swiss-2873-F1-S031",
+      "swiss-2873-F1-S038",
+      "swiss-2873-F1-S039",
+      "swiss-2873-F2-S037",
+      "swiss-2873-F2-S015",
+      "swiss-2873-F2-S014"
+    ],
+    "element_path": [
+      "swiss-2873-F1-O0075",
+      "swiss-2873-F1-O0061",
+      "swiss-2873-F1-O0061",
+      "swiss-2873-F1-O0076",
+      "swiss-2873-F1-O0062",
+      "swiss-2873-V01",
+      "swiss-2873-F2-O0092",
+      "swiss-2873-F2-O0089"
+    ],
+    "length_m": 34.27,
     "result": {
       "via": {
         "space_id": "swiss-2873-F1-S029",
@@ -5137,9 +6483,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Bedroom 2.02 (apartment 9) (2.02, Floor 2), Bedroom 2.08 (apartment 9) (2.08, Floor 2), Living room 2.09 (apartment 9) (2.09, Floor 2).\nAnswer: 3",
     "answer": "3",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "swiss-2873-F2-S007"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "rooms": [
@@ -5174,10 +6527,17 @@
     "reply": "The largest storage is Storage 4.12 (apartment 18) (4.12, Floor 4) at 2.32 m².\nAnswer: 4.12, 2.32 m²",
     "answer": "4.12, 2.32 m²",
     "kind": "largest_room",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-482-F4",
       "room_type": "storage"
     },
+    "item_id": null,
+    "space_id": "swiss-482-F4-S012",
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "space_id": "swiss-482-F4-S012",
       "name": "Storage 4.12 (apartment 18)",
@@ -5193,10 +6553,17 @@
     "reply": "6 rooms of that type add up to 16.07 m².\nAnswer: 16.07 m²",
     "answer": "16.07 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-482-F4",
       "room_type": "bathroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 6,
       "total_m2": 16.07
@@ -5209,6 +6576,7 @@
     "reply": "Nearest one is in Kitchen 4.26 (apartment 19) (4.26, Floor 4), 8.46 m away; from there to Bedroom 9.04 (apartment 37) (9.04, Floor 9) is 58.56 m.\nAnswer: 67.01 m",
     "answer": "67.01 m",
     "kind": "errand",
+    "parser": "regex",
     "inputs": {
       "start": "swiss-482-F4-S027",
       "asset_type": "fridge",
@@ -5216,6 +6584,39 @@
       "room_type": "bedroom",
       "step_free": false
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": true,
+    "space_path": [
+      "swiss-482-F4-S027",
+      "swiss-482-F4-S024",
+      "swiss-482-F4-S026",
+      "swiss-482-F4-S024",
+      "swiss-482-F4-S035",
+      "swiss-482-F5-S035",
+      "swiss-482-F6-S035",
+      "swiss-482-F7-S035",
+      "swiss-482-F8-S035",
+      "swiss-482-F9-S019",
+      "swiss-482-F9-S001",
+      "swiss-482-F9-S007",
+      "swiss-482-F9-S004"
+    ],
+    "element_path": [
+      "swiss-482-F4-O0171",
+      "swiss-482-F4-O0166",
+      "swiss-482-F4-O0166",
+      "swiss-482-F4-O0165",
+      "swiss-482-V01",
+      "swiss-482-V01",
+      "swiss-482-V01",
+      "swiss-482-V01",
+      "swiss-482-V03",
+      "swiss-482-F9-O0327",
+      "swiss-482-F9-O0330",
+      "swiss-482-F9-O0329"
+    ],
+    "length_m": 67.01,
     "result": {
       "via": {
         "space_id": "swiss-482-F4-S026",
@@ -5335,9 +6736,16 @@
     "reply": "Rooms sharing at least 1 m of wall: Bedroom 7.10 (apartment 30) (7.10, Floor 7), Bedroom 7.20 (apartment 31) (7.20, Floor 7), Storage 7.24 (apartment 31) (7.24, Floor 7).\nAnswer: 3",
     "answer": "3",
     "kind": "shared_walls_count",
+    "parser": "regex",
     "inputs": {
       "start": "swiss-482-F7-S022"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 3,
       "rooms": [
@@ -5372,10 +6780,17 @@
     "reply": "4 rooms of that type add up to 74.92 m².\nAnswer: 74.92 m²",
     "answer": "74.92 m²",
     "kind": "floor_area_total",
+    "parser": "regex",
     "inputs": {
       "floor_id": "swiss-6128-F2",
       "room_type": "bedroom"
     },
+    "item_id": null,
+    "space_id": null,
+    "reachable": null,
+    "space_path": null,
+    "element_path": null,
+    "length_m": null,
     "result": {
       "count": 4,
       "total_m2": 74.92

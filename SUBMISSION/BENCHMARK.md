@@ -1,13 +1,15 @@
 # BENCHMARK — how to reproduce our answers
 
-One command from the repo root, no manual steps between input and output. With `PARSER_MODE=regex` it needs no
-API key and is fully deterministic (template parser + solvers); the default `hybrid` mode calls an LLM only for
-wording no template matches (needs `ANTHROPIC_API_KEY` in `.env`).
+One command from the repo root, no manual steps between input and output. The default `hybrid` mode reads each
+question with deterministic templates first (no API key, no LLM) and calls an LLM only for wording no template
+matches; the repo's `.env` (`ANTHROPIC_API_KEY`) is read automatically. `PARSER_MODE=regex` is fully offline and
+deterministic (template parser + solvers) — it reproduces our test-set answers, but questions in unseen wording then
+get no answer.
 
 ```bash
 uv sync
 # Sunday: one building directory (holds building.json) + its question file
-PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> SUBMISSION/answers.json
+uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> SUBMISSION/answers.json
 # Public test set (145 questions, buildings under data/test/<building_id>/) — this produced SUBMISSION/answers.json
 PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 data/test data/test/questions.csv SUBMISSION/answers.json
 ```
@@ -16,10 +18,15 @@ PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 data/test data/test/qu
 - Question file: `.jsonl`, `.json` (a list, or `{"questions": [...]}`) or `.csv`; each question needs an id
   (`id` or `question_id`) and its text (`question`), plus `building_id` when the first argument is a split.
 - The output extension picks the format. `.json` (our submission): one object per question with `question_id`,
-  the full `reply` (ending in the `Answer:` line), `answer`, `kind`, resolved `inputs`, the solver's structured
-  `result`, and for routing kinds `route` = `{optimal_length_m, legs: [{from_space_id, to_space_id,
-  optimal_length_m, space_path, element_path}]}` (the kit's warm-up answer format); `error` when unanswered.
-  `.csv` writes `question_id,answer` with the full replies (the test-set CSV format).
+  the full `reply` (ending in the `Answer:` line), `answer`, `kind`, `parser` (`regex` or `llm`), resolved
+  `inputs`, the top-level ids `item_id` (located item), `space_id` (its room, or the answer room), `space_path`
+  (the whole route as one ordered list of spaces, stops joined), `element_path`, `length_m` and `reachable`
+  (`false` = no route under the question's rules), the solver's structured `result`, and for routing kinds
+  `route` = `{optimal_length_m, legs: [{from_space_id, to_space_id, optimal_length_m, space_path,
+  element_path}]}` (the kit's warm-up answer format); `error` when unanswered. `--layout dict` writes the same
+  objects keyed by question id. `.csv` writes `question_id,answer` with the full replies (the test-set CSV format).
+- The answers file is rewritten after every question; a failing question (unknown wording, API error) becomes an
+  `error` entry and the run goes on.
 
 How it works: question text → template parser (`core/question_parser.py`, `agent/parsing.py`) → solver per kind
 (`core/solvers_v1.py`) → reply with a deterministic `Answer:` line (`agent/answer.py`). Routes are Dijkstra on the

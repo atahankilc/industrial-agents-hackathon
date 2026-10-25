@@ -329,6 +329,10 @@ has no swing info. Next: Guide events on the plan
   ([Q-019](open-questions.md#q-019)). Old `submissions/` (lowercase) removed 2026-10-25.
 - [ ] Hack and More form: repo link, **strictly 2-minute** demo video (YouTube/Luma; start early), short technical
   explanation.
+  Prepared 2026-10-25: technical explanation [technical-explanation.md](../docs/challenge/technical-explanation.md),
+  video script + final pitch run sheet [demo-runbook.md](../docs/guides/demo-runbook.md) (Thierschbau, live Guide
+  checked), pitch deck artifact (12 slides). Still to do: record the video (rehearse a live mic and the admin
+  Access / Edit mode takes first), submit the form, merge `dev` → `main`.
 - [ ] Ask organisers about Level 4 input/scoring ([Q-018](open-questions.md#q-018)); Builder is not a priority.
 
 0. ✅ **Kit 1.1.0 route model ported** (2026-10-24, [D-014](decisions.md#d-014)): `core/building_map.py` = the

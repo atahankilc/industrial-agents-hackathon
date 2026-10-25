@@ -10,6 +10,21 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Submission prep: technical explanation, demo runbook, pitch deck
+
+- **Did:** listed what the submission needs; re-ran `SUBMISSION/BENCHMARK.md` in hybrid (test 145/145 answered,
+  identical to the committed `SUBMISSION/answers.json`, all via templates; dev 138/138); picked the demo building
+  Thierschbau (`train/osm-way61408163`) and ran the demo lines against the live Guide (API + app in headless Chrome);
+  built a 12-slide click-through pitch deck (claude.ai artifact) from real app screenshots.
+- **Learned:** Lift 2 closed → step-free route 1373 → Theodor-Fischer-Hörsaal 88.0 m → 223.8 m via Lift 1, 30
+  Basement 1 rooms lose step-free access; Guide closures are per session (a reload resets); "OK, how do I get there
+  now?" was taken as a yes to apply; `llm_cache/decisions.json` does not exist yet (no LLM decision on the test
+  set) — it appears on Sunday if a question needs the LLM and must be committed with `answers.json`. Phone-width
+  glitches: route HUD text under its icons, lift callouts overlap.
+- **Changed docs:** new `docs/challenge/technical-explanation.md`, `docs/guides/demo-runbook.md`; links in
+  `docs/README.md`, `docs/challenge/brief.md`.
+- **Next:** record the video, submit the Hack and More form, merge `dev` → `main`; admin screenshots for the deck.
+
 ## 2026-10-25 — Phones: Guide voice and stuck turns, home-screen app (merged into dev)
 
 - **Did:** `voice/tts.ts`: unlock on `pointerup`/`touchend`/`click` too, a silent first utterance primes

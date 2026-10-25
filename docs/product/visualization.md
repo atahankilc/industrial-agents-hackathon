@@ -4,6 +4,7 @@ summary: App visuals — the current vector plan view (core/floorplan.py, GET /s
 sources:
   - core/floorplan.py, backend/sessions.py (MapView.plan), frontend/app/src/plan/, frontend/app/src/building/ (verified 2026-10-24)
   - frontend/app/src/dev/, backend/devtools.py, core/routeline.py (dev panel, verified 2026-10-24)
+  - frontend/app/src/plan/ObjectsLayer.tsx, src/plan/palette.ts (access mode, verified 2026-10-25)
   - frontend/app/src/map/bridge.ts, src/building/opening.ts, src/Root.tsx (map → building transition, verified headless 2026-10-24)
   - https://threejs.org/docs/ (three.js r160)
   - https://r3f.docs.pmnd.rs/ (react-three-fiber)
@@ -53,10 +54,50 @@ place card) with a floating Guide conversation.
   it; tile ids are not the kit's way ids) move to a see-through shell layer (`buildings-3d-shell`, opacity 0.22 light /
   0.16 dark), so a campus wing that the tiles draw as one block with its neighbours no longer boxes the model in.
   Back fades the model out (0.35 s) while the map flies out to every pin.
+- **City view refinements (2026-10-25):**
+  - *Wireframe instead of the shell:* the open building's own map blocks leave the map, and the model draws them as
+    edge lines in its own scene (`PlanView` `City`, from `bridge.ts` `onShell`), so they share the model's depth.
+    The match also tests each polygon of a merged tile feature (the tiles merge blocks of the same look into one
+    MultiPolygon, the building is not always its first polygon), plus an area-share test (half the smaller shape
+    inside the other) for U-shaped blocks. A filter can only hide a merged feature whole (some hold 1,300+
+    buildings across the city), so its other polygons are put back from a GeoJSON source with the same paint
+    (`rest` source, `buildings-3d-rest` layer), rebuilt only when the left-out ids or the loaded pieces change.
+  - *No flicker on the blue blocks:* the OSM blocks under a building with a model leave the solid layer. The blue
+    block is as tall as them, and two blocks on one outline z-fight, worst at the 1° field of view. Insetting or
+    raising the blue by 0.4–0.6 m did not stop it.
+  - *X-ray (`src/map/neighbours.ts`):* with a building open, the blocks within 500 m of it (OSM and the blue ones)
+    leave the map's layers. A MapLibre custom layer draws them instead, in the map's own GL context and depth, under
+    the pins. It uses MapLibre's fill-extrusion lighting, colours and opacity (`style.ts` `blockLook`), so they look
+    like the map's own. Its fragment shader cuts what stands in front of the building's middle (by clip w, fully 12 m
+    in front), inside a rounded box over the building's box on screen (a superellipse, 1.1× the box), dissolving
+    in a 4×4 Bayer dither (2 CSS px grain) towards its rim. It follows the camera continuously, so no block switches
+    on or off. Matrix composed in double precision (world pixels at street zoom are past float32). Winding measured:
+    counter-clockwise from outside is front. Where a block is cut, its footprint (fill and outline, the roof colour laid on
+    the ground) is drawn in exactly the cut pixels, so no z-fighting with uncut blocks. Earlier tries replaced: ghost layers by `setFilter` (each change
+    re-processes tiles) and whole blocks flattened by feature-state (they popped in and out).
+  - *Performance (measured 2026-10-25):* the blocks are gathered again (`applyBlocks`) and the blue blocks' heights
+    read again (`MapLanding` `updateHeights` → `osmHeights`) only after new tiles arrive, not on every idle. Box tests
+    run before the polygon tests, and each polygon is only tested against footprints whose box it meets.
+    `applyBlocks` went from 183 ms to 16 ms (about 30 ms with the x-ray blocks), `osmHeights` from 68 ms to 7 ms. The map list panel is `visibility:
+    hidden` while a building is open (a see-through blurred panel is still re-blurred every frame).
+  - *Ground level:* a line traces the ground floor's outline where it meets the ground. With floors under the ground
+    shown (stacked or spread), a veil in the map's ground colour (opacity 0.7) covers the biggest basement outline,
+    so basements read as under the street.
+  - *Back returns to where you were:* closing a building flies the map back to the camera it had when the building
+    was opened (every pin if it was opened from a link).
+- **Roads at their real width (2026-10-25):** the tiles carry no road width (OpenMapTiles `transportation`: class,
+  subclass, surface, oneway, brunnel… no width or lanes, checked in the browser), so each class has a typical
+  carriageway width in metres (`style.ts` `ROAD_M`, UNVERIFIED estimates: secondary 14 m, tertiary 11, minor 8,
+  service 5, path 3…). From z15 a metre is drawn at the map's own scale (exponential base 2, pixels per metre at
+  48.1° N), below that the widths ease in from the old thin lines. Light-theme casings add 1.5 m of kerb. Pedestrian
+  areas (squares) are filled in the road colour. Walkways (`walk`: footway, path, pedestrian, platform; 2.5–4 m) are
+  solid lines a shade off the ground, unpaved ones sandier; cycle paths (`cycle`, 2 m) a faint tint; steps
+  (`steps`) drawn as treads (dash 0.2 of the width); indoor corridors left out. The earlier dashed path line read as
+  noise once it had a real width.
 - **Buildings with a model on the map:** drawn as accent-blue blocks (`MapLanding` `models` source): the kit
   footprint (`location.outline`: union of the kit's spaces on every floor, outset 0.6 m for the exterior walls,
   placed by `origin`), as tall as the kit (`location.height_m`) or the OSM block it stands in, whichever is taller,
-  so the blue wraps the grey block. Tinting the tiles' own blocks does not work: the TUM main building is one tile
+  so the blue wraps the grey block; the grey blocks under it are left out (no z-fighting, see below). Tinting the tiles' own blocks does not work: the TUM main building is one tile
   polygon around the whole block, its kit buildings are wings of it. Light mode got its own palette (2026-10-25):
   stronger greens and water, white roads with grey casings, brighter side light on the blocks.
 - **Fitting the kit onto the map** (`scripts/fit_locations.py`, 2026-10-25): the archived georef origins were up to
@@ -73,6 +114,18 @@ place card) with a floating Guide conversation.
   or **alone** (the plan's own stage and grid cover the map once the model is there; meant for building managers).
   Buildings without a position only have the alone view.
 - **Not built yet:** Guide events on the plan (focus, route line, closures, lost access), 3D, maintainer edits.
+- **Guide answers on the plan** (2026-10-25, [D-020](../../memory-bank/decisions.md#d-020)): the rooms an answer is
+  about are tinted in the route blue (three soft pulses, then steady) with name badges; items get a ringed dot (names
+  when ≤ 4). `search`, `locate`, `room_facts` and `show_on_map` all emit highlights (items too: `asset_ids`), and the
+  camera frames them (`PlanView` `focus`, ≥ 14 m across) — all floors stacked if they spread over several. A route is
+  framed whole (stacked when it crosses floors); **Start** on the next-move card then frames one step at a time, reads
+  it aloud and waits for "I'm there" (button, typed or spoken "geldim" / "next").
+- **"You are here" figure** (2026-10-25): an orange person pin, dragged out of the dock at the bottom right onto the
+  plan (a tap drops it mid-screen; tapping the dock again takes it off), dragged again to move. Its room goes to
+  `PUT /sessions/{id}/location`; the Guide then routes from "here" and stops asking where the user is.
+- **Nearby buildings** (2026-10-25, [D-021](../../memory-bank/decisions.md#d-021)): a "found nearby" card lists matches
+  in neighbouring buildings (Directions / Open); a route to one ends at the exit with a dashed line across outside to
+  the other entrance and a Continue badge/button, which opens that building and draws the rest from its entrance.
 
 ## Dev panel
 
@@ -92,6 +145,10 @@ changing the plan's colours. Shown in the Vite dev server or with `?dev`
   story): route as an accent band drawn in once, start / destination / tappable floor-change badges; accent
   outlines on the rooms an answer is about; a dot per item; red hatch on closed rooms, lifts and stairs; dashed
   outlines on rooms that lost access. A new answer switches to its floor and fits it.
+- **Access mode only** (`ACCESS_MODE=on`, [spec](../superpowers/specs/2026-10-25-access-profiles-design.md)):
+  restricted spaces drawn as a dark neutral fill without label or furniture (`palette.restricted`); moving
+  objects as markers with a heading cone, a faint trail and the remaining mission line in violet
+  (`palette.object`, `src/plan/ObjectsLayer.tsx`).
 - **Route line**: every route event now carries `line` ([[x, y, floor_index], …], `MapView.enrich` →
   `core/routeline.py`: door to door along the shortest path inside each space (15 cm off the walls, round
   corners, doors entered at their 30 cm landing: the walk `core/building_map.py` measures since kit 1.1.0), anchors kept only for the first and last space and stairs/lifts — so the line never overshoots to a

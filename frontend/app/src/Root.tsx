@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AccessLayer } from './access/AccessLayer.tsx'
+import { startAccess, useAccess } from './access/auth'
 import { api, type Building } from './api'
 import { BuildingScreen, type Showing } from './building/BuildingScreen.tsx'
 import { prefetch } from './building/opening'
@@ -16,6 +18,8 @@ type Landing = 'map' | 'list'
 
 const LEAVE_MS = 350 // the building screen's fade-out (building/screen.css .screen.leaving)
 const SHOWING_KEY = 'ttyb-building-showing'
+
+startAccess() // GET /config; in access mode, the sign-in (src/access/auth.ts)
 
 const fromUrl = () => {
   const params = new URLSearchParams(location.search)
@@ -38,10 +42,12 @@ export function Root() {
   const [showing, setShowing] = useState(storedShowing)
   // the building on screen: it lags behind the URL while the one before fades out
   const [shown, setShown] = useState(view.building)
+  // access mode: which buildings are listed depends on who is signed in
+  const { version } = useAccess()
 
   useEffect(() => {
     api.buildings().then(setBuildings).catch((reason) => setError(String(reason)))
-  }, [])
+  }, [version])
 
   useEffect(() => {
     const onPop = () => setView(fromUrl())
@@ -106,6 +112,7 @@ export function Root() {
           onOpen={(id) => go(id, view.landing)}
         />
       )}
+      <AccessLayer />
     </>
   )
 }

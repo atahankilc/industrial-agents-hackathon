@@ -1,24 +1,30 @@
 # BENCHMARK — how to reproduce our answers
 
-One command from the repo root, no manual steps between input and output. The default `hybrid` mode reads each
-question with deterministic templates first (no API key, no LLM) and calls an LLM only for wording no template
-matches; the repo's `.env` (`ANTHROPIC_API_KEY`) is read automatically. `PARSER_MODE=regex` is fully offline and
-deterministic (template parser + solvers) — it reproduces our test-set answers, but questions in unseen wording then
-get no answer.
+One command from the repo root, no manual steps between input and output. It runs in the default `hybrid` parser
+mode: the template parser first (deterministic, no LLM), and an LLM only for wording no template matches. The LLM
+only maps the question to a kind and room/floor ids (or hands it to the solver agent, below); every number still
+comes from code. It needs `ANTHROPIC_API_KEY` in `.env` (copy `.env.example`); the runner reads `.env` itself, so
+`--env-file .env` is optional.
 
 ```bash
 uv sync
 # Sunday: one building directory (holds building.json) + its question file
 uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> SUBMISSION/answers.json
 # Public test set (145 questions, buildings under data/test/<building_id>/) — this produced SUBMISSION/answers.json
-PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 data/test data/test/questions.csv SUBMISSION/answers.json
+uv run --env-file .env python -m agent.run_benchmark_v1 data/test data/test/questions.csv SUBMISSION/answers.json
 ```
+
+No API key: the same command replays every model decision from `llm_cache/decisions.json` (see below) and
+reproduces our `answers.json`. `PARSER_MODE=regex` in front of the command is fully deterministic and needs no
+network, but a question whose wording matches no template then gets no answer (reworded questions we tried on dev
+buildings: 0/6 and 1/14 answered in regex mode; 6/6 and 14/14 in hybrid). All 145 test questions match a template,
+so both modes write identical replies (checked 2026-10-25).
 
 - `<building_dir>`: one building, or a split directory with one sub-directory per `building_id`.
 - Question file: `.jsonl`, `.json` (a list, or `{"questions": [...]}`) or `.csv`; each question needs an id
   (`id` or `question_id`) and its text (`question`), plus `building_id` when the first argument is a split.
 - The output extension picks the format. `.json` (our submission): one object per question with `question_id`,
-  the full `reply` (ending in the `Answer:` line), `answer`, `kind`, `parser` (`regex` or `llm`), resolved
+  the full `reply` (ending in the `Answer:` line), `answer`, `kind`, `parser` (`regex`, `llm`, `agent`, or `llm-cache` / `agent-cache` on replay), resolved
   `inputs`, the top-level ids `item_id` (located item), `space_id` (its room, or the answer room), `space_path`
   (the whole route as one ordered list of spaces, stops joined), `element_path`, `length_m` and `reachable`
   (`false` = no route under the question's rules), the solver's structured `result`, and for routing kinds

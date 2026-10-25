@@ -5,14 +5,15 @@
 // are dropped by the map itself.
 // With a building open the map stays mounted under its screen (src/Root.tsx): it flies in to the building and then
 // follows the model's camera (./bridge.ts), so in the city view the neighbours stay on screen and their pins can be
-// tapped; shown alone, the building screen's own stage covers it. Closing the building flies back out to every pin.
+// tapped; shown alone, the building screen's own stage covers it. Closing the building flies back to where the map was
+// when it was opened (every pin, if it was opened from a link).
 
 import maplibregl, { type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Building } from '../api'
 import { useTheme } from '../theme'
-import { applyBlocks, attachMap, FLAT_FOV, osmHeights, toLngLat, type Origin } from './bridge'
+import { applyBlocks, attachMap, FLAT_FOV, osmHeights, setTheme, toLngLat, type Origin } from './bridge'
 import './map.css'
 import { BUILDINGS_FROM_ZOOM, mapStyle, modelColours } from './style'
 
@@ -32,6 +33,9 @@ const PIN = {
   dark: { fill: '#F3F4F6', ring: '#0F1013', disc: '#F3F4F6', text: '#F3F4F6', halo: '#0F1013' },
 }
 
+// the layers a click opens a building from, and how far the pointer may miss them (px)
+const HIT_LAYERS = ['pins', 'pin-names', 'pin-discs', 'model-blocks', 'model-footprints']
+const HIT_SLOP = 14
 const LOCATE_DISMISSED = 'ml-locate-dismissed' // "Not now" on the location card, remembered per browser
 
 type Located = Building & { location: NonNullable<Building['location']> }
@@ -64,6 +68,7 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
   onList: () => void
 }) {
   const { dark } = useTheme()
+  setTheme(dark) // the blocks the bridge draws around an open building take the map's colours
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const openRef = useRef(onOpen)
@@ -100,15 +105,39 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     const geolocate = new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true, fitBoundsOptions: { maxZoom: 16 } })
     map.addControl(geolocate, 'bottom-right')
     geolocateRef.current = geolocate
-    const open = (event: maplibregl.MapLayerMouseEvent) => {
-      const id = event.features?.[0]?.properties?.id
-      if (typeof id === 'string') openRef.current(id)
+    // a building opens from its pin, its name, the halo round the pin or its block, and the pointer may miss by a
+    // finger's width (HIT_SLOP px): the pin alone is too small a target
+    const hit = (point: maplibregl.Point) => {
+      const layers = HIT_LAYERS.filter((layer) => map.getLayer(layer))
+      if (!layers.length) return null
+      const box: [maplibregl.PointLike, maplibregl.PointLike] = [
+        [point.x - HIT_SLOP, point.y - HIT_SLOP],
+        [point.x + HIT_SLOP, point.y + HIT_SLOP],
+      ]
+      // a block right under the pointer wins; else the nearest pin (neighbouring pins and their halos overlap); a block
+      // only within reach comes last
+      const distance = (feature: maplibregl.MapGeoJSONFeature) =>
+        feature.geometry.type === 'Point'
+          ? point.dist(map.project(feature.geometry.coordinates as [number, number]))
+          : Infinity
+      const blocks = layers.filter((layer) => layer.startsWith('model-'))
+      const under = blocks.length ? map.queryRenderedFeatures(point, { layers: blocks })[0] : undefined
+      const id = (under ?? map.queryRenderedFeatures(box, { layers }).sort((a, b) => distance(a) - distance(b))[0])?.properties?.id
+      return typeof id === 'string' ? id : null
     }
-    for (const layer of ['pins', 'pin-names']) {
-      map.on('click', layer, open)
-      map.on('mouseenter', layer, () => (map.getCanvas().style.cursor = 'pointer'))
-      map.on('mouseleave', layer, () => (map.getCanvas().style.cursor = ''))
-    }
+    let hovered: string | null = null
+    map.on('click', (event) => {
+      const id = hit(event.point)
+      if (id) openRef.current(id)
+    })
+    map.on('mousemove', (event) => {
+      const id = hit(event.point)
+      if (id === hovered) return
+      if (hovered && map.getSource('buildings')) map.setFeatureState({ source: 'buildings', id: hovered }, { hover: false })
+      if (id && map.getSource('buildings')) map.setFeatureState({ source: 'buildings', id }, { hover: true })
+      hovered = id
+      map.getCanvas().style.cursor = id ? 'pointer' : ''
+    })
     mapRef.current = map
     attachMap(map)
     // a new map (React's dev double mount makes two) has flown nowhere and framed nothing yet
@@ -207,8 +236,7 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     // the OSM blocks' heights arrive with the tiles
     const modelsSource = () => map.getSource('models') as GeoJSONSource | undefined
     const heights = { key: '' }
-    const modelData = (): GeoJSONSourceSpecification['data'] => {
-      const osm = osmHeights(located.map((b) => b.location.outline ?? []))
+    const modelData = (osm = osmHeights(located.map((b) => b.location.outline ?? []))): GeoJSONSourceSpecification['data'] => {
       heights.key = osm.join(',')
       return {
         type: 'FeatureCollection',
@@ -219,18 +247,26 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
         })),
       }
     }
+    // only once new tiles have arrived: the map goes idle after every move, and reading every block costs a frame or more
+    let tiles = true
+    const onTiles = (event: maplibregl.MapSourceDataEvent) => {
+      if (event.sourceId === 'openmaptiles') tiles = true
+    }
     const updateHeights = () => {
       const source = modelsSource()
-      if (!source) return
-      const key = osmHeights(located.map((b) => b.location.outline ?? [])).join(',')
-      if (key !== heights.key) source.setData(modelData())
+      if (!source || !tiles) return
+      tiles = false
+      const osm = osmHeights(located.map((b) => b.location.outline ?? []))
+      if (osm.join(',') !== heights.key) source.setData(modelData(osm))
     }
     tryPins()
+    map.on('sourcedata', onTiles)
     map.on('idle', updateHeights)
     map.on('style.load', addPins)
     map.on('style.load', hideFocused)
     map.on('style.load', applyBlocks)
     return () => {
+      map.off('sourcedata', onTiles)
       map.off('idle', updateHeights)
       map.off('style.load', addPins)
       map.off('style.load', hideFocused)
@@ -251,9 +287,11 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
   }
 
   // fly in to the open building (or jump, if the map just appeared under it), flattening the perspective so the
-  // model's camera can take over; fly back out to every pin when it closes
+  // model's camera can take over; fly back to where the map was when it closes (to every pin, if there is no such view)
   const focusId = focus?.id ?? null
   const flownTo = useRef<string | null>(null)
+  // where the map was when a building was opened from it: closing the building flies back there
+  const before = useRef<maplibregl.CameraOptions | null>(null)
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -262,6 +300,8 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     const current = focusRef.current
     if (current) {
       const first = !was && !map.loaded() && !framed.current
+      // (opened from a link, the map has not been looked at yet: closing frames every pin instead)
+      if (!was) before.current = first ? null : { center: map.getCenter(), zoom: map.getZoom(), pitch: map.getPitch(), bearing: map.getBearing() }
       framed.current = true
       const ms = first ? 0 : flyMs()
       const camera = { center: toLngLat(current.origin, 0, 0), ...FLY }
@@ -274,7 +314,10 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     if (!was) return
     const bounds = pinBounds(located)
     const ms = flyMs()
-    if (bounds) {
+    const back = before.current
+    before.current = null
+    if (back) map.flyTo({ ...back, duration: ms, essential: true })
+    else if (bounds) {
       const camera = map.cameraForBounds(bounds, { padding: fitPadding(), maxZoom: 15 })
       if (camera) map.flyTo({ ...camera, pitch: PITCH, bearing: 0, duration: ms, essential: true })
     }
@@ -353,14 +396,22 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     <main className={`ml${focus ? ' ml-open' : ''}`} inert={focus ? true : undefined}>
       <div ref={container} className="ml-map" />
       {askLocation && !focus && (
-        <div className="ml-locate" role="dialog" aria-labelledby="ml-locate-title">
-          <p id="ml-locate-title">Show where you are?</p>
-          <p className="ml-locate-sub">Your position appears as a dot among the buildings. It stays in this browser.</p>
-          <div className="ml-locate-actions">
-            <button onClick={() => answerLocation(false)}>Not now</button>
-            <button className="ml-locate-allow" onClick={() => answerLocation(true)} autoFocus>
-              Allow
-            </button>
+        <div className="ml-locate-scrim" onKeyDown={(e) => e.key === 'Escape' && answerLocation(false)}>
+          <div className="ml-locate" role="dialog" aria-modal="true" aria-labelledby="ml-locate-title">
+            <span className="ml-locate-icon" aria-hidden>
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
+                <circle cx="12" cy="9.5" r="2.5" />
+              </svg>
+            </span>
+            <p id="ml-locate-title">Show where you are?</p>
+            <p className="ml-locate-sub">Your position appears as a dot among the buildings. It stays in this browser.</p>
+            <div className="ml-locate-actions">
+              <button className="ml-locate-allow" onClick={() => answerLocation(true)} autoFocus>
+                Allow location
+              </button>
+              <button onClick={() => answerLocation(false)}>Not now</button>
+            </div>
           </div>
         </div>
       )}

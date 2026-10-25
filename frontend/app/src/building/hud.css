@@ -2,7 +2,7 @@
    and the Core. Dark is the reference look; light keeps the same structure on pale glass. No glow anywhere: depth
    comes from the glass and a scrim, motion only while the Guide listens, thinks or speaks. */
 
-.screen {
+.screen, .access-layer {
   --hud-glass: rgba(255, 255, 255, 0.74);
   --hud-glass-2: rgba(255, 255, 255, 0.86);
   --hud-line: rgba(20, 22, 26, 0.1);
@@ -23,7 +23,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .screen {
+  :root:not([data-theme='light']) .screen, :root:not([data-theme='light']) .access-layer {
     --hud-glass: rgba(18, 19, 23, 0.72);
     --hud-glass-2: rgba(30, 31, 37, 0.8);
     --hud-line: rgba(255, 255, 255, 0.12);
@@ -44,7 +44,7 @@
   }
 }
 
-:root[data-theme='dark'] .screen {
+:root[data-theme='dark'] .screen, :root[data-theme='dark'] .access-layer {
   --hud-glass: rgba(18, 19, 23, 0.72);
   --hud-glass-2: rgba(30, 31, 37, 0.8);
   --hud-line: rgba(255, 255, 255, 0.12);
@@ -99,7 +99,7 @@
   color: var(--hud-ink-2);
 }
 
-.hud-primary {
+.screen .hud-primary {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -669,7 +669,8 @@
 .next-move .segments button.done::before { background: var(--hud-ink-2); }
 .next-move .segments button.now::before { background: var(--hud-route); }
 
-.hud-pill {
+/* .screen: `.screen button` (0,1,1) would otherwise hand it the panel's ink, unreadable on the solid fill in dark */
+.screen .hud-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -863,3 +864,301 @@
 .story-marker.you b.stale::before { background: conic-gradient(from -26deg at 50% 100%, color-mix(in srgb, var(--hud-warn) 35%, transparent), transparent 52deg, transparent); }
 .story-marker.you b.stale::after { width: 84px; height: 84px; left: -42px; top: -42px; border-color: color-mix(in srgb, var(--hud-warn) 55%, transparent); background: color-mix(in srgb, var(--hud-warn) 10%, transparent); }
 .story-marker.you b.stale em { background: var(--hud-warn); }
+
+/* ---------- moving objects (access mode, src/plan/ObjectsLayer.tsx; --object from the plan palette) ---------- */
+
+.object-markers { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.object-marker { position: absolute; top: 0; left: 0; will-change: transform; }
+
+.object-marker button {
+  position: absolute;
+  left: -14px;
+  top: -14px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.object-marker em {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 2px solid var(--hud-solid-ink);
+  background: var(--object);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--object) 60%, transparent);
+}
+
+/* heading cone, turned by --heading (set each frame from the projected heading) */
+.object-marker b {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform: rotate(var(--heading, 0rad));
+}
+
+.object-marker b::before {
+  content: '';
+  position: absolute;
+  left: -22px;
+  top: -40px;
+  width: 44px;
+  height: 40px;
+  background: conic-gradient(from -24deg at 50% 100%, color-mix(in srgb, var(--object) 50%, transparent), transparent 48deg, transparent);
+}
+
+.object-marker span {
+  position: absolute;
+  left: 14px;
+  top: -11px;
+  display: none;
+  padding: 3px 8px;
+  border: 1px solid var(--hud-line);
+  border-radius: 8px;
+  background: var(--hud-glass-2);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: var(--hud-ink);
+  font: 500 12px var(--font-mono);
+  white-space: nowrap;
+}
+
+.object-marker span small { font-size: 11px; color: var(--hud-ink-2); }
+.object-marker.open span { display: block; }
+
+@media (hover: hover) {
+  .object-marker button:hover + span { display: block; }
+}
+
+/* destination: a ring in the object colour with its name */
+.object-marker.to i {
+  position: absolute;
+  left: -7px;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid var(--object);
+  background: var(--hud-solid-ink);
+}
+
+.object-marker.to span { display: block; left: 12px; top: -10px; padding: 2px 7px; font-size: 11px; color: var(--hud-ink-2); }
+
+/* ---------- what an answer is about, the "you are here" figure, the guide's actions (BuildingScreen, StoryLayer) ---------- */
+
+.screen { --hud-me: #F2602A; }
+
+/* the rooms found: their names in the route's accent, over the tinted room */
+.story-marker.place span {
+  background: var(--hud-route);
+  color: #FFFFFF;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hud-route) 25%, transparent), var(--shadow-float);
+  animation: story-pop 0.36s var(--ease-out) both;
+}
+
+/* the items found: a ringed dot that breathes, and the name when there are few */
+.story-marker.item i {
+  width: 14px;
+  height: 14px;
+  background: var(--hud-route);
+  border-width: 3px;
+}
+.story-marker.item i::after {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  border: 2px solid var(--hud-route);
+  animation: story-ring 1.6s var(--ease-out) 3;
+  opacity: 0;
+}
+.story-marker.item span { transform: translate(-50%, calc(-100% - 14px)); }
+
+/* the walk on to a nearby building: its badge continues there */
+.story-marker.next button {
+  pointer-events: auto;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  background: var(--hud-route);
+  color: #FFFFFF;
+}
+
+/* the figure: dragged with the finger, so the marker takes pointer events */
+.story-marker.me { pointer-events: auto; z-index: 2; }
+.story-marker.me.dragging { transition: none; }
+.me-figure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: none;
+  transform: translate(-50%, calc(-100% + 6px));
+  cursor: grab;
+  touch-action: none;
+  color: #FFFFFF;
+}
+.dragging .me-figure { cursor: grabbing; transform: translate(-50%, calc(-100% + 6px)) scale(1.12); }
+.me-figure svg {
+  box-sizing: content-box;
+  padding: 7px;
+  border-radius: 50% 50% 50% 0;
+  rotate: -45deg;
+  background: var(--hud-me);
+  border: 3px solid #FFFFFF;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+.me-figure svg > * { rotate: 45deg; transform-origin: 12px 12px; }
+.me-figure span {
+  position: static;
+  transform: none;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 11.5px/1 var(--font-ui);
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--hud-solid);
+  color: var(--hud-solid-ink);
+  box-shadow: var(--shadow-float);
+}
+
+/* its dock: drag the figure out of it onto the plan, or tap */
+/* The compass: a small dial in the Core's language (hairline ring, fine ticks, mono N). The rose turns with the
+   camera (--turn, set per frame); the N stays upright as it travels round. */
+.plan-compass {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 1px solid var(--hud-line);
+  border-radius: 50%;
+  background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+  cursor: pointer;
+}
+.plan-compass:active { transform: scale(0.97); }
+.plan-compass-rose { position: relative; display: block; width: 44px; height: 44px; transform: rotate(var(--turn, 0rad)); }
+.plan-compass-rose svg { display: block; width: 100%; height: 100%; }
+.plan-compass-rose line { stroke: var(--hud-tick); stroke-width: 1; stroke-linecap: round; }
+.plan-compass-rose line.major { stroke: var(--hud-ink-3); }
+.plan-compass-rose .needle-n { fill: var(--hud-ink); }
+.plan-compass-rose .needle-s { fill: var(--hud-tick); }
+.plan-compass-rose .hub { fill: var(--hud-glass-2); stroke: var(--hud-line-2); stroke-width: 0.6; }
+.plan-compass-rose b {
+  position: absolute;
+  top: 1px;
+  left: 50%;
+  width: 10px;
+  margin-left: -5px;
+  font: 600 8.5px/10px var(--font-mono);
+  text-align: center;
+  color: var(--hud-ink);
+  transform: rotate(calc(var(--turn, 0rad) * -1));
+}
+.me-dock {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--hud-line);
+  border-radius: 16px;
+  background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-me);
+  cursor: grab;
+  touch-action: none;
+}
+.me-dock.placed { color: var(--hud-ink-3); }
+.me-dock small {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--hud-solid);
+  color: var(--hud-solid-ink);
+  font: 700 12px/18px var(--font-ui);
+}
+.me-ghost {
+  display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+.me-ghost .me-figure { opacity: 0.9; }
+
+/* the guide's actions under the next-move card */
+.guide-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.guide-actions button {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--hud-line-2);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--hud-ink);
+  font: 600 13.5px var(--font-ui);
+  cursor: pointer;
+}
+.guide-actions button.primary { border-color: transparent; background: var(--hud-route); color: #FFFFFF; }
+
+/* found in the buildings nearby: one row per building, its name shortened before the actions are squeezed */
+.next-move.elsewhere ul { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.next-move.elsewhere li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 6px 0; }
+.next-move.elsewhere li + li { border-top: 1px solid var(--hud-line); }
+.next-move.elsewhere li > svg { flex: none; color: var(--hud-route); }
+.next-move.elsewhere .what { flex: 1 1 160px; min-width: 0; }
+.next-move.elsewhere .what b { display: block; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.next-move.elsewhere .what small { display: block; font-size: 12.5px; color: var(--hud-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.next-move.elsewhere .acts { display: flex; gap: 6px; margin-left: auto; }
+.screen .next-move.elsewhere .acts button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--hud-line-2);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--hud-ink);
+  font: 600 13px var(--font-ui);
+  white-space: nowrap;
+}
+.screen .next-move.elsewhere .acts button.go { border-color: transparent; background: var(--hud-route); color: #FFFFFF; }
+.screen .next-move.elsewhere .acts button:active { transform: scale(0.97); }
+
+@keyframes story-pop { from { opacity: 0; scale: 0.7; } to { opacity: 1; scale: 1; } }
+@keyframes story-ring { from { opacity: 0.9; scale: 0.4; } to { opacity: 0; scale: 1.4; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .story-marker.place span, .story-marker.item i::after { animation: none; }
+}

@@ -279,6 +279,17 @@ Template:
   outdoor travel via `outside`; meanwhile a site layer (several `BuildingMap`s + typed links: walkway / outdoor
   path with length) is the smallest change (starter README idea, [starter-agent.md](../docs/kit/starter-agent.md)).
 
+<a id="q-020"></a>
+### Q-020 — Keep the voice transcript rewriter now that Scribe hears the building's names?
+- **Status:** open · **Priority:** medium · **Resolve by:** Atahan's call after a real-mic comparison
+- **Context:** [D-013](decisions.md#d-013) puts a Haiku rewriter before every voice turn (~1–1.1 s, measured
+  2026-10-25 before the first Guide request) because browser transcripts mangle names. With Scribe Realtime and the
+  building's keyterms ([D-019](decisions.md#d-019)) "Where is the CNC mill?" came back exactly; the rewriter may now
+  cost more latency than it saves. Browser recognition (the fallback) still needs it.
+- **Options:** (a) keep it for all voice turns; (b) skip it when the transcript came from Scribe (the app would send
+  `stt: "scribe"` with `/chat/stream`); (c) keep it only for numbers ("two seventeen" → "2.17").
+- **How to resolve:** a few real spoken questions with room numbers through Scribe, rewriter on vs off.
+
 ## Resolved
 
 <a id="q-004"></a>

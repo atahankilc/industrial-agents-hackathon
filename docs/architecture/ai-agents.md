@@ -39,12 +39,22 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 | `set_profile(...)` | the active [routing profile](../product/routing-profiles.md) for this user | user state only |
 | `propose_change(kind, …)` | a **pending** change (close lift, add door, move asset) + its predicted effect | no — needs confirm |
 | `apply_change(change_id)` | committed edit event, broadcast to all clients | **yes** |
-| `show_on_map(ids, route?)` | UI event (highlight / fly to / switch floor) | no |
+| `show_on_map(space_ids?, asset_ids?)` | UI event (highlight rooms and items / fly to / switch floor) | no |
+| `set_my_location(place)` | the user's position ("here" from now on) + UI event `location` (the "you are here" figure) | user state only |
+| `open_edit_mode(request?)` | UI event `edit_mode`: the app opens its Edit mode, the Builder takes the request | no |
+| `search_nearby_buildings(query)` / `route_to_building(start, building, destination)` | matches / a route in the buildings next to this one (only offered when the building has located neighbours) | no |
 
 **Implemented (2026-10-24):** `agent/tools.py` — `BuildingSession` (private building copy, routing profile,
 pending/applied changes, UI events) + `TOOL_DEFINITIONS` (Anthropic tool schemas) for building_overview, search,
 locate, count_assets, room_facts, find_route, tour, reachable_rooms, solve (every benchmark kind), set_profile,
-propose_change, apply_change, compare_routes, show_on_map. Errors come back as `{"error": …}` so the model can
+propose_change, apply_change, compare_routes, show_on_map (`space_ids` and `asset_ids`), set_my_location,
+open_edit_mode. Since 2026-10-25: `set_my_location(place)` makes that space the user's position and emits a
+`location` event (the app moves its "you are here" figure there); every place argument then also accepts "here"
+(`HERE` in `agent/tools.py`: "here", "me", "my location", …; unknown position → an error telling the model to ask).
+`open_edit_mode(request?)` emits an `edit_mode` event and the app switches to its Edit mode, where the Builder
+takes the request. `search_nearby_buildings(query)` and `route_to_building(start, building, destination)`
+(`agent/campus.py`, [D-021](../../memory-bank/decisions.md#d-021)) are added to the tool list only when the building
+has located neighbours (`BuildingSession.campus`). Errors come back as `{"error": …}` so the model can
 search or ask. Profile → constraints: `min_door_width_m` and `avoid_lifts` act as closures of narrow openings /
 lifts. Built on `core/navigation.py` (locate, count, find_route, tour; gold path format) and `core/solvers/`.
 Tests: `tests/test_agent_tools.py`.
@@ -72,7 +82,11 @@ events — so one call answers "what happens if…", and the model never counts 
 - **Profile once, remember always.** Infer constraints (wheelchair, trolley width, no lifts, quiet) from the
   conversation, confirm once in one line, store in the session/user profile → used by every later route
   without asking twice ([routing-profiles.md](../product/routing-profiles.md)).
-- **Echo understanding in one line** (from → to, constraints, closures), then numbered steps.
+- **Echo understanding in one line** (from → to, constraints, closures), then the total, the floors crossed and the
+  first step only: the app shows the whole route and guides step by step
+  ([D-020](../../memory-bank/decisions.md#d-020)). With the app's "you are here" figure placed, "here" is the start
+  and the Guide never asks where the user is. Not in this building → `search_nearby_buildings` /
+  `route_to_building` for located buildings ([D-021](../../memory-bank/decisions.md#d-021), `agent/campus.py`).
 - **Directions a person can follow:** landmarks from assets/room names ("past the printers", "through the
   double door into Hall 0.02"), floor changes explicit, metres rounded. Voice gets shorter steps than text.
 - **Robust to tricky users:** vague ("the printer"), wrong ("room 9.99" → nearest matches), mid-course
@@ -132,6 +146,63 @@ building vocabulary as cached system prompt; `Guide.reply(..., channel="voice")`
 overrides the model. Any doubt (API error, refusal, empty, a number in neither the transcript nor the building)
 keeps the transcript as heard. Live (train campus 000): "lab two seventeen" → "Lab 2.17", "office zero oh two"
 → "Office 0.02", "the kitchen" and "the second floor" unchanged; ~1–2 s per call. Tests `tests/test_rewriter.py`.
+
+**What the app runs today (2026-10-25):** the ElevenLabs Agent above is not wired up. The app listens with
+ElevenLabs Scribe Realtime (`voice/scribe.ts`, token from `POST /stt/token`) when `/health` says `"stt": true`, with the
+browser's SpeechRecognition as the fallback (`frontend/app/src/voice/useVoice.ts`), and speaks with **ElevenLabs TTS through our
+backend**: `voice/tts.ts` splits the reply into sentences (short first piece, then ≤ 220-char groups), fetches each
+from `POST /tts` (`backend/tts.py`: Flash v2.5, voice "River", key server-side) while the previous one plays, and
+drives the orb from the audio's real level. No key, a failed request or locked audio → the browser's
+speechSynthesis (a piece that fails is retried once; failing again pauses ElevenLabs for 15 s, `COOL_OFF_MS`). [D-016](../../memory-bank/decisions.md#d-016).
+Live (Chrome, 3-sentence test reply): first sound 371 ms after speaking starts. Tests `tests/test_tts.py`.
+
+**Speaking while the Guide works (2026-10-25, [D-017](../../memory-bank/decisions.md#d-017)):** on voice turns with a
+listener (`Guide.on_say`, set by `/chat/stream`) the Guide streams its requests (`messages.stream`, real client only;
+offline/test clients feed whole text blocks) into `agent/speech.py` `SpokenStream`: each complete sentence that
+passes `ungrounded()` against the corpus so far goes out at once as a `say` line; the first ungrounded sentence, a
+grounding repair or a profile redo holds live speech (a message with an unsatisfied profile cue is held from the
+start), and at the end `finish(turn.text)` says what of the final reply was not said yet. `VOICE_STYLE` asks for
+one short fact-free sentence before the first tool call ("Let me look up the way to the kitchen."), which is spoken
+while the tools run. The app opens a voice queue on the first `say` (`voice/tts.ts` `openSpeech`; text that arrives
+while a piece plays is fetched at once). Live (Opus 5.5 medium, train campus 000): first sound at 2.35 s in a turn
+whose answer came at 10.4 s (6 tool calls); before, nothing was heard until the reply. The answer after the tools
+arrived from the API in one burst in every traced turn, so its sentences gain little from streaming yet.
+Tests `tests/test_speech.py`, `tests/test_backend.py::test_chat_stream_voice_says_sentences_before_the_reply`.
+
+**Conversation, pauses and barge-in (2026-10-25, [D-018](../../memory-bank/decisions.md#d-018)), all in
+`frontend/app/src/voice/useVoice.ts`:** recognition runs `continuous` and the utterance ends after 1.0 s without new
+words (`END_PAUSE_MS`, was 1.3 s before the latency pass; 8 s with none at all after a tap), so a short pause mid-question no longer sends half of it. A spoken question
+starts a conversation: from the reply's first sound (`onStart`, which can be the fact-free preamble while the turn
+is still pending) a second recogniser listens while the Guide speaks (restarted after 250 ms if the browser ends it
+early; aborted on speech end, `stop()`, when listening starts, or once it has fired);
+`voice/bargeIn.ts` drops what is the Guide's own echo (its words, three-letter stems, numbers, single letters), and
+`interruption` decides on the user's part (`userPart`): a stop word in a phrase of at most three words → "stop";
+three or more own words that are at least half of what was heard → "talk"; else nothing (was: one own word of three
+letters already counted, which cut the Guide off on misheard echo and room noise — tightened 2026-10-25). Results in
+the first 1 s of the voice are ignored (`BARGE_GRACE_MS`), and "talk" must hold on two results in a row or a final
+one. "Talk" cuts the voice and becomes the next question (their words carried over, sent after 2 s unless
+more follow); "stop" (stop words: "stop", "wait", "stopp", "dur", …) just stops it. When the reply ends, the Guide
+listens again by itself (after 200 ms) and ends the conversation quietly after 6 s of silence. Typed questions and walk-mode step
+readings don't start a conversation. An utterance spoken while a Guide turn is still pending (for example a
+barge-in over the preamble) is queued and sent once that turn is done (`building/BuildingScreen.tsx` `queued`); the
+rest of the interrupted reply is not spoken. Verified in Chrome with a scripted SpeechRecognition (real UI, offline Guide, real ElevenLabs): pause
+kept, echo ignored, interruption sent as "actually where is the nearest toilet", "stop" stopped, auto-listen
+ended after 6 s without an error. Not verified with a real microphone and speakers (echo levels, Bluetooth).
+
+**Scribe Realtime for the user's words (2026-10-25, [D-019](../../memory-bank/decisions.md#d-019)):** with
+`/health` `"stt": true` the recogniser is `voice/scribe.ts` `ScribeRecognition`, which has the SpeechRecognition
+shape: `POST /stt/token` (`backend/stt.py`) gives a single-use token plus the building's keyterms (one fetched
+ahead), the mic is captured first (an AudioWorklet averages it down to 16 kHz int16, 100 ms chunks, buffered until the
+socket opens) and streamed to `wss://api.elevenlabs.io/v1/speech-to-text/realtime` with `commit_strategy=manual`;
+changed partials are the interim result, committed segments the finals, and `stop()` commits and waits 0.8 s (`COMMIT_WAIT_MS`) for the
+last segment. The mic is opened through `voice/mic.ts` (skips virtual inputs, remembers the real one) and kept
+warm for 8 s after a listen (`MIC_WARM_MS`), so the next listen starts at once; a Scribe failure still means browser
+recognition for 60 s. Verified live: `keyterms` are repeated query parameters, more than 50 or longer than 20 characters are
+refused (`invalid_request`); Scribe re-sends an unchanged partial about every second through silence. End to end in
+Chrome (ElevenLabs-spoken "Where is the CNC mill?" as the mic, factory dev-003): first partial 0.3 s after the audio
+ended, committed and sent ~1.9 s after it, answered aloud, barge-in watcher on its own Scribe session; with the token
+request failing, browser recognition took over with no error. The transcript rewriter (D-013) still runs:
+[Q-020](../../memory-bank/open-questions.md#q-020).
 
 **Implemented (2026-10-24):** `Guide.reply(text, channel="voice")` — used by `/v1/chat/completions` — adds the
 `VOICE_STYLE` instruction (plain spoken sentences, ≤ ~3 sentences, first 2–3 steps then offer to continue) as a

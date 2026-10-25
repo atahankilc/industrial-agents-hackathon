@@ -91,6 +91,15 @@ def test_text_turns_and_unchanged_transcripts_are_left_alone(session):
     assert same.rewritten is None and "as heard" not in json.dumps(guide.messages[-2]["content"])
 
 
+def test_tapped_voice_turn_is_spoken_but_not_rewritten(session):
+    rewrite_client = FakeRewriteClient("Where is Lab 2.17?")
+    guide = Guide(session, client=ScriptedClient([say("Lab 2.17 is on Floor 2.")]))
+    guide.rewriter = rewriter_for(session, rewrite_client)
+    turn = guide.reply("How do I get to Lab 2.17?", channel="voice", heard=False)  # the room card's Directions
+    assert turn.rewritten is None and not rewrite_client.requests
+    assert turn.spoken
+
+
 def test_offline_guide_has_no_rewriter(session, monkeypatch):
     monkeypatch.setenv("GUIDE_LLM", "offline")
     assert Guide(session).rewriter is None

@@ -30,6 +30,12 @@ export function stepLabel(step: ChatStep): string {
     case 'apply_change': return 'Applying the change'
     case 'compare_routes': return 'Comparing routes before and after'
     case 'show_on_map': return 'Highlighting it on the map'
+    // the Edit mode's Builder (agent/builder_tools.py)
+    case 'overview': return 'Reading the building'
+    case 'find': return `Looking for “${clip(input.query)}”`
+    case 'space_info': return `Looking at ${clip(input.space)}`
+    case 'floor_plan': return 'Reading the floor layout'
+    case 'propose_edit': return 'Trying the change on a copy'
     default: return clip(step.name.replace(/_/g, ' '))
   }
 }

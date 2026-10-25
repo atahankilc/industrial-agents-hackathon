@@ -130,6 +130,21 @@ function buildFloor(plan: Plan, floor: number, palette: PlanPalette, look: Look)
     for (const [a, b, c] of triangles) indices.push(first + a, first + c, first + b)
     ranges.get(space.id)?.push([first, points.length])
   }
+  // access mode: spaces this viewer may not enter, outline only, in one dark neutral (no label, furniture or
+  // selection: they are not in plan.spaces, so nothing else draws or picks them)
+  const restricted = (plan.restricted ?? []).filter((shape) => shape.floor === floor && shape.polygon.length > 2)
+  color.set(palette.restricted)
+  for (const shape of restricted) {
+    const contour = shape.polygon.map(([x, y]) => new THREE.Vector2(x, y))
+    if (THREE.ShapeUtils.isClockWise(contour)) contour.reverse()
+    const first = positions.length / 3
+    for (const point of contour) {
+      const [X, Z] = toScene(plan, point.x, point.y)
+      positions.push(X, 0, Z)
+      colors.push(color.r, color.g, color.b)
+    }
+    for (const [a, b, c] of THREE.ShapeUtils.triangulateShape(contour, [])) indices.push(first + a, first + c, first + b)
+  }
   const fills = new THREE.BufferGeometry()
   fills.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   fills.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
@@ -138,7 +153,7 @@ function buildFloor(plan: Plan, floor: number, palette: PlanPalette, look: Look)
 
   // ---- slab edge: every outline dropped SLAB_M (inner duplicates hide under the floor)
   const slab = new Quads()
-  for (const space of spaces) {
+  for (const space of [...spaces, ...restricted]) {
     const points = space.polygon.map(([x, y]) => toScene(plan, x, y))
     for (let i = 0; i < points.length; i++) {
       const [ax, az] = points[i]

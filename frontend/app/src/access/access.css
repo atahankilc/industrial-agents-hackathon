@@ -1,0 +1,357 @@
+/* Access mode: sheets (sign in, set a password, building settings) and the notice line. HUD tokens and parts
+   (building/hud.css: --hud-*, .hud-icon, .hud-primary); .access-layer carries the same tokens outside the building
+   screen. Glass, hairlines, mono micro-labels, no glow. */
+
+.access-layer {
+  --font-ui: Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  font-family: var(--font-ui);
+  color: var(--hud-ink);
+}
+
+.access-layer > * { pointer-events: auto; }
+
+.sheet-scrim { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, 0.28); animation: sheet-fade 0.16s var(--ease-out); }
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 31;
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+  border: 1px solid var(--hud-line);
+  border-bottom: 0;
+  border-radius: 22px 22px 0 0;
+  background: var(--hud-glass-2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+  animation: sheet-up 0.22s var(--ease-out);
+}
+
+@media (min-width: 900px) {
+  .sheet { left: auto; right: 16px; top: 16px; bottom: auto; width: 400px; max-height: calc(100vh - 32px); border: 1px solid var(--hud-line); border-radius: 22px; }
+  .sheet.wide { width: 460px; bottom: 16px; }
+}
+
+.sheet > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 10px 20px;
+}
+
+.sheet h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+
+.sheet-body {
+  overflow-y: auto;
+  padding: 0 20px calc(18px + env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
+}
+
+.sheet-section + .sheet-section { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--hud-line); }
+
+.sheet h3, .sheet h4, .field > span {
+  margin: 0 0 8px;
+  font: 500 10.5px var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hud-ink-2);
+}
+
+.sheet h3 { color: var(--hud-ink); }
+.sheet h4 { margin-top: 18px; }
+
+.sheet-hint { margin: 0 0 10px; font-size: 13px; line-height: 1.4; color: var(--hud-ink-2); }
+.sheet-error { margin: 10px 0 0; font-size: 13px; line-height: 1.4; color: var(--hud-warn); }
+
+.sheet-form { display: flex; flex-direction: column; gap: 12px; }
+.sheet-form .hud-primary { margin-top: 4px; }
+.sheet .hud-primary:disabled { opacity: 0.4; }
+
+.sheet-quiet {
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--hud-ink-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.field { display: flex; flex-direction: column; margin: 0; }
+
+.field input, .link-box input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--hud-line-2);
+  border-radius: 13px;
+  background: var(--hud-glass);
+  color: var(--hud-ink);
+  font: inherit;
+  font-size: 16px; /* no zoom on focus in iOS Safari */
+  outline: none;
+}
+
+.field input:focus, .chips:focus-within, .link-box input:focus { border-color: var(--hud-route); }
+
+/* ---- the public switch */
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.toggle-row small { display: block; margin-top: 2px; font-size: 13px; font-weight: 400; color: var(--hud-ink-2); }
+
+.toggle-row input {
+  flex: none;
+  appearance: none;
+  position: relative;
+  width: 44px;
+  height: 26px;
+  margin: 0;
+  border-radius: 13px;
+  background: var(--hud-line-2);
+  transition: background-color 0.2s var(--ease-out);
+}
+
+.toggle-row input::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  transition: transform 0.2s var(--ease-out);
+}
+
+.toggle-row input:checked { background: var(--hud-route); }
+.toggle-row input:checked::after { transform: translateX(18px); }
+
+/* ---- rule rows: a name, then its groups */
+
+.rule-list { display: flex; flex-direction: column; margin: 0 0 4px; padding: 0; list-style: none; }
+
+.rule-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--hud-line);
+}
+
+.rule-list li:first-child { border-top: 0; }
+
+.rule-name { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.rule-name small { display: block; margin-top: 1px; font: 500 11px var(--font-mono); color: var(--hud-ink-3); }
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 5px 8px;
+  border: 1px solid var(--hud-line);
+  border-radius: 12px;
+  background: var(--hud-glass);
+}
+
+.chips input {
+  flex: 1;
+  min-width: 90px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--hud-ink);
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+
+.chips input::placeholder { color: var(--hud-ink-3); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 4px 0 10px;
+  border-radius: 9px;
+  background: var(--hud-solid);
+  color: var(--hud-solid-ink);
+  font: 500 12.5px var(--font-mono);
+}
+
+.chip.public { background: transparent; border: 1px solid var(--hud-line-2); color: var(--hud-ink); }
+
+.chip button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.invite { margin-top: 14px; }
+.invite h4 { margin-top: 4px; margin-bottom: 0; }
+
+.link-box > div { display: flex; align-items: center; gap: 8px; }
+.link-box input { font: 500 12px var(--font-mono); height: 40px; }
+.link-box .hud-icon { width: 40px; height: 40px; border-radius: 12px; }
+
+
+/* ---- preferences: rows with a control under the label, segmented choices */
+
+.pref-row { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; font-size: 15px; font-weight: 500; }
+.pref-row > span small { display: block; margin-top: 2px; font-size: 13px; font-weight: 400; color: var(--hud-ink-2); }
+.pref-note { margin-top: 12px; }
+
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--hud-line);
+  border-radius: 11px;
+  background: var(--hud-glass);
+}
+
+.segmented button {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--hud-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.segmented button[aria-checked='true'] { background: var(--hud-solid); color: var(--hud-solid-ink); }
+
+.field.compact { flex-direction: row; align-items: center; gap: 8px; }
+.field.compact input { width: 120px; flex: none; }
+.field.compact em { font: 500 12px var(--font-mono); font-style: normal; color: var(--hud-ink-2); }
+
+.field select {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--hud-line-2);
+  border-radius: 13px;
+  background: var(--hud-glass);
+  color: var(--hud-ink);
+  font-size: 16px;
+}
+
+.toggle-row input:disabled { opacity: 0.4; }
+
+.sheet-quiet.danger { color: var(--hud-warn); }
+.sheet-quiet.bordered { height: 34px; padding: 0 12px; border: 1px solid var(--hud-line-2); border-radius: 11px; font-size: 13px; }
+.sheet-quiet:disabled { opacity: 0.4; }
+
+.confirm-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; font-size: 13.5px; color: var(--hud-ink-2); }
+
+.inline-link { padding: 0; border: 0; background: none; color: var(--hud-route); font: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+.rule-list li.row { flex-direction: row; align-items: center; justify-content: space-between; }
+
+/* ---- objects */
+
+.object-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.rule-name small + small { margin-top: 0; }
+
+.place-picker { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.place-picker ul { display: flex; flex-direction: column; max-height: 220px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+
+.place-picker li button {
+  display: block;
+  width: 100%;
+  padding: 8px 4px;
+  border: 0;
+  border-top: 1px solid var(--hud-line);
+  background: transparent;
+  color: var(--hud-ink);
+  font-size: 14px;
+  text-align: left;
+}
+
+.place-picker li:first-child button { border-top: 0; }
+.place-picker li button small { display: block; font: 500 11px var(--font-mono); color: var(--hud-ink-3); }
+
+.tokens { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.tokens h4 { margin: 0; }
+.token-item { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px solid var(--hud-line); }
+
+/* ---- the account line in the "…" menu, and the notice */
+
+.hud-pop .account {
+  margin: 0;
+  padding: 8px 10px 6px;
+  font: 500 11px var(--font-mono);
+  color: var(--hud-ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+
+.access-notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  margin: 0;
+  padding: 10px 16px;
+  border: 1px solid var(--hud-line);
+  border-radius: 14px;
+  background: var(--hud-glass-2);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--hud-shadow);
+  font-size: 13.5px;
+  color: var(--hud-ink);
+  animation: sheet-fade 0.2s var(--ease-out);
+}
+
+@media (max-width: 899px) {
+  /* above the Guide on phones */
+  .access-notice { top: calc(max(12px, env(safe-area-inset-top)) + 52px); bottom: auto; }
+}
+
+@keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } }
+@keyframes sheet-fade { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet, .sheet-scrim, .access-notice { animation: none; }
+  .toggle-row input, .toggle-row input::after { transition: none; }
+}

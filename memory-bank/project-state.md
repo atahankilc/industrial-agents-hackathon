@@ -41,7 +41,9 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   light map palette ([visualization.md](../docs/product/visualization.md#current-vector-plan-view-2026-10-24)).
   Since: buildings refitted onto their OSM ways (`scripts/fit_locations.py`, 12 shifted, 5 partial models kept),
   open with all floors, transition plays with "reduce motion" on, map field of view 1° + model tilt ≤ 60° over the map
-  (≤ 10 px apart), open building's map blocks drawn as a see-through shell.
+  (≤ 10 px apart). City view refinements: open building's map blocks drawn as a wireframe in the model's scene,
+  no z-fighting under the blue blocks, an x-ray cut-away of blocks in front (`src/map/neighbours.ts`), roads at estimated real widths, a ground line plus an underground veil
+  over basements, and Back flies the map to where it was when the building was opened.
 - Licensing: `LICENSE` (MIT, our code only), `NOTICE.md` (third-party paths + terms), `data/README.md`
   (per-source data licences) — [D-009](decisions.md#d-009) accepted.
 - Verified-commit workflow in `.claude/` (verifier + fixer agents, `/ship` skill, commit-gate hook, worklog) —
@@ -51,14 +53,32 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## What works (verified 2026-10-24)
 
-- **Sunday agentic layers (2026-10-25, branch `4-sunday-agent`, [D-015](decisions.md#d-015) proposed):** P0 committed
+- **Sunday agentic layers (2026-10-25, branch `4-sunday-agent`, [D-022](decisions.md#d-022) proposed):** P0 committed
   (`b1805d4`: crash-safe runner, hybrid Sunday command, top-level ids in `answers.json`). P1: LLM route spec →
   `core/route_query.py` (closures of any element, item / room-type endpoints with the nearest taken, stops,
   step-free + forklift + min width combined), `asks_for` check, kind `other` → solver agent
   (`agent/solver_agent.py`, Python sandbox, 2 runs + tie-break, effort `medium`), decision cache
   `llm_cache/decisions.json` (`agent/llm_cache.py`). Probe `scripts/eval_sunday_probe.py`: **14/14** (old pipeline
   ~7/14; agent only for the 3 new kinds), and 14/14 identical when replayed with no API access. Test-set answers
-  byte-identical. Not merged into `dev` yet.
+  byte-identical. `origin/dev` merged into the branch (PR #2 into `dev`, pushed 2026-10-25).
+- **Guide on the plan, figure, step guide, nearby buildings (2026-10-25, D-020/D-021, not committed yet):** answers
+  tint + label + frame their rooms and items; draggable "you are here" figure (the Guide routes from "here"); routes
+  framed whole, then Start → step by step with "I'm there"; `search_nearby_buildings` / `route_to_building` for the 17
+  located buildings with Continue into the next building (`agent/campus.py`, `building/Elsewhere.tsx`).
+  `tests/test_campus.py`; headless Chrome check of figure + highlight (log 2026-10-25).
+
+- **Access mode (2026-10-25, D-015, `ACCESS_MODE=on`, off by default):** design
+  [access-profiles-design](../docs/superpowers/specs/2026-10-25-access-profiles-design.md), plan
+  [access-profiles](../docs/superpowers/plans/2026-10-25-access-profiles.md). Backend all four phases built and
+  tested offline (`tests/test_access.py`, `tests/test_fleet.py`; full suite 770 passed, 2 skipped; dev benchmark 138/138):
+  accounts (Supabase Auth, admin = `ADMIN_EMAIL`, invite links), restricted spaces (filtered building copy,
+  `solve` included, plan `restricted`), remembered preferences (soft penalties, `set_preference`, `preference`
+  events), moving objects (`/objects`, device tokens, missions, `scripts/sim_object.py`, Guide `send_object`).
+  Frontend done (`frontend/app/src/access/`, `plan/ObjectsLayer.tsx`): sign-in, darkened spaces, Preferences,
+  Building settings (My preferences / Access / Members / Objects), live object markers — checked headless with a
+  fake sign-in. Migration `20261025200000_access.sql` applied 2026-10-25 (Postgres stores round-trip verified live).
+  **Not yet:** admin account (`ADMIN_EMAIL`), a real Supabase sign-in, invite redirect URLs in Supabase, `/events`
+  polling (voice turns' preferences are not captured).
 
 - **Builder Edit mode (branch `2-builder-edit`, in progress):** design
   [builder-edit-mode-design](../docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md) (proposed, approved by
@@ -88,7 +108,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   **M2 done**; review (opus) fixes: a proposal is confirmable only by the very next message (another turn,
   Cancel — new `/proposals/{pid}/cancel` — or a hand edit closes it), only a bare "yes"/"ok" skips the model, text
   fields in ops are coerced to strings, a proposal made against a draft that changed meanwhile is not sent.
-  Edit mode restyled to the building screen's design (clay palette, cards, floor tabs).
+  Edit mode restyled to the building screen's design (clay palette, cards, floor tabs). **2026-10-25 (not
+  committed):** Edit mode now lives inside the building view — the model shows the draft, handles sit on it
+  (`edit/EditLayer.tsx` + PlanView `align`), the edit card replaces the Guide card (tools, Inspector, Builder, save)
+  ([log](log.md#2026-10-25--edit-mode-inside-the-building-view-not-committed)).
 - **M3 (deployed store) built by us** (Utku took it back from Atahan 2026-10-24, not started;
   [m3 plan](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m3.md), decisions in the spec's "Milestone 3
   decisions"): drafts, saved buildings (shared with everyone) and the Builder's conversation in Supabase
@@ -126,6 +149,15 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - **Dev panel** (2026-10-24): in the app (`frontend/app/src/dev/`, backend `/dev/*`) — try every
   Guide capability by hand (find, directions, profiles, closures with impact, display switches, log), answers
   drawn over the plan; route events carry a plan `line` ([visualization.md](../docs/product/visualization.md#dev-panel)).
+- **Guide voice = ElevenLabs** (2026-10-25, [D-016](decisions.md#d-016)): `POST /tts` (`backend/tts.py`, Flash v2.5,
+  voice "River") played by `frontend/app/src/voice/tts.ts`, browser voice as fallback. Voice replies are spoken while the Guide works ([D-017](decisions.md#d-017)): grounded sentences
+  stream as `say` lines from `/chat/stream`, a fact-free "let me check" sentence comes first (first sound ~2.3 s).
+  Spoken questions start a hands-free conversation with barge-in from the reply's first sound (preamble included);
+  an utterance spoken while a Guide turn is pending is sent once that turn is done (`BuildingScreen.tsx` `queued`);
+  utterances end on a 1.0 s pause
+  ([D-018](decisions.md#d-018), amended 2026-10-25; not yet tried with a real mic). The user's words go to ElevenLabs Scribe Realtime
+  with the building's keyterms (`POST /stt/token`, `voice/scribe.ts`, browser recognition as fallback,
+  [D-019](decisions.md#d-019)). Open: drop the ~1 s rewriter for Scribe transcripts? ([Q-020](open-questions.md#q-020)).
 - **AI layer of the app** (2026-10-24): `POST /chat/stream` live tool steps, route/change cards, follow-up chips,
   voice mode with the orb (browser speech, `frontend/app/src/voice/useVoice.ts`), camera walk mode with turn-by-turn
   legs (`core/directions.py`) and "Where am I?" photo turns (`Guide.reply(photo=…)`, one turn only). Verified

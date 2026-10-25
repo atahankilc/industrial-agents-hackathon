@@ -51,6 +51,19 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## What works (verified 2026-10-24)
 
+- **Access mode (2026-10-25, D-015, `ACCESS_MODE=on`, off by default):** design
+  [access-profiles-design](../docs/superpowers/specs/2026-10-25-access-profiles-design.md), plan
+  [access-profiles](../docs/superpowers/plans/2026-10-25-access-profiles.md). Backend all four phases built and
+  tested offline (`tests/test_access.py`, `tests/test_fleet.py`; full suite 770 passed, 2 skipped; dev benchmark 138/138):
+  accounts (Supabase Auth, admin = `ADMIN_EMAIL`, invite links), restricted spaces (filtered building copy,
+  `solve` included, plan `restricted`), remembered preferences (soft penalties, `set_preference`, `preference`
+  events), moving objects (`/objects`, device tokens, missions, `scripts/sim_object.py`, Guide `send_object`).
+  Frontend done (`frontend/app/src/access/`, `plan/ObjectsLayer.tsx`): sign-in, darkened spaces, Preferences,
+  Building settings (My preferences / Access / Members / Objects), live object markers — checked headless with a
+  fake sign-in. Migration `20261025200000_access.sql` applied 2026-10-25 (Postgres stores round-trip verified live).
+  **Not yet:** admin account (`ADMIN_EMAIL`), a real Supabase sign-in, invite redirect URLs in Supabase, `/events`
+  polling (voice turns' preferences are not captured).
+
 - **Builder Edit mode (branch `2-builder-edit`, in progress):** design
   [builder-edit-mode-design](../docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md) (proposed, approved by
   Utku 2026-10-24), plan [M1](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m1.md). Done: Task 1

@@ -10,6 +10,24 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 02:00–05:00 — Access mode: accounts, restricted spaces, preferences, moving objects
+
+- **Did:** reviewed Utku's access-roles spec with Atahan; wrote the replacing design
+  ([access-profiles-design](../docs/superpowers/specs/2026-10-25-access-profiles-design.md), D-015) and plan.
+  Backend: `core/access.py` (filtered building copy), `backend/access.py` (switch, Supabase token check, rules,
+  members, invites), `core/preferences.py` (soft penalties / avoided room types, true metres reported),
+  RoutingProfile preference fields + `set_preference` + `preference` events (gated: only with access mode),
+  `core/fleet.py` + `backend/fleet.py` (objects, positions, missions, forklift import, Guide `send_object` for the
+  admin), `scripts/sim_object.py`, migration `20261025200000_access.sql` (applied; Postgres stores round-trip
+  verified live, test rows removed). Frontend (subagent): sign-in, darkened restricted spaces, Preferences,
+  Building settings (My preferences, Access, Members, Objects), object markers / trails / mission lines.
+  Committed without a parallel session's unfinished `src/map/` work, which stays in the working tree.
+- **Learned:** openings have no height and lifts no cabin size → height/weight attributes left out; 107 forklifts in
+  `equipment.csv` with position + footprint; route_line passes exactly through door positions (mission split points).
+- **Checks:** `uv run pytest` 770 passed, 2 skipped; dev benchmark 138/138 (regex); `tests/test_access.py` 12,
+  `tests/test_fleet.py` 5.
+- **Next:** create the admin account (Atahan's email), live sign-in check, demo run with the simulator.
+
 ## 2026-10-25 — `SUBMISSION/` folder for the graded benchmark (v1 pipeline)
 
 - **Did:** organisers announced the graded folder `SUBMISSION/` with exactly `BENCHMARK.md` + `answers.json`.

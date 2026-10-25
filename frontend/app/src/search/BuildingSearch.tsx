@@ -3,6 +3,7 @@
 // narrow by type or to the buildings with no location, ↑/↓ + Enter or click to open the twin.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useAccess } from '../access/auth'
 import { api, type Building } from '../api'
 import './search.css'
 
@@ -30,6 +31,7 @@ export function BuildingSearch({ onOpen, onMap }: { onOpen: (id: string) => void
   const [active, setActive] = useState(0)
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLOListElement>(null)
+  const { version } = useAccess() // access mode: the list depends on who is signed in
 
   useEffect(() => {
     api.buildings()
@@ -45,7 +47,7 @@ export function BuildingSearch({ onOpen, onMap }: { onOpen: (id: string) => void
         ),
       )
       .catch((reason) => setError(String(reason)))
-  }, [])
+  }, [version])
 
   const counts = useMemo(() => {
     const c = new Map<Filter, number>()

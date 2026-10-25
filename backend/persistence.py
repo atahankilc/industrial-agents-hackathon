@@ -62,6 +62,8 @@ def dump(session: BuildingSession, guide: Guide) -> dict:
             "pending": [asdict(change) for change in session.pending.values()],
             "events": session.events,
             "last_route": session.last_route,
+            "guide_preferences": session.guide_preferences,  # access mode (empty otherwise)
+            "auto_capture": session.auto_capture,
         },
         "guide": {
             "system": guide.system,
@@ -91,6 +93,8 @@ def restore(state: dict, session: BuildingSession, client: object) -> tuple[Buil
     session.pending = {item["id"]: Change(**item) for item in saved["pending"]}
     session.events = saved["events"]
     session.last_route = saved["last_route"]
+    session.guide_preferences = saved.get("guide_preferences", {})
+    session.auto_capture = saved.get("auto_capture", True)
     numbers = [int(change.id[1:]) for change in [*session.applied, *session.pending.values()]
                if change.id[1:].isdigit()]
     session._ids = itertools.count(max(numbers, default=0) + 1)

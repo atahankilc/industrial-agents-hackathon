@@ -34,7 +34,7 @@ import anthropic
 
 from agent.rewriter import TranscriptRewriter
 from agent.speech import speakable
-from agent.tools import PRESETS, PROFILE_FIELDS, TOOL_DEFINITIONS, BuildingSession, RoutingProfile
+from agent.tools import PRESETS, PROFILE_FIELDS, BuildingSession, RoutingProfile
 
 DEFAULT_MODEL = "claude-opus-5-5"  # override with GUIDE_MODEL
 DEFAULT_EFFORT = "medium"  # override with GUIDE_EFFORT (low | medium | high | xhigh | max)
@@ -266,10 +266,21 @@ def overview_text(session: BuildingSession) -> str:
     return json.dumps(session.building.overview(), ensure_ascii=False, separators=(",", ":"))
 
 
+RESTRICTED_NOTE = """
+
+Access: some areas of this building are restricted for this user and are not in your tools. When a tool answers \
+"restricted", tell the user that area is restricted for them, give no detail about it, and offer a public place \
+instead."""
+
+
 def system_blocks(session: BuildingSession) -> list[dict]:
+    note = RESTRICTED_NOTE if session.restricted_names else ""  # access mode only (backend/access.py)
+    if session.preferences_enabled and session.guide_preferences:  # remembered by the app (access mode only)
+        wishes = ", ".join(f"{name.replace('_', ' ')}: {value}" for name, value in session.guide_preferences.items())
+        note += f"\n\nThe user's remembered preferences for how you talk: {wishes}. Follow them."
     return [
         {"type": "text", "text": INSTRUCTIONS},
-        {"type": "text", "text": "Building overview:\n" + overview_text(session),
+        {"type": "text", "text": "Building overview:\n" + overview_text(session) + note,
          "cache_control": {"type": "ephemeral"}},
     ]
 
@@ -498,7 +509,7 @@ class Guide:
             model=self.model,
             max_tokens=MAX_TOKENS,
             system=self.system,
-            tools=TOOL_DEFINITIONS,
+            tools=self.session.tool_definitions(),
             messages=self.messages,
             cache_control={"type": "ephemeral"},
             output_config={"effort": self.effort},

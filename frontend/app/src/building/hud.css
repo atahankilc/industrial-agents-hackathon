@@ -2,7 +2,7 @@
    and the Core. Dark is the reference look; light keeps the same structure on pale glass. No glow anywhere: depth
    comes from the glass and a scrim, motion only while the Guide listens, thinks or speaks. */
 
-.screen {
+.screen, .access-layer {
   --hud-glass: rgba(255, 255, 255, 0.74);
   --hud-glass-2: rgba(255, 255, 255, 0.86);
   --hud-line: rgba(20, 22, 26, 0.1);
@@ -23,7 +23,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .screen {
+  :root:not([data-theme='light']) .screen, :root:not([data-theme='light']) .access-layer {
     --hud-glass: rgba(18, 19, 23, 0.72);
     --hud-glass-2: rgba(30, 31, 37, 0.8);
     --hud-line: rgba(255, 255, 255, 0.12);
@@ -44,7 +44,7 @@
   }
 }
 
-:root[data-theme='dark'] .screen {
+:root[data-theme='dark'] .screen, :root[data-theme='dark'] .access-layer {
   --hud-glass: rgba(18, 19, 23, 0.72);
   --hud-glass-2: rgba(30, 31, 37, 0.8);
   --hud-line: rgba(255, 255, 255, 0.12);
@@ -863,3 +863,88 @@
 .story-marker.you b.stale::before { background: conic-gradient(from -26deg at 50% 100%, color-mix(in srgb, var(--hud-warn) 35%, transparent), transparent 52deg, transparent); }
 .story-marker.you b.stale::after { width: 84px; height: 84px; left: -42px; top: -42px; border-color: color-mix(in srgb, var(--hud-warn) 55%, transparent); background: color-mix(in srgb, var(--hud-warn) 10%, transparent); }
 .story-marker.you b.stale em { background: var(--hud-warn); }
+
+/* ---------- moving objects (access mode, src/plan/ObjectsLayer.tsx; --object from the plan palette) ---------- */
+
+.object-markers { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.object-marker { position: absolute; top: 0; left: 0; will-change: transform; }
+
+.object-marker button {
+  position: absolute;
+  left: -14px;
+  top: -14px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.object-marker em {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 2px solid var(--hud-solid-ink);
+  background: var(--object);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--object) 60%, transparent);
+}
+
+/* heading cone, turned by --heading (set each frame from the projected heading) */
+.object-marker b {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform: rotate(var(--heading, 0rad));
+}
+
+.object-marker b::before {
+  content: '';
+  position: absolute;
+  left: -22px;
+  top: -40px;
+  width: 44px;
+  height: 40px;
+  background: conic-gradient(from -24deg at 50% 100%, color-mix(in srgb, var(--object) 50%, transparent), transparent 48deg, transparent);
+}
+
+.object-marker span {
+  position: absolute;
+  left: 14px;
+  top: -11px;
+  display: none;
+  padding: 3px 8px;
+  border: 1px solid var(--hud-line);
+  border-radius: 8px;
+  background: var(--hud-glass-2);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: var(--hud-ink);
+  font: 500 12px var(--font-mono);
+  white-space: nowrap;
+}
+
+.object-marker span small { font-size: 11px; color: var(--hud-ink-2); }
+.object-marker.open span { display: block; }
+
+@media (hover: hover) {
+  .object-marker button:hover + span { display: block; }
+}
+
+/* destination: a ring in the object colour with its name */
+.object-marker.to i {
+  position: absolute;
+  left: -7px;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid var(--object);
+  background: var(--hud-solid-ink);
+}
+
+.object-marker.to span { display: block; left: 12px; top: -10px; padding: 2px 7px; font-size: 11px; color: var(--hud-ink-2); }

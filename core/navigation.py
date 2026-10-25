@@ -27,6 +27,7 @@ import networkx as nx
 
 from core import route_models
 from core.building_map import DOOR_PREFIX, OUTSIDE, BuildingMap, MapError, expand, path_parts
+from core.preferences import Penalties
 from core.route_models import KIT, NO_RULES, RouteRules
 
 MAX_LOCATE_RESULTS = 10
@@ -237,10 +238,13 @@ def leg(
     include_steps: bool,
     model: str = KIT,
     rules: RouteRules = NO_RULES,
+    penalties: Penalties | None = None,
 ) -> RouteAnswer:
     closed = sorted(view.closed)
     labels = {"model": None if model == KIT else model, "rules": rules.describe() or None}
     walk = route_models.leg_graph(graph, route_models.endpoint_only(view, rules), start, destination)
+    if penalties is not None and penalties.active():  # app preferences only (core/preferences.py)
+        walk = penalties.path_only(view, walk, start, destination)
     try:
         length, nodes = nx.single_source_dijkstra(walk, start, destination, weight="weight")
     except (nx.NetworkXNoPath, nx.NodeNotFound):
@@ -252,6 +256,8 @@ def leg(
         )
         if not blocked and labels["rules"]:
             reason = f"no route under these rules ({'; '.join(labels['rules'])}): " + reason
+        if not blocked and penalties is not None and penalties.avoid_room_types:
+            reason += f" while avoiding {', '.join(sorted(penalties.avoid_room_types))}"
         return RouteAnswer(
             reachable=False,
             from_space_id=start,
@@ -288,6 +294,7 @@ def find_route(
     include_steps: bool = True,
     model: str = KIT,
     rules: RouteRules = NO_RULES,
+    penalties: Penalties | None = None,
 ) -> RouteAnswer:
     """Shortest route (route-model metres). Places are ids, refs, exact names, asset ids/names, or "outside".
 
@@ -298,7 +305,7 @@ def find_route(
     stops = [resolve_stop(view, reference) for reference in (start, *via, destination)]
     graph = route_models.route_graph(view, step_free, model, rules)
     legs = [
-        leg(view, graph, first, second, step_free, include_steps, model, rules)
+        leg(view, graph, first, second, step_free, include_steps, model, rules, penalties)
         for first, second in itertools.pairwise(stops)
     ]
     if len(legs) == 1:
@@ -340,6 +347,7 @@ def tour(
     include_steps: bool = False,
     model: str = KIT,
     rules: RouteRules = NO_RULES,
+    penalties: Penalties | None = None,
 ) -> TourAnswer:
     """Visit `stops` in the given order; one shortest leg per consecutive pair. Total = sum of the legs."""
     if len(stops) < 2:
@@ -348,7 +356,7 @@ def tour(
     resolved = [resolve_stop(view, reference) for reference in stops]
     graph = route_models.route_graph(view, step_free, model, rules)
     legs = [
-        leg(view, graph, first, second, step_free, include_steps, model, rules)
+        leg(view, graph, first, second, step_free, include_steps, model, rules, penalties)
         for first, second in itertools.pairwise(resolved)
     ]
     failed = next((item for item in legs if not item.reachable), None)

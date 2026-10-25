@@ -6,7 +6,7 @@ related: [open-questions.md, project-state.md, ../docs/architecture/overview.md]
 
 # Decisions
 
-[Memory bank](README.md) · Next free id: **D-015**
+[Memory bank](README.md) · Next free id: **D-016**
 
 Template:
 
@@ -201,3 +201,23 @@ Template:
   One gold value disagrees with the starter itself (resplan-12462, 10 cm); validators accept starter-equal lengths.
 - **Evidence:** [route-model.md](../docs/kit/route-model.md), `tests/test_routes.py`, `scripts/validate_warmup.py`,
   `scripts/validate_solvers.py`.
+
+<a id="d-015"></a>
+### D-015 — Access mode: accounts, restricted spaces, preferences, moving objects behind one switch
+- **Status:** accepted · **Date:** 2026-10-25 · **By:** Atahan
+- **Context:** Demo add-in (Interaction / Creativity, L5). Utku's access-roles design (claimed roles in
+  conversation) replaced in part: Atahan wants real accounts, settings UI, remembered preferences and IoT-style
+  moving objects.
+- **Decision:** Everything behind `ACCESS_MODE=on` (off by default; off = the app exactly as before). Supabase Auth
+  (email + password), one admin (`ADMIN_EMAIL`) over every building, members invited by the admin with groups per
+  building. Restricted spaces: no defaults; a viewer who may not enter them gets a session on a filtered building
+  copy (`core/access.py`), so every Guide tool — `solve` included — can't see them; plan darkens them. Preferences
+  belong to the user (browser for anonymous, `user_preferences` when signed in; global ← building override); the
+  Guide captures them (`preference` events). Moving objects: only data-backed attributes (width, step-free, lifts,
+  stairs, room types), live positions by device token, missions as deterministic machine steps. Multi-object path
+  conflicts and building-wide applied changes are "Later".
+- **Consequences:** benchmark untouched (dev 138/138 after the change, regex parser); Guide tool list unchanged
+  when off; `/drafts` admin-only when on. Needs the migration `20261025200000_access.sql` applied and an admin
+  account before a live demo.
+- **Evidence:** [access-profiles-design](../docs/superpowers/specs/2026-10-25-access-profiles-design.md),
+  [plan](../docs/superpowers/plans/2026-10-25-access-profiles.md), `tests/test_access.py`, `tests/test_fleet.py`.

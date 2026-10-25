@@ -1,6 +1,8 @@
 // Typed client for the FastAPI backend (backend/app.py), reached through the Vite proxy at /api.
 
 const BASE = import.meta.env.VITE_API_BASE ?? '/api'
+/** the API base as an absolute URL (for commands shown to the admin, e.g. the object simulator) */
+export const apiUrl = () => new URL(BASE, location.origin).href.replace(/\/$/, '')
 
 /** `location`: real position (centre of the OSM outline) for the kit's OpenStreetMap buildings, else null;
  * `origin` is where the building's own metres start (x east, y north from it), which puts the model on the map;
@@ -80,6 +82,8 @@ export type Plan = {
   connectors: PlanConnector[]
   assets: PlanAsset[]
   closed: string[]
+  /** access mode: spaces this viewer may not enter, outline only (building metres), drawn darkened */
+  restricted?: { id: string; floor: number; polygon: [number, number][] }[]
 }
 
 /** core/directions.py: one turn-by-turn leg; `turn` is made at the start of the leg, relative to the way you face. */
@@ -126,7 +130,10 @@ export type RouteEvent = {
 }
 export type HighlightEvent = { type: 'highlight'; space_ids: string[]; style?: 'lost_access' }
 export type ChangeEvent = { type: 'change'; summary: string; targets: string[]; space_ids?: string[] }
-export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent
+/** Access mode: the Guide heard a preference to remember (agent/tools.py remember_preference / set_preference);
+ * `values` holds the changed fields, or `favourite` (a space id, always per building). */
+export type PreferenceEvent = { type: 'preference'; scope: 'global' | 'building'; values: Record<string, unknown> }
+export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent
 
 export type ChatReply = {
   reply: string
@@ -191,19 +198,133 @@ export type BuilderReply = {
 }
 export type BuilderStep = { kind: 'tool' | 'tool_done' | 'check'; name: string; input?: Record<string, unknown>; ok?: boolean }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(BASE + path, {
-    ...init,
-    headers: { 'content-type': 'application/json', ...init?.headers },
-  })
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    throw new Error(`${response.status} ${path}: ${detail.slice(0, 200)}`)
+// ---- access mode (src/access/auth.ts): the bearer token of the signed-in user, a gate that holds requests while a
+// stored sign-in is being restored, and what a 401 does. With access mode off none of this is ever set.
+
+let token: string | null = null
+let gate: Promise<unknown> | null = null
+let onUnauthorized: (() => void) | null = null
+
+export const auth = {
+  setToken: (next: string | null) => void (token = next),
+  /** requests wait for `promise` (a stored session being restored), then go with whatever token it left */
+  setGate: (promise: Promise<unknown> | null) => void (gate = promise),
+  onUnauthorized: (handler: (() => void) | null) => void (onUnauthorized = handler),
+}
+
+/** An API error with its HTTP status; 403 carries the admin-only message. */
+export class ApiError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
   }
+}
+
+/** JSON headers plus the bearer token when signed in (also used by src/dev/devApi.ts). */
+export async function headers(extra?: HeadersInit): Promise<HeadersInit> {
+  if (gate) await gate.catch(() => undefined)
+  return { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), ...extra }
+}
+
+async function failed(response: Response, path: string): Promise<ApiError> {
+  const detail = await response.text().catch(() => '')
+  if (response.status === 401 && token) onUnauthorized?.()
+  if (response.status === 403) return new ApiError(403, 'Only the building admin can do this')
+  return new ApiError(response.status, `${response.status} ${path}: ${detail.slice(0, 200)}`)
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(BASE + path, { ...init, headers: await headers(init?.headers) })
+  if (!response.ok) throw await failed(response, path)
   return response.json() as Promise<T>
 }
 
+/** GET /config: whether access mode is on, and the public Supabase values to sign in with. Never gated. */
+export type AppConfig = { access_mode: false } | { access_mode: true; supabase_url: string; supabase_anon_key: string }
+async function config(): Promise<AppConfig> {
+  const response = await fetch(BASE + '/config')
+  if (!response.ok) return { access_mode: false } // an older backend without /config: access mode is off
+  return response.json() as Promise<AppConfig>
+}
+
+/** GET /me */
+export type Me = { user_id: string | null; email: string | null; admin: boolean; anonymous: boolean; buildings: Record<string, string[]> }
+/** GET /access/building: the rules plus what the editor offers. */
+export type AccessRules = { public: boolean; room_types: Record<string, string[]>; spaces: Record<string, string[]> }
+export type AccessSpaceOption = { id: string; name: string; ref: string; room_type: string; floor_id: string }
+export type BuildingAccess = AccessRules & { building: string; room_type_options: string[]; space_options: AccessSpaceOption[] }
+/** Remembered preferences (design "Preferences"); a field left out = not set. */
+export type Preferences = {
+  step_free?: boolean
+  min_door_width_m?: number | null
+  avoid_lifts?: boolean
+  avoid_room_types?: string[]
+  prefer_lifts?: boolean
+  fewer_doors?: boolean
+  quiet?: boolean
+  avoid_halls?: boolean
+  simple_routes?: boolean
+  language?: string
+  reply_style?: 'brief' | 'detailed'
+  voice?: boolean
+  /** per building only: saved places (space ids) */
+  favourites?: string[]
+}
+export type PreferenceStore = { remember: boolean; auto_capture: boolean; global: Preferences; buildings: Record<string, Preferences> }
+
+/** backend/fleet.py `Fleet.public`: a moving object; trail and mission `line` points are [x, y, floor index]. */
+export type ObjectKind = 'forklift' | 'robot' | 'agv' | 'cart' | 'other'
+export type ObjectAttributes = { width_m: number; step_free_only: boolean; can_use_lifts: boolean; can_use_stairs: boolean; avoid_room_types: string[] }
+export type FleetObject = {
+  id: string
+  building: string
+  name: string
+  kind: ObjectKind
+  attributes: ObjectAttributes
+  position: { floor_id: string; floor: number | null; x: number; y: number; heading_deg: number | null; t: number; space_id: string | null } | null
+  trail: [number, number, number | null][]
+  mission: {
+    mission_id: string
+    version: number
+    status: 'active' | 'done' | 'cancelled'
+    to: { space_id: string; name: string }
+    length_m: number
+    line?: [number, number, number][]
+  } | null
+  /** only in the reply that created it */
+  token?: string
+}
+export type DispatchResult = { reachable: boolean; object: FleetObject; reason?: string; to?: string; length_m?: number }
+
+export type AccessMember = { user_id: string; email: string; building: string; groups: string[] }
+
 export const api = {
+  config,
+  me: () => request<Me>('/me'),
+  accessBuilding: (building: string) => request<BuildingAccess>(`/access/building?building=${encodeURIComponent(building)}`),
+  saveAccessBuilding: (building: string, rules: AccessRules) =>
+    request<AccessRules & { building: string }>('/access/building', { method: 'PUT', body: JSON.stringify({ building, ...rules }) }),
+  members: (building: string) => request<AccessMember[]>(`/access/members?building=${encodeURIComponent(building)}`),
+  saveMember: (member: AccessMember) => request<AccessMember>('/access/members', { method: 'PUT', body: JSON.stringify(member) }),
+  invite: (email: string, building: string, groups: string[], redirectTo: string) =>
+    request<AccessMember & { link: string }>('/access/invite', {
+      method: 'POST',
+      body: JSON.stringify({ email, building, groups, redirect_to: redirectTo }),
+    }),
+  myPreferences: () => request<Partial<PreferenceStore>>('/me/preferences'),
+  saveMyPreferences: (store: PreferenceStore) => request<PreferenceStore>('/me/preferences', { method: 'PUT', body: JSON.stringify(store) }),
+  sessionPreferences: (id: string, values: Preferences, autoCapture: boolean) =>
+    request<SessionSummary>(`/sessions/${id}/preferences`, { method: 'PUT', body: JSON.stringify({ values, auto_capture: autoCapture }) }),
+  objects: (building: string) => request<FleetObject[]>(`/objects?building=${encodeURIComponent(building)}`),
+  createObject: (building: string, name: string, kind: ObjectKind, attributes: ObjectAttributes) =>
+    request<FleetObject>('/objects', { method: 'POST', body: JSON.stringify({ building, name, kind, attributes }) }),
+  importForklifts: (building: string) =>
+    request<FleetObject[]>('/objects/import-forklifts', { method: 'POST', body: JSON.stringify({ building }) }),
+  deleteObject: (id: string) => request<{ deleted: string }>(`/objects/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  dispatch: (id: string, destination: string) =>
+    request<DispatchResult>(`/objects/${encodeURIComponent(id)}/mission`, { method: 'POST', body: JSON.stringify({ destination }) }),
+  cancelMission: (id: string) => request<FleetObject>(`/objects/${encodeURIComponent(id)}/mission`, { method: 'DELETE' }),
   health: () => request<{ ok: boolean; llm: string }>('/health'),
   buildings: () => request<Building[]>('/buildings'),
   createSession: (building?: string) =>
@@ -239,13 +360,10 @@ export const api = {
 async function chatStream(id: string, message: string, options: ChatOptions = {}): Promise<ChatReply> {
   const response = await fetch(BASE + '/chat/stream', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: await headers(),
     body: JSON.stringify({ session_id: id, message, channel: options.channel ?? 'text', photo: options.photo }),
   })
-  if (!response.ok || !response.body) {
-    const detail = await response.text().catch(() => '')
-    throw new Error(`${response.status} /chat/stream: ${detail.slice(0, 200)}`)
-  }
+  if (!response.ok || !response.body) throw await failed(response, '/chat/stream')
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
   let buffer = ''
   for (;;) {
@@ -268,13 +386,10 @@ async function chatStream(id: string, message: string, options: ChatOptions = {}
 async function builderStream(draftId: string, message: string, onStep?: (step: BuilderStep) => void): Promise<BuilderReply> {
   const response = await fetch(`${BASE}/drafts/${draftId}/chat/stream`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: await headers(),
     body: JSON.stringify({ message }),
   })
-  if (!response.ok || !response.body) {
-    const detail = await response.text().catch(() => '')
-    throw new Error(`${response.status} /drafts/chat/stream: ${detail.slice(0, 200)}`)
-  }
+  if (!response.ok || !response.body) throw await failed(response, '/drafts/chat/stream')
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
   let buffer = ''
   for (;;) {

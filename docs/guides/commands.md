@@ -127,6 +127,35 @@ Schema changes go in `supabase/migrations/` (idempotent SQL). Apply one with:
 uv run --env-file .env python -c "import os,sys,psycopg; psycopg.connect(os.environ['SUPABASE_DB_URL'], autocommit=True, prepare_threshold=None).execute(open(sys.argv[1]).read())" supabase/migrations/<file>.sql
 ```
 
+### Access mode (demo: accounts, restricted spaces, preferences, moving objects)
+
+Off unless `ACCESS_MODE=on`; off = every endpoint as above. Design:
+[access-profiles-design](../superpowers/specs/2026-10-25-access-profiles-design.md). Needs `SUPABASE_URL`,
+`SUPABASE_ANON_KEY` (sign-in), `SUPABASE_SERVICE_ROLE_KEY` (invite links) and `ADMIN_EMAIL` (the one admin);
+tables in `supabase/migrations/20261025200000_access.sql` (in memory without `SUPABASE_DB_URL`). Requests carry
+the Supabase access token as `Authorization: Bearer …`.
+
+```bash
+ACCESS_MODE=on uv run --env-file .env uvicorn backend.app:app --port 8765
+uv run pytest -q tests/test_access.py tests/test_fleet.py                     # offline, fake sign-in
+uv run python scripts/sim_object.py --api http://localhost:8765 --object <id> --token <device token>
+```
+
+| Method | Path | Who | Does |
+|---|---|---|---|
+| GET | `/config` | all | `{"access_mode"}` (+ Supabase URL / anon key when on) |
+| GET | `/me` | all | viewer (`admin`, `anonymous`) + member groups per building |
+| GET/PUT | `/me/preferences` | signed in | stored preferences (anonymous users keep theirs in the browser) |
+| PUT | `/sessions/{id}/preferences` | all | `{"values", "auto_capture"}` → the session's profile + talking preferences |
+| GET/PUT | `/access/building` | admin | public flag, room-type / space rules (groups; `public` = exception) |
+| GET/PUT | `/access/members`, POST `/access/invite` | admin | members' groups; invite → sign-in link, no email sent |
+| GET | `/objects?building=` | all | moving objects: position, trail, mission + its `line` (objects in spaces the viewer may not enter left out) |
+| POST/PUT/DELETE | `/objects`, `/objects/{id}`, POST `/objects/import-forklifts` | admin | create (returns the device `token` once), edit, delete, forklifts from `equipment.csv` |
+| POST/DELETE | `/objects/{id}/mission` | admin | dispatch `{"destination"}` / cancel |
+| POST | `/objects/{id}/position`, GET `/objects/{id}/mission`, POST `.../mission/done` | device (`X-Object-Token`) | report position, fetch machine steps, finish |
+
+`/drafts` (Edit mode) answers 403 for anyone but the admin while access mode is on.
+
 ## Frontend app
 
 ```bash

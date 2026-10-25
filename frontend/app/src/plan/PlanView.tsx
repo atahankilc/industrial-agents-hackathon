@@ -14,11 +14,12 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { MapControls as MapControlsImpl } from 'three-stdlib'
-import type { Plan, PlanSpace } from '../api'
+import type { FleetObject, Plan, PlanSpace } from '../api'
 import { MAX_MAP_PITCH, type View } from '../map/bridge'
 import { assetAt, paintAsset } from './furniture'
 import { buildFloors, contains, fillOf, fromScene, paintSpace, toScene, WALL_CUT_M, type FloorGeometry } from './geometry'
 import type { PlanPalette } from './palette'
+import { ObjectMarkers, ObjectsLayer } from './ObjectsLayer'
 import { Pins, PinTracker, pinsFor, type Pin } from './pins'
 import type { PlanSettings } from './settings'
 import { StoryLayer, StoryMarkers, storyMarkers } from '../dev/StoryLayer'
@@ -51,6 +52,8 @@ type Props = {
   camera?: { intro: () => View | null; follow?: (view: View) => void }
   /** a tap that hit nothing of the building; true when it was used (a pin on the map around it) */
   onMiss?: (x: number, y: number) => boolean
+  /** access mode: moving objects to draw (src/plan/ObjectsLayer.tsx) */
+  objects?: FleetObject[]
 }
 
 const FIT_MARGIN_PX = 24
@@ -71,7 +74,7 @@ const TILTED = { polar: 0.98, azimuth: Math.PI / 4 } // ~34° above the horizon,
 // "All floors" stacks every floor at its real elevation (from the lowest floor), so the building keeps its proportions
 const floorLift = (plan: Plan, index: number) => (plan.floors[index]?.elevation_m ?? 0) - (plan.floors[0]?.elevation_m ?? 0)
 export function PlanView(props: Props) {
-  const { plan, floor, stacked, palette, selected, insets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, camera, onMiss } = props
+  const { plan, floor, stacked, palette, selected, insets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, camera, onMiss, objects } = props
   const groundRef = useRef<THREE.Mesh>(null)
   const labels = useRef<HTMLCanvasElement>(null)
   const { wallHeight, colours } = settings
@@ -96,6 +99,7 @@ export function PlanView(props: Props) {
   const shown = stacked ? [...floors.keys()] : spreading ? [...floors.keys()].filter((i) => i <= floor) : [floor]
   const markers = useMemo(() => storyMarkers(plan, story), [plan, story])
   const markerElements = useRef(new Map<string, HTMLElement>())
+  const objectElements = useRef(new Map<string, HTMLElement>())
 
   return (
     <div
@@ -158,6 +162,9 @@ export function PlanView(props: Props) {
             <Hover plan={plan} id={hovered} palette={palette} floors={floors} colours={colours} />
           )}
           <StoryLayer plan={plan} story={story} palette={palette} shown={shown} floor={floor} stacked={stacked} lift={lift} markers={markers} markerElements={markerElements} />
+          {objects && objects.length > 0 && (
+            <ObjectsLayer plan={plan} objects={objects} palette={palette} shown={shown} floor={floor} stacked={stacked} lift={lift} elements={objectElements} />
+          )}
         </Slide>
         </Reveal>
         <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} insets={insets} fitKey={fitKey} onTilt={onTilt} intro={camera?.intro} ground={groundRef} maxPolar={camera ? MAX_POLAR_ON_MAP : MAX_POLAR} />
@@ -169,6 +176,7 @@ export function PlanView(props: Props) {
       <canvas ref={labels} className="plan-labels" aria-hidden="true" />
       <Pins pins={pinList} elements={pinElements} onPick={(pin: Pin) => pin.space && onSelect({ kind: 'space', id: pin.space })} />
       <StoryMarkers markers={markers} elements={markerElements} onGoto={onPickFloor} />
+      {objects && objects.length > 0 && <ObjectMarkers objects={objects} palette={palette} elements={objectElements} />}
     </div>
   )
 }
@@ -377,9 +385,13 @@ function Ground({ plan, palette, y, visible, mesh }: { plan: Plan; palette: Plan
   )
 }
 
+/** Every floor outline the drawing has: the spaces, plus the restricted ones (access mode) drawn without detail. */
+const drawnShapes = (plan: Plan): { floor: number; polygon: [number, number][] }[] =>
+  plan.restricted?.length ? [...plan.spaces, ...plan.restricted] : plan.spaces
+
 function floorBox(plan: Plan, floors: number[]) {
   const box = new THREE.Box2()
-  for (const space of plan.spaces) {
+  for (const space of drawnShapes(plan)) {
     if (!floors.includes(space.floor)) continue
     for (const [x, y] of space.polygon) box.expandByPoint(new THREE.Vector2(...toScene(plan, x, y)))
   }
@@ -574,7 +586,7 @@ function frame(plan: Plan, floors: number[], lift: (index: number) => number, vi
   // the outline's own corners, not its bounding box: an L-shaped plan seen at 45° wastes half its box
   const extent = new THREE.Box2()
   const p = new THREE.Vector3()
-  for (const space of plan.spaces) {
+  for (const space of drawnShapes(plan)) {
     if (!floors.includes(space.floor)) continue
     for (const [x, y] of space.polygon) {
       const [X, Z] = toScene(plan, x, y)

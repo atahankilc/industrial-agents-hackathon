@@ -7,9 +7,12 @@
 // alone (the map faded out, the model on its own stage). The model takes over from the map's camera when it
 // arrives and rises out of the ground; leaving fades it out.
 
-import { Box, Check, ChevronLeft, ChevronsUpDown, Ellipsis, Layers, Map as MapIcon, Moon, PencilRuler, Scan, Sun, SunMoon, Wrench } from 'lucide-react'
+import { Box, Check, ChevronLeft, ChevronsUpDown, Ellipsis, KeyRound, Layers, LogIn, LogOut, Map as MapIcon, Moon, PencilRuler, Scan, Settings2, SlidersHorizontal, Sun, SunMoon, Wrench } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api, type Plan } from '../api'
+import { notify, openPanel, signOut, useAccess } from '../access/auth'
+import { BuildingSettings } from '../access/BuildingSettings'
+import { capture, effective, usePreferences } from '../access/preferences'
+import { api, ApiError, type FleetObject, type Plan } from '../api'
 import { EditMode } from '../edit/EditMode'
 import { CATEGORY_LABEL, DARK, LIGHT } from '../plan/palette'
 import { PlanView, type Insets, type Selected, type ViewMode } from '../plan/PlanView'
@@ -96,6 +99,12 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   const [editing, setEditing] = useState(false)
   const [pending, setPending] = useState(false)
   const [popover, setPopover] = useState<'floors' | 'menu' | null>(null)
+  // access mode (src/access/): who is signed in, and the building settings sheet (admin)
+  const access = useAccess()
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const preferences = usePreferences()
+  const [objects, setObjects] = useState<FleetObject[]>([])
+  const pollNow = useRef<() => void>(() => undefined)
   // the step the next-move card shows, for the route answer it belongs to (a new answer starts at step 1)
   const [moveAt, setMoveAt] = useState({ key: -1, index: 0 })
   // walking the route with the camera (CameraWalk); `muted` stops it reading each step aloud
@@ -127,6 +136,63 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   const reloadPlan = useCallback(() => {
     if (sessionId) void api.plan(sessionId).then(setPlan).catch((reason) => setError(String(reason)))
   }, [sessionId])
+  // another viewer (signed in or out): the backend re-filters the session on this request, the plan follows
+  const viewerVersion = useRef(access.version)
+  useEffect(() => {
+    if (viewerVersion.current === access.version) return
+    viewerVersion.current = access.version
+    if (!sessionId) return
+    api.plan(sessionId).then(setPlan).catch((reason) => {
+      // a building that isn't public, once signed out: no longer there for this viewer
+      if (reason instanceof ApiError && reason.status === 404) {
+        notify('This building is not open to you.')
+        onBack()
+      } else setError(String(reason))
+    })
+  }, [access.version, sessionId, onBack])
+
+  // access mode: the remembered preferences for this building go to the session when it opens, when the viewer
+  // changes and after every edit (src/access/preferences.ts); remembering off sends none
+  const sessionValues = useMemo(() => JSON.stringify(effective(preferences, buildingId)), [preferences, buildingId])
+  const autoCapture = preferences.remember && preferences.auto_capture
+  useEffect(() => {
+    if (!access.mode || !sessionId) return
+    const timer = setTimeout(() => {
+      api.sessionPreferences(sessionId, JSON.parse(sessionValues), autoCapture).catch(() => undefined)
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [access.mode, sessionId, sessionValues, autoCapture, access.version])
+
+  // access mode: the building's moving objects, polled about once a second while this screen is open (slower
+  // after errors)
+  const hasPlan = plan !== null
+  useEffect(() => {
+    if (!access.mode || !hasPlan) return
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let wait = OBJECTS_POLL_MS
+    const poll = () => {
+      clearTimeout(timer)
+      api
+        .objects(buildingId)
+        .then((items) => {
+          if (stopped) return
+          setObjects(items)
+          wait = OBJECTS_POLL_MS
+        })
+        .catch(() => (wait = Math.min(wait * 2, OBJECTS_POLL_MAX_MS)))
+        .finally(() => {
+          if (!stopped) timer = setTimeout(poll, wait)
+        })
+    }
+    pollNow.current = poll
+    poll()
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+      pollNow.current = () => undefined
+    }
+  }, [access.mode, hasPlan, buildingId, access.version])
   /** Show a new answer: go to the floor where it starts (the route's start, else its first room) and fit it. */
   const present = (next: Story) => {
     const changed = next.key !== storyRef.current.key
@@ -141,6 +207,10 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   }
   const onEvents = (events: DevEvent[]) => {
     if (events.some((event) => event.type === 'change')) reloadPlan()
+    // access mode: what the Guide heard you prefer, remembered when you let it
+    for (const event of events) {
+      if (event.type === 'preference' && access.mode) capture(event.scope, event.values, buildingId, (id) => plan?.spaces.find((space) => space.id === id)?.name)
+    }
     // while tracking, the Guide placing you in a room of the route (e.g. "Where am I?" from the camera) is a fix,
     // not a new answer: the route stays and you are where it enters that room
     const route = storyRef.current.route
@@ -357,6 +427,7 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
           spread={look === '3d'}
           settings={settings}
           story={shownStory}
+          objects={access.mode ? objects : undefined}
           ground={alone}
           camera={mapCamera}
           onMiss={alone ? undefined : (x, y) => {
@@ -468,6 +539,39 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
             <ThemeIcon size={17} strokeWidth={2} />
             {THEME_LABEL[theme.mode]}
           </button>
+          {access.mode && (
+            <>
+              <button type="button" role="menuitem" onClick={() => { openPanel('preferences'); setPopover(null) }}>
+                <SlidersHorizontal size={17} strokeWidth={2} />
+                Preferences
+              </button>
+              <button type="button" role="menuitem" onClick={() => { setSettingsOpen(true); setPopover(null) }}>
+                <Settings2 size={17} strokeWidth={2} />
+                Building settings
+              </button>
+            </>
+          )}
+          {access.mode && !access.email && (
+            <button type="button" role="menuitem" onClick={() => { openPanel('signin'); setPopover(null) }}>
+              <LogIn size={17} strokeWidth={2} />
+              Sign in
+            </button>
+          )}
+          {access.mode && access.email && (
+            <>
+              <p className="account" title={access.email}>{access.email}</p>
+              {access.needsPassword && (
+                <button type="button" role="menuitem" onClick={() => { openPanel('password'); setPopover(null) }}>
+                  <KeyRound size={17} strokeWidth={2} />
+                  Set a password
+                </button>
+              )}
+              <button type="button" role="menuitem" onClick={() => { void signOut(); setPopover(null) }}>
+                <LogOut size={17} strokeWidth={2} />
+                Sign out
+              </button>
+            </>
+          )}
           {DEV_TOOLS && (
             <button type="button" role="menuitem" onClick={() => { setDevOpen((open) => !open); setPopover(null) }}>
               <Wrench size={17} strokeWidth={2} />
@@ -476,6 +580,18 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
             </button>
           )}
         </div>
+      )}
+
+      {access.mode && settingsOpen && (
+        <BuildingSettings
+          buildingId={buildingId}
+          plan={plan}
+          admin={access.admin}
+          objects={objects}
+          onClose={() => setSettingsOpen(false)}
+          onSaved={reloadPlan}
+          onObjects={() => pollNow.current()}
+        />
       )}
 
       {plan && sessionId && devOpen && (
@@ -549,6 +665,8 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
 const DEV_TOOLS = import.meta.env.DEV || new URLSearchParams(location.search).has('dev')
 const DEV_PX = 372
 const DEV_KEY = 'ttyb-dev-open'
+const OBJECTS_POLL_MS = 1000
+const OBJECTS_POLL_MAX_MS = 15_000
 function readFlag(key: string, fallback: boolean) {
   try {
     const value = localStorage.getItem(key)

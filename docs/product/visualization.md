@@ -4,6 +4,7 @@ summary: App visuals — the current vector plan view (core/floorplan.py, GET /s
 sources:
   - core/floorplan.py, backend/sessions.py (MapView.plan), frontend/app/src/plan/, frontend/app/src/building/ (verified 2026-10-24)
   - frontend/app/src/dev/, backend/devtools.py, core/routeline.py (dev panel, verified 2026-10-24)
+  - frontend/app/src/plan/ObjectsLayer.tsx, src/plan/palette.ts (access mode, verified 2026-10-25)
   - frontend/app/src/map/bridge.ts, src/building/opening.ts, src/Root.tsx (map → building transition, verified headless 2026-10-24)
   - https://threejs.org/docs/ (three.js r160)
   - https://r3f.docs.pmnd.rs/ (react-three-fiber)
@@ -92,6 +93,10 @@ changing the plan's colours. Shown in the Vite dev server or with `?dev`
   story): route as an accent band drawn in once, start / destination / tappable floor-change badges; accent
   outlines on the rooms an answer is about; a dot per item; red hatch on closed rooms, lifts and stairs; dashed
   outlines on rooms that lost access. A new answer switches to its floor and fits it.
+- **Access mode only** (`ACCESS_MODE=on`, [spec](../superpowers/specs/2026-10-25-access-profiles-design.md)):
+  restricted spaces drawn as a dark neutral fill without label or furniture (`palette.restricted`); moving
+  objects as markers with a heading cone, a faint trail and the remaining mission line in violet
+  (`palette.object`, `src/plan/ObjectsLayer.tsx`).
 - **Route line**: every route event now carries `line` ([[x, y, floor_index], …], `MapView.enrich` →
   `core/routeline.py`: door to door along the shortest path inside each space (15 cm off the walls, round
   corners, doors entered at their 30 cm landing: the walk `core/building_map.py` measures since kit 1.1.0), anchors kept only for the first and last space and stairs/lifts — so the line never overshoots to a

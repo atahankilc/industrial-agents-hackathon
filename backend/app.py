@@ -44,10 +44,12 @@ from agent.speech import speakable
 from backend import devtools, openai_compat, persistence, service_errors, stt, tts
 from backend.fleet import Fleet, fleet_from_env
 from backend.fleet import router as fleet_router
+from backend.live import LiveHub, SessionLive
+from backend.live import router as live_router
 from backend.access import Access, AuthError, AuthUnavailable, BuildingAccess, Member, Viewer
 from agent.builder import Builder
 from agent.campus import Campus, arrive
-from core.building_map import MapError
+from core.building_map import BuildingMap, MapError
 from agent.creator import Creator
 from agent.creator_tools import ImportSession
 from backend.drafts import Draft, DraftStore, backend_from_env
@@ -198,7 +200,22 @@ def conversation_or_404(session_id: str, authorization: str | None = None) -> Co
     conversation = store.get(session_id)
     if conversation is None:
         raise HTTPException(404, f"unknown session {session_id!r}")
-    return with_campus(with_access(conversation, viewer_or_401(authorization)))
+    return with_live(with_campus(with_access(conversation, viewer_or_401(authorization))))
+
+
+def live_hidden(authorization: str | None, building: str) -> frozenset[str] | None:
+    """Access mode: the spaces whose live things this viewer may not see (none for the admin)."""
+    if not access.enabled:
+        return None
+    viewer = viewer_or_401(authorization)
+    return None if viewer.admin else access.restricted_for(viewer, building, store.base_data(building))
+
+
+def with_live(conversation: Conversation) -> Conversation:
+    """The building's live world (backend/live.py) for the session's routes, while one runs; else no live state."""
+    world = live.world(conversation.building, start=False)
+    conversation.session.live = SessionLive(live, conversation.building) if world is not None else None
+    return conversation
 
 
 def with_campus(conversation: Conversation) -> Conversation:
@@ -947,6 +964,9 @@ def viewer_restricted(authorization: str | None, building: str) -> tuple[Viewer,
     return viewer, access.restricted_for(viewer, building, store.base_data(building))
 
 
+live = LiveHub(lambda building: BuildingMap(copy.deepcopy(store.base_data(building))))  # backend/live.py
+app.include_router(live_router(live, known_or_422, conversation_or_404, save_or_409, lambda authorization, building:
+                              live_hidden(authorization, building), lambda: access.enabled, admin_or_403))
 fleet = Fleet(fleet_from_env(), store.base_data)  # moving objects (access mode): backend/fleet.py
 app.include_router(fleet_router(fleet, lambda: access.enabled, admin_or_403, viewer_restricted, known_or_422))
 app.include_router(devtools.router(store, conversation_or_404, save_or_409))  # the app's dev panel (backend/devtools.py)

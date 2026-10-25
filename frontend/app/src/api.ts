@@ -136,7 +136,13 @@ export type RouteEvent = {
   steps?: GuideStep[]
   /** route_to_building: this route ends at the exit, the rest is in a nearby building (agent/campus.py) */
   next_building?: NextBuilding
+  /** the living building (core/live.py): what the route goes round or passes right now */
+  live?: RouteLive
+  /** the app moved the route round something that blocked it (backend/live.py live_check) */
+  reroute?: { by: LiveRef[]; was_m?: number | null }
 }
+export type LiveRef = { id: string; name: string; kind: string; state?: string; space?: string; effect?: 'blocked' | 'wait' | 'squeeze' | 'wet_floor' }
+export type RouteLive = { avoided?: LiveRef[]; passing?: LiveRef[]; detour_m?: number; without_live_m?: number; blocked_by?: LiveRef[] }
 /** The rest of a route in a nearby building: across outside from `from` to `to` ([lon, lat] of the two entrances),
  * then in through `entrance` to `destination`. */
 export type NextBuilding = {
@@ -390,6 +396,57 @@ export type FleetObject = {
 }
 export type DispatchResult = { reachable: boolean; object: FleetObject; reason?: string; to?: string; length_m?: number }
 
+/** backend/live.py `LiveWorld.snapshot`: connected things, as last reported (points are plan metres + floor index). */
+export type LiveKind = 'forklift' | 'agv' | 'delivery_robot' | 'cleaning_robot' | 'pallet' | 'cart' | 'pallet_jack' | 'device'
+export type LiveDevice = {
+  id: string
+  name: string
+  kind: LiveKind
+  label: string
+  /** "sim": the demo simulation; "device": a real device posting its position */
+  source: 'sim' | 'device'
+  /** how it reports: telematics, fleet manager, Wi-Fi, BLE tag, API */
+  link: string
+  state: string
+  moving: boolean
+  position: { x: number; y: number; floor: number | null; floor_id: string; heading_deg: number | null; space_id: string | null; space: string | null }
+  footprint: { length_m: number; width_m: number }
+  report_every_s: number
+  reported_ago_s: number
+  /** the world's clock at the last report: changes with every report */
+  reported_at: number
+  /** the last 50 m of reports, oldest first */
+  trail: [number, number, number | null][]
+  /** where a moving thing drives next (≈ 12 m) */
+  ahead: [number, number, number | null][]
+  to: string | null
+  /** it cuts walks of this space for the viewer right now */
+  blocking: { space: string; space_id: string; cuts: number } | null
+  /** a thing left behind: seconds until it is picked up (simulated) */
+  left_s: number | null
+  dropped: boolean
+}
+export type LiveHazard = { id: string; name: string; kind: 'wet_floor'; floor: number | null; polygon: [number, number][] }
+export type LiveSnapshot = {
+  building: string
+  t: number
+  speed: number
+  paused: boolean
+  flavour: 'factory' | 'home' | 'other'
+  simulated: boolean
+  devices: LiveDevice[]
+  hazards: LiveHazard[]
+  /** the free width this viewer needs to pass (m): what `blocking` was judged with */
+  clearance_m: number
+  /** the route on this viewer's map was cut: the new route (already in the session) */
+  reroute?: RouteEvent & { line?: [number, number, number][]; message: string }
+  /** cut with no way round */
+  alert?: { by: LiveRef[]; message: string }
+  /** a detour that is no longer needed: POST /live/shorter takes it */
+  suggestion?: { message: string; save_m: number }
+}
+export type LiveAction = 'speed' | 'pause' | 'resume' | 'drop' | 'clear' | 'block_route' | 'reset'
+
 export type AccessMember = { user_id: string; email: string; building: string; groups: string[] }
 
 export const api = {
@@ -409,6 +466,12 @@ export const api = {
   saveMyPreferences: (store: PreferenceStore) => request<PreferenceStore>('/me/preferences', { method: 'PUT', body: JSON.stringify(store) }),
   sessionPreferences: (id: string, values: Preferences, autoCapture: boolean) =>
     request<SessionSummary>(`/sessions/${id}/preferences`, { method: 'PUT', body: JSON.stringify({ values, auto_capture: autoCapture }) }),
+  live: (building: string, sessionId: string | null) =>
+    request<LiveSnapshot>(`/live?building=${encodeURIComponent(building)}${sessionId ? `&session_id=${encodeURIComponent(sessionId)}` : ''}`),
+  liveControl: (body: { building: string; action: LiveAction; value?: number; floor?: number; x?: number; y?: number; session_id?: string; kind?: 'pallet' | 'forklift' }) =>
+    request<{ ok: boolean; speed: number; paused: boolean }>('/live/control', { method: 'POST', body: JSON.stringify(body) }),
+  liveShorter: (sessionId: string) =>
+    request<{ events: UiEvent[] }>('/live/shorter', { method: 'POST', body: JSON.stringify({ session_id: sessionId }) }),
   objects: (building: string) => request<FleetObject[]>(`/objects?building=${encodeURIComponent(building)}`),
   createObject: (building: string, name: string, kind: ObjectKind, attributes: ObjectAttributes) =>
     request<FleetObject>('/objects', { method: 'POST', body: JSON.stringify({ building, name, kind, attributes }) }),

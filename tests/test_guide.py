@@ -168,7 +168,10 @@ def test_tricky_user_conversation(session):
     assert "\n1. " in directions.text and "about 61 m" in directions.text
     assert directions.events[-1] == {"type": "route", "space_path": route["space_path"],
                                      "element_path": route["element_path"], "length_m": 61.24,
-                                     "profile": "step-free, doors at least 0.8 m wide (assumed)"}
+                                     "profile": "step-free, doors at least 0.8 m wide (assumed)",
+                                     # what was asked, so the app can ask again when something live blocks it
+                                     "request": {"start": route["from_space_id"], "destination": route["to_space_id"],
+                                                 "via": [], "closed": []}}
 
     broken = turns["The lift is broken!"]
     assert [c["name"] for c in broken.tool_calls] == ["propose_change", "apply_change"]

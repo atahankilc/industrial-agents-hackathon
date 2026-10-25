@@ -169,7 +169,7 @@ def guidance_steps(building: BuildingMap, space_path: list[str], element_path: l
 
 
 def guidance(building: BuildingMap, space_path: list[str], element_path: list[str]) -> list[dict]:
-    """The same steps as data, for the app's next-move card: [{kind, turn, metres, to, to_id, floor, door?,
+    """The same steps as data, for the app's route bar and step card: [{kind, turn, metres, to, to_id, floor, door?,
     landmark?, via?, via_kind?, up?, floors?, text}, …], one per leg, ending with "arrive"; kind as in `route_legs`.
 
     The turn is taken where a person makes it: coming through the last door (heading = previous room's anchor →

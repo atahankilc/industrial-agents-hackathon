@@ -10,6 +10,44 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Post-commit verifier fixes for d6b07c9 (not committed)
+
+- **Did:** an exhaustive `commit-verifier` run on d6b07c9 (it went in without a PASS): every C / S50 / S22 row MET,
+  10 required fixes, all done here. Edit mode: `checking` starts true and stays until GET /config (and a signed-in
+  viewer's GET /me) has answered, and `mayChange` is false while it is, so a direct `?building=X&edit=1` shows no Edit
+  bar and sends no `/drafts` request before the app knows who is looking (`access/auth.ts`, `BuildingScreen.tsx`).
+  `set_my_location("outside")` gets resolve's "No place matches" again (`start_of(…, outside=False)`; it had become
+  `{'error': 'outside'}`), test in `tests/test_voice_location.py`. Docs: ai-agents.md `suggest_my_location` row,
+  ambiguous start on `set_my_location`, destination shortlist; project-state (session 50 bullet, People tab, last
+  updated); "(not committed)" headings → d6b07c9; three stale "next-move card" comments.
+- **Session 70's part of d6b07c9, for the record:** Building settings in tabs Access / People / Objects (shield button
+  in the admin corner; Objects tab restyled, `access/ObjectsSection.tsx`), the Edit mode's Access tool
+  (`AccessCard.tsx`, `useAccessRules.ts`, restricted rooms hatched), a failed draft copy shows "Could not edit" with
+  Close, the Edit mode opens flat on one floor and its bar fits on phones.
+- **Checks:** see the worklog. Edit-mode gating not tried in a browser.
+
+## 2026-10-25 — The living building (branch `5-living-building`, worktree `.claude/worktrees/5-living-building`)
+
+- Atahan asked for a "living" building: connected things (forklifts, robots, things left behind) that report
+  positions, block corridors and change navigation, with trails. Built ([living-building.md](../docs/product/living-building.md)):
+  `core/live.py` (obstacles cut door-to-door walks by free-area connectivity with the walker's clearance; waits,
+  squeeze, wet floor; `collapse_hops`), `navigation.find_route/tour(live=)` + `live` notes, `backend/live.py`
+  (simulated world per building, BLE/telematics report intervals, 50 m trails, wet zones, real-device ingest,
+  `GET /live` with reroute / alert / suggestion, `/live/control`, `/live/shorter`), session `live_effects`, `reroute`,
+  Guide tool `live_status` + `[live note]` + prompt paragraph; frontend `src/live/` (layer, markers, panel, notice).
+- Checked: `tests/test_live.py` 36 passed (edge cases listed in living-building.md "Tested"); full suite 1026 passed;
+  `tsc -b`, oxlint, `vite build` clean; stress run over all 280 buildings (world, 150 s simulated, snapshot, live
+  routes, blocked-route reroute): 0 errors, every path well-formed; headless Chrome with the live Opus Guide: reroute
+  while guiding (step guide goes on), alert + dismiss, "clear again" + Take it, tap to drop, Edit mode hides it; demo
+  video + screenshots made. Bugs found and fixed: a door beside the pallets bridged both sides; wet-floor door→door
+  hops; a pallet on a door's landing didn't count; narrow spaces let routes hop past a cart; a stopped cleaning
+  robot's floor never dried; the cleaning robot stood still on one-corridor floors; reroutes followed an older
+  question instead of the route on the map (route events now carry `request`); 11 s ticks (robot planning now off
+  the clock on a planner thread, view-based graph filter, caches; huge OSM outlines walked straight).
+- Merged into the main checkout as uncommitted changes (3-way per file onto dev `fc58314` + others' WIP).
+- Fix round: `/live/control` and `/live/devices` admin-only in access mode (`admin_in_access_mode`), test_live 37;
+  a reroute the map can't draw is checked before it is added or saved.
+
 ## 2026-10-25 — Submission prep: technical explanation, demo runbook, pitch deck
 
 - **Did:** listed what the submission needs; re-ran `SUBMISSION/BENCHMARK.md` in hybrid (test 145/145 answered,
@@ -45,7 +83,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 
 *Did:* the riser between floors is a cased tube drawn over the slabs (was an invisible 1px line); a stairs/lift step while guiding stacks its two floors; a new position from the Guide shows before the route (1.6 s); with the position unknown, `maybe_here` (Guide's rooms via new `suggest_my_location`, else entrances) → "Here? · room" badges, tap to stand there. *Learned:* vite reads `BACKEND_URL` only when exported in its own shell; without it, it proxies to the shared 8765 backend. *Next:* screenshot the stacked ride step.
 
-## 2026-10-25 — Possible start rooms in the figure's orange (not committed)
+## 2026-10-25 — Possible start rooms in the figure's orange (d6b07c9)
 
 - **Did:** "I'm in the kitchen" (several matches) now marks every match as where the user might be (`start_of` →
   `maybe_here`, also for a route's start) instead of a plain search highlight; those rooms are drawn with a dashed
@@ -53,7 +91,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   set_my_location for such words. Ambiguous-destination error now gives the real match total.
 - **Next:** badges of rooms on different stacked floors overlap on a phone.
 
-## 2026-10-25 — Route asking and metres left: merged highlights, nearest options, cross-floor countdown (not committed)
+## 2026-10-25 — Route asking and metres left: merged highlights, nearest options, cross-floor countdown (d6b07c9)
 
 - **Did:** reviewed the Guide's route flow live (both known, start unknown, destination ambiguous, start ambiguous,
   Start on a cross-floor route). Start already goes back to the first step's floor. Fixed: the trip pill's metres
@@ -65,7 +103,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Next:** draw "where you might be" apart from "where you're going" (a highlight role; session 22 works on the
   location flow).
 
-## 2026-10-25 — Verifier fixes for 3113a99..a5f5407 (not committed)
+## 2026-10-25 — Verifier fixes for 3113a99..a5f5407 (d6b07c9)
 
 - **Did:** an exhaustive `commit-verifier` run over the three commits that went in without a final PASS (every claim
   MET; 11 required fixes) and fixed all of them. Access mode: `ensure_access` rebuilds the Guide's system prompt

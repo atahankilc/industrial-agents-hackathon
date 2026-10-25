@@ -39,6 +39,11 @@ export type PlanPalette = {
   restricted: string
   /** access mode: moving objects (marker, trail, mission line): a calm violet, apart from the route blue */
   object: string
+  /** the living building (src/live/): something standing that cuts a walkway (and its no-pass zone), something
+   * standing that doesn't, and a wet floor */
+  liveBlock: string
+  liveIdle: string
+  liveWet: string
   fills: Record<Category, string>
 }
 
@@ -113,6 +118,9 @@ export const LIGHT: PlanPalette = {
   entrance: '#0A84FF',
   restricted: '#6E6B66',
   object: '#7A5CC4',
+  liveBlock: '#D2560F',
+  liveIdle: '#8A847A',
+  liveWet: '#3D9BE0',
   fills: {
     walk: '#F7F6F2',
     core: '#DCE3EE',
@@ -158,6 +166,9 @@ export const DARK: PlanPalette = {
   entrance: '#409CFF',
   restricted: '#1B1B1E',
   object: '#A08BE8',
+  liveBlock: '#FF8A3D',
+  liveIdle: '#A8A39A',
+  liveWet: '#5AB0F0',
   fills: {
     walk: '#4A4A4F',
     core: '#3C4049',

@@ -18,12 +18,13 @@ import { Footprints } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { MapControls as MapControlsImpl } from 'three-stdlib'
-import type { FleetObject, Plan, PlanOpening, PlanSpace } from '../api'
+import type { FleetObject, LiveSnapshot, Plan, PlanOpening, PlanSpace } from '../api'
 import { MAX_MAP_PITCH, type ShellBlock, type View } from '../map/bridge'
 import { assetAt, paintAsset } from './furniture'
 import { buildFloor, buildFloors, contains, fillOf, fromScene, paintSpace, toScene, WALL_CUT_M, type FloorGeometry } from './geometry'
 import type { PlanPalette } from './palette'
 import { ObjectMarkers, ObjectsLayer } from './ObjectsLayer'
+import { LiveLayer, LiveMarkers } from '../live/LiveLayer'
 import { Pins, PinTracker, pinsFor, type Pin } from './pins'
 import type { PlanSettings } from './settings'
 import { askForCompass, compassLikely, shortest, turnFor, watchCompass } from './compass'
@@ -76,6 +77,10 @@ type Props = {
   onMiss?: (x: number, y: number) => boolean
   /** access mode: moving objects to draw (src/plan/ObjectsLayer.tsx) */
   objects?: FleetObject[]
+  /** the living building: connected things as last reported (src/live/LiveLayer.tsx), the one tapped, and a tap on one */
+  live?: LiveSnapshot | null
+  liveFocus?: string | null
+  onLiveFocus?: (id: string | null) => void
   focus?: Focus | null
   /** the "you are here" figure, and where the user put it (null = taken off the plan); no onMe = no figure */
   me?: Me | null
@@ -119,7 +124,7 @@ const STOREY_M = 3 // a floor without its own height (height_m) in street view
 // "All floors" stacks every floor at its real elevation (from the lowest floor), so the building keeps its proportions
 const floorLift = (plan: Plan, index: number) => (plan.floors[index]?.elevation_m ?? 0) - (plan.floors[0]?.elevation_m ?? 0)
 export function PlanView(props: Props) {
-  const { plan, floor, stacked, only, palette, selected, insets, frameInsets, focusInsets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, city, camera, onMiss, objects, focus = null, me = null, onMe, onNext, onMaybe, align, onTap, topDown = false } = props
+  const { plan, floor, stacked, only, palette, selected, insets, frameInsets, focusInsets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, city, camera, onMiss, objects, live = null, liveFocus = null, onLiveFocus, focus = null, me = null, onMe, onNext, onMaybe, align, onTap, topDown = false } = props
   const groundRef = useRef<THREE.Mesh>(null)
   const labels = useRef<HTMLCanvasElement>(null)
   const { wallHeight, colours } = settings
@@ -221,6 +226,7 @@ export function PlanView(props: Props) {
   }, [onMe])
   const markerElements = useRef(new Map<string, HTMLElement>())
   const objectElements = useRef(new Map<string, HTMLElement>())
+  const liveElements = useRef(new Map<string, HTMLElement>())
   const rose = useRef<HTMLSpanElement>(null)
   const northUp = useRef<(() => void) | null>(null)
   // street view: down to eye level where the figure stands, or (no figure) where the next tap on the plan is
@@ -365,6 +371,9 @@ export function PlanView(props: Props) {
           {objects && objects.length > 0 && (
             <ObjectsLayer plan={plan} objects={objects} palette={palette} shown={shown} floor={floor} stacked={stacked} lift={lift} elements={objectElements} />
           )}
+          {live && (
+            <LiveLayer plan={plan} live={live} palette={palette} shown={shown} floor={floor} stacked={stacked} lift={lift} elements={liveElements} clearance={live.clearance_m} />
+          )}
         </Slide>
         </Reveal>
         <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} frameInsets={frameInsets ?? insets} focusInsets={focusInsets ?? insets} fitKey={fitKey} focus={focus} onTilt={onTilt} intro={camera?.intro} ground={groundRef} maxPolar={camera ? MAX_POLAR_ON_MAP : MAX_POLAR} northUp={northUp} headingUp={headingUp && !street} onNoCompass={() => setHeadingUp(false)} topDown={topDown} />
@@ -499,6 +508,7 @@ export function PlanView(props: Props) {
         </button>
       )}
       {objects && objects.length > 0 && <ObjectMarkers objects={objects} palette={palette} elements={objectElements} />}
+      {live && <LiveMarkers live={live} palette={palette} elements={liveElements} focus={liveFocus} onFocus={(id) => onLiveFocus?.(id)} />}
     </div>
   )
 }

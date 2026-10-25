@@ -21,8 +21,10 @@ import { notify, useAccess } from '../access/auth'
 import { BuildingSettings } from '../access/BuildingSettings'
 import { useAccessRules } from '../access/useAccessRules'
 import { capture, effective, sessionValues as toSession, setHere, setSpokenReplies, usePreferences } from '../access/preferences'
-import { api, ApiError, ServiceError, type FleetObject, type GuideStep, type Issue, type NextBuilding, type Plan, type Preferences } from '../api'
+import { api, ApiError, ServiceError, type FleetObject, type GuideStep, type Issue, type LiveDevice, type NextBuilding, type Plan, type Preferences } from '../api'
 import { EditLayer } from '../edit/EditLayer'
+import { LiveButton, LiveNotice, LivePanel, type Notice, type Placing } from '../live/LivePanel'
+import { useLive, type LiveNews } from '../live/useLive'
 import { EditBar } from '../edit/EditBar'
 import { EditCard } from '../edit/EditCard'
 import { useDraft } from '../edit/useDraft'
@@ -142,9 +144,9 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   })
   // access mode (src/access/): who is signed in, and the building settings sheet (admin)
   const access = useAccess()
-  // who may change the building: its admin in access mode, anyone without it (editing works on a copy); while a
-  // sign-in is still being checked the Edit mode stays, so an admin's ?edit=1 doesn't blink off and on
-  const mayChange = !access.mode || access.admin || access.checking
+  // who may change the building: its admin in access mode, anyone without it (editing works on a copy); nobody
+  // until /config (and a signed-in viewer's /me) has answered, so ?edit=1 never shows the Edit mode to the wrong one
+  const mayChange = !access.checking && (!access.mode || access.admin)
   // the admin in access mode also sets who may go where: the Access tool, and the Building settings button
   const admin = access.mode && access.admin
   // the Edit mode as asked for (the admin button, the Guide, ?edit=1) and as shown: only to whoever may change the
@@ -152,8 +154,8 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   const [editAsked, setEditing] = useState(startEditing)
   const editing = editAsked && mayChange
   // Edit mode (src/edit/): the model becomes the draft copy's, handles sit on it, the edit card takes the Guide's place
-  // the copy is only asked for once the sign-in check is over, so a non-admin's ?edit=1 never requests one
-  const draft = useDraft(buildingId, editing && !access.checking, admin)
+  // the copy is only asked for once that check is over, so a non-admin's ?edit=1 never requests one
+  const draft = useDraft(buildingId, editing, admin)
   // the Building settings sheet (admin): the shield button, the Access tool or the Guide open it
   const [settingsOpen, setSettingsOpen] = useState(false)
   // the access rules, shared by the Access tool and the Building settings sheet
@@ -287,6 +289,51 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
       pollNow.current = () => undefined
     }
   }, [access.mode, hasPlan, buildingId, access.version])
+  // the living building (src/live/): connected things polled while the screen shows the building, the panel with
+  // its demo controls, a tap that puts something down, and notices when the route on the map has to change
+  const [liveOpen, setLiveOpen] = useState(false)
+  const [placing, setPlacing] = useState<Placing>(null)
+  const [liveFocus, setLiveFocus] = useState<string | null>(null)
+  const [notice, setNotice] = useState<Notice | null>(null)
+  const noticeKey = useRef(0)
+  const dismissed = useRef(new Set<string>())
+  const onLiveNews = (news: LiveNews) => {
+    if (news.reroute) {
+      const wasGuiding = guiding
+      onEvents([news.reroute])
+      if (wasGuiding) {
+        setGuideKey(storyRef.current.key) // the step guide goes on, on the new route
+        quietStep.current = null
+      }
+      setNotice({ kind: 'reroute', message: news.reroute.message, key: ++noticeKey.current })
+      setMessages((list) => [...list, { role: 'note', text: news.reroute!.message }])
+      if ((guiding || walking) && !muted) speak(news.reroute.message)
+    } else if (news.alert && !dismissed.current.has(news.alert.message)) {
+      setNotice({ kind: 'alert', message: news.alert.message, key: ++noticeKey.current })
+    } else if (news.suggestion && !dismissed.current.has(news.suggestion.message)) {
+      setNotice((shown) => (shown?.message === news.suggestion!.message ? shown : { kind: 'suggestion', message: news.suggestion!.message, key: ++noticeKey.current }))
+    }
+  }
+  const { live, pollNow: pollLive } = useLive(buildingId, sessionId, hasPlan && !editing, onLiveNews)
+  // a reroute notice goes by itself after a while; an alert or a suggestion stays until dismissed or taken
+  useEffect(() => {
+    if (notice?.kind !== 'reroute') return
+    const timer = setTimeout(() => setNotice((shown) => (shown?.key === notice.key ? null : shown)), 9000)
+    return () => clearTimeout(timer)
+  }, [notice])
+  const liveControl = (action: 'speed' | 'pause' | 'resume' | 'clear' | 'block_route', value?: number) => {
+    void api
+      .liveControl({ building: buildingId, action, value, session_id: action === 'block_route' ? sessionId ?? undefined : undefined })
+      .then(() => pollLive())
+      .catch((reason) => setMessages((list) => [...list, { role: 'note', text: `Live: ${reason instanceof Error ? reason.message : String(reason)}` }]))
+  }
+  const focusDevice = (item: LiveDevice) => {
+    setLiveFocus(item.id)
+    if (item.position.floor === null) return
+    setFloor(item.position.floor)
+    setStacked(false)
+    frameOn([[item.position.x, item.position.y, item.position.floor]], FOCUS_ROOM_M)
+  }
   /** Show a new answer and take the camera to it: a route whole (when it crosses floors, only its floors, stacked:
    * the overview), or the rooms and items found (their floor, zoomed to them). */
   const present = (next: Story) => {
@@ -459,6 +506,10 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
 
   const routeSteps = useMemo(() => story.route?.steps ?? [], [story.route])
   const moving = routeSteps.length > 0
+  // an alert or a suggestion is about the route on the map: it goes with the route
+  useEffect(() => {
+    if (!moving) setNotice((shown) => (shown && shown.kind !== 'reroute' ? null : shown))
+  }, [moving])
   const moveIndex = moveAt.key === story.key ? Math.min(moveAt.index, routeSteps.length - 1) : 0
   const guiding = moving && guideKey === story.key
   // a route over several floors is first shown whole: only its floors, stacked, until it starts or a floor is picked
@@ -682,6 +733,9 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   const focusInsets: Insets = wide ? { ...insets, right: RAIL_PX + CALLOUT_PX } : insets
 
   const current = plan?.floors[floor]
+  // the plan's buttons (figure, street view, compass), then the admin corner (Edit, and Building settings for the
+  // admin in access mode): the Live button goes on top of them
+  const liveBottom = insets.bottom + 16 + (44 + 10) * (3 + (!access.mode || access.admin ? (admin ? 2 : 1) : 0))
   const suggestions = useMemo(() => (plan ? suggest(plan, plan.floors[floor]?.name ?? '') : []), [plan, floor])
 
   const info = useMemo((): InfoCard | null => {
@@ -923,7 +977,7 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   }
 
   return (
-    <main className={`screen${origin ? ' on-map' : ''}${alone ? ' alone' : ''}${plan ? ' ready' : ''}${leaving ? ' leaving' : ''}`}>
+    <main className={`screen${origin ? ' on-map' : ''}${alone ? ' alone' : ''}${plan ? ' ready' : ''}${leaving ? ' leaving' : ''}${placing ? ' placing' : ''}`}>
       <div className="screen-stage" aria-hidden="true" />
       {shownPlan && (
         <PlanView
@@ -953,6 +1007,12 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
           settings={settings}
           story={editing ? EMPTY_STORY : shownStory}
           objects={access.mode && !editing ? objects : undefined}
+          live={editing ? null : live}
+          liveFocus={liveFocus}
+          onLiveFocus={(id) => {
+            setLiveFocus(id)
+            if (id) setLiveOpen(false)
+          }}
           focus={editing ? null : focus}
           // while guided, the dot on the route is you; the figure would stay behind at the start
           me={editing || guiding ? null : me}
@@ -965,6 +1025,15 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
           onTap={editing && (draft.tool === 'door' || draft.tool === 'item') ? (tap) => {
             const floorId = shownPlan?.floors[tap.floor]?.id
             if (floorId) draft.placeAt(floorId, tap.at, tap.pixelsPerMetre)
+            return true
+          } : placing ? (tap) => {
+            // the Live panel's Drop pallet / Park forklift: it goes where the plan was tapped
+            const kind = placing
+            setPlacing(null)
+            void api
+              .liveControl({ building: buildingId, action: 'drop', floor: tap.floor, x: tap.at[0], y: tap.at[1], kind })
+              .then(() => pollLive())
+              .catch(() => setMessages((list) => [...list, { role: 'note', text: `Put the ${kind} inside a room or corridor.` }]))
             return true
           } : undefined}
           ground={alone}
@@ -1107,6 +1176,50 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
             <PencilRuler size={19} strokeWidth={2} />
           </button>
         </div>
+      )}
+
+      {/* the living building: its button on top of the column (over the admin button when there is one), its panel
+          beside the column on a wide screen and above it on a phone, and the notice under the top line */}
+      {plan && !editing && (
+        <LiveButton
+          live={live}
+          open={liveOpen}
+          onToggle={() => {
+            setLiveOpen((open) => !open)
+            setPlacing(null)
+          }}
+          style={{ right: insets.right + 16, bottom: liveBottom }}
+        />
+      )}
+      {plan && !editing && liveOpen && (
+        <LivePanel
+          live={live}
+          hasRoute={moving}
+          placing={placing}
+          focus={liveFocus}
+          onPlace={setPlacing}
+          onControl={liveControl}
+          onFocus={focusDevice}
+          onClose={() => {
+            setLiveOpen(false)
+            setPlacing(null)
+          }}
+          style={wide ? { right: insets.right + 16 + 44 + 12, bottom: Math.max(16, liveBottom - 200) } : { right: 16, bottom: liveBottom + 44 + 10, maxHeight: Math.max(220, viewport.height - (liveBottom + 44 + 10) - TOP_PX - 8) }}
+        />
+      )}
+      {plan && notice && !editing && (
+        <LiveNotice
+          notice={notice}
+          top={TOP_PX + 8 + (moving && !walking ? MOVE_PX + 8 : 0)}
+          onTake={() => {
+            setNotice(null)
+            if (sessionId) void api.liveShorter(sessionId).then((reply) => onEvents(reply.events)).catch(() => undefined)
+          }}
+          onClose={() => {
+            dismissed.current.add(notice.message)
+            setNotice(null)
+          }}
+        />
       )}
 
       {access.mode && settingsOpen && (

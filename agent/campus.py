@@ -180,6 +180,9 @@ class Campus:
                 "type": "route", "space_path": inside_here["space_path"], "element_path": inside_here["element_path"],
                 "length_m": inside_here["length_m"], "profile": session.profile.describe(),
                 **session.start_point(start_id),
+                # what the app may ask again when something live blocks the way (backend/live.py)
+                "request": {"start": start_id, "destination": OUTSIDE, "via": [],
+                            "closed": here_closed + only(session.building, exit_door["id"])},
                 "next_building": {
                     "building": target_id, "name": name, "destination": end_id,
                     "destination_name": there.spaces[end_id]["name"], "entrance": entry_door["id"],
@@ -227,5 +230,7 @@ def arrive(session: "BuildingSession", entrance: str, destination: str) -> dict:
     if route.get("reachable") and session.emitting:
         session.events.append({"type": "route", "space_path": route["space_path"],
                                "element_path": route["element_path"], "length_m": route["length_m"],
-                               "profile": route["profile"]})
+                               "profile": route["profile"],
+                               "request": {"start": OUTSIDE, "destination": route["to_space_id"], "via": [],
+                                           "closed": others}})
     return route

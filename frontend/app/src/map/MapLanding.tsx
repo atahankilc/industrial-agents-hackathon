@@ -12,8 +12,9 @@ import maplibregl, { type GeoJSONSource, type GeoJSONSourceSpecification, type M
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAccess } from '../access/auth'
-import type { Building, BuildingKind } from '../api'
+import { api, type Building, type BuildingKind, type ImportPlace } from '../api'
 import { useTheme } from '../theme'
+import { outerRing, ringContains, TILE_BUILDINGS } from './geo'
 import { applyBlocks, attachMap, FLAT_FOV, osmHeights, setTheme, toLngLat, type Origin } from './bridge'
 import '../building/hud.css' // the HUD tokens (--hud-*) the panel shares with the building screen
 import './map.css'
@@ -49,6 +50,11 @@ const PIN = {
 const HIT_LAYERS = ['pins', 'pin-names', 'pin-discs', 'model-blocks', 'model-footprints']
 const MODEL_LAYERS = ['model-footprints', 'model-blocks', 'model-edges']
 const HIT_SLOP = 14
+
+/** `at`: the tapped point ([lng, lat]); the card opens there and follows it while the map moves */
+// ours: `pick` (right click) — a version is chosen to act on (open, delete) instead of opened
+type Card = ({ kind: 'osm'; place: ImportPlace } | { kind: 'ours'; ids: string[]; pick?: boolean }) & { at: [number, number] }
+
 const LOCATE_DISMISSED = 'ml-locate-dismissed' // "Not now" on the location card, remembered per browser
 const LOCATE_ALLOWED = 'ml-locate-allowed' // "Allow" on it: an iOS home screen app forgets the grant on every launch
 
@@ -90,12 +96,16 @@ function easeFov(map: MapLibreMap, to: number, ms: number) {
   easing.set(map, requestAnimationFrame(step))
 }
 
-export function MapLanding({ buildings, error, focus, onOpen, onImport }: {
+/** "Version 2" for a saved building whose name was taken (user/<slug>-2), "Version 1" for the first save. */
+const versionOf = (id: string) => (id.startsWith('user/') ? `Version ${/-(\d+)$/.exec(id)?.[1] ?? 1}` : null)
+
+export function MapLanding({ buildings, error, focus, onOpen, onImport, onDeleted }: {
   buildings: Building[] | null
   error: string | null
   focus: Focus | null
   onOpen: (id: string) => void
-  onImport: () => void
+  onImport: (place?: ImportPlace) => void
+  onDeleted: () => void
 }) {
   const access = useAccess() // access mode: only the admin creates buildings (an import is a paid Creator run)
   const { dark } = useTheme()
@@ -110,6 +120,16 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport }: {
   // the building picked in the list: the map flies to it and keeps it lit; a tap on it on the map opens it
   const [picked, setPicked] = useState<string | null>(null)
   const pickRef = useRef(setPicked)
+  // a tap on a building that is not one of ours (create one there), or on our model blocks (open / delete)
+  const [card, setCard] = useState<Card | null>(null)
+  // "Delete" asks once more in place (no browser dialog); a failure is said in the card
+  const [deleting, setDeleting] = useState<'ask' | 'busy' | string | null>(null)
+  useEffect(() => setDeleting(null), [card])
+  const canCreate = !access.mode || access.admin
+  const canCreateRef = useRef(canCreate)
+  canCreateRef.current = canCreate
+  const cardOpenRef = useRef(false)
+  cardOpenRef.current = card !== null
   const [askLocation, setAskLocation] = useState(false)
 
   const located = useMemo(
@@ -134,6 +154,12 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport }: {
   const shownLocated = located.filter(named)
   const shownElsewhere = elsewhere.filter(named)
   const shown = [...shownLocated, ...shownElsewhere]
+  const nameOfId = (id: string) => {
+    const building = buildings?.find((item) => item.id === id)
+    return building ? nameOf(building) : id
+  }
+  const addressOf = (id: string) => buildings?.find((item) => item.id === id)?.location?.address ?? null
+  const outlineOf = (id: string) => buildings?.find((item) => item.id === id)?.location?.outline?.[0] ?? null
 
   // the map: created once; its style follows the theme (a style swap drops our layers, so they go back on style.load)
   useEffect(() => {
@@ -176,10 +202,41 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport }: {
       return typeof id === 'string' ? id : null
     }
     let hovered: string | null = null
+    // our model blocks under a point (several = versions standing on one place)
+    const oursAt = (point: maplibregl.Point) => {
+      const blocks = MODEL_LAYERS.filter((layer) => layer !== 'model-edges' && map.getLayer(layer))
+      return blocks.length
+        ? [...new Set(map.queryRenderedFeatures(point, { layers: blocks }).map((feature) => feature.properties?.id))]
+            .filter((id): id is string => typeof id === 'string')
+        : []
+    }
+    // left click: an open card just closes; else a pin or a model opens (a choice when versions share the place)
     map.on('click', (event) => {
-      const id = hit(event.point)
+      if (cardOpenRef.current) return setCard(null)
+      const at: [number, number] = [event.lngLat.lng, event.lngLat.lat]
+      const ours = oursAt(event.point)
+      if (ours.length > 1) return setCard({ kind: 'ours', ids: ours, at })
+      const id = ours[0] ?? hit(event.point)
       if (id) openRef.current(id)
       else pickRef.current(null)
+    })
+    // right click: "Create a building here" on an OpenStreetMap building or open ground; on ours: open / delete
+    map.on('contextmenu', (event) => {
+      event.preventDefault()
+      const at: [number, number] = [event.lngLat.lng, event.lngLat.lat]
+      const ours = oursAt(event.point)
+      const pinned = ours.length ? null : hit(event.point)
+      if (ours.length || pinned) return setCard({ kind: 'ours', ids: ours.length ? ours : [pinned!], at, pick: true })
+      if (!canCreateRef.current) return setCard(null)
+      // the building whose footprint holds the ground point under the cursor (tile data, not the tilted 3D blocks), else
+      // the block drawn under the cursor
+      const onGround = map.querySourceFeatures('openmaptiles', { sourceLayer: 'building' })
+        .find((feature) => { const part = outerRing(feature.geometry as { type: string; coordinates?: unknown }, at); return part ? ringContains(part, at) : false })
+      const tiles = TILE_BUILDINGS.filter((layer) => map.getLayer(layer))
+      const tile = onGround ?? (tiles.length ? map.queryRenderedFeatures(event.point, { layers: tiles })[0] : undefined)
+      const ring = tile ? outerRing(tile.geometry as { type: string; coordinates?: unknown }, at) : null
+      const name = typeof tile?.properties?.name === 'string' ? tile.properties.name : undefined
+      setCard({ kind: 'osm', place: ring ? { ring, name } : { point: at }, at })
     })
     map.on('mousemove', (event) => {
       const id = hit(event.point)
@@ -414,6 +471,41 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport }: {
     map.setStyle(mapStyle(dark), { diff: false })
   }, [dark])
 
+  // the card sits at the tapped point (above it, below when there is no room), following it as the map moves; on narrow
+  // screens it stays a bottom sheet (map.css)
+  const [cardXY, setCardXY] = useState<{ x: number; y: number; below: boolean } | null>(null)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !card) return setCardXY(null)
+    const place = () => {
+      const { x, y } = map.project(card.at)
+      const width = map.getContainer().clientWidth
+      setCardXY({ x: Math.min(Math.max(x, 200), width - 200), y, below: y < 300 })
+    }
+    place()
+    map.on('move', place)
+    return () => {
+      map.off('move', place)
+    }
+  }, [card])
+  const narrow = typeof window !== 'undefined' && window.matchMedia('(max-width: 899px)').matches
+
+  // the tapped building's outline while its card is open (what "Create a building here" refers to)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !map.isStyleLoaded()) return
+    const ring = card?.kind === 'osm' && 'ring' in card.place ? card.place.ring : card?.kind === 'ours' ? outlineOf(card.ids[0]) : null
+    const data = { type: 'Feature' as const, properties: {}, geometry: { type: 'Polygon' as const, coordinates: ring ? [ring] : [] } }
+    const source = map.getSource('picked') as GeoJSONSource | undefined
+    if (source) source.setData(data)
+    else {
+      map.addSource('picked', { type: 'geojson', data })
+      map.addLayer({ id: 'picked-fill', type: 'fill', source: 'picked', paint: { 'fill-color': dark ? '#FFFFFF' : '#111318', 'fill-opacity': 0.18 } })
+      map.addLayer({ id: 'picked-line', type: 'line', source: 'picked', paint: { 'line-color': dark ? '#FFFFFF' : '#111318', 'line-width': 2.5, 'line-opacity': 0.95 } })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card, dark])
+
   // frame every pin once they are known, clear of the list panel on wide screens (not while a building is open)
   const framed = useRef(false)
   useEffect(() => {
@@ -528,6 +620,90 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport }: {
           </div>
         </div>
       )}
+      {card && (
+        <div
+          className={`ml-create${cardXY?.below ? ' below' : ''}`} role="dialog" aria-labelledby="ml-create-title"
+          style={cardXY && !narrow ? { left: cardXY.x, top: cardXY.y } : undefined}
+          onKeyDown={(event) => event.key === 'Escape' && setCard(null)}
+        >
+          <div className="ml-create-head">
+            <span className="ml-create-icon" aria-hidden>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 20V9l8-5 8 5v11" />
+                <path d="M9 20v-6h6v6" />
+              </svg>
+            </span>
+            <div>
+              <p id="ml-create-title" className="ml-create-title">
+                {card.kind === 'ours'
+                  ? card.ids.length > 1 ? 'Which version?' : nameOfId(card.ids[0])
+                  : card.place.name ?? ('ring' in card.place ? 'This building' : 'This spot')}
+              </p>
+              <p className="ml-create-sub">
+                {card.kind === 'ours'
+                  ? card.ids.length > 1 ? `${card.ids.length} versions stand here.` : addressOf(card.ids[0]) ?? 'A building with its own model.'
+                  : 'ring' in card.place ? 'Make a model of it from photos or PDFs of its floor plans.' : 'No building is mapped here. Place a new one on this spot from its floor plans.'}
+              </p>
+            </div>
+          </div>
+          {card.kind === 'ours' && card.ids.length > 1 && (
+            <ol className="ml-create-versions">
+              {card.ids.map((id) => (
+                <li key={id}>
+                  <button onClick={() => {
+                    if (card.pick) return setCard({ ...card, ids: [id] }) // right click: act on this version
+                    setCard(null)
+                    onOpen(id)
+                  }}>
+                    <span className="ml-name">{nameOfId(id)}</span>
+                    {(addressOf(id) || id.startsWith('user/')) && (
+                      <span className="ml-address">{[versionOf(id), addressOf(id)].filter(Boolean).join(', ')}</span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+          <div className="ml-create-actions">
+            {card.kind === 'ours' ? (
+              <>
+                {card.ids.length === 1 && (
+                  <button className="ml-create-main" autoFocus onClick={() => {
+                    setCard(null)
+                    onOpen(card.ids[0])
+                  }}>
+                    Open
+                  </button>
+                )}
+                {canCreate && card.ids.length === 1 && card.ids[0].startsWith('user/') && (
+                  <button className="ml-create-delete" disabled={deleting === 'busy'} onClick={async () => {
+                    if (deleting !== 'ask') return setDeleting('ask')
+                    setDeleting('busy')
+                    try {
+                      await api.deleteBuilding(card.ids[0])
+                      setCard(null)
+                      onDeleted()
+                    } catch (reason) {
+                      setDeleting(reason instanceof Error ? reason.message : String(reason))
+                    }
+                  }}>
+                    {deleting === 'ask' ? `Delete ${nameOfId(card.ids[0])}? Click again` : deleting === 'busy' ? 'Deleting…' : 'Delete'}
+                  </button>
+                )}
+                {deleting && deleting !== 'ask' && deleting !== 'busy' && <p className="ml-create-error">Not deleted: {deleting}</p>}
+              </>
+            ) : (
+              <button className="ml-create-main" autoFocus onClick={() => {
+                setCard(null)
+                onImport(card.place)
+              }}>
+                Create a building here
+              </button>
+            )}
+            <button onClick={() => setCard(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
       <aside className="ml-panel">
         <header>
           <span>Buildings</span>
@@ -607,7 +783,7 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport }: {
           )}
         </div>
         {(!access.mode || access.admin) && (
-          <button className="ml-more" onClick={onImport}>
+          <button className="ml-more" onClick={() => onImport()}>
             <span>New building from floor plans</span>
             <span aria-hidden>Create →</span>
           </button>

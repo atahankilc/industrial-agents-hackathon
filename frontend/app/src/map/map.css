@@ -199,3 +199,45 @@
   .ml .maplibregl-ctrl-bottom-right { bottom: calc(42dvh + 16px + env(safe-area-inset-bottom)); }
 }
 
+/* "Create a building here" / "Which version?": a sheet over the map after a tap, in the panel's material, centred in
+   the map area right of the list panel (a bottom sheet on narrow screens); buttons as in the location ask */
+.ml-create {
+  position: absolute; z-index: 6; transform: translate(-50%, calc(-100% - 16px)); /* above the tapped point (inline left/top) */
+  width: 360px; padding: 18px 18px 14px;
+  border: 1px solid var(--hair); border-radius: calc(var(--radius) * 1.5); background: var(--panel);
+  backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1), 0 18px 48px rgba(0, 0, 0, 0.22);
+  animation: ml-create-in 0.25s var(--ease);
+}
+.ml-create-head { display: flex; gap: 12px; align-items: flex-start; }
+.ml-create-icon {
+  display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px;
+  border-radius: 999px; background: var(--ink); color: var(--bg);
+}
+.ml-create-title { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); }
+.ml-create-sub { margin: 3px 0 0; font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
+.ml-create-versions { list-style: none; margin: 12px -8px 0; padding: 0 8px; border-top: 1px solid var(--hair); max-height: 220px; overflow: auto; }
+.ml-create-versions button {
+  display: grid; width: 100%; padding: 10px; border: 0; border-bottom: 1px solid var(--hair); border-radius: 0;
+  background: transparent; text-align: left; cursor: pointer; transition: background-color 0.15s var(--ease);
+}
+.ml-create-versions li:last-child button { border-bottom: 0; }
+.ml-create-versions button:hover, .ml-create-versions button:focus-visible { background: var(--fill); outline: none; }
+.ml-create-actions { display: grid; gap: 6px; margin-top: 16px; }
+.ml-create-actions button {
+  padding: 10px 16px; border: 1px solid transparent; border-radius: 999px;
+  background: transparent; color: var(--ink-2); font-size: 14px; cursor: pointer;
+  transition: background-color 0.15s var(--ease), opacity 0.15s var(--ease);
+}
+.ml-create-actions button:hover, .ml-create-actions button:focus-visible { background: var(--fill); color: var(--ink); outline: none; }
+.ml-create-actions .ml-create-main { padding: 12px 16px; border-color: var(--ink); background: var(--ink); color: var(--bg); font-size: 15px; font-weight: 500; }
+.ml-create-actions .ml-create-main:hover, .ml-create-actions .ml-create-main:focus-visible { background: var(--ink); color: var(--bg); opacity: 0.85; }
+.ml-create-actions .ml-create-delete { color: #C2410C; }
+.ml-create-actions .ml-create-delete:hover, .ml-create-actions .ml-create-delete:focus-visible { color: #C2410C; }
+.ml-create-error { margin: 4px 0 0; font-size: 13px; color: var(--ink-2); text-align: center; }
+.ml-create.below { transform: translate(-50%, 16px); }
+@keyframes ml-create-in { from { opacity: 0; } }
+@media (max-width: 899px) {
+  .ml-create, .ml-create.below { left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; transform: none; } /* over the list sheet */
+}
+@media (prefers-reduced-motion: reduce) { .ml-create { animation: none; } }

@@ -99,10 +99,14 @@ class Creator:
             self.on_step(step)
 
     def opening(self) -> str:
-        lines = [f"- {source.id}: {source.origin}" for source in self.session.sources]
+        lines = [f"- {source.id}: {source.origin}" + (f" — floor {source.level}" if source.level is not None else "")
+                 for source in self.session.sources]
         warnings = [f"- {warning}" for warning in self.session.warnings]
+        given = any(source.level is not None for source in self.session.sources)
+        told = (["The user said which floor each file is (\"— floor n\"): each such source is the plan of that level; "
+                 "register every one of them at that level, whatever the drawing is titled."] if given else [])
         return "\n".join(["Uploaded sources:", *lines, *(["Files that could not be read:", *warnings] if warnings
-                                                          else []), "", "Build the building from these files."])
+                                                          else []), "", *told, "Build the building from these files."])
 
     def result(self) -> CreatorResult | None:
         if self.session.finished is not None:

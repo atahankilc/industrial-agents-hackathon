@@ -21,13 +21,17 @@ import { notify, useAccess } from '../access/auth'
 import { BuildingSettings } from '../access/BuildingSettings'
 import { useAccessRules } from '../access/useAccessRules'
 import { capture, effective, sessionValues as toSession, setHere, setSpokenReplies, usePreferences } from '../access/preferences'
-import { api, ApiError, ServiceError, type FleetObject, type GuideStep, type Issue, type LiveDevice, type NextBuilding, type Plan, type Preferences } from '../api'
+import { api, ApiError, ServiceError, type FleetObject, type GuideStep, type Issue, type LiveDevice, type NextBuilding, type PlacedLocation, type Plan, type Preferences } from '../api'
 import { EditLayer } from '../edit/EditLayer'
 import { LiveButton, LiveNotice, LivePanel, type Notice, type Placing } from '../live/LivePanel'
 import { useLive, type LiveNews } from '../live/useLive'
+import { ReferencePanel, useImageSize, type Trace } from '../edit/ReferencePanel'
 import { EditBar } from '../edit/EditBar'
 import { EditCard } from '../edit/EditCard'
 import { useDraft } from '../edit/useDraft'
+import { Placement } from '../map/Placement'
+import '../import/import.css'
+import { ImportScreen } from '../import/ImportScreen'
 import { CATEGORY_LABEL, DARK, LIGHT } from '../plan/palette'
 import { contains, prepareFloors } from '../plan/geometry'
 import { PlanView, type Focus, type Insets, type Me, type Selected, type ViewMode } from '../plan/PlanView'
@@ -160,7 +164,28 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   const [settingsOpen, setSettingsOpen] = useState(false)
   // the access rules, shared by the Access tool and the Building settings sheet
   const accessRules = useAccessRules(buildingId, admin && (editing || settingsOpen))
+  // "Edit position": the saved building's map placement, moved / turned / scaled again (one undoable step)
+  const [placingOnMap, setPlacingOnMap] = useState(false)
+  const [addingFloor, setAddingFloor] = useState(false) // "Add a floor": an import into this draft
+  const placedAt = (draft.state?.building.building as { location?: PlacedLocation } | undefined)?.location
   const align = useRef<SVGGElement>(null)
+  // the import's plan beside the editor (edit/ReferencePanel.tsx): open unless closed before, remembered per browser
+  const [referenceOpen, setReferenceOpen] = useState(() => {
+    try {
+      return localStorage.getItem('edit.referenceOpen') !== 'false'
+    } catch {
+      return true
+    }
+  })
+  const showReference = (open: boolean) => {
+    setReferenceOpen(open)
+    try {
+      localStorage.setItem('edit.referenceOpen', String(open))
+    } catch {
+      // private mode: just not remembered
+    }
+  }
+  const [trace, setTrace] = useState<Trace>({ on: false, opacity: 0.4 })
   // a request the Guide handed over with open_edit_mode, sent to the Builder once the draft is open
   const handOver = useRef<{ text: string; spoken: boolean } | null>(null)
   // a nearby building the Guide opened (open_nearby_building), gone to once its reply has been said
@@ -717,22 +742,32 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, plan, buildingId])
 
-  const insets: Insets = wide
+  const referenceShown = editing && draft.references.length > 0 && referenceOpen
+  // on a wide screen the reference is a column on the right; the generated building keeps the middle
+  const referenceWidth = referenceShown ? Math.round(Math.min(560, Math.max(320, viewport.width * 0.3))) : 0
+  const baseInsets: Insets = wide
     ? { top: TOP_PX + 8 + (moving ? MOVE_PX + (followed ? TRACK_PX : 0) : 0), right: ACTIONS_RIGHT_PX, bottom: 24, left: 16 + GUIDE_COL_PX + 24 }
     : editing
       ? { top: TOP_PX + 8 + EDIT_BAR_PX, right: 0, bottom: guideHeight, left: 0 }
       : { top: TOP_PX + 8 + (moving ? MOVE_PX + (followed ? TRACK_PX : 0) : 0), right: 0, bottom: guideHeight, left: 0 }
+  // beside the reference the building is framed in the space left of it
+  const insets: Insets = referenceShown && wide ? { ...baseInsets, right: 16 + referenceWidth + 24 } : baseInsets
 
   // the whole building is centred on the screen: on a wide screen the Guide floats in the bottom-left corner, not
   // in a column, so it does not push the building right (the floor rail on the right is mirrored on the left); an
   // answer's own rooms still keep clear of it (`insets`). On a phone the plan's buttons stand on the Guide's top
   // edge (its measured height), so they never sit under a longer answer.
-  const frameInsets: Insets = wide ? { ...insets, left: RAIL_PX, right: RAIL_PX } : insets
+  const frameInsets: Insets = referenceShown
+    ? insets
+    : wide ? { ...insets, left: RAIL_PX, right: RAIL_PX } : insets
   // an answer's rooms and route: clear of the Guide column on the left (`insets`) and of the floor rail on the right
   // (`insets.right` only places the plan's buttons under the rail), with room for the start's step callout
   const focusInsets: Insets = wide ? { ...insets, right: RAIL_PX + CALLOUT_PX } : insets
 
-  const current = plan?.floors[floor]
+  // while editing the model is the draft's (the original until the draft's plan has loaded), one floor at a time —
+  // the floor chip and list follow it, so floors added in Edit mode can be picked
+  const shownPlan = editing && draft.plan ? draft.plan : plan
+  const current = shownPlan?.floors[floor]
   // the plan's buttons (figure, street view, compass), then the admin corner (Edit, and Building settings for the
   // admin in access mode): the Live button goes on top of them
   const liveBottom = insets.bottom + 16 + (44 + 10) * (3 + (!access.mode || access.admin ? (admin ? 2 : 1) : 0))
@@ -935,9 +970,11 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
     setPopover(null)
   }
 
-  // while editing the model is the draft's (the original until the draft's plan has loaded), one floor at a time
-  const shownPlan = editing && draft.plan ? draft.plan : plan
+  // a floor that only the draft has (added in Edit mode) is gone once editing ends: back to one the building has
+  if (!editing && plan && floor >= plan.floors.length) setFloor(0)
   const editFloorId = shownPlan?.floors[floor]?.id
+  const editReference = draft.references.find((item) => item.floor_id === editFloorId) ?? null
+  const traceSize = useImageSize(editReference?.image)
   const focusIssue = (issue: Issue) => {
     const building = draft.state?.building
     const id = issue.ids[0]
@@ -1061,8 +1098,29 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
           preset={draft.preset}
           align={align}
           restricted={admin ? accessRules.restricted : undefined}
+          trace={trace.on && referenceShown && editReference && traceSize
+            ? { image: editReference.image, ...traceSize, transform: editReference.transform, opacity: trace.opacity, adjust: trace.adjust }
+            : null}
         />
       )}
+      {editing && draft.references.length > 0 && (referenceOpen ? (
+        <ReferencePanel
+          reference={editReference}
+          floorName={shownPlan?.floors[floor]?.name ?? ''}
+          style={wide
+            ? { right: 16, top: TOP_PX + 8 + EDIT_BAR_PX, maxHeight: `calc(100% - ${TOP_PX + 8 + EDIT_BAR_PX + 24}px)`, width: referenceWidth }
+            : { left: 8, right: 8, top: TOP_PX + 8 + EDIT_BAR_PX, maxHeight: '42%' }}
+          trace={trace}
+          onTrace={setTrace}
+          onAdjust={editFloorId ? (transform) => draft.onOps([{ op: 'set_reference', floor_id: editFloorId, transform }]) : undefined}
+          onClose={() => {
+            showReference(false)
+            setTrace((current) => ({ ...current, on: false }))
+          }}
+        />
+      ) : (
+        <button type="button" className="hud-pill edit-reference-open" onClick={() => showReference(true)}>Show plan</button>
+      ))}
 
       {/* "Opening the building…" from the tap until the model is there, the map's fly-in included; it fades in a
           beat late (screen.css), so a building that opens at once shows nothing */}
@@ -1086,7 +1144,7 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
         <div className="hud-place">
           <h1>{plan?.building.name ?? 'Building'}</h1>
         </div>
-        {plan && plan.floors.length > 1 && (
+        {shownPlan && shownPlan.floors.length > 1 && (
           <button
             type="button"
             className="hud-chip floor-chip"
@@ -1133,16 +1191,16 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
 
       {plan && popover && <div className="hud-scrim" onClick={() => setPopover(null)} />}
       {/* on a phone the floors open from the chip; on a wide screen they stay open on the right */}
-      {plan && plan.floors.length > 1 && (
+      {shownPlan && shownPlan.floors.length > 1 && (
         <nav className={`hud-pop floors${popover === 'floors' ? ' open' : ''}`} aria-label="Floors" role="menu">
           <button type="button" role="menuitemradio" aria-checked={stacked} onClick={() => pickFloor('all')} title="All floors">
             <span className="tab"><Layers size={15} strokeWidth={2} /></span>
             <span className="name">All floors</span>
           </button>
-          {[...plan.floors.keys()].reverse().map((index) => (
-            <button key={index} type="button" role="menuitemradio" aria-checked={!stacked && index === floor} onClick={() => pickFloor(index)} title={plan.floors[index].name}>
-              <span className="tab">{floorTab(plan.floors[index].level)}</span>
-              <span className="name">{plan.floors[index].name}</span>
+          {[...shownPlan.floors.keys()].reverse().map((index) => (
+            <button key={index} type="button" role="menuitemradio" aria-checked={!stacked && index === floor} onClick={() => pickFloor(index)} title={shownPlan.floors[index].name}>
+              <span className="tab">{floorTab(shownPlan.floors[index].level)}</span>
+              <span className="name">{shownPlan.floors[index].name}</span>
             </button>
           ))}
         </nav>
@@ -1240,7 +1298,35 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
       )}
 
       {editing && (
-        <EditBar draft={draft} onFocusIssue={focusIssue} onDone={() => setEditing(false)} onSave={(name) => void saveDraft(name)} accessTool={admin} />
+        <EditBar draft={draft} onFocusIssue={focusIssue} onDone={() => setEditing(false)} onSave={(name) => void saveDraft(name)} accessTool={admin}
+          onPlace={placedAt?.origin ? () => setPlacingOnMap(true) : undefined} onAddFloor={() => setAddingFloor(true)}
+          onStraighten={editFloorId && shownPlan && shownPlan.floors.length > 1 && floor > 0
+            ? () => draft.onOps([{ op: 'straighten_floor', floor_id: editFloorId }]) : undefined} />
+      )}
+      {editing && addingFloor && draft.state && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60 }}>
+          <ImportScreen draft={{ id: draft.state.draft.id, name: draft.state.draft.name, levels: draft.state.building.floors.map((floor) => floor.level) }} onExit={() => setAddingFloor(false)}
+            onDone={() => {
+              const id = draft.state?.draft.id
+              setAddingFloor(false)
+              if (id) void api.draft(id).then(draft.adopt).catch((reason) => draft.setMessage(String(reason)))
+            }} />
+        </div>
+      )}
+      {editing && placingOnMap && draft.state && placedAt?.origin && (
+        <main className="im" style={{ zIndex: 60 }}>
+          <div className="im-inner">
+            <button type="button" className="im-back" onClick={() => setPlacingOnMap(false)}>← Back to editing</button>
+            <header className="im-head"><h1>Edit position</h1></header>
+            <Placement draftId={draft.state.draft.id} location={placedAt} target={null} doneLabel="Save position"
+              shape={editFloorId ? draft.state.building.spaces.filter((space) => space.floor_id === editFloorId)
+                .map((space) => space.polygon as [number, number][]) : null}
+              onDone={(next) => {
+                setPlacingOnMap(false) // back to the editor first, whatever the answer holds
+                if (next?.draft) draft.adopt(next)
+              }} />
+          </div>
+        </main>
       )}
 
       {/* one assistant card: the Guide, or while editing the Builder (with the selection's inspector in it); it

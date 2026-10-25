@@ -5,6 +5,7 @@
 // (a 1° field of view; narrower drops tiles when tilted): then both agree to a few pixels across the screen.
 
 import type { ExpressionSpecification, GeoJSONSource, Map as MapLibreMap, MapSourceDataEvent } from 'maplibre-gl'
+import { fromLngLat, mapBearing, toLngLat, viewBearing, type Origin } from './geo'
 import { neighbourLayer, type Neighbour } from './neighbours'
 import { blockLook, BUILDINGS_3D_FILTER, modelColours, rgb } from './style'
 import { reducedMotion } from '../motion'
@@ -19,15 +20,16 @@ export const MAX_MAP_PITCH = 60
  * edges (4° was up to 40 px); narrower, MapLibre drops tiles when tilted. */
 export const FLAT_FOV = 1
 
-export type Origin = { lat: number; lon: number }
 /** A camera in the building's metres: the ground point at the centre of the screen, pixels per metre, the tilt
  * from straight down and the turn from north (degrees, clockwise), as MapLibre takes them. */
 export type View = { x: number; y: number; scale: number; pitch: number; bearing: number }
 
+export type { Origin }
+export { fromLngLat, toLngLat }
+
 let map: MapLibreMap | null = null
 
 const rad = (deg: number) => (deg * Math.PI) / 180
-const deg = (r: number) => (r * 180) / Math.PI
 
 // the open building: its footprint (lng/lat for the tiles, metres for the x-ray), its height, and its own extruded
 // OSM blocks (its outline, or the parts it is split into), which the model replaces
@@ -164,16 +166,6 @@ function centreOf(geometry: Geometry): number[] | null {
   return centre
 }
 
-export const toLngLat = (origin: Origin, x: number, y: number): [number, number] => [
-  origin.lon + deg(x / (R * Math.cos(rad(origin.lat)))),
-  origin.lat + deg(y / R),
-]
-
-/** the inverse of toLngLat: a map point in the building's metres */
-export const fromLngLat = (origin: Origin, lng: number, lat: number): [number, number] => [
-  rad(lng - origin.lon) * R * Math.cos(rad(origin.lat)),
-  rad(lat - origin.lat) * R,
-]
 
 const metresPerWorld = (lat: number) => 2 * Math.PI * R * Math.cos(rad(lat))
 export const zoomFor = (scale: number, lat: number) => Math.log2((scale * metresPerWorld(lat)) / TILE_PX)
@@ -182,19 +174,20 @@ export const zoomFor = (scale: number, lat: number) => Math.log2((scale * metres
 export function follow(origin: Origin, view: View) {
   if (!map) return
   if (map.getVerticalFieldOfView() !== FLAT_FOV) map.setVerticalFieldOfView(FLAT_FOV) // whatever happened before
-  map.jumpTo({ center: toLngLat(origin, view.x, view.y), zoom: zoomFor(view.scale, origin.lat), pitch: view.pitch, bearing: view.bearing })
+  map.jumpTo({ center: toLngLat(origin, view.x, view.y), zoom: zoomFor(view.scale, origin.lat), pitch: view.pitch, bearing: mapBearing(origin, view.bearing) })
 }
 
 /** The map's camera now, in the building's metres: where the model's camera starts so it takes over seamlessly. */
 export function mapView(origin: Origin): View | null {
   if (!map) return null
   const centre = map.getCenter()
+  const [x, y] = fromLngLat(origin, centre.lng, centre.lat)
   return {
-    x: rad(centre.lng - origin.lon) * R * Math.cos(rad(origin.lat)),
-    y: rad(centre.lat - origin.lat) * R,
+    x,
+    y,
     scale: (TILE_PX * 2 ** map.getZoom()) / metresPerWorld(centre.lat),
     pitch: map.getPitch(),
-    bearing: map.getBearing(),
+    bearing: viewBearing(origin, map.getBearing()),
   }
 }
 

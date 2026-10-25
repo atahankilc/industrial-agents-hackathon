@@ -12,7 +12,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { BuildingJson, Issue, OpeningJson, Op } from '../api'
-import { area, GRID_M, nearestEdge, outwardNormals, round3, samePoint, snap, type XY } from './geometry'
+import { adjustTrace, area, GRID_M, nearestEdge, outwardNormals, round3, samePoint, snap, traceAt, traceMatrix, type XY } from './geometry'
 import { DOOR_WIDTH_M, doorSpot as doorSpotFor, REACH_PX, roomAt as roomFor } from './place'
 import type { ItemPreset, Selection, Tool } from './types'
 
@@ -30,7 +30,14 @@ type Props = {
   preset: ItemPreset
   align: React.RefObject<SVGGElement | null> // kept on the floor plane by PlanView
   restricted?: Set<string> // the Access tool: spaces only some groups may enter
+  /** the import's plan of this floor, drawn faintly under everything ("trace underneath"); image px → metres */
+  /** `adjust`: the trace takes the pointer — drag it, turn it (round handle) or resize it (square handle) onto the
+   * rooms; each change is the edit op `set_reference` */
+  trace?: { image: string; width: number; height: number; transform: number[][]; opacity: number; adjust?: boolean } | null
 }
+
+type TraceDrag = { kind: 'move' | 'turn' | 'scale'; from: XY; base: number[][]; centre: XY }
+const HANDLE_PX = 11
 
 type Drag =
   | { kind: 'vertex'; from: XY; to: XY }
@@ -59,12 +66,17 @@ function doorSegment(opening: OpeningJson, polygonOf: (id: string) => XY[] | und
   return along(opening.position, a, b, opening.width_m)
 }
 
-export function EditLayer({ building, floorId, issues, selected, onSelect, onOps, busy, revision, ghost, tool, preset, align, restricted }: Props) {
+export function EditLayer({ building, floorId, issues, selected, onSelect, onOps, busy, revision, ghost, tool, preset, align, restricted, trace }: Props) {
   const [drag, setDrag] = useState<Drag | null>(null)
   // A dropped edit stays drawn where it was dropped until the backend's answer arrives.
   const [sent, setSent] = useState<Drag | null>(null)
   useEffect(() => setSent(null), [revision])
   const [pointer, setPointer] = useState<XY | null>(null) // building metres under the pointer, for the placing ghosts
+  // the trace being moved / turned / resized, and where it lies until the draft has the change
+  const [traceDrag, setTraceDrag] = useState<TraceDrag | null>(null)
+  const [tracePreview, setTracePreview] = useState<number[][] | null>(null)
+  const traceKey = trace ? JSON.stringify(trace.transform) : ''
+  useEffect(() => setTracePreview(null), [traceKey, revision])
 
   const spaces = useMemo(() => building.spaces.filter((space) => space.floor_id === floorId), [building, floorId])
   const openings = useMemo(() => building.openings.filter((item) => item.floor_id === floorId), [building, floorId])
@@ -106,7 +118,27 @@ export function EditLayer({ building, floorId, issues, selected, onSelect, onOps
     ;(event.currentTarget as Element).setPointerCapture(event.pointerId)
     setDrag(next)
   }
+  const traceNow = trace ? tracePreview ?? trace.transform : null
+  const beginTrace = (event: React.PointerEvent, kind: TraceDrag['kind']) => {
+    event.stopPropagation()
+    const from = toBuilding(event.clientX, event.clientY)
+    if (busy || !trace || !traceNow || !from) return
+    ;(event.currentTarget as Element).setPointerCapture(event.pointerId)
+    setTraceDrag({ kind, from, base: traceNow, centre: traceAt(traceNow, trace.width / 2, trace.height / 2) })
+  }
   const onPointerMove = (event: React.PointerEvent) => {
+    if (traceDrag) {
+      const p = toBuilding(event.clientX, event.clientY)
+      if (!p) return
+      const { kind, from, base, centre } = traceDrag
+      const angleOf = (q: XY) => Math.atan2(q[1] - centre[1], q[0] - centre[0])
+      setTracePreview(kind === 'move'
+        ? adjustTrace(base, { dx: p[0] - from[0], dy: p[1] - from[1] })
+        : kind === 'turn'
+          ? adjustTrace(base, { angle: angleOf(p) - angleOf(from), centre })
+          : adjustTrace(base, { scale: Math.min(5, Math.max(0.2, Math.hypot(p[0] - centre[0], p[1] - centre[1]) / Math.max(1e-6, Math.hypot(from[0] - centre[0], from[1] - centre[1])))), centre }))
+      return
+    }
     if (!drag) return
     const p = toBuilding(event.clientX, event.clientY)
     if (!p) return
@@ -123,6 +155,13 @@ export function EditLayer({ building, floorId, issues, selected, onSelect, onOps
     }
   }
   const onPointerUp = () => {
+    if (traceDrag) {
+      setTraceDrag(null)
+      if (tracePreview && JSON.stringify(tracePreview) !== JSON.stringify(trace?.transform)) {
+        onOps([{ op: 'set_reference', floor_id: floorId, transform: tracePreview }])
+      }
+      return
+    }
     if (!drag) return
     const send = (ops: Op[]) => {
       setSent(drag)
@@ -195,6 +234,32 @@ export function EditLayer({ building, floorId, issues, selected, onSelect, onOps
   return (
     <svg className={`edit-layer tool-${tool}${busy ? ' busy' : ''}`} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={() => setDrag(null)}>
       <g ref={align}>
+        {trace && traceNow && (
+          <image
+            className={`trace${trace.adjust ? ' adjusting' : ''}`} href={trace.image} width={trace.width} height={trace.height}
+            transform={traceMatrix(traceNow)} opacity={trace.opacity} preserveAspectRatio="none"
+            pointerEvents={trace.adjust ? 'all' : 'none'} onPointerDown={trace.adjust ? (event) => beginTrace(event, 'move') : undefined}
+          />
+        )}
+        {trace?.adjust && traceNow && (() => {
+          const corners = [[0, 0], [trace.width, 0], [trace.width, trace.height], [0, trace.height]].map(([u, v]) => traceAt(traceNow, u, v))
+          const m = align.current?.getScreenCTM()
+          // the larger axis: on a tilted floor the smaller one squashes the handle to a sliver
+          const r = HANDLE_PX / (m ? Math.max(1e-6, Math.hypot(m.a, m.b), Math.hypot(m.c, m.d)) : 10) * 1.6
+          const [sx, sy] = corners[2]
+          const [tx, ty] = traceAt(traceNow, trace.width / 2, 0)
+          return (
+            <g className="trace-handles">
+              <polygon points={pts(corners)} />
+              <rect x={sx - r} y={sy - r} width={2 * r} height={2 * r} onPointerDown={(event) => beginTrace(event, 'scale')}>
+                <title>Resize the plan</title>
+              </rect>
+              <circle cx={tx} cy={ty} r={r} onPointerDown={(event) => beginTrace(event, 'turn')}>
+                <title>Turn the plan</title>
+              </circle>
+            </g>
+          )
+        })()}
         {/* the Access tool: restricted rooms, hatched (the pattern in metres, so it turns and zooms with the plan) */}
         {tool === 'access' && restricted && (
           <>

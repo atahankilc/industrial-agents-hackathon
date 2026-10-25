@@ -59,7 +59,8 @@ def assemble(building_id: str, name: str, floors: list[FloorPlan], origins: list
         building["building"]["source_ref"]["import"]["floors"][str(floor.level)] = {
             "name_on_plan": floor.name, "source": floor.source_id, "scale_method": floor.scale_method,
             "m_per_px": round(floor.m_per_px, 5), "segmentation": floor.seg.method,
-            "low_confidence": floor.low_confidence, "alignment": floor.alignment,
+            "low_confidence": floor.low_confidence, "carved_rooms": len(floor.carved),
+            "alignment": floor.alignment,
         }
         number = 0
         for cell_id in kept(floor):
@@ -100,6 +101,9 @@ def assemble(building_id: str, name: str, floors: list[FloorPlan], origins: list
 
 def autofix(building: dict) -> dict:
     building = copy.deepcopy(building)
+    for space in building["spaces"]:  # self-intersections (from rounding or merges) break every later geometry step
+        if not Polygon(space["polygon"]).is_valid:
+            space["polygon"] = clean_polygon(space["polygon"])
     slivers = {space["id"] for space in building["spaces"] if Polygon(space["polygon"]).area < SLIVER_M2}
     building["spaces"] = [space for space in building["spaces"] if space["id"] not in slivers]
     building["openings"] = [opening for opening in building["openings"] if not slivers & set(opening["space_ids"])]

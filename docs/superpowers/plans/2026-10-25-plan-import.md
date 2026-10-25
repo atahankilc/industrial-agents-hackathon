@@ -239,7 +239,7 @@ def test_render_cells_is_png(): assert render_cells(img, seg)[:8] == b"\x89PNG\r
 **Interfaces:**
 - Produces:
   - `segment_colours(image: np.ndarray, k: int = 8, min_area_frac: float = 0.002) -> Segmentation` — k-means on Lab colour (white / near-white background cluster = free space excluded), each connected region of a non-background cluster = cell; hatching tolerated by a median blur (5 px) before clustering; adjacency + door candidates as in Task 3 (door candidates may be empty).
-  - `cells_from_boxes(shape: tuple[int, int], boxes: list[tuple[float,float,float,float]]) -> Segmentation` — normalised boxes → rectangular cells (method `"coarse"`), clipped where they overlap (later box loses), adjacency where boxes touch within 1 % of the side.
+  - `cells_from_boxes(shape: tuple[int, int], boxes: list[tuple[float,float,float,float]]) -> Segmentation` — normalised boxes → rectangular cells (method `"coarse"`), clipped where they overlap (later box loses), adjacency where boxes touch after growing 3 % of the long side (changed from 1 % after the first live run).
 
 - [ ] **Step 1: Failing tests**
 

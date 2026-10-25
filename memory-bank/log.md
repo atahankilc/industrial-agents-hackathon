@@ -10,6 +10,17 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Plan import: Creator agent, /imports/stream, import screen
+
+- **Did:** Tasks 8–12 of the [plan](../docs/superpowers/plans/2026-10-25-plan-import.md): private import drafts,
+  Creator tools + loop, `/imports/stream`, import screen, HEIC, dataset eval + live runner. Live: resplan-439 render 8/8
+  rooms in 23 s; Residenz PDF 2 floors / 56 spaces / 0 errors in 174 s.
+- **Learned:** walls segmentation misses rooms open to the outside (foyers) → `add_rooms` with cell 0; the model
+  falls back to coarse boxes on busy plans (escape-plan photos, the Residenz brochure) and still names rooms well from
+  legends; wall-mask thresholds 190 / 50 lift dataset IoU 0.30 → 0.40; Utku's Photos drag-out gave 768 px previews,
+  the originals are HEIC 5712×4284.
+- **Next:** Urban Colab re-run, browser check, full eval, docs.
+
 ## 2026-10-25 — Plan import (Creator), core stages 1–7
 
 - **Did:** designed Builder project 2 with Utku ([spec](../docs/superpowers/specs/2026-10-25-plan-import-design.md),

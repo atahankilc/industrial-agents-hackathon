@@ -189,6 +189,14 @@ export type BuilderReply = {
   applied: string | null
   state: DraftState
 }
+export type ImportLine =
+  | { type: 'warning'; detail: string }
+  | { type: 'step'; kind: 'say'; text: string }
+  | { type: 'step'; kind: 'tool'; name: string; level?: number }
+  | { type: 'step'; kind: 'tool_done'; name: string; ok: boolean }
+  | { type: 'done'; draft_id: string; base: string; name: string; issues: Issue[]; notes: unknown }
+  | { type: 'no_plan'; reason: string }
+  | { type: 'error'; detail: string }
 export type BuilderStep = { kind: 'tool' | 'tool_done' | 'check'; name: string; input?: Record<string, unknown>; ok?: boolean }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -227,6 +235,7 @@ export const api = {
   saveDraft: (id: string, name: string) =>
     request<{ building: string; issues: Issue[] }>(`/drafts/${id}/save`, { method: 'POST', body: JSON.stringify({ name }) }),
   builderStream,
+  importPlans,
   cancelProposal: (id: string, proposalId: string) =>
     request<{ cancelled: string }>(`/drafts/${id}/proposals/${proposalId}/cancel`, { method: 'POST' }),
   applyProposal: (id: string, proposalId: string) =>
@@ -290,5 +299,26 @@ async function builderStream(draftId: string, message: string, onStep?: (step: B
       else if (item.type === 'error') throw new Error(String(item.detail))
     }
     if (done) throw new Error('the reply stream ended early')
+  }
+}
+
+/** Floor plans → the Creator → a draft (POST /imports/stream, multipart). Every NDJSON line goes to `onLine`. */
+async function importPlans(files: File[], onLine: (line: ImportLine) => void): Promise<void> {
+  const form = new FormData()
+  for (const file of files) form.append('files', file, file.name)
+  const response = await fetch(BASE + '/imports/stream', { method: 'POST', body: form })
+  if (!response.ok || !response.body) {
+    const detail = await response.text().catch(() => '')
+    throw new Error(`${response.status} /imports/stream: ${detail.slice(0, 200)}`)
+  }
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    buffer += value ?? ''
+    const lines = buffer.split('\n')
+    buffer = done ? '' : lines.pop() ?? ''
+    for (const line of lines) if (line.trim()) onLine(JSON.parse(line) as ImportLine)
+    if (done) return
   }
 }

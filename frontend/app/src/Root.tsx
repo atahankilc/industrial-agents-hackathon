@@ -4,6 +4,7 @@ import { BuildingScreen, type Showing } from './building/BuildingScreen.tsx'
 import { prefetch } from './building/opening'
 import { MapLanding } from './map/MapLanding.tsx'
 import { BuildingSearch } from './search/BuildingSearch.tsx'
+import { ImportScreen } from './import/ImportScreen.tsx'
 
 // Landing is the map of the buildings that have a real position; the list view (?view=list) searches every
 // building, including the ones without a position. Picking one opens its twin (?building=<split>/<id>); the pill at
@@ -12,14 +13,15 @@ import { BuildingSearch } from './search/BuildingSearch.tsx'
 // model's camera. Two ways to look at it (remembered per browser): in its city, the neighbours on screen and their
 // pins tappable; or alone, the map faded out behind it. Leaving fades the model out while the map flies back.
 
-type Landing = 'map' | 'list'
+type Landing = 'map' | 'list' | 'import'
 
 const LEAVE_MS = 350 // the building screen's fade-out (building/screen.css .screen.leaving)
 const SHOWING_KEY = 'ttyb-building-showing'
 
 const fromUrl = () => {
   const params = new URLSearchParams(location.search)
-  const landing: Landing = params.get('view') === 'list' ? 'list' : 'map'
+  const view = params.get('view')
+  const landing: Landing = view === 'list' || view === 'import' ? view : 'map'
   return { building: params.get('building'), landing }
 }
 
@@ -69,7 +71,7 @@ export function Root() {
     if (building) prefetch(building) // the session and plan load while the map flies in
     const params = new URLSearchParams(location.search)
     for (const key of ['go', 'view', 'building']) params.delete(key)
-    if (landing === 'list') params.set('view', 'list')
+    if (landing !== 'map') params.set('view', landing)
     if (building) params.set('building', building)
     history.pushState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}`)
     setView(fromUrl())
@@ -89,10 +91,13 @@ export function Root() {
   return (
     <>
       {withMap && (
-        <MapLanding buildings={buildings} error={error} focus={focus} onOpen={(id) => go(id, 'map')} onList={() => go(null, 'list')} />
+        <MapLanding buildings={buildings} error={error} focus={focus} onOpen={(id) => go(id, 'map')} onList={() => go(null, 'list')} onImport={() => go(null, 'import')} />
       )}
       {!view.building && !shown && view.landing === 'list' && (
-        <BuildingSearch onOpen={(id) => go(id, 'list')} onMap={() => go(null, 'map')} />
+        <BuildingSearch onOpen={(id) => go(id, 'list')} onMap={() => go(null, 'map')} onImport={() => go(null, 'import')} />
+      )}
+      {!view.building && !shown && view.landing === 'import' && (
+        <ImportScreen onSaved={(id) => go(id, 'list')} onExit={() => go(null, 'list')} />
       )}
       {shown && (
         <BuildingScreen

@@ -57,9 +57,14 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   [plan](../docs/superpowers/plans/2026-10-25-plan-import.md). Tasks 1–7 done: deterministic core
   `core/plan_import/` (ingest, rectify / crop / wall mask, cells by walls / colours / boxes, labels, scale, stacking
   + connectors, assembly + autofix + validate; 35 tests in `tests/test_plan_import_*.py`). New deps: numpy,
-  opencv-python-headless, pypdfium2, pypdf, pillow, python-multipart (no PyMuPDF, D-009). Pending: Tasks 8–14
-  (private import drafts, Creator agent, `/imports/stream`, import screen, dataset eval, demo runs). Demo inputs in
-  the main checkout's `building_plans/` (not committed).
+  opencv-python-headless, pypdfium2, pypdf, pillow, python-multipart (no PyMuPDF, D-009). Tasks 8–12 built: private import
+  drafts (`import/<id>`, `DraftStore.create_import`; migration `20261025180000_builder_imports.sql` NOT applied), the
+  Creator (`agent/creator.py` + `agent/creator_tools.py`, 11 tools), `POST /imports/stream`, the "Create from floor
+  plans" screen (`frontend/app/src/import/`, typechecked, not yet seen in a browser), HEIC support,
+  `scripts/eval_import.py`, `scripts/live_creator.py`. Live (Opus 5.5): Residenz PDF → 2 floors, 56 spaces, 0 errors
+  in 174 s (coarse boxes with legend names); Urban Colab originals (HEIC) re-run pending after a crash fix.
+  Pending: browser check, Task 13 full eval, Task 14 demo runs + docs. Demo inputs in the main checkout's
+  `building_plans/` (not committed).
 
 - **Builder Edit mode (branch `2-builder-edit`, in progress):** design
   [builder-edit-mode-design](../docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md) (proposed, approved by

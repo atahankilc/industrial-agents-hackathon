@@ -10,7 +10,8 @@ hand, backend/devtools.py), the OpenAI-compatible /v1/chat/completions for Eleve
 (backend/openai_compat.py), and the Edit mode's /drafts (create, get, plan, ops, undo, save, chat/stream for the Builder agent, proposals/{pid}/apply — backend/drafts.py;
 saved buildings appear in /buildings as `user/<slug>`; stored in Postgres with SUPABASE_DB_URL, else under
 GUIDE_USER_DIR, default data/user/). A draft change or Builder turn that lost a race to another instance answers 409;
-a database error 503.
+a database error 503. /imports/stream runs the Creator (agent/creator.py) on uploaded floor plans and opens its building
+as a draft on a private base `import/<id>`.
 Guide turns are blocking (tool loop + LLM calls), so those endpoints are plain `def` and run in FastAPI's
 threadpool; each conversation's lock serialises its turns. With persistence on (backend/persistence.py) every turn
 is saved when it ends; a turn that lost a save race to another instance answers 409 and must be resent.
@@ -26,7 +27,7 @@ import threading
 from pathlib import Path
 
 import psycopg
-from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi import FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -35,9 +36,12 @@ from pydantic import BaseModel
 from agent.guide import PHOTO_TYPES, llm_mode
 from backend import devtools, openai_compat, persistence
 from agent.builder import Builder
+from agent.creator import Creator
+from agent.creator_tools import ImportSession
 from backend.drafts import Draft, DraftStore, backend_from_env
 from backend.sessions import DATA_DIR, DEFAULT_SESSION, Conversation, SessionStore, UnknownBuilding, summary
 from core.edits import EditError
+from core.plan_import.ingest import load_sources
 
 API_PREFIX = "/api"
 
@@ -409,6 +413,65 @@ def draft_chat_stream(draft_id: str, body: BuilderMessage) -> StreamingResponse:
                            "tool_calls": [{"name": call["name"], "input": call["input"]} for call in turn.tool_calls],
                            "proposal": proposal_payload(draft, turn.proposal), "applied": turn.applied,
                            "ungrounded": turn.ungrounded, "state": drafts.state(draft)})
+        except Exception as error:  # the stream has started: report instead of a status code
+            lines.put({"type": "error", "detail": f"{type(error).__name__}: {error}"[:300]})
+        finally:
+            lines.put(None)
+
+    def stream():
+        threading.Thread(target=work, daemon=True).start()
+        while (line := lines.get()) is not None:
+            yield json.dumps(line, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+# ---------- Plan import: the Creator (agent/creator.py) — a building from floor plans ----------
+
+MAX_IMPORT_FILES = 20
+MAX_IMPORT_BYTES = 25 * 1024 * 1024  # per file
+
+
+def make_creator(session: ImportSession) -> Creator:
+    return Creator(session)
+
+
+@app.post("/imports/stream")
+def import_stream(files: list[UploadFile] = File(...)) -> StreamingResponse:
+    """Floor plans (PDF / images) → the Creator → a draft on a private base `import/<id>`, as NDJSON:
+    {"type": "warning", "detail"} per unreadable file, {"type": "step", …} while the Creator works, then one of
+    {"type": "done", "draft_id", "base", "name", "issues", "notes"}, {"type": "no_plan", "reason"} or
+    {"type": "error", "detail"}."""
+    if len(files) > MAX_IMPORT_FILES:
+        raise HTTPException(413, f"at most {MAX_IMPORT_FILES} files per import")
+    uploads = []
+    for upload in files:
+        data = upload.file.read(MAX_IMPORT_BYTES + 1)
+        if len(data) > MAX_IMPORT_BYTES:
+            raise HTTPException(413, f"{upload.filename}: larger than {MAX_IMPORT_BYTES // (1024 * 1024)} MB")
+        uploads.append((upload.filename or "upload", data))
+    lines: queue.Queue[dict | None] = queue.Queue()
+
+    def work() -> None:
+        try:
+            sources, warnings = load_sources(uploads)
+            for warning in warnings:
+                lines.put({"type": "warning", "detail": warning})
+            if not sources:
+                lines.put({"type": "error", "detail": "no readable PDF or image among the files"})
+                return
+            creator = make_creator(ImportSession(sources, warnings))
+            creator.on_step = lambda step: lines.put({"type": "step", **step})
+            result = creator.run()
+            if result.status == "no_plan":
+                lines.put({"type": "no_plan", "reason": result.reason})
+            elif result.status != "done" or result.building is None:
+                lines.put({"type": "error", "detail": result.reason or "the import did not finish"})
+            else:
+                draft = drafts.create_import(result.building)
+                lines.put({"type": "done", "draft_id": draft.id, "base": draft.base, "name": draft.name,
+                           "issues": drafts.issues(draft),
+                           "notes": result.building["building"]["source_ref"].get("import")})
         except Exception as error:  # the stream has started: report instead of a status code
             lines.put({"type": "error", "detail": f"{type(error).__name__}: {error}"[:300]})
         finally:

@@ -74,7 +74,7 @@ def crop(image: np.ndarray, bbox: tuple[float, float, float, float], homography:
     return image[top:bottom, left:right].copy()
 
 
-def wall_mask(image: np.ndarray, dark: int = 150, contrast: int = 70, max_saturation: int = 110,
+def wall_mask(image: np.ndarray, dark: int = 190, contrast: int = 50, max_saturation: int = 110,
               min_blob_px: int | None = None) -> np.ndarray:
     """255 = wall. A pixel is wall when it is dark (V < `dark`), clearly darker than the paper around it (local
     background − V > `contrast`, so uneven light in photos does not matter) and not strongly coloured (S <

@@ -1,5 +1,7 @@
 """Plan import, stage 6: building.json assembly + auto-fixes (core/plan_import/assemble.py)."""
 
+from shapely.geometry import Polygon
+
 from core.plan_import.assemble import assemble, autofix, check
 from tests.plan_fixtures import labelled_floor
 
@@ -52,3 +54,11 @@ def test_autofix_drops_slivers_and_their_doors():
     fixed = autofix(building)
     assert "imp-test-F0-S999" not in [space["id"] for space in fixed["spaces"]]
     assert "imp-test-F0-O9999" not in [opening["id"] for opening in fixed["openings"]]
+
+
+def test_autofix_survives_self_intersecting_outlines():
+    building = assemble("imp-test", "T", [labelled_floor()], [])
+    bowtie = dict(building["spaces"][0], id="imp-test-F0-S998", polygon=[[1, 1], [9, 7], [9, 1], [1, 3]])
+    building["spaces"].append(bowtie)
+    fixed = autofix(building)  # must not raise
+    assert all(Polygon(space["polygon"]).is_valid for space in fixed["spaces"])

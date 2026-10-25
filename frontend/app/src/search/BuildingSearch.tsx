@@ -22,7 +22,7 @@ const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 type Row = Building & { kind: string; kindKey: KindKey | null; haystack: string }
 type Filter = KindKey | typeof NO_LOCATION
 
-export function BuildingSearch({ onOpen, onMap }: { onOpen: (id: string) => void; onMap: () => void }) {
+export function BuildingSearch({ onOpen, onMap, onImport }: { onOpen: (id: string) => void; onMap: () => void; onImport: () => void }) {
   const [buildings, setBuildings] = useState<Row[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -83,7 +83,10 @@ export function BuildingSearch({ onOpen, onMap }: { onOpen: (id: string) => void
   return (
     <main className="bs">
       <div className="bs-inner">
-        <button className="bs-map" onClick={onMap}>← Map</button>
+        <div className="bs-top">
+          <button className="bs-map" onClick={onMap}>← Map</button>
+          <button className="bs-map" onClick={onImport}>New from floor plans →</button>
+        </div>
         <header className="bs-head">
           <h1>Find a building</h1>
           <p>{buildings ? `${buildings.length} buildings` : error ? 'Could not load buildings' : 'Loading…'}</p>

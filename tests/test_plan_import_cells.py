@@ -62,3 +62,8 @@ def test_colour_regions_become_cells():
 def test_boxes_become_cells():
     seg = cells_from_boxes((400, 800), [(0, 0, .5, 1), (.5, 0, 1, 1)])
     assert seg.method == "coarse" and len(seg.cells) == 2 and (1, 2) in seg.adjacency
+
+
+def test_boxes_with_small_gaps_still_touch():
+    seg = cells_from_boxes((400, 800), [(0, 0, .48, 1), (.52, 0, 1, 1)])
+    assert (1, 2) in seg.adjacency

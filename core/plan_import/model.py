@@ -60,3 +60,4 @@ class FloorPlan:
     transform: np.ndarray | None = None  # 2x3: px → frame metres (y up), set by stack.align
     alignment: str | None = None
     low_confidence: bool = False
+    carved: list[int] = field(default_factory=list)  # cells cut out of another by the model's boxes (add_rooms)

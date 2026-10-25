@@ -12,9 +12,11 @@ import numpy as np
 import pypdf
 import pypdfium2
 from PIL import Image, ImageOps
+from pillow_heif import register_heif_opener
 
 from core.plan_import.model import Source
 
+register_heif_opener()  # iPhone photos (HEIC) open like any image
 logging.getLogger("pypdf").setLevel(logging.ERROR)  # "Ignoring wrong pointing object" on real-world PDFs
 
 PROCESS_MAX_SIDE = 2400  # px, long side of every source image

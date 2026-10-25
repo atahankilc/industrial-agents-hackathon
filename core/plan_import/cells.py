@@ -12,6 +12,7 @@ dataset's polygons do. The exterior (free space touching the image border) is on
 import cv2
 import numpy as np
 from shapely.geometry import Polygon
+from shapely.ops import unary_union
 
 from core.plan_import.ingest import png
 from core.plan_import.model import Cell, DoorCandidate, Point, Segmentation
@@ -227,8 +228,52 @@ def cells_from_boxes(shape: tuple[int, int], boxes: list[tuple[float, float, flo
         x0, y0, x1, y1 = boxes[index - 1]
         labels[int(round(min(y0, y1) * height)):int(round(max(y0, y1) * height)),
                int(round(min(x0, x1) * width)):int(round(max(x0, x1) * width))] = index
-    steps = int(np.ceil(0.01 * max(height, width)))
+    steps = int(np.ceil(0.03 * max(height, width)))  # boxes read off a grid leave gaps; grow them shut
     return from_labels(labels, None, labels == 0, steps, "coarse", keep_ids=True)
+
+
+def carve(seg: Segmentation, cell_id: int, boxes: list[tuple[float, float, float, float]]) -> list[int]:
+    """Cut px boxes out of one cell as new cells (the model saw rooms the segmentation merged), or — with the outside
+    cell — add rooms where no cell is (open rooms the walls did not close). Returns the new ids;
+    adjacency is recomputed from the shapes for every cell the carving touched."""
+    from shapely.geometry import box as make_box
+
+    parent = seg.cells[cell_id]
+    if parent.outside:  # rooms the walls left open (a foyer without a front wall): take them from what no cell covers
+        covered = unary_union([Polygon(c.polygon) for c in seg.cells.values() if not c.outside and len(c.polygon) >= 3])
+        remaining = make_box(-1e9, -1e9, 1e9, 1e9).difference(covered)
+    else:
+        remaining = Polygon(parent.polygon)
+    new_ids: list[int] = []
+    for x0, y0, x1, y1 in boxes:
+        piece = remaining.intersection(make_box(min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)))
+        if piece.is_empty or piece.area < 4:
+            continue
+        if piece.geom_type != "Polygon":
+            piece = max(piece.geoms, key=lambda part: part.area)
+        new_id = max(seg.cells) + 1
+        seg.cells[new_id] = Cell(new_id, [(float(x), float(y)) for x, y in list(piece.exterior.coords)[:-1]],
+                                 float(piece.area), False)
+        remaining = remaining.difference(piece)
+        new_ids.append(new_id)
+    if not parent.outside:
+        if remaining.geom_type != "Polygon":
+            remaining = max(remaining.geoms, key=lambda part: part.area)
+        parent.polygon = [(float(x), float(y)) for x, y in list(remaining.exterior.coords)[:-1]]
+        parent.area_px = float(remaining.area)
+    touched = [cell_id, *new_ids] if not parent.outside else new_ids
+    shapes = {other: Polygon(cell.polygon) for other, cell in seg.cells.items() if not cell.outside}
+    for a in touched:
+        for b, shape in shapes.items():
+            if a == b:
+                continue
+            pair = (min(a, b), max(a, b))
+            seg.adjacency.pop(pair, None)
+            shared = shapes[a].buffer(3).intersection(shape.boundary)
+            if not shared.is_empty and shared.length > 3:
+                points = [shared.interpolate(t, normalized=True) for t in np.linspace(0, 1, 9)]
+                seg.adjacency[pair] = [(float(point.x), float(point.y)) for point in points]
+    return new_ids
 
 
 PALETTE = [(230, 159, 0), (86, 180, 233), (0, 158, 115), (240, 228, 66), (0, 114, 178), (213, 94, 0),

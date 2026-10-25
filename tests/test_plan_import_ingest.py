@@ -50,3 +50,14 @@ def test_contact_sheet_and_grid_are_small_pngs():
     assert len(sheets) == 2
     assert all(max(Image.open(BytesIO(sheet)).size) <= 1568 for sheet in sheets)
     assert Image.open(BytesIO(grid_view(np.zeros((3000, 1000, 3), np.uint8)))).size[1] <= 1568
+
+
+def test_iphone_heic_photo_is_read():
+    import pillow_heif
+
+    picture = Image.fromarray(draw_plan(*TWO_ROOMS_AND_CORRIDOR)[:, :, ::-1])
+    out = BytesIO()
+    pillow_heif.from_pillow(picture).save(out, quality=90)
+    sources, warnings = load_sources([("IMG_6543.HEIC", out.getvalue()), ("IMG_6543.mov", b"\x00\x00\x00\x14ftypqt  ")])
+    assert [source.origin for source in sources] == ["IMG_6543.HEIC"] and sources[0].image.shape[:2] == (240, 280)
+    assert len(warnings) == 1 and warnings[0].startswith("IMG_6543.mov:")

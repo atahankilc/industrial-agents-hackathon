@@ -100,6 +100,7 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | POST | `/drafts/{id}/proposals/{pid}/apply` | – | apply an open proposal → draft state; unknown or made against an older draft → 409 |
 | POST | `/drafts/{id}/undo` | – | drops the last step (nothing to undo → 409) |
 | POST | `/drafts/{id}/save` | `{"name"}` | `{"building": "user/<slug>", "issues"}` — written to `GUIDE_USER_DIR` (default `data/user/`, gitignored), listed in `/buildings`; name clash → `-2` |
+| POST | `/imports/stream` | multipart `files` (PDF / images incl. HEIC; ≤ 20 files, ≤ 25 MB each, else 413) | the Creator (`agent/creator.py`, `CREATOR_MODEL` default `claude-opus-5-5`, `CREATOR_EFFORT`) builds a building from floor plans, as NDJSON: `warning` per unreadable file, `step` lines (`say` / `tool` / `tool_done`), then `{"type":"done","draft_id","base":"import/<id>","name","issues","notes"}` / `no_plan` / `error`; the draft opens in the Edit mode, the base is private until saved |
 | POST | `/v1/chat/completions` | OpenAI body, `stream` | OpenAI-compatible (SSE: `"... "` first, then sentences, `data: [DONE]`) for an ElevenLabs Custom LLM |
 
 `/v1/chat/completions` uses only the last user message (the Guide keeps its own history). Session id, first

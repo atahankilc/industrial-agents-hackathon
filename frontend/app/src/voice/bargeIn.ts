@@ -37,11 +37,11 @@ export function userPart(results: string[], said: string): string {
 }
 
 /** What the user did while the Guide spoke: "stop" (a stop word in a short phrase: "stop", "wait please"), "talk"
- * (three or more own words that are most of what was heard: the Guide goes quiet and listens on), or nothing yet
+ * (four or more own words that are most of what was heard: the Guide goes quiet and listens on), or nothing yet
  * (silence, echo, a misheard word of the Guide's or a stray word from the room). */
 export function interruption(heard: string, said: string): 'stop' | 'talk' | null {
   const all = words(heard).filter((word) => !/^\p{N}+$/u.test(word))
   const own = userWords(heard, said)
   if (all.length <= 3 && own.some((word) => STOP_WORDS.has(word))) return 'stop'
-  return own.length >= 3 && own.length * 2 >= all.length ? 'talk' : null
+  return own.length >= 4 && own.length * 2 >= all.length ? 'talk' : null
 }

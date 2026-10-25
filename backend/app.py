@@ -138,10 +138,12 @@ class ChatRequest(BaseModel):
     photo: str | None = None  # data URL (jpeg/png/webp) from the camera walk mode, shown to the Guide for one turn
     heard: bool = True  # voice channel: the message is a speech transcript; false for a tapped button read aloud
     selected: str | None = None  # the space or asset id tapped on the plan while asking ("how do I get there?")
+    route_step: int | None = None  # the step card's step (0-based) while a route is on the map
 
 
 class LocationRequest(BaseModel):
     space_id: str | None = None  # the room the "you are here" figure stands in; None = taken away
+    point: list[float] | None = None  # where in that room (plan metres): the drawn route line starts there
 
 
 class ArriveRequest(BaseModel):
@@ -321,7 +323,7 @@ def chat(body: ChatRequest, authorization: str | None = Header(None)) -> dict:
     with conversation.lock:
         turn = conversation.guide.reply(body.message, channel=channel_or_422(body.channel),
                                         photo=photo_or_422(body.photo), heard=body.heard,
-                                        selected=body.selected)
+                                        selected=body.selected, route_step=body.route_step)
         save_or_409(conversation)
         return turn_payload(conversation, turn)
 
@@ -361,7 +363,7 @@ def chat_stream(body: ChatRequest, authorization: str | None = Header(None)) -> 
                 conversation.guide.on_say = lambda text: lines.put({"type": "say", "text": text})
                 try:
                     turn = conversation.guide.reply(body.message, channel=channel, photo=photo, heard=body.heard,
-                                                    selected=body.selected)
+                                                    selected=body.selected, route_step=body.route_step)
                 finally:
                     conversation.guide.on_step = None
                     conversation.guide.on_say = None
@@ -392,7 +394,7 @@ def put_location(session_id: str, body: LocationRequest, authorization: str | No
     with conversation.lock:
         if body.space_id is not None and body.space_id not in conversation.session.building.spaces:
             raise HTTPException(422, f"unknown space {body.space_id!r}")
-        location = conversation.guide.set_location(body.space_id)
+        location = conversation.guide.set_location(body.space_id, body.point)
         save_or_409(conversation)
     return {"location": location}
 

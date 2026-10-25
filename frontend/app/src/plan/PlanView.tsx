@@ -9,14 +9,15 @@
 // camera starts from the map's own camera and eases to the first framing, and every frame hands the camera to the
 // map so the city stays in register under the model.
 // `focus` frames what an answer is about (its rooms, items or route part) instead of the whole floor. The "you are
-// here" figure is dragged out of its dock (bottom right) onto the plan, and dragged again to move it.
+// here" figure is dragged out of its dock (bottom right) onto the plan, or the dock is tapped and then the plan;
+// dragged again to move it. Put down off the building it stands at the nearest entrance.
 
 import { MapControls } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { MapControls as MapControlsImpl } from 'three-stdlib'
-import type { FleetObject, Plan, PlanSpace } from '../api'
+import type { FleetObject, Plan, PlanOpening, PlanSpace } from '../api'
 import { MAX_MAP_PITCH, type ShellBlock, type View } from '../map/bridge'
 import { assetAt, paintAsset } from './furniture'
 import { buildFloors, contains, fillOf, fromScene, paintSpace, toScene, WALL_CUT_M, type FloorGeometry } from './geometry'
@@ -24,7 +25,7 @@ import type { PlanPalette } from './palette'
 import { ObjectMarkers, ObjectsLayer } from './ObjectsLayer'
 import { Pins, PinTracker, pinsFor, type Pin } from './pins'
 import type { PlanSettings } from './settings'
-import { PersonGlyph, StoryLayer, StoryMarkers, storyMarkers } from '../dev/StoryLayer'
+import { DashedWalk, PersonGlyph, StoryLayer, StoryMarkers, storyMarkers } from '../dev/StoryLayer'
 import type { Story } from '../dev/story'
 
 export type Insets = { top: number; right: number; bottom: number; left: number }
@@ -32,9 +33,11 @@ export type ViewMode = '3d' | '2d'
 export type Selected = { kind: 'space' | 'asset'; id: string }
 /** Points to frame ([x, y, floor index], plan metres), at least `span` metres across; a new `key` moves the camera.
  * On a single floor only that floor's points count; none there = the whole floor. */
-export type Focus = { key: number; points: [number, number, number][]; span?: number }
-/** The "you are here" figure: where it stands, and the room (its label) */
-export type Me = { at: [number, number]; floor: number; space: string; label: string }
+/** `heading`: a direction in the plan frame (unit) the camera turns to face, e.g. the way a route step goes */
+export type Focus = { key: number; points: [number, number, number][]; span?: number; heading?: [number, number] }
+/** The "you are here" figure: where it stands, and the room (its label); outside the building, `door` is the
+ * nearest entrance (the room behind it is `space`, and routes start there) */
+export type Me = { at: [number, number]; floor: number; space: string; label: string; door?: [number, number] }
 type Hit = { floor: number; selected: Selected | null }
 
 type Props = {
@@ -44,6 +47,8 @@ type Props = {
   palette: PlanPalette
   selected: Selected | null
   insets: Insets
+  /** the free part of the screen the whole building is centred in (default `insets`); answers keep `insets` */
+  frameInsets?: Insets
   fitKey: number
   onSelect: (selected: Selected | null) => void
   onPickFloor: (floor: number) => void
@@ -85,6 +90,7 @@ const MOVE_SECONDS = 0.55
 const INTRO_SECONDS = 1.1 // from the map's camera to the first framing
 const REVEAL_SECONDS = 0.9 // the model rising out of the ground
 const TAP_SLOP_PX = 8
+const WALL_SNAP_M = 0.6 // put down on a wall: the room this close counts
 const MAX_ZOOM = 220
 const CAMERA_DISTANCE = 400
 const FLAT_POLAR = 0.0001
@@ -98,7 +104,7 @@ const TILTED = { polar: 0.98, azimuth: Math.PI / 4 } // ~34° above the horizon,
 // "All floors" stacks every floor at its real elevation (from the lowest floor), so the building keeps its proportions
 const floorLift = (plan: Plan, index: number) => (plan.floors[index]?.elevation_m ?? 0) - (plan.floors[0]?.elevation_m ?? 0)
 export function PlanView(props: Props) {
-  const { plan, floor, stacked, palette, selected, insets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, city, camera, onMiss, objects, focus = null, me = null, onMe, onNext, align, onTap } = props
+  const { plan, floor, stacked, palette, selected, insets, frameInsets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, city, camera, onMiss, objects, focus = null, me = null, onMe, onNext, align, onTap } = props
   const groundRef = useRef<THREE.Mesh>(null)
   const labels = useRef<HTMLCanvasElement>(null)
   const { wallHeight, colours } = settings
@@ -132,25 +138,72 @@ export function PlanView(props: Props) {
   const markers = useMemo(() => {
     const list = storyMarkers(plan, story)
     if (me && onMe) list.push({ key: 'me', kind: 'me', floor: me.floor, at: me.at, label: me.label })
+    if (me && onMe && me.door) list.push({ key: 'me-door', kind: 'place', floor: me.floor, at: me.door, label: 'Entrance' })
     return list
   }, [plan, story, me, onMe])
-  /** Put the figure where it was dropped (x, y in the plan's box): on the floor under it, in the smallest room there.
-   * Dropped off the building it goes back where it was. */
+  /** Where the figure would stand if put down at (x, y) in the plan's box: on the floor under it (stacked: the
+   * ground floor off the building), in the smallest room there; off the building it stays where it was put and
+   * takes the nearest entrance of that floor (else of any floor), so it is clear which door you are at. */
+  const resolveMe = (x: number, y: number): Me | null => {
+    const target = stacked ? pick.current(x, y)?.floor ?? groundIndex(plan) : floor
+    const at = unproject.current(x, y, target)
+    if (!at) return null
+    let best: PlanSpace | null = null
+    let near: { space: PlanSpace; at: [number, number]; away: number } | null = null
+    for (const space of plan.spaces) {
+      if (space.floor !== target) continue
+      if (contains(space.polygon, at[0], at[1])) {
+        if (!best || space.area_m2 < best.area_m2) best = space
+      } else if (!best) {
+        const edge = nearestEdge(space.polygon, at)
+        if (edge.away < WALL_SNAP_M && (!near || edge.away < near.away)) near = { space, ...edge }
+      }
+    }
+    if (best) return { at, floor: target, space: best.id, label: best.name }
+    if (near) return { at: near.at, floor: target, space: near.space.id, label: near.space.name } // on a wall
+    const entrances = plan.openings.filter((opening) => opening.entrance || opening.kind === 'entrance')
+    const here = entrances.filter((opening) => opening.floor === target)
+    let door: PlanOpening | null = null
+    let doorM = Infinity
+    for (const opening of here.length ? here : entrances) {
+      const away = Math.hypot(opening.position[0] - at[0], opening.position[1] - at[1])
+      if (away < doorM) [door, doorM] = [opening, away]
+    }
+    const inside = door && plan.spaces.find((space) => space.id === (door.space ?? door.spaces[0]))
+    if (!door || !inside) return null
+    return { at, floor: door.floor, space: inside.id, label: `Near entrance · ${inside.name}`, door: door.position }
+  }
+  /** Put the figure where it was dropped (x, y in the plan's box); nowhere to stand, it goes back where it was. */
   const dropMe = (x: number, y: number) => {
     if (!onMe) return
-    const target = stacked ? pick.current(x, y)?.floor ?? null : floor
-    const at = target === null ? null : unproject.current(x, y, target)
-    let best: PlanSpace | null = null
-    if (at && target !== null)
-      for (const space of plan.spaces) {
-        if (space.floor !== target || !contains(space.polygon, at[0], at[1])) continue
-        if (!best || space.area_m2 < best.area_m2) best = space
-      }
-    if (at && best && target !== null) onMe({ at, floor: target, space: best.id, label: best.name })
-    else onMe(me ? { ...me } : null) // a fresh object: the tracker puts it back
+    const next = resolveMe(x, y)
+    onMe(next ?? (me ? { ...me } : null)) // a fresh object: the tracker puts it back
   }
   const dock = useRef<HTMLButtonElement>(null)
   const dockDrag = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  // the figure in the hand (dragged out of the dock, or following the mouse after a tap on the dock), with where it
+  // would land
+  const ghost = useRef<HTMLDivElement>(null)
+  const showGhost = (x: number, y: number) => {
+    const node = ghost.current
+    if (!node) return
+    node.style.display = 'block'
+    node.style.transform = `translate(${x}px, ${y}px)`
+    const name = node.querySelector('span span')
+    if (name) name.textContent = resolveMe(x, y)?.label ?? 'Not here'
+  }
+  const hideGhost = () => void (ghost.current && (ghost.current.style.display = 'none'))
+  // a tap on the dock: the next tap on the plan puts the figure there (Esc or the dock again cancels)
+  const [placing, setPlacing] = useState(false)
+  useEffect(() => {
+    if (!placing) return hideGhost()
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && setPlacing(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [placing])
+  useEffect(() => {
+    if (!onMe) setPlacing(false)
+  }, [onMe])
   const markerElements = useRef(new Map<string, HTMLElement>())
   const objectElements = useRef(new Map<string, HTMLElement>())
   const rose = useRef<HTMLSpanElement>(null)
@@ -158,11 +211,17 @@ export function PlanView(props: Props) {
 
   return (
     <div
-      className="plan"
+      className={`plan${placing ? ' placing' : ''}`}
       onContextMenu={(event) => event.preventDefault()}
       onPointerDown={(event) => (down.current = { x: event.clientX, y: event.clientY })}
       onPointerMove={(event) => {
+        if (placing && event.buttons) hideGhost() // panning while placing: the figure waits for the next hover
         if (event.pointerType !== 'mouse' || event.buttons) return
+        if (placing) {
+          const rect = event.currentTarget.getBoundingClientRect()
+          showGhost(event.clientX - rect.left, event.clientY - rect.top)
+          return
+        }
         if (!stacked && !settings.hover) return
         const rect = event.currentTarget.getBoundingClientRect()
         const hit = pick.current(event.clientX - rect.left, event.clientY - rect.top)
@@ -175,6 +234,7 @@ export function PlanView(props: Props) {
         if (id !== hovered) setHovered(id)
       }}
       onPointerLeave={() => {
+        if (placing) hideGhost()
         setHovered(null)
         setHoveredFloor(null)
       }}
@@ -185,6 +245,11 @@ export function PlanView(props: Props) {
         if (!start || event.button !== 0 || Math.hypot(event.clientX - start.x, event.clientY - start.y) > TAP_SLOP_PX) return
         const rect = event.currentTarget.getBoundingClientRect()
         const [x, y] = [event.clientX - rect.left, event.clientY - rect.top]
+        if (placing) {
+          setPlacing(false)
+          dropMe(x, y)
+          return
+        }
         const hit = pick.current(x, y)
         const tapped = hit?.floor ?? (stacked ? null : floor)
         const at = tapped === null ? null : unproject.current(x, y, tapped)
@@ -249,13 +314,16 @@ export function PlanView(props: Props) {
           {mode === 'floor' && settings.hover && hovered && hovered !== selected?.id && (
             <Hover plan={plan} id={hovered} palette={palette} floors={floors} colours={colours} />
           )}
+          {me && onMe && me.door && shown.includes(me.floor) && (
+            <DashedWalk plan={plan} from={me.at} to={me.door} floor={me.floor} colour={palette.selectedEdge} lift={lift} />
+          )}
           <StoryLayer plan={plan} story={story} palette={palette} shown={shown} floor={floor} stacked={stacked} lift={lift} markers={markers} markerElements={markerElements} />
           {objects && objects.length > 0 && (
             <ObjectsLayer plan={plan} objects={objects} palette={palette} shown={shown} floor={floor} stacked={stacked} lift={lift} elements={objectElements} />
           )}
         </Slide>
         </Reveal>
-        <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} insets={insets} fitKey={fitKey} focus={focus} onTilt={onTilt} intro={camera?.intro} ground={groundRef} maxPolar={camera ? MAX_POLAR_ON_MAP : MAX_POLAR} northUp={northUp} />
+        <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} insets={insets} frameInsets={frameInsets ?? insets} fitKey={fitKey} focus={focus} onTilt={onTilt} intro={camera?.intro} ground={groundRef} maxPolar={camera ? MAX_POLAR_ON_MAP : MAX_POLAR} northUp={northUp} />
         <CompassTracker rose={rose} />
         {align && <Align plan={plan} y={stacked ? stackLift(floor) : lift(floor)} target={align} />}
         <Follow plan={plan} ground={groundRef} follow={camera?.follow} />
@@ -267,7 +335,7 @@ export function PlanView(props: Props) {
       <button
         type="button"
         className="plan-compass"
-        style={{ right: insets.right + 16, bottom: insets.bottom + 16 + (onMe ? 46 + 10 : 0) }}
+        style={{ right: insets.right + 16, bottom: insets.bottom + 16 + (onMe ? 44 + 10 : 0) }}
         aria-label="Compass: turn the view north-up"
         title="North · tap to turn north-up"
         onPointerDown={(event) => event.stopPropagation()}
@@ -287,15 +355,29 @@ export function PlanView(props: Props) {
         </span>
       </button>
       <Pins pins={pinList} elements={pinElements} onPick={(pin: Pin) => pin.space && onSelect({ kind: 'space', id: pin.space })} />
-      <StoryMarkers markers={markers} elements={markerElements} onGoto={onPickFloor} onNext={onNext} onMeDrop={dropMe} />
+      <StoryMarkers markers={markers} elements={markerElements} onGoto={onPickFloor} onNext={onNext} onMeDrop={dropMe} onMePreview={(x, y) => resolveMe(x, y)?.label ?? null} />
+      {onMe && (
+        <div ref={ghost} className="me-ghost" aria-hidden="true">
+          <span className="me-figure">
+            <PersonGlyph />
+            <span />
+          </span>
+        </div>
+      )}
+      {placing && (
+        <p className="me-hint" style={{ right: insets.right + 16 + 44 + 10, bottom: insets.bottom + 16 }} role="status">
+          Tap where you are — off the building for an entrance · Esc cancels
+        </p>
+      )}
       {onMe && (
         <button
           ref={dock}
           type="button"
-          className={`me-dock${me ? ' placed' : ''}`}
+          className={`me-dock${me ? ' placed' : ''}${placing ? ' armed' : ''}`}
           style={{ right: insets.right + 16, bottom: insets.bottom + 16 }}
-          aria-label={me ? 'Take the figure off the plan' : 'Put the figure where you are (drag it onto the plan)'}
-          title={me ? 'Tap to take the figure off · drag to put it somewhere else' : 'Drag me to where you are'}
+          aria-pressed={placing}
+          aria-label={me ? 'Take the figure off the plan' : placing ? 'Cancel putting the figure down' : 'Put the figure where you are: drag it onto the plan, or tap here and then the plan'}
+          title={me ? 'Tap to take the figure off · drag to put it somewhere else' : 'Drag me to where you are, or tap me and then the plan'}
           onPointerDown={(event) => {
             event.stopPropagation()
             event.currentTarget.setPointerCapture(event.pointerId)
@@ -305,43 +387,32 @@ export function PlanView(props: Props) {
             const drag = dockDrag.current
             if (!drag) return
             if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > TAP_SLOP_PX) drag.moved = true
-            const ghost = event.currentTarget.querySelector<HTMLElement>('.me-ghost')
-            if (ghost && drag.moved) {
-              ghost.style.display = 'block'
-              ghost.style.transform = `translate(${event.clientX}px, ${event.clientY}px)`
-            }
+            const box = event.currentTarget.parentElement?.getBoundingClientRect()
+            if (drag.moved && box) showGhost(event.clientX - box.left, event.clientY - box.top)
           }}
           onPointerUp={(event) => {
             event.stopPropagation()
             const drag = dockDrag.current
             dockDrag.current = null
-            const ghost = event.currentTarget.querySelector<HTMLElement>('.me-ghost')
-            if (ghost) ghost.style.display = 'none'
+            hideGhost()
             if (!drag) return
             const box = event.currentTarget.parentElement?.getBoundingClientRect()
-            if (drag.moved && box) dropMe(event.clientX - box.left, event.clientY - box.top)
-            else if (me) onMe(null)
-            else if (box) {
-              // a tap: the figure lands in the middle of the free part of the screen
-              const x = (insets.left + box.width - insets.right) / 2
-              const y = (insets.top + box.height - insets.bottom) / 2
-              dropMe(x, y)
-            }
+            if (drag.moved) {
+              setPlacing(false)
+              // let go over the dock itself: nothing happens
+              const dockBox = event.currentTarget.getBoundingClientRect()
+              const overDock = event.clientX >= dockBox.left && event.clientX <= dockBox.right && event.clientY >= dockBox.top && event.clientY <= dockBox.bottom
+              if (box && !overDock) dropMe(event.clientX - box.left, event.clientY - box.top)
+            } else if (me) onMe(null)
+            else setPlacing((on) => !on) // a tap: the next tap on the plan puts it there
           }}
-          onPointerCancel={(event) => {
+          onPointerCancel={() => {
             dockDrag.current = null
-            const ghost = event.currentTarget.querySelector<HTMLElement>('.me-ghost')
-            if (ghost) ghost.style.display = 'none'
+            hideGhost()
           }}
         >
           <PersonGlyph size={22} />
           {me && <small aria-hidden="true">×</small>}
-          <span className="me-ghost" aria-hidden="true">
-            <span className="me-figure">
-              <PersonGlyph />
-              <span>Here?</span>
-            </span>
-          </span>
         </button>
       )}
       {objects && objects.length > 0 && <ObjectMarkers objects={objects} palette={palette} elements={objectElements} />}
@@ -476,6 +547,21 @@ function FloorTag({ plan, floor, name, height, palette, current }: {
 
 function disposeFloor(floor: FloorGeometry) {
   for (const geometry of [floor.fills, floor.slab, floor.walls, floor.shade, floor.lines, floor.outline, floor.doors, floor.wallEdges, floor.furnitureEdges, floor.contact, floor.furniture]) geometry.dispose()
+}
+
+/** the point on a polygon's edge nearest to a point, and how far it is (metres) */
+function nearestEdge(polygon: [number, number][], [x, y]: [number, number]): { at: [number, number]; away: number } {
+  let best = { at: [x, y] as [number, number], away: Infinity }
+  for (let i = 0; i < polygon.length; i++) {
+    const [ax, ay] = polygon[i]
+    const [bx, by] = polygon[(i + 1) % polygon.length]
+    const [dx, dy] = [bx - ax, by - ay]
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)))
+    const at: [number, number] = [ax + t * dx, ay + t * dy]
+    const away = Math.hypot(at[0] - x, at[1] - y)
+    if (away < best.away) best = { at, away }
+  }
+  return best
 }
 
 const groundIndex = (plan: Plan) => Math.max(0, plan.floors.findIndex((item) => item.level === 0))
@@ -1026,12 +1112,13 @@ type Move = { t: number; from: Pose; to: Pose; seconds?: number }
 /** Frames the shown floors (tilted, or flat if the user went flat on one floor) whenever they or fitKey change, easing there. Tilting is free in between
  * (0 = straight down … MAX_POLAR); a nearly flat tilt snaps flat when the gesture ends, and the current look
  * (flat or tilted) is reported so a flat view can stop spreading the floors. */
-function Rig({ plan, floor, floors, stacked, insets, fitKey, focus, onTilt, intro, ground, maxPolar, northUp }: {
+function Rig({ plan, floor, floors, stacked, insets, frameInsets, fitKey, focus, onTilt, intro, ground, maxPolar, northUp }: {
   plan: Plan
   floor: number
   floors: number[]
   stacked: boolean
   insets: Insets
+  frameInsets: Insets
   fitKey: number
   focus: Focus | null
   onTilt: (mode: ViewMode) => void
@@ -1049,6 +1136,8 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, focus, onTilt, intr
   // Insets are read when a fit happens, not watched: the sheet moving must not move the map.
   const insetsRef = useRef(insets)
   insetsRef.current = insets
+  const frameInsetsRef = useRef(frameInsets)
+  frameInsetsRef.current = frameInsets
   const onTiltRef = useRef(onTilt)
   onTiltRef.current = onTilt
   const stackedRef = useRef(stacked)
@@ -1110,8 +1199,9 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, focus, onTilt, intr
 
   useEffect(() => {
     if (!controls) return
-    // keep the user's own turn
-    const azimuth = first.current ? TILTED.azimuth : controls.getAzimuthalAngle()
+    // keep the user's own turn, unless the answer faces a way (plan +y is scene -Z; azimuth 0 looks along -Z)
+    const heading = first.current ? undefined : focus?.heading
+    const azimuth = first.current ? TILTED.azimuth : heading ? Math.atan2(-heading[0], heading[1]) : controls.getAzimuthalAngle()
     // and the user's own tilt (the whole stack is only readable tilted: a flat look goes back to the default tilt)
     const polar = first.current ? TILTED.polar : stacked && reported.current === '2d' ? TILTED.polar : controls.getPolarAngle()
     // the whole stack, or the floor you are on: the camera focuses on your floor; the others stay spread
@@ -1122,7 +1212,7 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, focus, onTilt, intr
     const points = first.current ? [] : focus?.points.filter(([, , at]) => framed.includes(at)) ?? []
     const fit = points.length
       ? fitPoints(points.map(([x, y, at]) => [...toScene(plan, x, y), lift(at)] as [number, number, number]), { polar, azimuth }, size, insetsRef.current, focus?.span ?? 0)
-      : frame(plan, framed, lift, { polar, azimuth }, size, insetsRef.current)
+      : frame(plan, framed, lift, { polar, azimuth }, size, frameInsetsRef.current)
     const to = { target: fit.target, zoom: fit.zoom, polar, azimuth }
     if (first.current) {
       first.current = false

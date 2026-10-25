@@ -1,18 +1,21 @@
-// Access mode over every screen (rendered by Root): the sign-in, set-a-password and Preferences sheets and the quiet
-// notice line.
+// Access mode over every screen (rendered by Root): the sign-in, set-a-password and Preferences sheets, the quiet
+// notice line, and on the landing (map / list, no building open) an account button top right — the building screen
+// has the same items in its "…" menu.
 // Renders nothing when the backend has access mode off.
 
+import { KeyRound, LogIn, LogOut, SlidersHorizontal, UserRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { openPanel, setPassword, signIn, useAccess } from './auth'
+import { openPanel, setPassword, signIn, signOut, useAccess } from './auth'
 import { PreferencesSheet } from './PreferencesForm'
 import { Sheet } from './Sheet'
 import './access.css'
 
-export function AccessLayer() {
+export function AccessLayer({ landing = false }: { landing?: boolean }) {
   const access = useAccess()
   if (!access.mode) return null
   return (
     <div className="access-layer">
+      {landing && <Account />}
       {access.panel === 'signin' && <SignIn />}
       {access.panel === 'password' && access.email && <SetPassword email={access.email} />}
       {access.panel === 'preferences' && <PreferencesSheet />}
@@ -20,6 +23,52 @@ export function AccessLayer() {
         <p className="access-notice" role="status">
           {access.notice}
         </p>
+      )}
+    </div>
+  )
+}
+
+/** The landing's account button: Sign in, or the signed-in email with Preferences, Set a password and Sign out. */
+function Account() {
+  const access = useAccess()
+  const [open, setOpen] = useState(false)
+  const pick = (action: () => void) => () => {
+    setOpen(false)
+    action()
+  }
+  if (!access.email) {
+    return (
+      <button type="button" className="account-button" onClick={() => openPanel('signin')}>
+        <LogIn size={16} strokeWidth={2} />
+        Sign in
+      </button>
+    )
+  }
+  return (
+    <div className="account-corner">
+      <button type="button" className="account-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+        <UserRound size={16} strokeWidth={2} />
+        <span className="account-email">{access.email}</span>
+        {access.admin && <em className="account-role">admin</em>}
+      </button>
+      {open && (
+        <div className="account-menu" role="menu">
+          <button type="button" role="menuitem" onClick={pick(() => openPanel('preferences'))}>
+            <SlidersHorizontal size={16} strokeWidth={2} />
+            Preferences
+          </button>
+          {access.needsPassword && (
+            <button type="button" role="menuitem" onClick={pick(() => openPanel('password'))}>
+              <KeyRound size={16} strokeWidth={2} />
+              Set a password
+            </button>
+          )}
+          <button type="button" role="menuitem" onClick={pick(() => void signOut())}>
+            <LogOut size={16} strokeWidth={2} />
+            Sign out
+          </button>
+          {access.admin && <p className="account-hint">Access, members and objects: open a building → ⋯ → Building settings.</p>}
+        </div>
       )}
     </div>
   )

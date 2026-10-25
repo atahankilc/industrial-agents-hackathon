@@ -1,7 +1,7 @@
 // The Core: the Guide's presence and the main control. A thin ring with 32 radial ticks; while it listens or speaks
 // the ticks follow the voice level (useVoice's `level` ref, read every frame), while it thinks an arc runs round the
 // ring, and at rest it is still. Tap to talk (stops by itself on silence), hold to talk (release sends), tap while it
-// speaks to stop it. No glow.
+// speaks to stop it — or, answering a spoken question, just talk over it (useVoice barge-in). No glow.
 
 import { useEffect, useRef, type RefObject } from 'react'
 import type { VoiceState } from '../voice/useVoice'

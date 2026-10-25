@@ -1,7 +1,8 @@
 // The current answer drawn over the plan, without touching the plan's own colours: the route as a cased accent
-// band (drawn in once) with start / destination / floor-change badges, accent outlines around the rooms the answer
-// is about, a red hatch over closed rooms, lifts and stairs, dashed outlines around rooms that lost access, and a
-// dot on each item asked about. Lives inside the r3f canvas (StoryLayer) plus DOM badges over it (StoryMarkers).
+// band (drawn in once) with start / destination / floor-change badges, the rooms the answer is about tinted and
+// outlined in accent (pulsing a few times when they appear) with their names, a red hatch over closed rooms, lifts
+// and stairs, dashed outlines around rooms that lost access, a ringed dot on each item asked about, and the walk
+// outside to a nearby building. Lives inside the r3f canvas (StoryLayer) plus DOM badges over it (StoryMarkers).
 
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
@@ -19,6 +20,10 @@ const ROUTE_Y = 0.05
 const DRAW_IN_SECONDS = 0.9
 const OTHER_FLOOR_OPACITY = 0.35
 const MAX_ITEM_DOTS = 24
+const MAX_PLACE_LABELS = 6 // name badges on the rooms an answer is about
+const MAX_ITEM_LABELS = 4 // and on its items, when there are this few
+const FOCUS_FILL = 0.26
+const PULSE_SECONDS = 2.4 // three soft pulses of the tint, then it stays
 
 type Lift = (index: number) => number
 
@@ -205,6 +210,63 @@ function Outlines({ plan, ids, colour, floors, lift, dashed }: { plan: Plan; ids
   )
 }
 
+/** The rooms an answer is about, tinted in the accent: pulses a few times when the answer arrives, then stays. */
+function FocusFill({ plan, ids, colour, floors, lift, answerKey }: { plan: Plan; ids: string[]; colour: string; floors: number[]; lift: Lift; answerKey: number }) {
+  const invalidate = useThree((state) => state.invalidate)
+  const material = useMemo(() => new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity: FOCUS_FILL, depthWrite: false, side: THREE.DoubleSide }), [colour])
+  const byFloor = useMemo(() => {
+    const wanted = new Set(ids)
+    const out = new Map<number, THREE.BufferGeometry>()
+    for (const floor of floors) {
+      const polygons = plan.spaces.filter((space) => space.floor === floor && wanted.has(space.id)).map((space) => space.polygon)
+      if (polygons.length) out.set(floor, polygonGeometry(plan, polygons, 0.02))
+    }
+    return out
+  }, [plan, ids, floors])
+  const t = useRef(0)
+  useEffect(() => {
+    t.current = 0
+    invalidate()
+  }, [answerKey, invalidate])
+  useFrame((_, delta) => {
+    if (t.current >= PULSE_SECONDS) return
+    t.current = Math.min(PULSE_SECONDS, t.current + Math.min(delta, 1 / 30))
+    const wave = 0.5 - 0.5 * Math.cos((t.current / PULSE_SECONDS) * Math.PI * 6)
+    material.opacity = FOCUS_FILL + wave * 0.3 * (1 - t.current / PULSE_SECONDS)
+    invalidate()
+  })
+  useEffect(() => () => material.dispose(), [material])
+  useEffect(() => () => byFloor.forEach((geometry) => geometry.dispose()), [byFloor])
+  return (
+    <>
+      {[...byFloor].map(([floor, geometry]) => (
+        <mesh key={floor} geometry={geometry} material={material} position={[0, lift(floor), 0]} renderOrder={5} />
+      ))}
+    </>
+  )
+}
+
+/** The walk outside to a nearby building: a dashed accent line on the ground from the exit to its entrance. */
+function OutdoorWalk({ plan, from, to, floor, colour, lift }: { plan: Plan; from: [number, number]; to: [number, number]; floor: number; colour: string; lift: Lift }) {
+  const line = useMemo(() => {
+    const [ax, az] = toScene(plan, ...from)
+    const [bx, bz] = toScene(plan, ...to)
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute([ax, ROUTE_Y, az, bx, ROUTE_Y, bz], 3))
+    const material = new THREE.LineDashedMaterial({ color: colour, dashSize: 1.6, gapSize: 1.1, depthTest: false, transparent: true })
+    return new THREE.Line(geometry, material).computeLineDistances()
+  }, [plan, from, to, colour])
+  useEffect(() => () => {
+    line.geometry.dispose()
+    ;(line.material as THREE.Material).dispose()
+  }, [line])
+  return (
+    <group position={[0, lift(floor), 0]} renderOrder={9}>
+      <primitive object={line} />
+    </group>
+  )
+}
+
 const hatchMaterial = (colour: string) =>
   new THREE.ShaderMaterial({
     transparent: true,
@@ -250,7 +312,7 @@ function ClosedHatch({ plan, palette, floors, lift }: { plan: Plan; palette: Pla
 
 export type Marker = {
   key: string
-  kind: 'start' | 'end' | 'change' | 'item' | 'you'
+  kind: 'start' | 'end' | 'change' | 'item' | 'you' | 'place' | 'next' | 'me'
   floor: number
   at: [number, number]
   label: string
@@ -258,6 +320,8 @@ export type Marker = {
   /** 'you': a unit direction in the plan frame, drawn as the cone (projected, so it turns with the view) */
   ahead?: [number, number]
   stale?: boolean
+  /** 'item': show its name too (few items) */
+  named?: boolean
 }
 
 /** Start, destination, each floor change (tap to follow it), and the items asked about. Floor-change names come
@@ -272,7 +336,8 @@ export function storyMarkers(plan: Plan, story: Story): Marker[] {
     const last = runs[runs.length - 1]
     markers.push({ key: 'start', kind: 'start', floor: first.floor, at: first.points[0], label: route.space_path[0] === 'outside' ? 'Entrance' : 'Start' })
     const arrive = route.legs.find((leg) => leg.kind === 'arrive')
-    markers.push({ key: 'end', kind: 'end', floor: last.floor, at: last.points[last.points.length - 1], label: arrive?.to ?? 'Destination' })
+    const end = route.next ? 'Exit' : arrive?.to_id === 'outside' ? 'Way out' : arrive?.to ?? 'Destination'
+    markers.push({ key: 'end', kind: 'end', floor: last.floor, at: last.points[last.points.length - 1], label: end })
     const hops = route.legs.filter((leg) => leg.kind === 'connector')
     for (let i = 0; i + 1 < runs.length; i++) {
       const from = runs[i]
@@ -283,14 +348,31 @@ export function storyMarkers(plan: Plan, story: Story): Marker[] {
     }
   }
   const items = new Set(story.assets)
+  const named = story.assets.length <= MAX_ITEM_LABELS
   for (const asset of plan.assets) {
-    if (items.has(asset.id) && markers.length < MAX_ITEM_DOTS) markers.push({ key: `item-${asset.id}`, kind: 'item', floor: asset.floor, at: asset.position, label: asset.name })
+    if (items.has(asset.id) && markers.length < MAX_ITEM_DOTS) markers.push({ key: `item-${asset.id}`, kind: 'item', floor: asset.floor, at: asset.position, label: asset.name, named })
   }
+  // the rooms an answer is about, by name (a route names its destination already; rooms holding named items too)
+  if (!route) {
+    const holding = new Set(named ? plan.assets.filter((asset) => items.has(asset.id)).map((asset) => asset.space) : [])
+    const wanted = new Set(story.focus.filter((id) => !holding.has(id)))
+    for (const space of plan.spaces.filter((item) => wanted.has(item.id)).slice(0, MAX_PLACE_LABELS))
+      markers.push({ key: `place-${space.id}`, kind: 'place', floor: space.floor, at: space.label, label: space.name })
+  }
+  if (story.outdoor) markers.push({ key: 'next', kind: 'next', floor: story.outdoor.floor, at: story.outdoor.to, label: story.outdoor.label })
   if (story.you) markers.push({ key: 'you', kind: 'you', floor: story.you.floor, at: story.you.at, ahead: story.you.ahead, stale: story.you.stale, label: 'You' })
   return markers
 }
 
-export function StoryMarkers({ markers, elements, onGoto }: { markers: Marker[]; elements: React.RefObject<Map<string, HTMLElement>>; onGoto: (floor: number) => void }) {
+/** What a marker does when tapped or dragged: a floor change goes to its floor, the next-building badge continues
+ * there, and the "you are here" figure (`me`) is dragged to a new place (x, y relative to the plan's box). */
+export type MarkerActions = {
+  onGoto: (floor: number) => void
+  onNext?: () => void
+  onMeDrop?: (x: number, y: number) => void
+}
+
+export function StoryMarkers({ markers, elements, onGoto, onNext, onMeDrop }: { markers: Marker[]; elements: React.RefObject<Map<string, HTMLElement>> } & MarkerActions) {
   return (
     <div className="story-markers">
       {markers.map((marker) => {
@@ -310,8 +392,22 @@ export function StoryMarkers({ markers, elements, onGoto }: { markers: Marker[];
               >
                 {marker.label}
               </button>
+            ) : marker.kind === 'next' ? (
+              <button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerUp={(event) => event.stopPropagation()}
+                onClick={() => onNext?.()}
+              >
+                {marker.label}
+              </button>
+            ) : marker.kind === 'me' ? (
+              <MeFigure label={marker.label} onDrop={onMeDrop} />
             ) : marker.kind === 'item' ? (
-              <i title={marker.label} />
+              <>
+                <i title={marker.label} />
+                {marker.named && <span>{marker.label}</span>}
+              </>
             ) : marker.kind === 'you' ? (
               <b className={marker.stale ? 'stale' : ''} aria-label={marker.stale ? 'You, roughly' : 'You'}>
                 <em />
@@ -326,13 +422,71 @@ export function StoryMarkers({ markers, elements, onGoto }: { markers: Marker[];
   )
 }
 
+/** The "you are here" figure on the plan: drag it to where you are. While dragged it follows the pointer itself
+ * (the marker tracker leaves a dragged marker alone); dropped, the plan places it (onDrop) and the tracker takes over. */
+export function MeFigure({ label, onDrop }: { label: string; onDrop?: (x: number, y: number) => void }) {
+  return (
+    <button
+      type="button"
+      className="me-figure"
+      aria-label={`You are here: ${label}. Drag to move.`}
+      title="Drag me to where you are"
+      onPointerDown={(event) => {
+        event.stopPropagation()
+        const marker = event.currentTarget.parentElement
+        const box = marker?.parentElement?.getBoundingClientRect()
+        if (!marker || !box) return
+        event.currentTarget.setPointerCapture(event.pointerId)
+        marker.dataset.dragging = 'true'
+        marker.classList.add('dragging')
+      }}
+      onPointerMove={(event) => {
+        const marker = event.currentTarget.parentElement
+        const box = marker?.parentElement?.getBoundingClientRect()
+        if (!marker || !box || marker.dataset.dragging !== 'true') return
+        marker.style.transform = `translate(${event.clientX - box.left}px, ${event.clientY - box.top}px)`
+      }}
+      onPointerUp={(event) => {
+        event.stopPropagation()
+        const marker = event.currentTarget.parentElement
+        const box = marker?.parentElement?.getBoundingClientRect()
+        if (!marker || !box || marker.dataset.dragging !== 'true') return
+        delete marker.dataset.dragging
+        marker.classList.remove('dragging')
+        onDrop?.(event.clientX - box.left, event.clientY - box.top)
+      }}
+      onPointerCancel={(event) => {
+        const marker = event.currentTarget.parentElement
+        if (!marker) return
+        delete marker.dataset.dragging
+        marker.classList.remove('dragging')
+      }}
+    >
+      <PersonGlyph />
+      <span>{label}</span>
+    </button>
+  )
+}
+
+/** A standing person (lucide "person-standing"), inline so the figure needs no icon import here. */
+export function PersonGlyph({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="5" r="1" />
+      <path d="m9 20 3-6 3 6" />
+      <path d="m6 8 6 2 6-2" />
+      <path d="M12 10v4" />
+    </svg>
+  )
+}
+
 function MarkerTracker({ plan, markers, elements, floors, lift }: { plan: Plan; markers: Marker[]; elements: React.RefObject<Map<string, HTMLElement>>; floors: number[]; lift: Lift }) {
   const { camera, size, invalidate } = useThree()
   const point = useMemo(() => new THREE.Vector3(), [])
   useFrame(() => {
     for (const marker of markers) {
       const node = elements.current.get(marker.key)
-      if (!node) continue
+      if (!node || node.dataset.dragging) continue
       const [X, Z] = toScene(plan, marker.at[0], marker.at[1])
       point.set(X, lift(marker.floor) + ROUTE_Y, Z).project(camera)
       const x = ((point.x + 1) / 2) * size.width
@@ -376,8 +530,12 @@ export function StoryLayer({ plan, story, palette, shown, floor, stacked, lift, 
     <>
       <ClosedHatch plan={plan} palette={palette} floors={floors} lift={lift} />
       {story.lost.length > 0 && <Outlines plan={plan} ids={story.lost} colour={palette.labelSoft} floors={floors} lift={lift} dashed />}
+      {story.focus.length > 0 && !story.route && <FocusFill plan={plan} ids={story.focus} colour={palette.selectedEdge} floors={here} lift={lift} answerKey={story.key} />}
       {story.focus.length > 0 && <Outlines plan={plan} ids={story.focus} colour={palette.selectedEdge} floors={here} lift={lift} />}
       {runs.length > 0 && <Route plan={plan} runs={runs} palette={palette} shown={floors} floor={floor} stacked={stacked} lift={lift} routeKey={story.key} />}
+      {story.outdoor && floors.includes(story.outdoor.floor) && (
+        <OutdoorWalk plan={plan} from={story.outdoor.from} to={story.outdoor.to} floor={story.outdoor.floor} colour={palette.selectedEdge} lift={lift} />
+      )}
       <MarkerTracker plan={plan} markers={markers} elements={markerElements} floors={here} lift={lift} />
     </>
   )

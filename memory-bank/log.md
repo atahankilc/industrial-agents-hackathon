@@ -10,6 +10,104 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Voice gaps: tapped questions spoken, selection and "I'm in …" reach the Guide, faster turns (not committed)
+
+- **Did:** Tapped questions (room card Directions, chips, nearby-building directions, camera "Where am I", Builder
+  chips) are answered aloud: `send(text, via)` in `BuildingScreen.tsx`, voice channel with `heard: false` (no
+  transcript rewrite, `Guide.reply(heard=)`); one that asks something back listens for the answer. The room or item
+  selected on the plan goes with the question (`/chat` `selected` → a `[selection note]`, `Guide.selection_note`).
+  New Guide tool `set_my_location` (on `session.set_location`) + event `location`: "I'm in Lobby 0.01" puts the figure
+  there and frames the room; the offline Guide understands "I'm in/at …" and "take me to …" from here. "start" also
+  inside a short sentence; the step guide keeps listening 45 s for "I'm there" (`waitMs`/`until` in useVoice).
+  Latency: end-of-speech pause 1.3 → 1.0 s, Scribe commit wait 2 → 0.8 s, mic + worklet kept warm 8 s, the real mic
+  remembered when the default input is virtual (was two opens per listen), barge-in from the reply's first sound and on
+  one own word, an utterance during a pending turn is queued. "Mic starting" until audio really flows (`hearing`).
+  TTS: a failed piece is retried once; cool-off 60 → 15 s; a short first sentence ("Step 2.") rides with the next.
+- **Checked:** `tsc -b`, oxlint (warnings only, none new as errors), full pytest (810 passed, new
+  `tests/test_voice_location.py`). In Chrome on the local backend (Arcisstraße 21): "I'm in Lobby 0.01" → figure and
+  zoom; route + Start + next step → `/tts` 200 for every step (ElevenLabs); room tap → Directions → voice turn with
+  `selected`, spoken, then the mic opened by itself for the answer ("Mic starting" ~0.7 s).
+- **Learned:** could not reproduce steps in the browser voice; the likely cause was the 60 s cool-off after any one
+  failed piece. Auto-listening also catches room talk (it sent "No. How was-" from background speech).
+- **Next:** Atahan to try by voice; consider browser recognition for short step commands to save Scribe minutes.
+
+## 2026-10-25 — Edit mode inside the building view (not committed)
+
+- **Did:** Edit mode is no longer a separate full-screen editor (`EditMode.tsx`, `PlanEditor.tsx` deleted). "Edit this
+  building" (… menu) keeps the building screen — map, model, top line, floor chip — and: the model shows the draft
+  (`GET /drafts/{id}/plan`, refetched after every change, one floor); the edit card (`edit/EditPanel.tsx`) takes the
+  Guide card's slot (tools Select / Door / Item, problems, undo, Inspector, "Describe a change instead" → Builder chat,
+  Save as a new building); handles sit on the model in `edit/EditLayer.tsx`, an SVG whose group PlanView keeps on the
+  floor plane (`align` prop + `Align` in `plan/PlanView.tsx`: the camera is orthographic, so the plane maps to the
+  screen affinely; 3 projected points per frame). State in `edit/useDraft.ts`. Taps on the model select rooms /
+  items (PlanView's own picking) or, with the Door / Item tool, place (`place` ref) — pan / zoom / tilt keep working.
+  Inspector: room name / number / use / delete, door kind / width / step-free / delete, item name / size / turn /
+  delete. Wall drags (`move_edge`), corner drags, door drags, item drags with a readout. Phone inset `EDIT_PX`.
+  Story, focus, figure and next-move are hidden while editing (their state is kept).
+- **Learned:** a first version as a restyled separate screen was rejected by Atahan: Edit mode must live in the
+  current view. `.screen button` (0,1,1) beats single-class button rules — scope them.
+- **Checked:** `tsc --noEmit`, `vite build`. Headless Chromium (playwright-core in the scratchpad) on the local
+  backend, Forschungsbau 024, tilted 3D view: tap selects Toilet 0.16, corner / wall handles in register with the
+  model, wall drag → 1 change and the model redraws; door tool → door Office 0.15 ↔ Toilet 0.16 (2 changes, 3
+  problems listed); item tool → Plant placed + selected, dragged; Stop editing → Guide back; 390 px phone layout.
+  Not checked: real touch device, live Builder chat, save → reopen.
+- **Then (same day, Atahan: "use the same AI assistant UI"):** the edit card is gone (`EditPanel.tsx`,
+  `BuilderChat.tsx` deleted). While editing, the Guide's own card (`building/Guide.tsx`, new optional `persona` +
+  `card` props) talks to the Builder: greeting, chips from the building's rooms, typed or spoken requests (voice
+  `onUtterance` routes to `draft.ask` while editing, replies spoken), the Builder's tool steps as the work trail
+  (`ui/guideSteps.ts` labels for overview / find / space_info / floor_plan / propose_edit). The inspector and the
+  Builder's proposal (Apply / Cancel) show in the card's room-card slot (`edit/EditCard.tsx`). Tools, problems, undo,
+  Save, Done moved to `edit/EditBar.tsx` (top right; under the top line on phones). Header: "Editing a copy · N
+  changes"; "All floors" hidden while editing. Live check (Opus via the local backend): chip "Rename 0.03" → trail →
+  proposal card + dashed ghost on the model → Apply → label "Quiet room" on the model.
+- **View behaviour (Atahan's list):** PlanView — labels no longer vanish when zoomed out (a room too small for its
+  name gets its number, else its name, at 10 px; only overlapping labels are skipped); one tap on the stacked view
+  steps onto the floor *and* selects the room; changing floors keeps the camera (Rig no longer refits on a floor
+  change, nor when the plan object is replaced by the same building — draft edits used to snap the camera back —
+  and keeps the user's tilt); the floor under the mouse lights up in "All floors" (`FloorGlow`); the Edit mode no
+  longer forces one floor (handles hidden while stacked, a tap steps in and selects). `hud.css` `.screen
+  .hud-primary`: the room card's Directions button text was invisible (`.screen button` won). Checked headless:
+  hover glow top / ground floor, one tap → Lecture hall 0.19, zoomed G → 3 same camera, far zoom labels, camera
+  unchanged after a wall drag, edit + all floors one tap → Office 3.09 with handles.
+- **Improvements + the Guide opens the Edit mode:** new Guide tool `open_edit_mode(request?)` (agent/tools.py) →
+  UI event `edit_mode` → the app switches to the Edit mode and hands the request to the Builder (spoken stays spoken;
+  access mode: admin only). Prompt rule in agent/guide.py (closing / reopening / adding a door for routing stays
+  propose_change); offline intent `EDIT` in agent/offline_llm.py; `tests/test_edit_mode_tool.py`. Edit mode: one
+  tap places with Door / Item on "All floors" too (PlanView `onTap` gives the plan point; `edit/place.ts` shared by
+  the ghost and the tap); redo (⇧⌘Z / Ctrl+Y) kept in the tab (`useDraft` remembers the ops of its own steps — no
+  backend change, lost on reload); "Discard changes" (asks in place, fresh draft of the original); the Builder's own
+  words in the proposal card (markdown stripped); a proposal steps onto its floor. **Learned:** `tsc -p .` in
+  frontend/app checks nothing (`files: []`) — use `tsc -p tsconfig.app.json`; a local backend with `.env` writes
+  drafts and saved buildings to the shared Supabase — run tests with `GUIDE_PERSIST=off`. A test save
+  "Forschungsbau 024 quiet test" (`user/forschungsbau-024-quiet-test`) landed in Supabase `saved_buildings` before
+  that was noticed; deleted on Atahan's go (that one row only). Checked: pytest 805 passed / 2 skipped; headless live
+  run on a separate backend: Guide "rename office 0.03…" → Edit mode, proposal on G with ghost → Apply; Item tool one
+  tap on All floors → desk on floor 3; undo → redo; save → reopen as the new building; discard.
+- **Next:** commit via `/ship` when Atahan asks.
+## 2026-10-25 — Guide highlights, "you are here" figure, step-by-step guide, nearby buildings
+
+- **Did (Atahan's four asks):** (1) clearer answers on the plan: `search` / `locate` / `room_facts` / `show_on_map`
+  emit highlights with `asset_ids`; rooms tinted + pulsing + name badges, items ringed; camera frames the answer
+  (`PlanView` `focus`, `fitPoints`). (2) Draggable "you are here" figure with a dock (`PlanView`, `StoryLayer`
+  `MeFigure`), `PUT /sessions/{id}/location`, `Guide.set_location` → a location note, "here" resolves to it.
+  (3) Routes framed whole (stacked across floors), Start → one step framed and read aloud at a time, "I'm there" /
+  "geldim" / "next" moves on (`NextMove` actions, `BuildingScreen.routeCommand`); the Guide's route replies are now a
+  summary + first step ([D-020](decisions.md#d-020)). (4) `agent/campus.py`: `search_nearby_buildings`,
+  `route_to_building` (entrance pair with the shortest total, straight-line outdoor leg), `POST /sessions/{id}/arrive`;
+  app: "found nearby" card (`building/Elsewhere.tsx`), dashed outdoor line + Continue that opens the other building and
+  draws the rest ([D-021](decisions.md#d-021)).
+- **Checked:** `tests/test_campus.py` 10 passed; full suite 801 passed, 2 skipped (offline); `tsc -b` clean; headless
+  Chrome (own servers on 8775/5183, real Opus): figure → "Stairwell 0190", "Where are the toilets on the ground
+  floor?" answered from the figure ("closest to you") with both toilets tinted and framed; "Take me to the lecture
+  hall" routed from the figure without asking (route framed, Start button); "Is there a canteen?" → Mensa
+  Arcisstraße found, route to the exit, dashed outdoor line, "Continue in Mensa Arcisstraße · 120 m south-west".
+  Not yet seen in a browser: clicking Start / "I'm there", the Continue → arrival in the Mensa. Open bug: the route
+  overview did not frame the other building's entrance (the dashed line runs off screen); cause not found yet.
+- **Learned:** headless Chrome with SwiftShader takes ~60 s per screenshot of the plan; the "alone" view (no map) is
+  faster. Neighbour pins on the TUM main campus are 95–250 m apart, so the campus tools matter there.
+- **Not done:** no street graph (outdoor metres are straight lines); the other building's leg ignores this session's
+  closures; the interaction eval's directions judge still expects full step lists.
+
 ## 2026-10-25 — City view: wireframe, flicker, cut-away, ground level, return flight
 
 - **Did:** open building's OSM blocks → wireframe in the model's scene (`PlanView` `City`); OSM blocks under the blue
@@ -52,6 +150,55 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Checks:** `uv run pytest` 770 passed, 2 skipped; dev benchmark 138/138 (regex); `tests/test_access.py` 12,
   `tests/test_fleet.py` 5.
 - **Next:** create the admin account (Atahan's email), live sign-in check, demo run with the simulator.
+
+## 2026-10-25 — Voice step 4: ElevenLabs Scribe Realtime with building keyterms (branch `voice-improvements`)
+
+- **Did:** `backend/stt.py` (single-use token, `keyterms(building)`), `POST /stt/token`, `/health` `stt`,
+  `STT_MODE`; `frontend/app/src/voice/scribe.ts` `ScribeRecognition` (SpeechRecognition shape, AudioWorklet 16 kHz
+  PCM, token fetched ahead, 60 s cool-off on failure); `useVoice` prefers it and retries with browser recognition on
+  `scribe-unavailable`; `BuildingScreen` sets the Scribe session. `tests/test_stt.py`; suite 773 passed, 2 skipped.
+- **Learned:** live probes — `keyterms` repeated in the query; > 50 terms or > 20 chars → `invalid_request`. Scribe
+  repeats the same partial every ~1 s through silence, which kept the pause timer from firing (fixed: only changed
+  partials count). With ElevenLabs-spoken audio as the mic, "Where is the CNC mill?" came back exactly.
+- **Decisions / questions:** D-019 accepted; Q-020 opened (keep the rewriter for Scribe transcripts?).
+- **Next:** real-mic run of the whole voice loop; Q-020; commit via `/ship`.
+
+## 2026-10-25 — Voice step 3: hands-free conversation, barge-in, pause tolerance (branch `voice-improvements`)
+
+- **Did:** `useVoice`: continuous recognition with a 1.3 s end-of-utterance timer (8 s / 6 s with no words),
+  conversation mode for spoken questions (listen again after the reply, quiet end), barge-in watcher while the
+  complete reply plays; `voice/bargeIn.ts` echo filter (`userWords`, `interruption`, `userPart`); `stream`/`speak`
+  take `{ conversation }`; `BuildingScreen` no longer forces one question, one answer; orb hint "Talk to interrupt".
+- **Learned:** verified with a scripted SpeechRecognition in the real UI. First run carried the echo ("About 60 m,
+  stairs allowed.") into the next question because the stray "m" counted as the user's → single letters ignored,
+  carry starts at the first result that is mostly the user's. Automation re-sends pointer events at the last click
+  position, which looked like spurious orb taps (not app behaviour; a traced run was clean).
+- **Decisions:** D-018 accepted.
+- **Next:** try it with a real mic/speakers; voice step 4 — Scribe Realtime with building keyterms.
+
+## 2026-10-25 — Voice step 2: speak while the Guide works (branch `voice-improvements`)
+
+- **Did:** `SpokenStream` (`agent/speech.py`) + `Guide.on_say` / streamed requests (`agent/guide.py`): grounded
+  sentences go out as `say` lines on `/chat/stream` voice turns; repairs / profile redos hold live speech and
+  `finish` adds only what is new. `VOICE_STYLE` asks for one fact-free sentence before tools. Frontend
+  `openSpeech` queue (`voice/tts.ts`), `voice.stream()`, `BuildingScreen` feeds `onSay`. Suite 769 passed, 2 skipped.
+- **Learned:** raw API text streams smoothly (84 deltas over ~4 s), but in Guide turns the answer after tool results
+  arrived in one burst every time (with or without the fallback beta) — the win is the early first sentence:
+  first sound 2.35 s vs answer at 10.4 s (6 tool calls). The voice rewriter costs ~1.1 s before the first request.
+- **Decisions:** D-017 accepted.
+- **Next:** voice step 3 — barge-in (stop the voice when the user speaks) and hands-free listening.
+
+## 2026-10-25 — Voice step 1: the Guide speaks with ElevenLabs (branch `voice-improvements`)
+
+- **Did:** Reviewed the voice path: the app used only browser Web Speech; the ElevenLabs Custom LLM endpoint was
+  never connected. Added `POST /tts` (`backend/tts.py`, stdlib urllib proxy, key server-side), `/health` `tts` flag,
+  `frontend/app/src/voice/tts.ts` (sentence pieces fetched ahead, Web Audio playback with real orb level, browser
+  voice fallback, one voice app-wide); `useVoice` / `CameraGuide` use it. Sentence splitter no longer breaks
+  "Room 2.03". `tests/test_tts.py`; full suite 762 passed, 2 skipped; frontend build OK.
+- **Learned:** account tier Creator, 131,000 chars/month. Flash v2.5 + River: 0.3–1.3 s per sentence server-side;
+  Scribe heard "Meeting room 3.07 … 124 meters" back exactly. `speakable()` spells units in English for every language.
+- **Decisions:** D-016 accepted.
+- **Next:** voice step 2 — stream the reply sentence by sentence into speech, filler while tools run.
 
 ## 2026-10-25 — `SUBMISSION/` folder for the graded benchmark (v1 pipeline)
 

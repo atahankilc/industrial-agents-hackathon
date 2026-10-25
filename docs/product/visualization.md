@@ -114,6 +114,18 @@ place card) with a floating Guide conversation.
   or **alone** (the plan's own stage and grid cover the map once the model is there; meant for building managers).
   Buildings without a position only have the alone view.
 - **Not built yet:** Guide events on the plan (focus, route line, closures, lost access), 3D, maintainer edits.
+- **Guide answers on the plan** (2026-10-25, [D-020](../../memory-bank/decisions.md#d-020)): the rooms an answer is
+  about are tinted in the route blue (three soft pulses, then steady) with name badges; items get a ringed dot (names
+  when ≤ 4). `search`, `locate`, `room_facts` and `show_on_map` all emit highlights (items too: `asset_ids`), and the
+  camera frames them (`PlanView` `focus`, ≥ 14 m across) — all floors stacked if they spread over several. A route is
+  framed whole (stacked when it crosses floors); **Start** on the next-move card then frames one step at a time, reads
+  it aloud and waits for "I'm there" (button, typed or spoken "geldim" / "next").
+- **"You are here" figure** (2026-10-25): an orange person pin, dragged out of the dock at the bottom right onto the
+  plan (a tap drops it mid-screen; tapping the dock again takes it off), dragged again to move. Its room goes to
+  `PUT /sessions/{id}/location`; the Guide then routes from "here" and stops asking where the user is.
+- **Nearby buildings** (2026-10-25, [D-021](../../memory-bank/decisions.md#d-021)): a "found nearby" card lists matches
+  in neighbouring buildings (Directions / Open); a route to one ends at the exit with a dashed line across outside to
+  the other entrance and a Continue badge/button, which opens that building and draws the rest from its entrance.
 
 ## Dev panel
 

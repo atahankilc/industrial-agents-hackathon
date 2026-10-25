@@ -37,25 +37,35 @@
 .ml-more:disabled { color: var(--ink-3); cursor: default; }
 
 /* the location card: top right, clear of the list panel; a top banner on narrow screens */
+/* location ask: a centred modal over a dimmed map, the one thing to answer before browsing */
+.ml-locate-scrim {
+  position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px;
+  background: rgba(0, 0, 0, 0.32); animation: ml-scrim-in 0.25s var(--ease);
+}
 .ml-locate {
-  position: absolute; top: 16px; right: 16px; width: 300px; padding: 16px 16px 12px;
-  border: 1px solid var(--hair); border-radius: var(--radius); background: var(--panel);
+  width: min(380px, 100%); padding: 28px 24px 20px; text-align: center;
+  border: 1px solid var(--hair); border-radius: calc(var(--radius) * 1.5); background: var(--panel);
   backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.12);
-  animation: ml-locate-in 0.25s var(--ease);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1), 0 24px 64px rgba(0, 0, 0, 0.28);
+  animation: ml-locate-in 0.3s var(--ease);
 }
-.ml-locate p { margin: 0; font-size: 15px; font-weight: 500; color: var(--ink); }
-.ml-locate .ml-locate-sub { margin-top: 4px; font-size: 13px; font-weight: 400; color: var(--ink-2); line-height: 1.4; }
-.ml-locate-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.ml-locate-icon {
+  display: inline-grid; place-items: center; width: 52px; height: 52px; margin-bottom: 14px;
+  border-radius: 999px; background: var(--ink); color: var(--bg);
+}
+.ml-locate p { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); }
+.ml-locate .ml-locate-sub { margin-top: 8px; font-size: 14px; font-weight: 400; color: var(--ink-2); line-height: 1.45; }
+.ml-locate-actions { display: grid; gap: 8px; margin-top: 22px; }
 .ml-locate-actions button {
-  padding: 8px 14px; border: 1px solid var(--hair-strong); border-radius: 999px;
-  background: transparent; color: var(--ink); font-size: 13.5px; cursor: pointer;
-  transition: background-color 0.15s var(--ease);
+  padding: 11px 16px; border: 1px solid transparent; border-radius: 999px;
+  background: transparent; color: var(--ink-2); font-size: 14px; cursor: pointer;
+  transition: background-color 0.15s var(--ease), opacity 0.15s var(--ease);
 }
-.ml-locate-actions button:hover, .ml-locate-actions button:focus-visible { background: var(--fill); outline: none; }
-.ml-locate-actions .ml-locate-allow { border-color: var(--ink); background: var(--ink); color: var(--bg); }
-.ml-locate-actions .ml-locate-allow:hover, .ml-locate-actions .ml-locate-allow:focus-visible { background: var(--ink); opacity: 0.85; }
-@keyframes ml-locate-in { from { opacity: 0; transform: translateY(-6px); } }
+.ml-locate-actions button:hover, .ml-locate-actions button:focus-visible { background: var(--fill); color: var(--ink); outline: none; }
+.ml-locate-actions .ml-locate-allow { padding: 13px 16px; border-color: var(--ink); background: var(--ink); color: var(--bg); font-size: 15px; font-weight: 500; }
+.ml-locate-actions .ml-locate-allow:hover, .ml-locate-actions .ml-locate-allow:focus-visible { background: var(--ink); color: var(--bg); opacity: 0.85; }
+@keyframes ml-locate-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } }
+@keyframes ml-scrim-in { from { opacity: 0; } }
 
 .ml .maplibregl-ctrl-attrib { font-size: 10px; }
 
@@ -71,9 +81,8 @@
   .ml-open .ml-panel { transform: translateY(12px); }
   .ml-panel header { padding: 14px 16px 8px; }
   .ml .maplibregl-ctrl-bottom-right { bottom: calc(42vh + 24px); }
-  .ml-locate { left: 16px; width: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ml-list button, .ml-more, .ml-locate-actions button { transition: none; }
-  .ml-locate { animation: none; }
+  .ml-locate, .ml-locate-scrim { animation: none; }
 }

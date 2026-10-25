@@ -8,6 +8,8 @@
 // The model rises out of the ground when it first appears (Reveal). Over the landing map (src/map/bridge.ts) the
 // camera starts from the map's own camera and eases to the first framing, and every frame hands the camera to the
 // map so the city stays in register under the model.
+// `focus` frames what an answer is about (its rooms, items or route part) instead of the whole floor. The "you are
+// here" figure is dragged out of its dock (bottom right) onto the plan, and dragged again to move it.
 
 import { MapControls } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
@@ -22,12 +24,17 @@ import type { PlanPalette } from './palette'
 import { ObjectMarkers, ObjectsLayer } from './ObjectsLayer'
 import { Pins, PinTracker, pinsFor, type Pin } from './pins'
 import type { PlanSettings } from './settings'
-import { StoryLayer, StoryMarkers, storyMarkers } from '../dev/StoryLayer'
+import { PersonGlyph, StoryLayer, StoryMarkers, storyMarkers } from '../dev/StoryLayer'
 import type { Story } from '../dev/story'
 
 export type Insets = { top: number; right: number; bottom: number; left: number }
 export type ViewMode = '3d' | '2d'
 export type Selected = { kind: 'space' | 'asset'; id: string }
+/** Points to frame ([x, y, floor index], plan metres), at least `span` metres across; a new `key` moves the camera.
+ * On a single floor only that floor's points count; none there = the whole floor. */
+export type Focus = { key: number; points: [number, number, number][]; span?: number }
+/** The "you are here" figure: where it stands, and the room (its label) */
+export type Me = { at: [number, number]; floor: number; space: string; label: string }
 type Hit = { floor: number; selected: Selected | null }
 
 type Props = {
@@ -57,7 +64,21 @@ type Props = {
   onMiss?: (x: number, y: number) => boolean
   /** access mode: moving objects to draw (src/plan/ObjectsLayer.tsx) */
   objects?: FleetObject[]
+  focus?: Focus | null
+  /** the "you are here" figure, and where the user put it (null = taken off the plan); no onMe = no figure */
+  me?: Me | null
+  onMe?: (me: Me | null) => void
+  /** the badge at the end of a walk to a nearby building */
+  onNext?: () => void
+  /** an SVG group over the canvas drawn in building metres (src/edit/EditLayer.tsx): kept in register with the
+   * current floor's plane on every frame (the camera is orthographic, so the plane maps to the screen affinely) */
+  align?: React.RefObject<SVGGElement | null>
+  /** every tap on the building (or, on one floor, beside it): the floor, the point in plan metres and the pixels per
+   * metre there. Returning true takes the tap (no selecting); a tap on another floor still steps onto it. */
+  onTap?: (tap: Tap) => boolean
 }
+
+export type Tap = { floor: number; at: [number, number]; pixelsPerMetre: number }
 
 const FIT_MARGIN_PX = 24
 const MOVE_SECONDS = 0.55
@@ -77,12 +98,15 @@ const TILTED = { polar: 0.98, azimuth: Math.PI / 4 } // ~34° above the horizon,
 // "All floors" stacks every floor at its real elevation (from the lowest floor), so the building keeps its proportions
 const floorLift = (plan: Plan, index: number) => (plan.floors[index]?.elevation_m ?? 0) - (plan.floors[0]?.elevation_m ?? 0)
 export function PlanView(props: Props) {
-  const { plan, floor, stacked, palette, selected, insets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, city, camera, onMiss, objects } = props
+  const { plan, floor, stacked, palette, selected, insets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, city, camera, onMiss, objects, focus = null, me = null, onMe, onNext, align, onTap } = props
   const groundRef = useRef<THREE.Mesh>(null)
   const labels = useRef<HTMLCanvasElement>(null)
   const { wallHeight, colours } = settings
   const floors = useMemo(() => buildFloors(plan, palette, { wallHeight, colours }), [plan, palette, wallHeight, colours])
   const [hovered, setHovered] = useState<string | null>(null)
+  // all floors stacked: the floor under the mouse lights up (a tap steps into it)
+  const [hoveredFloor, setHoveredFloor] = useState<number | null>(null)
+  useEffect(() => setHoveredFloor(null), [stacked])
   const pinList = useMemo(() => (settings.pins && !stacked ? pinsFor(plan, floor) : []), [settings.pins, stacked, plan, floor])
   const pinElements = useRef(new Map<string, HTMLElement>())
   const pinnedSpaces = useMemo(() => new Set(pinList.map((pin) => pin.space).filter((id): id is string => Boolean(id))), [pinList])
@@ -99,12 +123,38 @@ export function PlanView(props: Props) {
   useEffect(() => () => floors.forEach(disposeFloor), [floors])
   const down = useRef<{ x: number; y: number } | null>(null)
   const pick = useRef<(x: number, y: number) => Hit | null>(() => null)
+  // screen point → plan metres on a floor's plane (for the figure's drop)
+  const unproject = useRef<(x: number, y: number, floor: number) => [number, number] | null>(() => null)
+  const zoom = useRef<() => number>(() => 1) // pixels per metre (the orthographic camera's zoom)
   // the ground (the map's, over the map) under the ground floor; one floor alone stands on it
   const groundY = (spreading || stacked ? lift(groundIndex(plan)) : 0) - GROUND_BELOW_M
   const shown = stacked ? [...floors.keys()] : spreading ? [...floors.keys()].filter((i) => i <= floor) : [floor]
-  const markers = useMemo(() => storyMarkers(plan, story), [plan, story])
+  const markers = useMemo(() => {
+    const list = storyMarkers(plan, story)
+    if (me && onMe) list.push({ key: 'me', kind: 'me', floor: me.floor, at: me.at, label: me.label })
+    return list
+  }, [plan, story, me, onMe])
+  /** Put the figure where it was dropped (x, y in the plan's box): on the floor under it, in the smallest room there.
+   * Dropped off the building it goes back where it was. */
+  const dropMe = (x: number, y: number) => {
+    if (!onMe) return
+    const target = stacked ? pick.current(x, y)?.floor ?? null : floor
+    const at = target === null ? null : unproject.current(x, y, target)
+    let best: PlanSpace | null = null
+    if (at && target !== null)
+      for (const space of plan.spaces) {
+        if (space.floor !== target || !contains(space.polygon, at[0], at[1])) continue
+        if (!best || space.area_m2 < best.area_m2) best = space
+      }
+    if (at && best && target !== null) onMe({ at, floor: target, space: best.id, label: best.name })
+    else onMe(me ? { ...me } : null) // a fresh object: the tracker puts it back
+  }
+  const dock = useRef<HTMLButtonElement>(null)
+  const dockDrag = useRef<{ x: number; y: number; moved: boolean } | null>(null)
   const markerElements = useRef(new Map<string, HTMLElement>())
   const objectElements = useRef(new Map<string, HTMLElement>())
+  const rose = useRef<HTMLSpanElement>(null)
+  const northUp = useRef<(() => void) | null>(null)
 
   return (
     <div
@@ -112,24 +162,42 @@ export function PlanView(props: Props) {
       onContextMenu={(event) => event.preventDefault()}
       onPointerDown={(event) => (down.current = { x: event.clientX, y: event.clientY })}
       onPointerMove={(event) => {
-        if (!settings.hover || stacked || event.pointerType !== 'mouse' || event.buttons) return
+        if (event.pointerType !== 'mouse' || event.buttons) return
+        if (!stacked && !settings.hover) return
         const rect = event.currentTarget.getBoundingClientRect()
         const hit = pick.current(event.clientX - rect.left, event.clientY - rect.top)
+        if (stacked) {
+          const at = hit?.floor ?? null
+          if (at !== hoveredFloor) setHoveredFloor(at)
+          return
+        }
         const id = hit?.selected?.kind === 'space' ? hit.selected.id : null
         if (id !== hovered) setHovered(id)
       }}
-      onPointerLeave={() => setHovered(null)}
-      style={settings.hover && hovered ? { cursor: 'pointer' } : undefined}
+      onPointerLeave={() => {
+        setHovered(null)
+        setHoveredFloor(null)
+      }}
+      style={(settings.hover && hovered) || (stacked && hoveredFloor !== null) ? { cursor: 'pointer' } : undefined}
       onPointerUp={(event) => {
         const start = down.current
         down.current = null
         if (!start || event.button !== 0 || Math.hypot(event.clientX - start.x, event.clientY - start.y) > TAP_SLOP_PX) return
         const rect = event.currentTarget.getBoundingClientRect()
-        const hit = pick.current(event.clientX - rect.left, event.clientY - rect.top)
+        const [x, y] = [event.clientX - rect.left, event.clientY - rect.top]
+        const hit = pick.current(x, y)
+        const tapped = hit?.floor ?? (stacked ? null : floor)
+        const at = tapped === null ? null : unproject.current(x, y, tapped)
+        if (onTap && tapped !== null && at && onTap({ floor: tapped, at, pixelsPerMetre: zoom.current() })) {
+          if (stacked || tapped !== floor) onPickFloor(tapped)
+          return
+        }
         if (!hit && onMiss?.(event.clientX, event.clientY)) return
-        // a tap on another floor steps onto it; on the current floor it selects what is there
-        if (hit && (stacked || hit.floor !== floor)) onPickFloor(hit.floor)
-        else onSelect(hit?.selected ?? null)
+        // a tap on another floor (or on a floor of the stack) steps onto it and selects what is there, in one tap
+        if (hit && (stacked || hit.floor !== floor)) {
+          onPickFloor(hit.floor)
+          if (hit.selected) onSelect(hit.selected)
+        } else onSelect(hit?.selected ?? null)
       }}
     >
       <Canvas
@@ -169,9 +237,14 @@ export function PlanView(props: Props) {
           ))}
           {mode === 'stacked' && shown.map((index) => (
             <group key={`tag-${index}`} position={[0, lift(index), 0]}>
-              <FloorTag plan={plan} floor={index} name={plan.floors[index]?.name ?? ''} height={wallHeight} palette={palette} current={index === floor} />
+              <FloorTag plan={plan} floor={index} name={plan.floors[index]?.name ?? ''} height={wallHeight} palette={palette} current={index === floor || index === hoveredFloor} />
             </group>
           ))}
+          {mode === 'stacked' && hoveredFloor !== null && floors[hoveredFloor] && (
+            <group position={[0, lift(hoveredFloor), 0]}>
+              <FloorGlow geometry={floors[hoveredFloor]} palette={palette} />
+            </group>
+          )}
           {mode === 'floor' && <Selection plan={plan} selected={selected} palette={palette} floors={floors} colours={colours} />}
           {mode === 'floor' && settings.hover && hovered && hovered !== selected?.id && (
             <Hover plan={plan} id={hovered} palette={palette} floors={floors} colours={colours} />
@@ -182,15 +255,95 @@ export function PlanView(props: Props) {
           )}
         </Slide>
         </Reveal>
-        <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} insets={insets} fitKey={fitKey} onTilt={onTilt} intro={camera?.intro} ground={groundRef} maxPolar={camera ? MAX_POLAR_ON_MAP : MAX_POLAR} />
+        <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} insets={insets} fitKey={fitKey} focus={focus} onTilt={onTilt} intro={camera?.intro} ground={groundRef} maxPolar={camera ? MAX_POLAR_ON_MAP : MAX_POLAR} northUp={northUp} />
+        <CompassTracker rose={rose} />
+        {align && <Align plan={plan} y={stacked ? stackLift(floor) : lift(floor)} target={align} />}
         <Follow plan={plan} ground={groundRef} follow={camera?.follow} />
-        <Picker plan={plan} floors={stacked ? shown : shown.filter((i) => i <= floor)} lift={lift} stacked={stacked} geometries={floors} pick={pick} />
+        <Picker plan={plan} floors={stacked ? shown : shown.filter((i) => i <= floor)} lift={lift} stacked={stacked} geometries={floors} pick={pick} unproject={unproject} zoom={zoom} />
         <LabelPainter plan={plan} floor={floor} stacked={stacked} rooms={mode === 'floor'} palette={palette} canvas={labels} selected={selected} skip={pinnedSpaces} />
         <PinTracker plan={plan} pins={pinList} elements={pinElements} />
       </Canvas>
       <canvas ref={labels} className="plan-labels" aria-hidden="true" />
+      <button
+        type="button"
+        className="plan-compass"
+        style={{ right: insets.right + 16, bottom: insets.bottom + 16 + (onMe ? 46 + 10 : 0) }}
+        aria-label="Compass: turn the view north-up"
+        title="North · tap to turn north-up"
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerUp={(event) => event.stopPropagation()}
+        onClick={() => northUp.current?.()}
+      >
+        <span ref={rose} className="plan-compass-rose" aria-hidden="true">
+          <svg viewBox="-23 -23 46 46">
+            {COMPASS_TICKS.map((deg) => (
+              <line key={deg} className={deg % 90 === 0 ? 'major' : undefined} x1="0" y1="-20" x2="0" y2={deg % 90 === 0 ? -16 : -18} transform={`rotate(${deg})`} />
+            ))}
+            <path className="needle-n" d="M0 -10.5 L2.4 0 L-2.4 0 Z" />
+            <path className="needle-s" d="M0 10.5 L2.4 0 L-2.4 0 Z" />
+            <circle className="hub" r="1.6" />
+          </svg>
+          <b>N</b>
+        </span>
+      </button>
       <Pins pins={pinList} elements={pinElements} onPick={(pin: Pin) => pin.space && onSelect({ kind: 'space', id: pin.space })} />
-      <StoryMarkers markers={markers} elements={markerElements} onGoto={onPickFloor} />
+      <StoryMarkers markers={markers} elements={markerElements} onGoto={onPickFloor} onNext={onNext} onMeDrop={dropMe} />
+      {onMe && (
+        <button
+          ref={dock}
+          type="button"
+          className={`me-dock${me ? ' placed' : ''}`}
+          style={{ right: insets.right + 16, bottom: insets.bottom + 16 }}
+          aria-label={me ? 'Take the figure off the plan' : 'Put the figure where you are (drag it onto the plan)'}
+          title={me ? 'Tap to take the figure off · drag to put it somewhere else' : 'Drag me to where you are'}
+          onPointerDown={(event) => {
+            event.stopPropagation()
+            event.currentTarget.setPointerCapture(event.pointerId)
+            dockDrag.current = { x: event.clientX, y: event.clientY, moved: false }
+          }}
+          onPointerMove={(event) => {
+            const drag = dockDrag.current
+            if (!drag) return
+            if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > TAP_SLOP_PX) drag.moved = true
+            const ghost = event.currentTarget.querySelector<HTMLElement>('.me-ghost')
+            if (ghost && drag.moved) {
+              ghost.style.display = 'block'
+              ghost.style.transform = `translate(${event.clientX}px, ${event.clientY}px)`
+            }
+          }}
+          onPointerUp={(event) => {
+            event.stopPropagation()
+            const drag = dockDrag.current
+            dockDrag.current = null
+            const ghost = event.currentTarget.querySelector<HTMLElement>('.me-ghost')
+            if (ghost) ghost.style.display = 'none'
+            if (!drag) return
+            const box = event.currentTarget.parentElement?.getBoundingClientRect()
+            if (drag.moved && box) dropMe(event.clientX - box.left, event.clientY - box.top)
+            else if (me) onMe(null)
+            else if (box) {
+              // a tap: the figure lands in the middle of the free part of the screen
+              const x = (insets.left + box.width - insets.right) / 2
+              const y = (insets.top + box.height - insets.bottom) / 2
+              dropMe(x, y)
+            }
+          }}
+          onPointerCancel={(event) => {
+            dockDrag.current = null
+            const ghost = event.currentTarget.querySelector<HTMLElement>('.me-ghost')
+            if (ghost) ghost.style.display = 'none'
+          }}
+        >
+          <PersonGlyph size={22} />
+          {me && <small aria-hidden="true">×</small>}
+          <span className="me-ghost" aria-hidden="true">
+            <span className="me-figure">
+              <PersonGlyph />
+              <span>Here?</span>
+            </span>
+          </span>
+        </button>
+      )}
       {objects && objects.length > 0 && <ObjectMarkers objects={objects} palette={palette} elements={objectElements} />}
     </div>
   )
@@ -659,6 +812,29 @@ function Selection({ plan, selected, palette, floors, colours }: { plan: Plan; s
   )
 }
 
+/** The floor under the mouse in the stacked view: its floor washed with the selection colour, its walls and slab
+ * edge drawn in the selection's edge colour. */
+function FloorGlow({ geometry, palette }: { geometry: FloorGeometry; palette: PlanPalette }) {
+  const invalidate = useThree((state) => state.invalidate)
+  useEffect(() => {
+    invalidate()
+    return () => invalidate()
+  }, [geometry, invalidate])
+  return (
+    <group renderOrder={4}>
+      <mesh geometry={geometry.fills} position={[0, 0.03, 0]} renderOrder={4}>
+        <meshBasicMaterial color={palette.selected} transparent opacity={0.45} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
+      </mesh>
+      <mesh geometry={geometry.slab} renderOrder={4}>
+        <meshBasicMaterial color={palette.selectedEdge} transparent opacity={0.8} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
+      </mesh>
+      <lineSegments geometry={geometry.outline} position={[0, 0.04, 0]} renderOrder={5}>
+        <lineBasicMaterial color={palette.selectedEdge} depthWrite={false} />
+      </lineSegments>
+    </group>
+  )
+}
+
 /** Mouse-over tint: halfway between the room's own colour and the selection colour. */
 function Hover({ plan, id, palette, floors, colours }: { plan: Plan; id: string; palette: PlanPalette; floors: FloorGeometry[]; colours: PlanSettings['colours'] }) {
   const invalidate = useThree((state) => state.invalidate)
@@ -728,6 +904,49 @@ function frame(plan: Plan, floors: number[], lift: (index: number) => number, vi
   return { target, zoom }
 }
 
+/** Camera framing for a few points ([X, Z, height] in the scene): the zoom that fits them, grown to at least `span`
+ * metres across so a small room keeps its neighbours around it, centred in the free part of the screen. */
+function fitPoints(points: [number, number, number][], view: { polar: number; azimuth: number }, size: { width: number; height: number }, insets: Insets, span: number) {
+  const probe = new THREE.OrthographicCamera()
+  probe.position.copy(offsetFor(view.polar, view.azimuth))
+  probe.up.set(0, 1, 0)
+  probe.lookAt(0, 0, 0)
+  probe.updateMatrixWorld()
+  const inverse = probe.matrixWorldInverse
+  const extent = new THREE.Box2()
+  const p = new THREE.Vector3()
+  const box = new THREE.Box2()
+  for (const [X, Z, height] of points) {
+    box.expandByPoint(new THREE.Vector2(X, Z))
+    for (const h of [height, height + WALL_CUT_M]) {
+      p.set(X, h, Z).applyMatrix4(inverse)
+      extent.expandByPoint(new THREE.Vector2(p.x, p.y))
+    }
+  }
+  const mid = extent.getCenter(new THREE.Vector2())
+  extent.expandByPoint(new THREE.Vector2(mid.x - span / 2, mid.y - span / 2)).expandByPoint(new THREE.Vector2(mid.x + span / 2, mid.y + span / 2))
+  const free = {
+    width: Math.max(80, size.width - insets.left - insets.right - FIT_MARGIN_PX * 2),
+    height: Math.max(80, size.height - insets.top - insets.bottom - FIT_MARGIN_PX * 2),
+  }
+  const extentSize = extent.getSize(new THREE.Vector2())
+  const zoom = Math.min(MAX_ZOOM, free.width / Math.max(extentSize.x, 1), free.height / Math.max(extentSize.y, 1))
+  const right = new THREE.Vector3().setFromMatrixColumn(probe.matrixWorld, 0)
+  const up = new THREE.Vector3().setFromMatrixColumn(probe.matrixWorld, 1)
+  const forward = new THREE.Vector3().setFromMatrixColumn(probe.matrixWorld, 2)
+  const middle = box.getCenter(new THREE.Vector2())
+  const centre = new THREE.Vector3(middle.x, 0, middle.y)
+  const along = centre.clone().applyMatrix4(inverse)
+  const target = centre
+    .clone()
+    .addScaledVector(right, mid.x - along.x)
+    .addScaledVector(up, mid.y - along.y)
+    .addScaledVector(right, -(insets.left - insets.right) / 2 / zoom)
+    .addScaledVector(up, (insets.top - insets.bottom) / 2 / zoom)
+  if (Math.abs(forward.y) > 1e-6) target.addScaledVector(forward, -target.y / forward.y)
+  return { target, zoom }
+}
+
 /** The model rising out of the ground the first time it is drawn (the walls grow up from the floor). */
 function Reveal({ children }: { children: React.ReactNode }) {
   const group = useRef<THREE.Group>(null)
@@ -783,24 +1002,45 @@ function Follow({ plan, ground, follow }: { plan: Plan; ground: React.RefObject<
   return null
 }
 
+const COMPASS_TICKS = Array.from({ length: 11 }, (_, index) => (index + 1) * 30) // every 30°, none under the N
+
+/** Turns the compass rose with the camera on every frame: the camera's azimuth is minus its bearing (degrees
+ * clockwise from north), and north sits that far round on the screen. */
+function CompassTracker({ rose }: { rose: React.RefObject<HTMLSpanElement | null> }) {
+  const controls = useThree((state) => state.controls) as MapControlsImpl | null
+  const last = useRef(NaN)
+  useFrame(() => {
+    const node = rose.current
+    if (!node || !controls) return
+    const azimuth = controls.getAzimuthalAngle()
+    if (azimuth === last.current) return
+    last.current = azimuth
+    node.style.setProperty('--turn', `${azimuth}rad`)
+  })
+  return null
+}
+
 type Pose = { target: THREE.Vector3; zoom: number; polar: number; azimuth: number }
 type Move = { t: number; from: Pose; to: Pose; seconds?: number }
 
 /** Frames the shown floors (tilted, or flat if the user went flat on one floor) whenever they or fitKey change, easing there. Tilting is free in between
  * (0 = straight down … MAX_POLAR); a nearly flat tilt snaps flat when the gesture ends, and the current look
  * (flat or tilted) is reported so a flat view can stop spreading the floors. */
-function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt, intro, ground, maxPolar }: {
+function Rig({ plan, floor, floors, stacked, insets, fitKey, focus, onTilt, intro, ground, maxPolar, northUp }: {
   plan: Plan
   floor: number
   floors: number[]
   stacked: boolean
   insets: Insets
   fitKey: number
+  focus: Focus | null
   onTilt: (mode: ViewMode) => void
   /** the camera to start from (the map's), eased from to the first framing */
   intro?: () => View | null
   ground: React.RefObject<THREE.Mesh | null>
   maxPolar: number
+  /** filled in here: eases the camera round until north is up, keeping where it looks, its zoom and its tilt */
+  northUp: React.RefObject<(() => void) | null>
 }) {
   const camera = useThree((state) => state.camera) as THREE.OrthographicCamera
   const size = useThree((state) => state.size)
@@ -816,9 +1056,11 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt, intro, grou
   const move = useRef<Move | null>(null)
   const first = useRef(true)
   const reported = useRef<ViewMode | null>(null)
-  // only what is framed: a single floor frames just itself, so dropping the spread floors (on going flat) must
-  // not refit and tip the camera back up
-  const key = stacked ? floors.join(',') : String(floor)
+  // only what is framed: the whole stack refits when its floors change; one floor at a time never refits on a floor
+  // change (the camera stays where you put it, the floors slide past it), nor when the plan object is replaced by
+  // the same building (an edit in the Edit mode: same id, same centre)
+  const key = stacked ? floors.join(',') : 'floor'
+  const planKey = `${plan.building.id}|${plan.center.join(',')}`
 
   const report = (polar: number) => {
     const mode: ViewMode = polar < FLAT_BELOW ? '2d' : '3d'
@@ -857,16 +1099,30 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt, intro, grou
   }, [controls, camera, invalidate, plan])
 
   useEffect(() => {
+    northUp.current = () => {
+      if (!controls) return
+      const from = { target: controls.target.clone(), zoom: camera.zoom, polar: controls.getPolarAngle(), azimuth: controls.getAzimuthalAngle() }
+      move.current = { t: 0, from, to: { ...from, target: from.target.clone(), azimuth: 0 } } // azimuth 0 looks along -Z, the plan's north
+      invalidate()
+    }
+    return () => void (northUp.current = null)
+  }, [northUp, controls, camera, invalidate])
+
+  useEffect(() => {
     if (!controls) return
     // keep the user's own turn
     const azimuth = first.current ? TILTED.azimuth : controls.getAzimuthalAngle()
-    // and the user's flat look on a single floor (the whole stack is only readable tilted)
-    const polar = !first.current && !stacked && reported.current === '2d' ? FLAT_POLAR : TILTED.polar
+    // and the user's own tilt (the whole stack is only readable tilted: a flat look goes back to the default tilt)
+    const polar = first.current ? TILTED.polar : stacked && reported.current === '2d' ? TILTED.polar : controls.getPolarAngle()
     // the whole stack, or the floor you are on: the camera focuses on your floor; the others stay spread
     // above and below it, out of frame until you zoom out
     const framed = stacked ? floors : [floor]
     const lift = (i: number) => (stacked ? floorLift(plan, i) : 0)
-    const fit = frame(plan, framed, lift, { polar, azimuth }, size, insetsRef.current)
+    // an answer's own points, where they are on what is shown (not on the very first framing: the building comes first)
+    const points = first.current ? [] : focus?.points.filter(([, , at]) => framed.includes(at)) ?? []
+    const fit = points.length
+      ? fitPoints(points.map(([x, y, at]) => [...toScene(plan, x, y), lift(at)] as [number, number, number]), { polar, azimuth }, size, insetsRef.current, focus?.span ?? 0)
+      : frame(plan, framed, lift, { polar, azimuth }, size, insetsRef.current)
     const to = { target: fit.target, zoom: fit.zoom, polar, azimuth }
     if (first.current) {
       first.current = false
@@ -893,7 +1149,7 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt, intro, grou
     invalidate()
     // place reads refs only; floors is compared through its key
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan, key, floor, stacked, fitKey, controls, size.width, size.height, camera, invalidate])
+  }, [planKey, key, stacked, fitKey, focus?.key, controls, size.width, size.height, camera, invalidate])
 
   useFrame((_, delta) => {
     const current = move.current
@@ -938,17 +1194,51 @@ function Rig({ plan, floor, floors, stacked, insets, fitKey, onTilt, intro, grou
 
 /** Screen point → what is under it: a piece of furniture first, else the smallest space on that floor (rooms win
  * over the hall around them). With floors stacked, the floor nearest the camera wins. */
-function Picker({ plan, floors, lift, stacked, geometries, pick }: {
+/** Keeps an SVG group in building metres on top of the floor plane at height `y`: projects the plane's origin and
+ * its x / y unit points every frame and writes them as the group's matrix (only when it changed). */
+function Align({ plan, y, target }: { plan: Plan; y: number; target: React.RefObject<SVGGElement | null> }) {
+  const scratch = useMemo(() => [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], [])
+  const last = useRef('')
+  useFrame(({ camera, size }) => {
+    const group = target.current
+    if (!group) return
+    camera.updateMatrixWorld()
+    const screen = ([x, yy]: [number, number], into: THREE.Vector3) => {
+      const [sx, sz] = toScene(plan, x, yy)
+      into.set(sx, y, sz).project(camera)
+      return [((into.x + 1) / 2) * size.width, ((1 - into.y) / 2) * size.height]
+    }
+    const [ox, oy] = screen([0, 0], scratch[0])
+    const [xx, xy] = screen([1, 0], scratch[1])
+    const [yx, yy] = screen([0, 1], scratch[2])
+    const matrix = `matrix(${xx - ox} ${xy - oy} ${yx - ox} ${yy - oy} ${ox} ${oy})`
+    if (matrix === last.current) return
+    last.current = matrix
+    group.setAttribute('transform', matrix)
+    group.dispatchEvent(new Event('aligned'))
+  })
+  return null
+}
+
+function Picker({ plan, floors, lift, stacked, geometries, pick, unproject, zoom }: {
   plan: Plan
   floors: number[]
   lift: (index: number) => number
   stacked: boolean
   geometries: FloorGeometry[]
   pick: React.RefObject<(x: number, y: number) => Hit | null>
+  unproject: React.RefObject<(x: number, y: number, floor: number) => [number, number] | null>
+  zoom: React.RefObject<() => number>
 }) {
   const { camera, size, scene } = useThree()
   useEffect(() => {
     const raycaster = new THREE.Raycaster()
+    zoom.current = () => (camera as THREE.OrthographicCamera).zoom
+    unproject.current = (x: number, y: number, floor: number) => {
+      raycaster.setFromCamera(new THREE.Vector2((x / size.width) * 2 - 1, -(y / size.height) * 2 + 1), camera)
+      const point = raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -lift(floor)), new THREE.Vector3())
+      return point ? fromScene(plan, point.x, point.z) : null
+    }
     pick.current = (x: number, y: number) => {
       raycaster.setFromCamera(new THREE.Vector2((x / size.width) * 2 - 1, -(y / size.height) * 2 + 1), camera)
       if (!stacked) {
@@ -980,13 +1270,14 @@ function Picker({ plan, floors, lift, stacked, geometries, pick }: {
       }
       return null
     }
-  }, [plan, floors, lift, stacked, geometries, camera, size, scene, pick])
+  }, [plan, floors, lift, stacked, geometries, camera, size, scene, pick, unproject, zoom])
   return null
 }
 
 const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
 const NAME_PX = 12
 const REF_PX = 11
+const SMALL_PX = 10 // zoomed out: a label that does not fit its room shrinks to this (the number alone if it has one)
 const LABEL_GAP_PX = 3
 
 /** Free width and height (metres) through the label point: the span of the horizontal and vertical lines through
@@ -1082,14 +1373,19 @@ function LabelPainter({ plan, floor, stacked, rooms, palette, canvas, selected, 
       const across = flat ? free[0] : Math.min(free[0], free[1])
       const freeWidth = across * pixelsPerMetre - 8
       const freeHeight = (flat ? free[1] : Math.min(free[0], free[1])) * pixelsPerMetre * tilt - 6
-      const [name, ref] = labelParts(space)
-      context.font = `600 ${NAME_PX}px ${FONT}`
-      const nameWidth = context.measureText(name).width
+      const [fullName, ref] = labelParts(space)
       const isSelected = space.id === selectedSpace
-      if (!isSelected && (nameWidth > freeWidth || freeHeight < NAME_PX + 2)) continue
-      const showRef = Boolean(ref) && freeHeight > NAME_PX + REF_PX + LABEL_GAP_PX + 8
-      const height = showRef ? NAME_PX + REF_PX + LABEL_GAP_PX : NAME_PX
-      const box: [number, number, number, number] = [sx - nameWidth / 2 - 4, sy - height / 2 - 3, sx + nameWidth / 2 + 4, sy + height / 2 + 3]
+      context.font = `600 ${NAME_PX}px ${FONT}`
+      // the whole name when it fits the room; zoomed out, a smaller label — the room's number if it has one, else its
+      // name — that may run past the walls: a room keeps its label until it would cover another one
+      const fits = isSelected || (context.measureText(fullName).width <= freeWidth && freeHeight >= NAME_PX + 2)
+      const name = fits ? fullName : ref || fullName
+      const namePx = fits ? NAME_PX : SMALL_PX
+      context.font = `600 ${namePx}px ${FONT}`
+      const nameWidth = context.measureText(name).width
+      const showRef = fits && Boolean(ref) && freeHeight > NAME_PX + REF_PX + LABEL_GAP_PX + 8
+      const height = showRef ? NAME_PX + REF_PX + LABEL_GAP_PX : namePx
+      const box: [number, number, number, number] = [sx - nameWidth / 2 - 3, sy - height / 2 - 2, sx + nameWidth / 2 + 3, sy + height / 2 + 2]
       if (!isSelected && taken.some((other) => box[0] < other[2] && box[2] > other[0] && box[1] < other[3] && box[3] > other[1])) continue
       taken.push(box)
       const nameY = showRef ? sy - (REF_PX + LABEL_GAP_PX) / 2 : sy

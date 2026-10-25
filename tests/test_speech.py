@@ -1,13 +1,16 @@
 """Voice channel: speakable text for TTS, the voice style instruction, and the OpenAI-compatible endpoint."""
 
 import json
+from contextlib import contextmanager
+from types import SimpleNamespace
 
+import anthropic
 import pytest
 from fastapi.testclient import TestClient
 
 from agent.guide import VOICE_STYLE, Guide, ungrounded
 from agent.offline_llm import OfflineClient, message, text_block, tool_use
-from agent.speech import speakable
+from agent.speech import SpokenStream, sentences, speakable
 from agent.tools import BuildingSession
 from tests.test_guide import BUILDING, ScriptedClient, results
 
@@ -98,3 +101,103 @@ def test_completions_endpoint_speaks(monkeypatch):
 def test_offline_client_ignores_system_messages():
     guide = Guide(BuildingSession.load(BUILDING), client=OfflineClient(), model="claude-opus-5-5")
     assert "Which one" in guide.reply("Where is the printer?", channel="voice").text
+
+
+# ---------- speaking while the reply is written (SpokenStream) ----------
+
+
+def test_sentences_keep_decimals_and_list_markers():
+    assert sentences("Room 3.07 is on Floor 3. Go!\n1. Walk 27 m.\n2. Turn") == [
+        "Room 3.07 is on Floor 3.", " Go!", "\n", "1. Walk 27 m.", "\n", "2. Turn"]
+    assert sentences("Floor 3.") == ["Floor 3."]  # no whitespace yet: the model may still be writing "3.07"
+
+
+def test_spoken_stream_says_grounded_sentences_as_they_complete():
+    said = []
+    stream = SpokenStream(said.append, lambda sentence: "99" not in sentence)
+    stream.feed("Let me check.")
+    assert said == []  # not before whitespace follows the period
+    for char in " Room 3.07 is on **Floor 3**. It is 99 m away. Bye.":
+        stream.feed(char)
+    stream.end_block()
+    assert said == ["Let me check.", "Room 3.07 is on Floor 3."]  # held from the ungrounded sentence on
+    stream.finish("Let me check. Room 3.07 is on Floor 3. It is 40 m away. Bye.")
+    assert said == ["Let me check.", "Room 3.07 is on Floor 3.", "It is 40 metres away.", "Bye."]
+
+
+def test_spoken_stream_finish_after_a_rewritten_reply_says_only_what_is_new():
+    said = []
+    stream = SpokenStream(said.append, lambda sentence: True)
+    stream.feed("One moment. ")
+    stream.hold()
+    stream.feed("Never said live. ")
+    stream.finish("One moment.\n\nTake Lift 1. One moment.")
+    assert said == ["One moment.", "Take Lift 1.", "One moment."]  # a repeat later in the reply is still said
+
+
+class StreamingClient(anthropic.Anthropic):
+    """A real client type whose `beta.messages.stream` replays scripted text deltas (no network)."""
+
+    def __init__(self, replies: list[list[str]]) -> None:
+        super().__init__(api_key="test")
+        self.replies = replies = list(replies)
+        self.delivered: list[str] = []  # every delta handed to the Guide, in order
+        create = lambda **request: message(text_block("".join(replies.pop(0))))  # the non-streaming path
+        fake = SimpleNamespace(stream=self.stream, create=create)
+        object.__setattr__(self, "beta", SimpleNamespace(messages=fake))
+
+    @contextmanager
+    def stream(self, **request):
+        deltas = self.replies.pop(0)
+        client = self
+
+        class Stream:
+            def __iter__(self):
+                for delta in deltas:
+                    client.delivered.append(delta)
+                    yield SimpleNamespace(type="content_block_delta",
+                                          delta=SimpleNamespace(type="text_delta", text=delta))
+                yield SimpleNamespace(type="content_block_stop")
+
+            def get_final_message(self):
+                return message(text_block("".join(deltas)))
+
+        yield Stream()
+
+
+def test_guide_streams_voice_sentences_while_the_model_writes(monkeypatch):
+    monkeypatch.setenv("GUIDE_REWRITER", "off")
+    client = StreamingClient([["The kitchen is on ", "the ground floor. ", "Shall I ", "take you there?"]])
+    guide = Guide(BuildingSession.load(BUILDING), client=client)
+    said = []
+    guide.on_say = lambda text: said.append((text, len(client.delivered)))
+    turn = guide.reply("Where is the kitchen?", channel="voice")
+    assert said == [("The kitchen is on the ground floor.", 2), ("Shall I take you there?", 4)]
+    assert turn.spoken == "The kitchen is on the ground floor. Shall I take you there?"
+    assert guide.speech is None
+    guide.on_say = None
+    client.replies.append(["Fine."])
+    assert guide.reply("ok", channel="voice").text == "Fine."  # no listener: the plain request path
+
+
+def test_guide_holds_live_speech_until_the_grounding_repair():
+    client = ScriptedClient([
+        lambda request: message(text_block("One moment. The kitchen is 77 m away.")),
+        lambda request: message(text_block("One moment. The kitchen is on the ground floor.")),
+    ])
+    guide = Guide(BuildingSession.load(BUILDING), client=client)
+    said = []
+    guide.on_say = said.append
+    turn = guide.reply("Where is the kitchen?", channel="voice")
+    assert len(client.requests) == 2  # the repair round ran
+    assert said == ["One moment.", "The kitchen is on the ground floor."]  # "77 m" was never said
+    assert turn.ungrounded == []
+
+
+def test_guide_holds_live_speech_when_the_profile_safety_net_may_redo_the_reply():
+    client = ScriptedClient([lambda request: message(text_block("Noted."))])
+    guide = Guide(BuildingSession.load(BUILDING), client=client)
+    said = []
+    guide.on_say = said.append
+    turn = guide.reply("I use a wheelchair", channel="voice")
+    assert said and " ".join(said) == turn.spoken  # all said at the end, the confirmation line included

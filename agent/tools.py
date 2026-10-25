@@ -139,6 +139,11 @@ class BuildingSession:
         self.guide_preferences: dict = {}  # GUIDE_PREFERENCES values (language, reply_style, voice)
         # Access mode, admin only: (object name or id, destination) → dispatch result (backend/fleet.py).
         self.object_dispatch = None
+        # Where the user is, from the app's "you are here" figure: {"space_id", "name", "floor"} or None. "here"
+        # as a place means this space (HERE), so the Guide never has to ask.
+        self.user_location: dict | None = None
+        # Buildings nearby (agent/campus.py), set by the backend for buildings with a real position; None = none.
+        self.campus = None
 
     @classmethod
     def load(cls, directory: Path) -> "BuildingSession":
@@ -208,15 +213,37 @@ class BuildingSession:
             "floor": self.building.floor_name(space["floor_id"]),
         }
 
+    def stop(self, reference: str) -> str:
+        return OUTSIDE if reference == OUTSIDE else self.resolve(reference)
+
     def resolve(self, reference: str) -> str:
-        """One space id for a phrase, else MapError listing the candidates or near-miss names (agent/places.py)."""
+        """One space id for a phrase, else MapError listing the candidates or near-miss names (agent/places.py).
+        "here" / "my location" is the space of the app's "you are here" figure."""
+        if reference.strip().lower() in HERE:
+            if self.user_location is None:
+                raise MapError("The user's position is not known; ask where they are.")
+            return self.user_location["space_id"]
         found = places.candidates(self.building, reference)
         if len(found) != 1:
             raise MapError(places.problem(self.building, reference, found))
         return found[0]
 
-    def stop(self, reference: str) -> str:
-        return OUTSIDE if reference == OUTSIDE else self.resolve(reference)
+    def set_location(self, space_id: str | None) -> dict | None:
+        """The app's "you are here" figure was put down in `space_id` (None = taken away)."""
+        if space_id is None:
+            self.user_location = None
+            return None
+        space = self.building.spaces[space_id]
+        self.user_location = {"space_id": space_id, "name": space["name"], "ref": space.get("ref"),
+                              "floor": self.building.floor_name(space["floor_id"])}
+        return self.user_location
+
+    def highlight(self, space_ids: list[str], asset_ids: list[str] = ()) -> None:
+        """Show these rooms (and items in them) on the user's map, as the answer."""
+        if self.emitting and (space_ids or asset_ids):
+            spaces = list(dict.fromkeys([*space_ids, *(self.building.assets[a]["space_id"] for a in asset_ids)]))
+            self.events.append({"type": "highlight", "space_ids": spaces[:MAX_RESULTS * 2],
+                                "asset_ids": list(asset_ids)[:MAX_RESULTS * 2]})
 
     def destination_options(self, start: str, destination: str, via: list[str]) -> dict | None:
         """A destination phrase that fits several spaces: the route length to each, shortest first (D-012)."""
@@ -246,10 +273,19 @@ class BuildingSession:
 
     def tool_search(self, query: str, floor_level: int | None = None) -> dict:
         results = self.building.search(query, floor_level)
-        return {"total": len(results), "results": results[:MAX_RESULTS]}
+        shown = results[:MAX_RESULTS]
+        self.highlight([r["id"] for r in shown if r["kind"] == "space"], [r["id"] for r in shown if r["kind"] == "asset"])
+        result = {"total": len(results), "results": shown}
+        if not results and self.campus is not None and self.campus.neighbours():
+            result["hint"] = "Nothing here; search_nearby_buildings looks in the buildings next to this one."
+        return result
 
     def tool_locate(self, query: str, floor_id: str | None = None) -> dict:
-        return navigation.locate(self.building, query, floor_id).to_dict()
+        result = navigation.locate(self.building, query, floor_id).to_dict()
+        self.highlight([], [hit["asset_id"] for hit in result.get("assets") or []])
+        if not result.get("total") and self.campus is not None and self.campus.neighbours():
+            result["hint"] = "Nothing here; search_nearby_buildings looks in the buildings next to this one."
+        return result
 
     def tool_count_assets(self, asset_type: str, floor_id: str | None = None) -> dict:
         resolved = navigation.resolve_asset_type(self.building, asset_type)
@@ -279,7 +315,7 @@ class BuildingSession:
             for opening in self.building.openings.values()
             if space_id in opening["space_ids"]
         ]
-        self.events.append({"type": "highlight", "space_ids": [space_id]})
+        self.highlight([space_id])
         return {
             **self.space_summary(space_id),
             "area_m2": round(polygon(record).area, 2),
@@ -458,13 +494,14 @@ class BuildingSession:
         self.guide_preferences = {name: values[name] for name in GUIDE_PREFERENCES if values.get(name) is not None}
 
     def tool_definitions(self) -> list[dict]:
-        """TOOL_DEFINITIONS, with the preference fields and set_preference only when preferences are on, and
-        send_object for the building admin."""
+        """TOOL_DEFINITIONS, with the preference fields and set_preference only when preferences are on,
+        send_object for the building admin, and the campus tools for a building with neighbours."""
+        campus = CAMPUS_TOOLS if self.campus is not None and self.campus.neighbours() else []
         if not self.preferences_enabled:
-            return TOOL_DEFINITIONS
+            return TOOL_DEFINITIONS + campus if campus else TOOL_DEFINITIONS
         tools = [PREFERENCE_SET_PROFILE if tool["name"] == "set_profile" else tool
                  for tool in TOOL_DEFINITIONS] + [SET_PREFERENCE]
-        return tools + [SEND_OBJECT] if self.object_dispatch is not None else tools
+        return (tools + [SEND_OBJECT] if self.object_dispatch is not None else tools) + campus
 
     def tool_send_object(self, object: str, destination: str) -> dict:
         if self.object_dispatch is None:
@@ -642,16 +679,68 @@ class BuildingSession:
 
     # ---------- UI ----------
 
-    def tool_show_on_map(self, space_ids: list[str]) -> dict:
-        resolved = [self.resolve(item) for item in space_ids]
-        self.events.append({"type": "highlight", "space_ids": resolved})
-        return {"shown": resolved}
+    def tool_show_on_map(self, space_ids: list[str] | None = None, asset_ids: list[str] | None = None) -> dict:
+        """Rooms, and items (an asset id or exact name; also accepted among space_ids), shown as the answer."""
+        rooms, items = [], []
+        for item in [*(space_ids or ()), *(asset_ids or ())]:
+            asset = self.asset_ref(item)
+            if asset is not None:
+                items.append(asset)
+            else:
+                rooms.append(self.resolve(item))
+        self.highlight(rooms, items)
+        return {"shown": rooms + items}
+
+    def tool_set_my_location(self, place: str) -> dict:
+        """The user said where they are: that space is "here" from now on, and the app puts its "you are here"
+        figure there (event `location`) and zooms to it."""
+        space_id = self.resolve(place)
+        location = self.set_location(space_id)
+        if self.emitting:
+            self.events.append({"type": "location", "space_id": space_id})
+        return {"location": location, "note": "The app now shows the user here; pass \"here\" as the start."}
+
+    def tool_open_edit_mode(self, request: str | None = None) -> dict:
+        """Switch the app to its Edit mode (frontend/app/src/edit/), where the Builder (agent/builder.py) takes the
+        request on a draft copy; this session's building is not changed."""
+        wanted = (request or "").strip() or None
+        if self.emitting:
+            self.events.append({"type": "edit_mode", "request": wanted})
+        return {"opened": True, "request": wanted,
+                "note": "The app now shows the Edit mode; its Builder takes the request from here, on a copy."}
+
+    def asset_ref(self, reference: str) -> str | None:
+        if reference in self.building.assets:
+            return reference
+        wanted = reference.strip().lower()
+        named = [a["id"] for a in self.building.assets.values() if a["name"].lower() == wanted]
+        return named[0] if len(named) == 1 else None
+
+    # ---------- buildings nearby (agent/campus.py) ----------
+
+    def tool_search_nearby_buildings(self, query: str) -> dict:
+        if self.campus is None:
+            return {"error": "This building has no known neighbours."}
+        result = self.campus.search(query)
+        if self.emitting and result["buildings"]:
+            self.events.append({"type": "elsewhere", "query": query, "buildings": [
+                {"building": item["building_id"], "name": item["name"], "distance_m": item["distance_m"],
+                 "total": item["total"], "first": item["results"][0]["name"] if item["results"] else None}
+                for item in result["buildings"]]})
+        return result
+
+    def tool_route_to_building(self, start: str, building: str, destination: str) -> dict:
+        if self.campus is None:
+            return {"error": "This building has no known neighbours."}
+        return self.campus.route(self, start, building, destination)
 
 
 # What propose_change adds from compare_routes, so a proposal already says who loses access and how much longer.
 IMPACT_KEYS = ("from", "reachable_rooms_before", "reachable_rooms_after", "lost_access_count",
                "lost_access_by_floor", "longer_routes_count", "max_extra_m")
-PLACE = {"type": "string", "description": "Space id, room ref, exact room name, or asset name/id"}
+PLACE = {"type": "string", "description": "Space id, room ref, exact room name, or asset name/id; \"here\" = "
+         "where the user is (when the app knows it)"}
+HERE = {"here", "me", "my location", "my position", "current location", "where i am", "where i am now"}
 TOOL_DEFINITIONS: list[dict] = [
     {"name": "building_overview", "description": "Floors, stairs/lifts, entrances, the user's routing profile and "
      "applied changes. Call once at the start.", "input_schema": {"type": "object", "properties": {}}},
@@ -705,9 +794,30 @@ TOOL_DEFINITIONS: list[dict] = [
      "(default: the last route's start, else the main entrance) under the user's profile: rooms that lost access, "
      "routes that got longer and by how many metres.", "input_schema": {"type": "object", "properties": {
          "change_id": {"type": "string"}, "start": PLACE}, "required": ["change_id"]}},
-    {"name": "show_on_map", "description": "Highlight spaces in the user's map view.", "input_schema": {
-        "type": "object", "properties": {"space_ids": {"type": "array", "items": PLACE}},
-        "required": ["space_ids"]}},
+    {"name": "show_on_map", "description": "Highlight rooms and items in the user's map view: the map zooms to "
+     "them. search, locate and room_facts already show what they found; call this to show the one(s) you mean.",
+     "input_schema": {"type": "object", "properties": {"space_ids": {"type": "array", "items": PLACE},
+                                                       "asset_ids": {"type": "array", "items": PLACE}}}},
+    {"name": "set_my_location", "description": "The user says where they are now (\"I'm in the lobby\", \"I'm at "
+     "Lab 2.17\"): it becomes \"here\" for later routes, and the app puts its you-are-here figure there and zooms to "
+     "it.", "input_schema": {"type": "object", "properties": {"place": PLACE}, "required": ["place"]}},
+    {"name": "open_edit_mode", "description": "Switch the app to its Edit mode, where the Builder changes the "
+     "building itself on a copy: rename or re-purpose rooms, move or reshape walls, move or widen doors, add, "
+     "move or remove items, save as a new building. Pass the user's request in their words (or nothing when they "
+     "just want to edit). Not for closing, reopening or adding a door for routing: that is propose_change.",
+     "input_schema": {"type": "object", "properties": {"request": {"type": "string"}}}},
+]
+# Only for buildings with neighbours (BuildingSession.campus).
+CAMPUS_TOOLS = [
+    {"name": "search_nearby_buildings", "description": "Search the buildings next to this one (nearest first, with "
+     "distances). Use it when something is not in this building before saying it isn't there.",
+     "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}},
+    {"name": "route_to_building", "description": "Route from a place here to a place in a nearby building: inside "
+     "here to the best exit, outside (straight line, rounded), inside there. The app shows the first part and a "
+     "Continue button; give the totals and the first steps.", "input_schema": {"type": "object", "properties": {
+         "start": PLACE, "building": {"type": "string", "description": "nearby building id or name"},
+         "destination": {"type": "string", "description": "place in that building"}},
+         "required": ["start", "building", "destination"]}},
 ]
 
 # Access mode only (BuildingSession.preferences_enabled): set_profile with route preferences, and set_preference.

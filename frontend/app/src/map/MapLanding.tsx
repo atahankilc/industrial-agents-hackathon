@@ -369,14 +369,22 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     <main className={`ml${focus ? ' ml-open' : ''}`} inert={focus ? true : undefined}>
       <div ref={container} className="ml-map" />
       {askLocation && !focus && (
-        <div className="ml-locate" role="dialog" aria-labelledby="ml-locate-title">
-          <p id="ml-locate-title">Show where you are?</p>
-          <p className="ml-locate-sub">Your position appears as a dot among the buildings. It stays in this browser.</p>
-          <div className="ml-locate-actions">
-            <button onClick={() => answerLocation(false)}>Not now</button>
-            <button className="ml-locate-allow" onClick={() => answerLocation(true)} autoFocus>
-              Allow
-            </button>
+        <div className="ml-locate-scrim" onKeyDown={(e) => e.key === 'Escape' && answerLocation(false)}>
+          <div className="ml-locate" role="dialog" aria-modal="true" aria-labelledby="ml-locate-title">
+            <span className="ml-locate-icon" aria-hidden>
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
+                <circle cx="12" cy="9.5" r="2.5" />
+              </svg>
+            </span>
+            <p id="ml-locate-title">Show where you are?</p>
+            <p className="ml-locate-sub">Your position appears as a dot among the buildings. It stays in this browser.</p>
+            <div className="ml-locate-actions">
+              <button className="ml-locate-allow" onClick={() => answerLocation(true)} autoFocus>
+                Allow location
+              </button>
+              <button onClick={() => answerLocation(false)}>Not now</button>
+            </div>
           </div>
         </div>
       )}

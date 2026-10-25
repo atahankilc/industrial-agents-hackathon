@@ -6,8 +6,9 @@ Endpoints: /health, /buildings, /sessions (create, inspect, switch building), /s
 plan of the session's current building, gzipped), /chat, /chat/stream (the same turn as NDJSON: live tool steps,
 then the reply), /events (polling cursor for the map UI; route events
 carry turn-by-turn `legs` and a plan `line`, change events `space_ids`), /dev/* (the dev panel: Guide tools run by
-hand, backend/devtools.py), the OpenAI-compatible /v1/chat/completions for ElevenLabs
-(backend/openai_compat.py), and the Edit mode's /drafts (create, get, plan, ops, undo, save, chat/stream for the Builder agent, proposals/{pid}/apply — backend/drafts.py;
+hand, backend/devtools.py), /tts (ElevenLabs audio for the Guide's spoken replies, backend/tts.py), /stt/token (Scribe
+Realtime token + keyterms for the user's words, backend/stt.py), the
+OpenAI-compatible /v1/chat/completions for ElevenLabs (backend/openai_compat.py), and the Edit mode's /drafts (create, get, plan, ops, undo, save, chat/stream for the Builder agent, proposals/{pid}/apply — backend/drafts.py;
 saved buildings appear in /buildings as `user/<slug>`; stored in Postgres with SUPABASE_DB_URL, else under
 GUIDE_USER_DIR, default data/user/). A draft change or Builder turn that lost a race to another instance answers 409;
 a database error 503.
@@ -19,6 +20,7 @@ On Vercel (vercel.json) the app is the `api` service behind the rewrite `/api/(.
 through, so every route is also reachable under `/api` (StripPrefix). CORS_ORIGINS (comma-separated) restricts
 cross-origin callers; the default `*` is for local development, the deployed frontend is same-origin."""
 
+import copy
 import json
 import os
 import queue
@@ -34,11 +36,14 @@ from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from agent.guide import PHOTO_TYPES, llm_mode, system_blocks
-from backend import devtools, openai_compat, persistence
+from agent.speech import speakable
+from backend import devtools, openai_compat, persistence, stt, tts
 from backend.fleet import Fleet, fleet_from_env
 from backend.fleet import router as fleet_router
 from backend.access import Access, AuthError, AuthUnavailable, BuildingAccess, Member, Viewer
 from agent.builder import Builder
+from agent.campus import Campus, arrive
+from core.building_map import MapError
 from backend.drafts import Draft, DraftStore, backend_from_env
 from backend.sessions import DATA_DIR, DEFAULT_SESSION, Conversation, SessionStore, UnknownBuilding, summary
 from core.edits import EditError
@@ -131,6 +136,27 @@ class ChatRequest(BaseModel):
     message: str
     channel: str = "text"  # "voice": spoken-style reply, also returned as `spoken` (agent/speech.py)
     photo: str | None = None  # data URL (jpeg/png/webp) from the camera walk mode, shown to the Guide for one turn
+    heard: bool = True  # voice channel: the message is a speech transcript; false for a tapped button read aloud
+    selected: str | None = None  # the space or asset id tapped on the plan while asking ("how do I get there?")
+
+
+class LocationRequest(BaseModel):
+    space_id: str | None = None  # the room the "you are here" figure stands in; None = taken away
+
+
+class ArriveRequest(BaseModel):
+    entrance: str  # opening id of this building the user comes in through
+    destination: str  # space id here
+    from_session: str | None = None  # the conversation in the building they came from: its routing profile carries over
+
+
+class SpeechRequest(BaseModel):
+    text: str
+    lang: str | None = None  # BCP 47 like "de-DE"; its first two letters keep the voice to that language
+
+
+class SttTokenRequest(BaseModel):
+    session_id: str | None = None  # keyterms come from this session's building
 
 
 PHOTO_MAX_CHARS = 1_500_000  # base64 of a ~1.1 MB image; the app sends ~1280 px JPEGs well below this
@@ -150,7 +176,15 @@ def conversation_or_404(session_id: str, authorization: str | None = None) -> Co
     conversation = store.get(session_id)
     if conversation is None:
         raise HTTPException(404, f"unknown session {session_id!r}")
-    return with_access(conversation, viewer_or_401(authorization))
+    return with_campus(with_access(conversation, viewer_or_401(authorization)))
+
+
+def with_campus(conversation: Conversation) -> Conversation:
+    """The session's buildings nearby (agent/campus.py); sessions are rebuilt on restores and switches."""
+    campus = conversation.session.campus
+    if campus is None or campus.building_id != conversation.building:
+        conversation.session.campus = Campus(conversation.building, store.catalogue)
+    return conversation
 
 
 def with_access(conversation: Conversation, viewer: Viewer) -> Conversation:
@@ -205,7 +239,40 @@ def turn_payload(conversation: Conversation, turn: object) -> dict:
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "llm": llm_mode()}
+    return {"ok": True, "llm": llm_mode(), "tts": tts.enabled(), "stt": stt.enabled()}
+
+
+@app.post("/stt/token")
+def speech_to_text_token(body: SttTokenRequest, authorization: str | None = Header(None)) -> dict:
+    """A single-use ElevenLabs Scribe Realtime token (15 minutes, one connection) and the session building's keyterms
+    (backend/stt.py) — from the building copy this viewer may see, so restricted names never reach the browser in
+    access mode. 503 when Scribe is off, 502 when ElevenLabs refuses: the app then uses browser recognition."""
+    if not stt.enabled():
+        raise HTTPException(503, "Scribe speech recognition is not configured (ELEVENLABS_API_KEY, STT_MODE)")
+    conversation = conversation_or_404(body.session_id, authorization) if body.session_id else None
+    try:
+        token = stt.single_use_token()
+    except stt.SttError as error:
+        raise HTTPException(502, f"ElevenLabs Scribe failed ({error})") from None
+    return {"token": token, "keyterms": stt.keyterms(conversation.session.building) if conversation else []}
+
+
+@app.post("/tts", response_model=None)
+def text_to_speech(body: SpeechRequest) -> StreamingResponse:
+    """One piece of a spoken reply as ElevenLabs MP3 (backend/tts.py). 503 without a key, 502 when ElevenLabs
+    refuses: the app then speaks with the browser's own voice."""
+    if not tts.enabled():
+        raise HTTPException(503, "the ElevenLabs voice is not configured (ELEVENLABS_API_KEY)")
+    text = speakable(body.text)  # the voice replies' safety net: no markup, ids or symbols read out
+    if not text:
+        raise HTTPException(422, "nothing to say")
+    if len(text) > tts.MAX_CHARS:
+        raise HTTPException(413, f"text is too long to speak at once (max {tts.MAX_CHARS} characters)")
+    try:
+        audio = tts.open_stream(text, body.lang)
+    except tts.TtsError as error:
+        raise HTTPException(502, f"ElevenLabs voice failed ({error})") from None
+    return StreamingResponse(audio, media_type="audio/mpeg", headers={"cache-control": "no-store"})
 
 
 @app.get("/buildings")
@@ -253,7 +320,8 @@ def chat(body: ChatRequest, authorization: str | None = Header(None)) -> dict:
     conversation = conversation_or_404(body.session_id, authorization)
     with conversation.lock:
         turn = conversation.guide.reply(body.message, channel=channel_or_422(body.channel),
-                                        photo=photo_or_422(body.photo))
+                                        photo=photo_or_422(body.photo), heard=body.heard,
+                                        selected=body.selected)
         save_or_409(conversation)
         return turn_payload(conversation, turn)
 
@@ -279,7 +347,9 @@ def channel_or_422(channel: str) -> str:
 @app.post("/chat/stream")
 def chat_stream(body: ChatRequest, authorization: str | None = Header(None)) -> StreamingResponse:
     """One turn as NDJSON lines: {"type": "step", …} per tool call or check while the Guide works (the map can
-    poll /events on each `tool_done`), then {"type": "reply", …the /chat payload} or {"type": "error", "detail"}."""
+    poll /events on each `tool_done`), then {"type": "reply", …the /chat payload} or {"type": "error", "detail"}.
+    Voice turns also send {"type": "say", "text"} per sentence as soon as it may be spoken (agent/speech.py
+    SpokenStream), all before the reply line; together they are the whole spoken reply."""
     conversation = conversation_or_404(body.session_id, authorization)
     channel, photo = channel_or_422(body.channel), photo_or_422(body.photo)
     lines: queue.Queue[dict | None] = queue.Queue()
@@ -288,10 +358,13 @@ def chat_stream(body: ChatRequest, authorization: str | None = Header(None)) -> 
         try:
             with conversation.lock:
                 conversation.guide.on_step = lambda step: lines.put({"type": "step", **step})
+                conversation.guide.on_say = lambda text: lines.put({"type": "say", "text": text})
                 try:
-                    turn = conversation.guide.reply(body.message, channel=channel, photo=photo)
+                    turn = conversation.guide.reply(body.message, channel=channel, photo=photo, heard=body.heard,
+                                                    selected=body.selected)
                 finally:
                     conversation.guide.on_step = None
+                    conversation.guide.on_say = None
                 try:
                     store.save(conversation)
                 except persistence.Conflict:
@@ -310,6 +383,48 @@ def chat_stream(body: ChatRequest, authorization: str | None = Header(None)) -> 
             yield json.dumps(line, ensure_ascii=False) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+@app.put("/sessions/{session_id}/location")
+def put_location(session_id: str, body: LocationRequest, authorization: str | None = Header(None)) -> dict:
+    """The app's "you are here" figure: the Guide routes from there and stops asking where the user is."""
+    conversation = conversation_or_404(session_id, authorization)
+    with conversation.lock:
+        if body.space_id is not None and body.space_id not in conversation.session.building.spaces:
+            raise HTTPException(422, f"unknown space {body.space_id!r}")
+        location = conversation.guide.set_location(body.space_id)
+        save_or_409(conversation)
+    return {"location": location}
+
+
+@app.post("/sessions/{session_id}/arrive")
+def post_arrive(session_id: str, body: ArriveRequest, authorization: str | None = Header(None)) -> dict:
+    """Coming over from a nearby building (route_to_building → Continue): the user stands at `entrance`; the
+    route from there to `destination` comes back as events, like a Guide turn's."""
+    conversation = conversation_or_404(session_id, authorization)
+    previous = None
+    if body.from_session:
+        try:  # same access check as the target session; a session this viewer may not see is ignored
+            previous = conversation_or_404(body.from_session, authorization)
+        except HTTPException:
+            previous = None
+    with conversation.lock:
+        session = conversation.session
+        if previous is not None:
+            session.profile = copy.deepcopy(previous.session.profile)
+        first = len(session.events)
+        try:
+            route = arrive(session, body.entrance, body.destination)
+        except (MapError, KeyError) as error:
+            raise HTTPException(422, str(error)) from None
+        conversation.guide.set_location(session.user_location["space_id"])
+        conversation.guide.location_note += (" They just came over from a nearby building; the map shows the way "
+                                             f"to {session.building.spaces[route['to_space_id']]['name']}."
+                                             if route.get("reachable") else " They just came over from a nearby building.")
+        save_or_409(conversation)
+        events = conversation.view.enrich(session, session.events[first:])
+    return {"route": {key: route.get(key) for key in ("reachable", "reason", "about_m", "length_m")},
+            "location": session.user_location, "events": events}
 
 
 @app.get("/events")

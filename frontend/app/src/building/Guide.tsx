@@ -3,9 +3,11 @@
 // subtitles, with the trail folded into one line above it), with the Core below as the main control.
 // Before the first question: a one-line greeting and a few things you can say. Typing is the fallback (keyboard
 // button). A tapped room or object shows its card in the same place.
+// The Edit mode talks to the Builder through the same card (`persona`): its own name, greeting and chips, and
+// `card` (the selection's inspector, or the Builder's proposal) in the place of the room card.
 
-import { Accessibility, ArrowUp, Bath, Check, ChevronDown, CircleHelp, DoorOpen, Keyboard, Layers, Navigation, RotateCcw, UtensilsCrossed, X } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { Accessibility, ArrowUp, Bath, Check, ChevronDown, CircleHelp, DoorOpen, Keyboard, Layers, Navigation, PencilLine, RotateCcw, UtensilsCrossed, X } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import type { Step } from '../ui/guideSteps'
 import type { VoiceState } from '../voice/useVoice'
 import { Core } from './Core'
@@ -15,7 +17,15 @@ export type Message =
   | { role: 'guide'; text: string; live?: boolean; steps?: Step[]; spoken?: boolean; /** this answer drew a route */ route?: boolean }
   | { role: 'note'; text: string }
 
-export type Suggestion = { label: string; prompt: string; icon: 'toilet' | 'exit' | 'access' | 'food' | 'floor' | 'help' }
+export type Suggestion = { label: string; prompt: string; icon: 'toilet' | 'exit' | 'access' | 'food' | 'floor' | 'help' | 'edit' }
+
+/** who the card talks for: the Guide (default) or the Edit mode's Builder */
+export type Persona = { who: string; greeting: ReactNode; placeholder: string }
+const GUIDE: Persona = {
+  who: 'Guide',
+  greeting: <>Hi, I know this building. <em>Where do you need to go?</em></>,
+  placeholder: 'Ask the building',
+}
 
 export type InfoCard = { title: string; meta: string; detail?: string; directions?: string }
 
@@ -25,6 +35,10 @@ export type VoiceView = {
   error: string | null
   level: RefObject<number>
   supported: boolean
+  /** the user can talk over the reply being spoken (useVoice barge-in) */
+  bargeIn?: boolean
+  /** while listening: the microphone really captures (until then the caption says it is starting) */
+  hearing?: boolean
   listen: () => void
   finish: () => void
   stop: () => void
@@ -38,14 +52,18 @@ type Props = {
   suggestions: Suggestion[]
   /** the answer's route is on screen as the next-move card: its numbered steps leave the caption */
   route: boolean
-  onSend: (text: string) => void
+  /** `tapped`: a chip or the room card's Directions button, not typed — the reply is read aloud */
+  onSend: (text: string, tapped?: boolean) => void
   onCloseInfo: () => void
   onClear: () => void
+  persona?: Persona
+  /** shown in the room card's place (and over it) */
+  card?: ReactNode
 }
 
-const ICONS = { toilet: Bath, exit: DoorOpen, access: Accessibility, food: UtensilsCrossed, floor: Layers, help: CircleHelp }
+const ICONS = { toilet: Bath, exit: DoorOpen, access: Accessibility, food: UtensilsCrossed, floor: Layers, help: CircleHelp, edit: PencilLine }
 
-export function Guide({ messages, pending, voice, info, suggestions, route, onSend, onCloseInfo, onClear }: Props) {
+export function Guide({ messages, pending, voice, info, suggestions, route, onSend, onCloseInfo, onClear, persona = GUIDE, card }: Props) {
   const [typing, setTyping] = useState(!voice.supported)
   const [draft, setDraft] = useState('')
   // the answer that is opened, by its place in the list: a new message closes it again
@@ -66,10 +84,10 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
     if (typing) input.current?.focus()
   }, [typing])
 
-  const submit = (text: string) => {
+  const submit = (text: string, tapped = false) => {
     const value = text.trim()
     if (!value || pending) return
-    onSend(value)
+    onSend(value, tapped)
     setDraft('')
     if (voice.supported) setTyping(false)
   }
@@ -84,10 +102,12 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
   if (voice.state === 'listening') {
     caption = (
       <div className="caption big">
-        <p className="who live">You · live</p>
-        <p className="said">{voice.interim ? lastWordSoft(voice.interim) : <em>Listening…</em>}</p>
+        <p className="who live">{voice.hearing === false ? 'Mic starting' : 'You · live'}</p>
+        <p className="said">{voice.interim ? lastWordSoft(voice.interim) : <em>{voice.hearing === false ? 'One moment…' : 'Listening… go ahead'}</em>}</p>
       </div>
     )
+  } else if (card) {
+    caption = card
   } else if (info) {
     caption = (
       <article className="place-card">
@@ -102,7 +122,7 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
           </button>
         </header>
         {info.directions && (
-          <button type="button" className="hud-primary" onClick={() => submit(info.directions!)}>
+          <button type="button" className="hud-primary" onClick={() => submit(info.directions!, true)}>
             <Navigation size={17} strokeWidth={2.2} aria-hidden="true" />
             Directions
           </button>
@@ -112,10 +132,8 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
   } else if (fresh) {
     caption = (
       <div className="caption big">
-        <p className="who">Guide</p>
-        <p className="said">
-          Hi, I know this building. <em>Where do you need to go?</em>
-        </p>
+        <p className="who">{persona.who}</p>
+        <p className="said">{persona.greeting}</p>
       </div>
     )
   } else {
@@ -126,14 +144,14 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
         {answer?.role === 'note' && <p className="said warn">{answer.text}</p>}
         {working && (
           <>
-            <p className="who">Guide · working</p>
+            <p className="who">{persona.who} · working</p>
             <Trail steps={answer.steps ?? []} live />
           </>
         )}
         {answer?.role === 'guide' && !answer.live && (
           <>
             {!!answer.steps?.length && <FoldedTrail steps={answer.steps} />}
-            <p className={`who ${voice.state === 'speaking' ? 'speaking' : ''}`}>{voice.state === 'speaking' ? 'Guide · speaking' : 'Guide'}</p>
+            <p className={`who ${voice.state === 'speaking' ? 'speaking' : ''}`}>{voice.state === 'speaking' ? `${persona.who} · speaking` : persona.who}</p>
             <div
               ref={reply}
               className={`said reply ${expanded ? 'open' : ''} ${clipped ? 'clipped' : ''}`}
@@ -152,17 +170,17 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
   }
 
   return (
-    <section className="guide" aria-label="Guide">
+    <section className="guide" aria-label={persona.who}>
       {voice.error && voice.state !== 'listening' && <p className="voice-error">{voice.error}</p>}
       {caption}
 
-      {fresh && !info && !typing && voice.state !== 'listening' && (
+      {fresh && !info && !card && !typing && voice.state !== 'listening' && (
         <ul className="intents" aria-label="Things you can ask">
           {suggestions.slice(0, 3).map((item) => {
             const Icon = ICONS[item.icon]
             return (
               <li key={item.label}>
-                <button type="button" onClick={() => submit(item.prompt)}>
+                <button type="button" onClick={() => submit(item.prompt, true)}>
                   <Icon size={15} strokeWidth={2} aria-hidden="true" />
                   {item.label}
                 </button>
@@ -184,8 +202,8 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
             ref={input}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Ask the building"
-            aria-label="Ask the building"
+            placeholder={persona.placeholder}
+            aria-label={persona.placeholder}
             enterKeyHint="send"
           />
           <button type="submit" className="send" disabled={pending || !draft.trim()} aria-label="Send">
@@ -205,7 +223,7 @@ export function Guide({ messages, pending, voice, info, suggestions, route, onSe
           </button>
         </div>
       )}
-      {voice.supported && <p className="core-hint">{hint(voice.state, pending)}</p>}
+      {voice.supported && <p className="core-hint">{hint(voice.state, pending, voice.bargeIn, voice.hearing)}</p>}
     </section>
   )
 }
@@ -263,8 +281,10 @@ function Elapsed() {
   return <small>{seconds > 0 ? `${seconds}s` : ''}</small>
 }
 
-const hint = (state: VoiceState, pending: boolean) =>
-  state === 'listening' ? 'Release or tap to send' : state === 'speaking' ? 'Tap to stop' : pending || state === 'thinking' ? 'Working' : 'Tap or hold to talk'
+const hint = (state: VoiceState, pending: boolean, bargeIn = false, hearing = true) =>
+  state === 'listening' ? (hearing ? 'Release or tap to send' : 'Starting the mic…')
+    : state === 'speaking' ? (bargeIn ? 'Talk to interrupt · tap to stop' : 'Tap to stop')
+    : pending || state === 'thinking' ? 'Working' : 'Tap or hold to talk'
 
 /** The words so far, the last one still forming. */
 function lastWordSoft(text: string) {

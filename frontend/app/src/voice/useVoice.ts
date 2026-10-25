@@ -1,8 +1,12 @@
-// Voice loop on the browser's own speech APIs (free, no keys): SpeechRecognition for the user's words,
-// speechSynthesis for the Guide's spoken reply, and a mic analyser so the orb can follow the user's voice.
-// It is one adapter: an ElevenLabs session (docs/research/elevenlabs.md) can replace it behind the same shape.
+// Voice loop: speech recognition for the user's words (voice/scribe.ts: ElevenLabs Scribe Realtime with the building's
+// keyterms, else the browser's SpeechRecognition), the Guide's voice for its reply (voice/tts.ts: ElevenLabs through
+// the backend, else the browser's speechSynthesis), and a mic analyser so the orb can follow the user's voice.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { interruption, userPart } from './bargeIn'
+import { openMicrophone } from './mic'
+import { ScribeRecognition, scribeReady } from './scribe'
+import { openSpeech, silence, speakAloud, unlockAudio, type Speech } from './tts'
 
 export type VoiceState = 'off' | 'listening' | 'thinking' | 'speaking'
 
@@ -27,9 +31,14 @@ type Recognition = {
 }
 type RecognitionCtor = new () => Recognition
 
-function recognitionCtor(): RecognitionCtor | null {
+function browserRecognition(): RecognitionCtor | null {
   const scope = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor }
   return scope.SpeechRecognition ?? scope.webkitSpeechRecognition ?? null
+}
+
+/** Scribe when the backend offers it (and it hasn't just failed), else the browser's recognition. */
+function recognitionCtor(): RecognitionCtor | null {
+  return scribeReady() ? ScribeRecognition : browserRecognition()
 }
 
 export const voiceSupported = () => recognitionCtor() !== null && 'speechSynthesis' in window
@@ -39,38 +48,14 @@ function initialLanguage() {
   return LANGUAGES.find((language) => language.code.startsWith(preferred))?.code ?? 'en-US'
 }
 
-// Chrome stops long utterances after ~15 s: speak sentence by sentence.
-function sentences(text: string) {
-  return text.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g)?.map((part) => part.trim()).filter(Boolean) ?? []
-}
-
-function bestVoice(lang: string) {
-  const voices = speechSynthesis.getVoices().filter((voice) => voice.lang.replace('_', '-').startsWith(lang.slice(0, 2)))
-  const rank = (voice: SpeechSynthesisVoice) =>
-    (/natural|neural|premium|enhanced/i.test(voice.name) ? 4 : 0) + (/google/i.test(voice.name) ? 2 : 0) +
-    (voice.lang.replace('_', '-') === lang ? 1 : 0) + (voice.localService ? 0 : 1)
-  return voices.sort((a, b) => rank(b) - rank(a))[0] ?? null
-}
-
 /** Speak once, outside the conversation loop (camera walk mode reads its steps with this). */
 export function say(text: string, lang: string, onEnd?: () => void) {
-  if (!('speechSynthesis' in window)) return
-  speechSynthesis.cancel()
-  const parts = sentences(text)
-  const voice = bestVoice(lang)
-  parts.forEach((part, index) => {
-    const utterance = new SpeechSynthesisUtterance(part)
-    utterance.lang = lang
-    if (voice) utterance.voice = voice
-    utterance.rate = 1.04
-    if (index === parts.length - 1 && onEnd) utterance.onend = onEnd
-    speechSynthesis.speak(utterance)
-  })
+  speakAloud(text, lang, { onEnd })
 }
 
 /** One utterance, for short voice commands; resolves with the transcript ('' when nothing was heard). */
 export function hearOnce(lang: string): Promise<string> {
-  const Ctor = recognitionCtor()
+  const Ctor = browserRecognition() // relies on the browser ending by itself after one utterance; Scribe never does
   if (!Ctor) return Promise.reject(new Error('Voice input needs Chrome, Edge or Safari.'))
   return new Promise((resolve, reject) => {
     const recognizer = new Ctor()
@@ -85,7 +70,8 @@ export function hearOnce(lang: string): Promise<string> {
       if (event.error !== 'no-speech' && event.error !== 'aborted') reject(new Error(`Voice input failed (${event.error}).`))
     }
     recognizer.onend = () => resolve(heard.trim())
-    speechSynthesis.cancel()
+    silence()
+    unlockAudio()
     recognizer.start()
   })
 }
@@ -98,7 +84,15 @@ const RECOGNITION_ERRORS: Record<string, string> = {
   'audio-capture': 'No microphone found. Plug one in or pick an input device, then tap the orb.',
   network: "This browser's speech service is unreachable (Brave and some Chromium builds have none). Try Chrome, Edge or Safari.",
   'language-not-supported': 'This language is not supported for voice here. Pick EN.',
+  'scribe-unavailable': 'ElevenLabs speech recognition is unreachable right now. Tap the orb to try again.',
 }
+
+const END_PAUSE_MS = 1000 // this long without new words, once the user has spoken, ends the utterance
+const NO_WORDS_MS = 8000 // nothing heard at all after a tap: stop listening
+const AUTO_NO_WORDS_MS = 6000 // … after listening started by itself: the conversation is over
+const CARRY_PAUSE_MS = 2000 // after talking over the Guide: the words so far are sent unless more follow
+
+type SpeakOptions = { conversation?: boolean; waitMs?: number; listenAfter?: () => boolean }
 
 type Options = {
   /** A finished utterance. Return true when it was sent (the loop then waits in "thinking"). */
@@ -111,6 +105,8 @@ export function useVoice({ onUtterance }: Options) {
   const [error, setError] = useState<string | null>(null)
   const [lang, setLang] = useState<string>(initialLanguage)
   const [handsFree, setHandsFree] = useState(true)
+  /** listening and the microphone is really capturing (state 'listening' comes first, while the mic opens) */
+  const [hearing, setHearing] = useState(false)
   /** 0…1, read every animation frame by the orb (a ref, not state: it changes 60 times a second). */
   const level = useRef(0)
   const peakLevel = useRef(0) // loudest mic level of the current listen, to tell "silent mic" from "no words"
@@ -131,6 +127,18 @@ export function useVoice({ onUtterance }: Options) {
     setState(next)
   }, [])
 
+  // barge-in (see `watch`): the recognizer that runs while the Guide speaks, and what the Guide is saying
+  const watcher = useRef<Recognition | null>(null)
+  const said = useRef('')
+  const [bargeIn, setBargeIn] = useState(false)
+
+  const unwatch = useCallback(() => {
+    const recognizer = watcher.current
+    watcher.current = null
+    recognizer?.abort()
+    setBargeIn(false)
+  }, [])
+
   // ---------- mic level (only while listening) ----------
 
   const stopMeter = useCallback(() => {
@@ -144,7 +152,7 @@ export function useVoice({ onUtterance }: Options) {
   const startMeter = useCallback(async () => {
     if (mic.current) return
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+      const stream = await openMicrophone({ echoCancellation: true, noiseSuppression: true })
       const context = new AudioContext()
       const analyser = context.createAnalyser()
       analyser.fftSize = 512
@@ -167,19 +175,28 @@ export function useVoice({ onUtterance }: Options) {
 
   // ---------- listening ----------
 
-  const listen = useCallback(() => {
+  /** Listen for one utterance. It ends after END_PAUSE_MS without new words (a short pause mid-sentence is fine), on
+   * `finish`, or with nothing heard. `auto`: started by itself (after a reply, or by talking over the Guide), so
+   * hearing nothing just ends the conversation quietly. `carry`: words already heard while the Guide spoke.
+   * `until`: keep listening (again and again) until this time when nothing is heard — the step-by-step guide,
+   * waiting for "I'm there" while the user walks. */
+  const listenWith = useCallback(({ auto = false, carry = '', until = 0 }: { auto?: boolean; carry?: string; until?: number } = {}) => {
     const Ctor = recognitionCtor()
     if (!Ctor) {
       setError('Voice input needs Chrome, Edge or Safari.')
       return
     }
-    speechSynthesis.cancel()
+    unwatch()
+    silence()
+    unlockAudio() // listening starts from a tap: the moment to unlock the Guide's voice
     recognition.current?.abort()
     const recognizer = new Ctor()
     recognizer.lang = lang
     recognizer.interimResults = true
-    recognizer.continuous = false
-    let finalText = ''
+    recognizer.continuous = true // our own pause timer decides when the utterance is over
+    let finalText = carry ? carry + ' ' : ''
+    // words carried over may already be the whole question: send them soon unless more follow
+    let timer = setTimeout(() => recognizer.stop(), carry ? CARRY_PAUSE_MS : auto ? AUTO_NO_WORDS_MS : NO_WORDS_MS)
     recognizer.onresult = (event) => {
       let heard = ''
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -188,16 +205,20 @@ export function useVoice({ onUtterance }: Options) {
         else heard += result[0].transcript
       }
       setInterim((finalText + heard).trim())
+      setHearing(true)
       if (!mic.current) level.current = 0.45 + Math.random() * 0.4 // no meter: pulse on each recognised word
+      clearTimeout(timer)
+      timer = setTimeout(() => recognizer.stop(), END_PAUSE_MS) // stop() still delivers the words in flight
     }
     let failed = false
     let retry = false
     recognizer.onaudiostart = () => {
+      setHearing(true)
       if (!meterBlocked.current) void startMeter() // after recognition holds the mic, never before
     }
     recognizer.onerror = (event) => {
       console.info('[voice] recognition error:', event.error)
-      if (event.error === 'aborted') return
+      if (event.error === 'aborted' || (auto && event.error === 'no-speech')) return
       if (event.error === 'audio-capture' && !meterBlocked.current && !retried.current) {
         meterBlocked.current = true
         retried.current = true
@@ -205,10 +226,16 @@ export function useVoice({ onUtterance }: Options) {
         retry = true
         return
       }
+      if (event.error === 'scribe-unavailable' && browserRecognition()) {
+        failed = true
+        retry = true // Scribe now cools off: the retry listens with the browser's recognition
+        return
+      }
       failed = true
       setError(RECOGNITION_ERRORS[event.error] ?? `Voice input failed (${event.error}). Tap the orb to try again.`)
     }
     recognizer.onend = () => {
+      clearTimeout(timer)
       if (recognition.current !== recognizer) return
       recognition.current = null
       const silentMic = mic.current !== null && peakLevel.current < 0.04 // the meter ran and heard nothing
@@ -217,8 +244,12 @@ export function useVoice({ onUtterance }: Options) {
       setInterim('')
       if (stateRef.current !== 'listening') return
       if (retry) {
-        console.info('[voice] retrying without the level meter')
-        setTimeout(() => listenRef.current?.(), 150)
+        console.info('[voice] retrying (without the level meter, or with browser recognition)')
+        setTimeout(() => listenRef.current?.({ auto, carry, until }), 150)
+        return
+      }
+      if (!text && !failed && Date.now() < until) {
+        listenRef.current?.({ auto: true, until }) // still waiting for the user to get there
         return
       }
       if (text && utter.current(text)) {
@@ -226,8 +257,8 @@ export function useVoice({ onUtterance }: Options) {
         return
       }
       set('off')
-      // Never end silently: say why nothing was sent.
-      if (!failed && !text) {
+      // Never end silently: say why nothing was sent (unless the conversation simply went quiet).
+      if (!failed && !text && !auto) {
         setError(silentMic
           ? "I couldn't hear your microphone. Check the input device (macOS: System Settings → Sound → Input), then tap the orb."
           : "I didn't catch that. Tap the orb and try again.")
@@ -237,55 +268,122 @@ export function useVoice({ onUtterance }: Options) {
     peakLevel.current = 0
     setError(null)
     setInterim('')
+    setHearing(false)
     set('listening')
     try {
       recognizer.start()
     } catch {
+      clearTimeout(timer)
       set('off')
     }
-  }, [lang, set, startMeter, stopMeter])
+  }, [lang, set, startMeter, stopMeter, unwatch])
 
-  const listenRef = useRef<() => void>(null)
+  const listenRef = useRef<typeof listenWith>(null)
   useEffect(() => {
-    listenRef.current = listen
-  }, [listen])
+    listenRef.current = listenWith
+  }, [listenWith])
+
+  /** Listen for one utterance (a tap on the orb). */
+  const listen = useCallback(() => listenWith(), [listenWith])
 
   /** Stop listening now and send what was heard so far. */
   const finish = useCallback(() => recognition.current?.stop(), [])
 
-  // ---------- speaking ----------
+  // ---------- barge-in: listening while the Guide answers ----------
 
-  const speak = useCallback(
-    (text: string) => {
-      speechSynthesis.cancel()
-      const parts = sentences(text)
-      if (!parts.length) {
-        set('off')
+  /** While a reply is spoken, recognition runs too: words the Guide isn't saying (voice/bargeIn.ts) cut it off —
+   * a stop word just stops it, anything else becomes the next question. */
+  const watch = useCallback(() => {
+    const Ctor = recognitionCtor()
+    if (!Ctor || watcher.current || recognition.current) return
+    const recognizer = new Ctor()
+    recognizer.lang = lang
+    recognizer.interimResults = true
+    recognizer.continuous = true
+    recognizer.onresult = (event) => {
+      const results = Array.from(event.results, (result) => result[0].transcript)
+      const kind = interruption(results.join(' '), said.current)
+      if (!kind) return
+      unwatch()
+      if (kind === 'stop') {
+        stopRef.current?.()
         return
       }
-      const voice = bestVoice(lang)
-      set('speaking')
-      parts.forEach((part, index) => {
-        const utterance = new SpeechSynthesisUtterance(part)
-        utterance.lang = lang
-        if (voice) utterance.voice = voice
-        utterance.rate = 1.04
-        utterance.onboundary = () => { level.current = 0.55 + Math.random() * 0.45 }
-        utterance.onend = () => {
-          if (index < parts.length - 1 || stateRef.current !== 'speaking') return
+      listenRef.current?.({ auto: true, carry: userPart(results, said.current) })
+    }
+    recognizer.onerror = (event) => console.info('[voice] barge-in recognition:', event.error)
+    recognizer.onend = () => {
+      if (watcher.current !== recognizer) return
+      watcher.current = null
+      setBargeIn(false)
+      if (stateRef.current === 'speaking') setTimeout(() => watchRef.current?.(), 250) // the browser ended it early
+    }
+    watcher.current = recognizer
+    setBargeIn(true)
+    try {
+      recognizer.start()
+    } catch {
+      watcher.current = null
+      setBargeIn(false)
+    }
+  }, [lang, unwatch])
+
+  const watchRef = useRef<typeof watch>(null)
+  useEffect(() => {
+    watchRef.current = watch
+  }, [watch])
+
+  // ---------- speaking ----------
+
+  /** Speak a reply whose sentences are still arriving: `add` each, then `end`. The state stays as it is ("thinking"
+   * after a question) until the first sound plays. `conversation`: the reply to a spoken question — from its first
+   * sound the user can talk over it, and when it ends the Guide listens again (with `handsFree`); `waitMs`: that
+   * listening keeps waiting this long for an answer (a step of the guide, while the user walks); `listenAfter`: asked
+   * once the speech ends — listen for an answer anyway (a tapped question whose reply asks something back). */
+  const stream = useCallback(
+    ({ conversation = false, waitMs = 0, listenAfter }: SpeakOptions = {}): Speech => {
+      const talk = conversation && handsFree
+      said.current = ''
+      unwatch()
+      const speech = openSpeech(lang, {
+        onStart: () => {
+          set('speaking')
+          if (talk) watch()
+        },
+        onLevel: (value) => { level.current = value },
+        onEnd: () => {
+          unwatch()
           level.current = 0
-          if (handsFree) listen()
-          else set('off')
-        }
-        speechSynthesis.speak(utterance)
+          if (stateRef.current === 'thinking') set('off') // nothing was said
+          if (stateRef.current !== 'speaking') return
+          if (!talk && !(handsFree && listenAfter?.())) return set('off')
+          // a moment for the room to go quiet, so the mic doesn't catch the Guide's last word
+          setTimeout(() => stateRef.current === 'speaking' && listenRef.current?.({ auto: true, until: waitMs ? Date.now() + waitMs : 0 }), 200)
+        },
       })
+      return {
+        add: (text) => {
+          said.current += ' ' + text
+          speech.add(text)
+        },
+        end: () => speech.end(),
+      }
     },
-    [lang, handsFree, listen, set],
+    [lang, handsFree, set, unwatch, watch],
   )
 
-  // Speech (and listening without the meter) has no level signal of its own: let the word pulses decay.
+  const speak = useCallback(
+    (text: string, options?: SpeakOptions) => {
+      const speech = stream(options)
+      speech.add(text)
+      speech.end()
+    },
+    [stream],
+  )
+
+  // Listening without the meter has no level signal of its own: let the word pulses decay (speech brings its own).
   useEffect(() => {
-    if (state !== 'speaking' && state !== 'listening') return
+    if (state !== 'listening') return
     let frame = 0
     const decay = () => {
       if (!mic.current) level.current *= 0.9
@@ -297,13 +395,19 @@ export function useVoice({ onUtterance }: Options) {
 
   const stop = useCallback(() => {
     set('off')
+    unwatch()
     recognition.current?.abort()
     recognition.current = null
-    speechSynthesis.cancel()
+    silence()
     stopMeter()
     setInterim('')
     level.current = 0
-  }, [set, stopMeter])
+  }, [set, stopMeter, unwatch])
+
+  const stopRef = useRef<typeof stop>(null)
+  useEffect(() => {
+    stopRef.current = stop
+  }, [stop])
 
   /** The sent utterance failed or got no reply to read out. */
   const idle = useCallback(() => {
@@ -314,12 +418,16 @@ export function useVoice({ onUtterance }: Options) {
     speechSynthesis.getVoices() // voices load lazily in Chrome
     return () => {
       recognition.current?.abort()
-      speechSynthesis.cancel()
+      watcher.current?.abort()
+      silence()
       stopMeter()
     }
   }, [stopMeter])
 
-  return { state, interim, error, level, lang, setLang, handsFree, setHandsFree, listen, finish, speak, stop, idle }
+  return {
+    state, interim, error, level, lang, setLang, handsFree, setHandsFree, bargeIn, hearing,
+    listen, finish, speak, stream, stop, idle,
+  }
 }
 
 export type Voice = ReturnType<typeof useVoice>

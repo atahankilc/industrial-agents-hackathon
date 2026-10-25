@@ -1,16 +1,22 @@
 # BENCHMARK — how to reproduce our answers
 
-One command from the repo root, no manual steps between input and output. With `PARSER_MODE=regex` it needs no
-API key and is fully deterministic (template parser + solvers); the default `hybrid` mode calls an LLM only for
-wording no template matches (needs `ANTHROPIC_API_KEY` in `.env`).
+One command from the repo root, no manual steps between input and output. It runs in the default `hybrid` parser
+mode: the template parser first, and an LLM only for wording no template matches. The LLM only maps the question to
+a kind and room/floor ids; every number still comes from the solvers. It needs `ANTHROPIC_API_KEY` in `.env`
+(copy `.env.example`).
 
 ```bash
 uv sync
 # Sunday: one building directory (holds building.json) + its question file
-PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> SUBMISSION/answers.json
+uv run --env-file .env python -m agent.run_benchmark_v1 <building_dir> <questions file> SUBMISSION/answers.json
 # Public test set (145 questions, buildings under data/test/<building_id>/) — this produced SUBMISSION/answers.json
-PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 data/test data/test/questions.csv SUBMISSION/answers.json
+uv run --env-file .env python -m agent.run_benchmark_v1 data/test data/test/questions.csv SUBMISSION/answers.json
 ```
+
+No API key: put `PARSER_MODE=regex` in front of the same command, without `--env-file .env`. That run is fully
+deterministic and needs no network, but a question whose wording matches no template gets no answer (reworded
+questions we tried on a dev building: 0/6 answered in regex mode, 6/6 in hybrid, all 4 with a gold answer correct).
+All 145 test questions match a template, so both modes write identical replies (checked 2026-10-25).
 
 - `<building_dir>`: one building, or a split directory with one sub-directory per `building_id`.
 - Question file: `.jsonl`, `.json` (a list, or `{"questions": [...]}`) or `.csv`; each question needs an id

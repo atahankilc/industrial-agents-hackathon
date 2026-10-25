@@ -1803,3 +1803,10 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   `route_to_building` description asks for an overview too. Test: `test_directions_are_an_overview_that_ends_in_the_start_line`.
 - Checked: `uv run pytest -q` 989 passed before the new test; live Opus (scratch script, train campus 000): English
   and Turkish route replies are overviews ending in the Start line, "No steps please" gives the full way.
+
+## 2026-10-25 — Dead route buttons removed from NextMove
+
+- `NextMove.tsx` had its own Start / "I'm there" / Done / Continue buttons (`guiding`, `onStart`, `next`,
+  `onContinue`, `onFinish` props), but it is only rendered by `CameraWalk.tsx`, which never passed them: dead code.
+  Removed with its `.guide-actions` rules in `hud.css`; the live buttons are `RouteHud.tsx` `RouteBar`. Checked:
+  `tsc --noEmit` clean, `vite build` OK; nothing visible changes.

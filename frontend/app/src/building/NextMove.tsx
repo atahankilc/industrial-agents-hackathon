@@ -3,12 +3,11 @@
 // directions never disagree. One segment per step below: tap the card (or ›) for the next one, a segment to jump.
 // While tracking (useTracking), the metres count down from your position, and a last line says where that position
 // comes from and how old it is; it turns amber when it rests on many counted steps.
-// Before the guide starts the card offers Start (the map shows the whole route meanwhile); once started, "I'm there"
-// moves on, and a route that goes on in a nearby building ends in Continue.
+// Shown in the camera walk (CameraWalk); on the plan, Start / "I'm there" / Done / Continue are RouteHud's RouteBar.
 
-import { ArrowRight, Check, ChevronLeft, ChevronRight, LocateFixed, Play, ScanEye, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LocateFixed, ScanEye, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { GuideStep, NextBuilding } from '../api'
+import type { GuideStep } from '../api'
 import { TurnIcon } from '../ui/TurnIcon'
 import type { RouteTrack } from './tracking'
 import type { Position } from './useTracking'
@@ -29,17 +28,9 @@ type Props = {
   onTrack?: () => void
   position?: Position | null
   track?: RouteTrack | null
-  /** the step-by-step guide: started or not, and how to start it (absent: no guide, e.g. in the camera view) */
-  guiding?: boolean
-  onStart?: () => void
-  /** the route goes on in a nearby building */
-  next?: NextBuilding | null
-  onContinue?: (next: NextBuilding) => void
-  /** the guide reached the last step and the user confirms they are there: the route is done */
-  onFinish?: () => void
 }
 
-export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onCamera, inline = false, tracking = false, onTrack, position, track, guiding = false, onStart, next, onContinue, onFinish }: Props) {
+export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onCamera, inline = false, tracking = false, onTrack, position, track }: Props) {
   const step = steps[index]
   if (!step) return null
   const last = steps.length - 1
@@ -116,34 +107,6 @@ export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onC
           </li>
         ))}
       </ol>
-      {(onStart || next || onFinish) && (
-        <div className="guide-actions">
-          {onStart && !guiding && (
-            <button type="button" className="primary" onClick={onStart}>
-              <Play size={15} />
-              Start — guide me step by step
-            </button>
-          )}
-          {onStart && guiding && index < last && (
-            <button type="button" className="primary" onClick={() => go(index + 1)}>
-              <Check size={15} />
-              I'm there — next step
-            </button>
-          )}
-          {onFinish && guiding && index === last && !next && (
-            <button type="button" className="primary" onClick={onFinish}>
-              <Check size={15} />
-              I'm here — done
-            </button>
-          )}
-          {next && onContinue && (guiding ? index === last : true) && (
-            <button type="button" className={guiding ? 'primary' : ''} onClick={() => onContinue(next)}>
-              Continue in {next.name} · {next.outdoor_m} m {next.heading}
-              <ArrowRight size={15} />
-            </button>
-          )}
-        </div>
-      )}
       {live && <Fix position={live} />}
     </section>
   )

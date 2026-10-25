@@ -1425,25 +1425,6 @@
   animation: hud-in 0.16s var(--ease-out);
 }
 
-/* the guide's actions under the next-move card */
-.guide-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.guide-actions button {
-  display: inline-flex;
-  flex: 1 1 auto;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  height: var(--btn-lg);
-  padding: 0 16px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--hud-fill);
-  color: var(--hud-ink);
-  font: 600 14px var(--font-ui);
-  cursor: pointer;
-}
-.guide-actions button.primary { background: var(--hud-solid); color: var(--hud-solid-ink); }
-
 /* found in the buildings nearby: one row per building, its name shortened before the actions are squeezed */
 .next-move.elsewhere ul { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .next-move.elsewhere li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 6px 0; }
@@ -1473,9 +1454,9 @@
 
 /* hover for the filled buttons in cards (the solid ones dim a little instead) */
 @media (hover: hover) {
-  .steps-toggle:hover, .guide-actions button:not(.primary):not(:disabled):hover,
+  .steps-toggle:hover,
   .screen .next-move.elsewhere .acts button:not(.go):hover { background: var(--hud-fill-2); }
-  .guide-actions button.primary:not(:disabled):hover, .screen .next-move.elsewhere .acts button.go:hover,
+  .screen .next-move.elsewhere .acts button.go:hover,
   .screen .hud-pill:hover { opacity: 0.88; }
   .intents button:hover { background: var(--hud-glass-2); }
 }

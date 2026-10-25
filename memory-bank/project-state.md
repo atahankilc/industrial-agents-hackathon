@@ -70,6 +70,30 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   (Python sandbox; its `route()` = `find_route`'s rules and profile), `find_nearest` with `closed` + shortlist,
   readable Claude API errors (`backend/service_errors.py`, app note + voice). New vs old dev Guide: capability set 5/5
   vs 3/5, eval_guide 18/18 vs 17/18, interaction judge mixed within noise (log 08:30).
+
+- **Plan import / Creator (branch `3-plan-import`, worktree `.claude/worktrees/3-plan-import`, in progress,
+  2026-10-25):** create a building from floor-plan PDFs / photos —
+  [spec](../docs/superpowers/specs/2026-10-25-plan-import-design.md) (approved by Utku),
+  [plan](../docs/superpowers/plans/2026-10-25-plan-import.md). Built: deterministic core `core/plan_import/` (ingest
+  incl. HEIC, rectify / crop / wall mask, cells by walls / colours / boxes, labels with stable door numbers, scale,
+  stacking with scale search + name joins, assembly + autofix + validate); the Creator (`agent/creator.py` +
+  `agent/creator_tools.py`, 11 tools); private import drafts (`import/<id>`; migration
+  `20261025180000_builder_imports.sql` applied to Supabase 2026-10-25 by Utku, table + RLS checked); `POST /imports/stream`; the "Create from floor plans" screen
+  (`frontend/app/src/import/`, checked in headless Chrome); `scripts/eval_import.py`, `scripts/live_creator.py`.
+  New deps: numpy, opencv-python-headless, pypdfium2, pypdf, pillow, pillow-heif, python-multipart (no PyMuPDF, D-009).
+  Measured live (Opus 5.5, logs in the worktree's `.superpowers/runs/`): dataset eval (8 floors) count ratio 0.97,
+  IoU 0.91, doors 89 %, ≈ $1.09; Urban Colab photos 5 floors / 104 spaces / 23 errors, all floors joined by stairs +
+  lift, ≈ $1.73 (≈ $4.80 before the prompt-cache fix); Residenz 2 floors / 56 spaces / 0 errors; Rathaus 59 spaces /
+  0 errors, ≈ $0.35; Projektsteckbrief → no_plan in 10 s. origin/dev (`ed7e974`, new UI) merged into the branch
+  (dev as the base, Utku 2026-10-25): the import now opens the building screen on `import/<id>` straight into the new
+  Edit mode (`?edit=1`, `BuildingScreen` `startEditing`); sessions open private import bases; checked in headless
+  Chrome (upload → Creator → Edit mode "No problems"; Urban Colab draft with "23 problems"). Plan done (Tasks 1–14): cross-floor
+  routes on the Urban Colab result (stairs; step-free via lift), Builder fix → Save → `user/munich-urban-colab` with a
+  route F0 → F4; final review (opus) fixes in (imports admin-only in access mode, no silent merges, bar scales kept,
+  cancel on leave, PDF limits); spec status built; Q-018 note. Local `dev` fast-forwarded to the branch
+  (`99e6203`, not pushed); migration applied. **Next:** push `dev` to origin when Utku says so; deferred minors. Deferred minors in the log. Demo inputs in the main checkout's
+  `building_plans/` (not committed).
+
 - **Sunday agentic layers (2026-10-25, branch `4-sunday-agent`, [D-022](decisions.md#d-022) proposed):** P0 committed
   (`b1805d4`: crash-safe runner, hybrid Sunday command, top-level ids in `answers.json`). P1: LLM route spec →
   `core/route_query.py` (closures of any element, item / room-type endpoints with the nearest taken, stops,

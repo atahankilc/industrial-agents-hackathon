@@ -6,6 +6,7 @@ import { BuildingScreen, type Showing } from './building/BuildingScreen.tsx'
 import { prefetch } from './building/opening'
 import { MapLanding } from './map/MapLanding.tsx'
 import { BuildingSearch } from './search/BuildingSearch.tsx'
+import { ImportScreen } from './import/ImportScreen.tsx'
 
 // Landing is the map of the buildings that have a real position; the list view (?view=list) searches every
 // building, including the ones without a position. Picking one opens its twin (?building=<split>/<id>); the pill at
@@ -14,7 +15,7 @@ import { BuildingSearch } from './search/BuildingSearch.tsx'
 // model's camera. Two ways to look at it (remembered per browser): in its city, the neighbours on screen and their
 // pins tappable; or alone, the map faded out behind it. Leaving fades the model out while the map flies back.
 
-type Landing = 'map' | 'list'
+type Landing = 'map' | 'list' | 'import'
 
 const LEAVE_MS = 350 // the building screen's fade-out (building/screen.css .screen.leaving)
 const SHOWING_KEY = 'ttyb-building-showing'
@@ -23,8 +24,10 @@ startAccess() // GET /config; in access mode, the sign-in (src/access/auth.ts)
 
 const fromUrl = () => {
   const params = new URLSearchParams(location.search)
-  const landing: Landing = params.get('view') === 'list' ? 'list' : 'map'
-  return { building: params.get('building'), landing }
+  const view = params.get('view')
+  const landing: Landing = view === 'list' || view === 'import' ? view : 'map'
+  // ?edit=1: the building opens in the Edit mode (a building just created from floor plans)
+  return { building: params.get('building'), landing, edit: params.get('edit') === '1' }
 }
 
 function storedShowing(): Showing {
@@ -71,12 +74,13 @@ export function Root() {
     }
   }, [showing])
 
-  const go = (building: string | null, landing: Landing) => {
+  const go = (building: string | null, landing: Landing, edit = false) => {
     if (building) prefetch(building) // the session and plan load while the map flies in
     const params = new URLSearchParams(location.search)
-    for (const key of ['go', 'view', 'building']) params.delete(key)
-    if (landing === 'list') params.set('view', 'list')
+    for (const key of ['go', 'view', 'building', 'edit']) params.delete(key)
+    if (landing !== 'map') params.set('view', landing)
     if (building) params.set('building', building)
+    if (building && edit) params.set('edit', '1')
     history.pushState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}`)
     setView(fromUrl())
   }
@@ -95,10 +99,13 @@ export function Root() {
   return (
     <>
       {withMap && (
-        <MapLanding buildings={buildings} error={error} focus={focus} onOpen={(id) => go(id, 'map')} onList={() => go(null, 'list')} />
+        <MapLanding buildings={buildings} error={error} focus={focus} onOpen={(id) => go(id, 'map')} onList={() => go(null, 'list')} onImport={() => go(null, 'import')} />
       )}
       {!view.building && !shown && view.landing === 'list' && (
-        <BuildingSearch onOpen={(id) => go(id, 'list')} onMap={() => go(null, 'map')} />
+        <BuildingSearch onOpen={(id) => go(id, 'list')} onMap={() => go(null, 'map')} onImport={() => go(null, 'import')} />
+      )}
+      {!view.building && !shown && view.landing === 'import' && (
+        <ImportScreen onDone={(base) => go(base, 'list', true)} onExit={() => go(null, 'list')} />
       )}
       {shown && (
         <BuildingScreen
@@ -108,6 +115,7 @@ export function Root() {
           showing={showing}
           onShowing={setShowing}
           leaving={leaving}
+          startEditing={view.edit && view.building === shown}
           onBack={() => go(null, view.landing)}
           onOpen={(id) => go(id, view.landing)}
         />

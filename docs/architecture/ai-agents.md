@@ -19,7 +19,7 @@ distance, count or route that did not come from a tool result ([D-003](../../mem
 |---|---|---|---|---|
 | **Building Guide** | conversation: find, route, react, edit; clarifies; remembers user profile. **v1 implemented** (terminal, `agent/guide_v1/`: 6 tools, grounding check, session; live scripted run 16/16 turns, 9 conversations, [spec](../superpowers/specs/2026-10-24-guide-agent-design.md), [plan](../superpowers/plans/2026-10-24-guide-agent.md)); the v1 Guide has no edit tools, UI or voice — those are in the canonical `agent/guide.py` (below) | Opus 5.5 default (`GUIDE_MODEL`), medium effort | terminal REPL; text chat + voice (via ElevenLabs) planned | Interaction 25, L1–L3 |
 | **Benchmark pipeline** | question text → parse → solver → `Answer:` line; no free-form LLM | none; Haiku/Sonnet only as parse fallback | CLI `run_benchmark`, `benchmark.evaluate --agent` | Does it work 55 |
-| **Builder** | floor-plan image → draft `building.json` → validate → user confirms | Opus 5.5 (vision) | UI upload + chat | L4 |
+| **Builder** | floor-plan image → draft `building.json` → validate → user confirms; drafting from plans is the **Creator** ([design](../superpowers/specs/2026-10-25-plan-import-design.md), [plan](../superpowers/plans/2026-10-25-plan-import.md), in progress) | Opus 5.5 (vision) | UI upload + chat | L4 |
 | (dev) **Claude Code subagents** | build the product: research, solvers, tests | — | this repo | — |
 
 Model ids: [claude-api skill / docs]; switch by env var, compare cost/quality with `benchmark.evaluate`.
@@ -336,7 +336,7 @@ without the model. **Milestone 3 built (2026-10-24, deploy pending):** with `SUP
 and the Builder's conversation live in Postgres (`builder_drafts`, `saved_buildings`), so any serverless instance
 serves any request — a proposal made on one instance can be applied on another; each person edits their own draft,
 concurrent writes are version-checked (409); saved buildings are shared with everyone
-([milestone 3 plan](../superpowers/plans/2026-10-24-builder-edit-mode-m3.md)). Not yet: plan images (project 2).
+([milestone 3 plan](../superpowers/plans/2026-10-24-builder-edit-mode-m3.md)). Plan images (project 2): the Creator agent, [design](../superpowers/specs/2026-10-25-plan-import-design.md) and [plan](../superpowers/plans/2026-10-25-plan-import.md) (in progress, 2026-10-25).
 
 1. Upload plan image (PNG/PDF page) or describe changes by conversation.
 2. Claude vision drafts `floors`/`spaces`/`openings` in our schema (scale from a known dimension the user gives
@@ -346,6 +346,29 @@ concurrent writes are version-checked (409); saved buildings are shared with eve
 4. Render the draft over the image; user confirms or corrects by chat ("the door is on the north wall").
 5. Measure on our own data: rebuild train buildings from `floor_*_plain.png` and compare to `building.json`
    (room count, area error, connectivity) — a measurable L4 score.
+
+### Creator — plans → building (`agent/creator.py`, 2026-10-25)
+
+[Design](../superpowers/specs/2026-10-25-plan-import-design.md) · [plan](../superpowers/plans/2026-10-25-plan-import.md).
+Upload PDFs / photos / scans (HEIC too) → the Creator, a Claude tool loop (`CREATOR_MODEL`, default
+`claude-opus-5-5`, `CREATOR_EFFORT` medium) over the deterministic stages in `core/plan_import/`, builds the whole
+building without asking anything; the result opens as a draft on a private base `import/<id>` and the Builder above
+corrects it. Code does all geometry (wall mask → cells → doors, colour separators, scale, stacking); the model reads
+the drawings (which page is which floor, what each numbered cell is, names from legends and signs) and looks at its
+own overlays. Fallbacks it chooses itself: colour segmentation, `add_rooms` (cut merged rooms out, or add open rooms
+with cell 0), coarse boxes per room (marked `low_confidence`). Stairs / lifts join floors by name, then distance;
+floors that would stay unconnected get their nearest pair (`synthetic: true`). Import notes (scale method, segmentation,
+alignment, carved rooms) are kept in `building.source_ref.import`.
+
+Measured (live, Opus 5.5 medium, 2026-10-25): `eval_import.py --full --n 8` on dataset renders — median room-count
+ratio 0.97, median IoU 0.91, median door pairs found 89 %, 6/8 runs without errors, ≈ $1.09 for all 8 (16–152 s each;
+weakest: a 71-room OSM basement, 21 % of doors). Urban Colab escape-plan photos (11 HEIC originals): 5 floors / 104
+spaces, all floors joined by real stairs + lift, 23 errors left (13 doors off a shared wall, 7 unreachable, 3 overlaps)
+for the Builder to fix, 766 s, ≈ $1.73. Residenz brochure PDF: 2 floors / 56 spaces / 0 errors, 174 s (coarse boxes,
+legend names). Rathaus 1900s drawing: 59 spaces / 0 errors, 139 s, ≈ $0.35. Projektsteckbrief (text + landscape plans):
+`no_plan` in 10 s. Segmentation alone (no model) on 30 renders: median IoU 0.40 — the Creator's labelling and fixes take
+it to 0.91. Cost lesson: keep the prompt prefix stable (an earlier version dropped one image per turn and paid ≈ $4.4
+of ≈ $4.8 per Urban Colab run in cache writes).
 
 ## Budget
 

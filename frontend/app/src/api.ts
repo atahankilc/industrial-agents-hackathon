@@ -240,6 +240,14 @@ export type BuilderReply = {
   applied: string | null
   state: DraftState
 }
+export type ImportLine =
+  | { type: 'warning'; detail: string }
+  | { type: 'step'; kind: 'say'; text: string }
+  | { type: 'step'; kind: 'tool'; name: string; level?: number }
+  | { type: 'step'; kind: 'tool_done'; name: string; ok: boolean }
+  | { type: 'done'; draft_id: string; base: string; name: string; issues: Issue[]; notes: unknown }
+  | { type: 'no_plan'; reason: string }
+  | { type: 'error'; detail: string }
 export type BuilderStep = { kind: 'tool' | 'tool_done' | 'check'; name: string; input?: Record<string, unknown>; ok?: boolean }
 
 // ---- access mode (src/access/auth.ts): the bearer token of the signed-in user, a gate that holds requests while a
@@ -427,6 +435,7 @@ export const api = {
   saveDraft: (id: string, name: string) =>
     request<{ building: string; issues: Issue[] }>(`/drafts/${id}/save`, { method: 'POST', body: JSON.stringify({ name }) }),
   builderStream,
+  importPlans,
   cancelProposal: (id: string, proposalId: string) =>
     request<{ cancelled: string }>(`/drafts/${id}/proposals/${proposalId}/cancel`, { method: 'POST' }),
   applyProposal: (id: string, proposalId: string) =>
@@ -501,5 +510,35 @@ async function builderStream(draftId: string, message: string, onStep?: (step: B
       else if (item.type === 'error') throw streamError(item)
     }
     if (done) throw new Error('the reply stream ended early')
+  }
+}
+
+/** Floor plans → the Creator → a draft (POST /imports/stream, multipart). Every NDJSON line goes to `onLine`; a stream
+ *  that ends without its last line (done / no_plan / error) throws. `signal` aborts the request (the backend then
+ *  stops the Creator). */
+async function importPlans(files: File[], onLine: (line: ImportLine) => void, signal?: AbortSignal): Promise<void> {
+  const form = new FormData()
+  for (const file of files) form.append('files', file, file.name)
+  const { 'content-type': _json, ...auth } = (await headers()) as Record<string, string> // the browser sets the multipart boundary
+  const response = await fetch(BASE + '/imports/stream', { method: 'POST', body: form, headers: auth, signal })
+  if (!response.ok || !response.body) throw await failed(response, '/imports/stream')
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  let ended = false
+  for (;;) {
+    const { value, done } = await reader.read()
+    buffer += value ?? ''
+    const lines = buffer.split('\n')
+    buffer = done ? '' : lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line.trim()) continue
+      const item = JSON.parse(line) as ImportLine
+      ended ||= item.type === 'done' || item.type === 'no_plan' || item.type === 'error'
+      onLine(item)
+    }
+    if (done) {
+      if (!ended) throw new Error('the import stream ended early (connection lost); try again')
+      return
+    }
   }
 }

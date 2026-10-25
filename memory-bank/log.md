@@ -30,6 +30,89 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   closures, 12-candidate shortlist) and the new `compute(code)` tool in the tool table and the implemented list.
 - **Next:** ship, push to PR #2; ElevenLabs key is empty in `.env` (browser voice in use).
 
+## 2026-10-25 — Plan import merged into local dev; builder_imports migration applied
+
+- **Did:** local `dev` fast-forwarded to `3-plan-import` (`99e6203`; not pushed — the main checkout was on another
+  session's branch with open work, left untouched). The `builder_imports` migration was applied by Utku (the permission
+  classifier blocked it as a production change; `.superpowers/runs/migrate.sh` held the documented command); a
+  read-only check shows columns `id, building, created_at` and RLS on.
+- **Next:** push `dev` when Utku says so.
+
+## 2026-10-25 — Plan import: final review fixes
+
+- **Did:** whole-branch review (opus) → "with fixes". Fixed with a failing test first: `/imports` admin-only in access
+  mode (it let anyone start paid Creator runs; frontend now sends the token and hides the buttons for non-admins);
+  merges of cells that don't touch are refused (one was silently dropped); a scale-bar scale is never rescaled by the
+  alignment, an aligned one is noted `+aligned`; closing the stream cancels the Creator (and the screen aborts on
+  leave); a stream without its last line is an error in the UI; PDF pages render straight at the working size, ≤ 40
+  pages / images per import, scanned pages not added twice. End-to-end: the Builder fixed an unreachable kitchen on
+  the Urban Colab draft (door proposal → apply → Save → `user/munich-urban-colab`, route F0 → F4 104 m).
+- **Deferred minors:** no reachability check without an entrance; carved / coarse rooms not marked per space; imports
+  never cleaned up; photos decoded at full size first; `%PDF-` only at byte 0; door scale not recomputed after door changes.
+
+## 2026-10-25 — Plan import: origin/dev (new UI) merged into 3-plan-import
+
+- **Did:** merged `origin/dev` `ed7e974` (voice, Access mode, Sunday agent, Edit mode inside the building view) with
+  dev as the base. Conflicts: `backend/app.py` imports (kept both), memory-bank log / project-state (kept both sides).
+  The standalone `EditMode` is gone in dev → the import screen now hands the base to `Root` (`?building=import/<id>&
+  edit=1`), `BuildingScreen` takes `startEditing`, `SessionStore` opens a private import base (not in the catalogue).
+- **Learned:** `npx tsc --noEmit -p .` checks nothing in `frontend/app` (root tsconfig has `files: []` + references) —
+  earlier "typecheck clean" claims in this branch were vacuous; the real check is `npx tsc -b --noEmit` (now clean).
+  `tests/test_commit_hook.py` fails while a merge has unmerged index entries (`git write-tree`); passes once resolved.
+- **Checked:** `uv run pytest -q` 944 passed, 2 skipped; `tsc -b` exit 0; headless Chrome: upload → Creator → Edit mode.
+
+## 2026-10-25 — Creator live results; stable door numbers; what counts as a floor plan
+
+- **Did:** door candidates keep the number they were drawn with ("d<n>"), so merges no longer shift them; the prompt
+  defines a floor plan (rooms divided by walls) and forbids made-up rooms; full eval and demo runs.
+- **Learned:** eval (8 dataset floors): count ratio 0.97, IoU 0.91, doors 89 %, ≈ $1.09. Urban Colab: off-wall doors
+  49 → 13 with stable numbers, errors 69 → 23, ≈ $1.73 (cache fix measured: ≈ $1.24–1.73 vs ≈ $4.80; the "before"
+  figures come from the previous run's output, whose log was overwritten — UNVERIFIED from a saved file).
+  Projektsteckbrief first turned a landscape plan into "blocks" (`.superpowers/runs/live_projekt.log`) → now `no_plan`
+  in 10 s (`live_projekt_after.log`). Rathaus 59 spaces / 0 errors.
+- **Next:** merge origin/dev (new UI), show the imports there; final branch review; merge to dev with Utku's go.
+
+## 2026-10-25 — Creator cost: stop rewriting the prompt cache every turn
+
+- **Learned:** cost by run at Opus 5.5 prices (input $4, output $20, cache write ≈ $5, cache read $0.20 per MTok):
+  ResPlan floor ≈ $0.08, Residenz ≈ $1.50, Urban Colab ≈ $4.80 — of that ≈ $4.4 was cache *writes* (0.87 M tokens),
+  because dropping one old image per turn changed the conversation prefix every turn.
+- **Did:** images now stay; only past 40 are all but the newest 8 dropped, in one cut (`agent/creator.py` `prune`).
+  Expected Urban Colab ≈ $1.5–2 (estimate, to be measured on the next live run).
+
+## 2026-10-25 — Plan import: stacking fix, API errors, docs; credits ran out
+
+- **Did:** floors registered with a relative-scale search (each photo has its own px/m), stairs / lifts joined by name
+  before distance, unconnected consecutive floors get their nearest pair (`synthetic: true`); the Creator ends with
+  "Claude API error: …" instead of a traceback; Creator docs in ai-agents.md + commands.md; import screen checked in
+  headless Chrome (upload → streamed lines → Edit mode, NO PROBLEMS).
+- **Learned:** the Urban Colab run (5 floors, 107 spaces, 329 s, ~0.87 M cache-write tokens) failed on stacking, not
+  on reading: 80 rooms unreachable. EditMode's header class `.guide-line` has no CSS any more (pre-existing).
+- **Blocked:** the API key's credit balance ran out mid-run → no live runs until topped up.
+
+## 2026-10-25 — Plan import: Creator agent, /imports/stream, import screen
+
+- **Did:** Tasks 8–12 of the [plan](../docs/superpowers/plans/2026-10-25-plan-import.md): private import drafts,
+  Creator tools + loop, `/imports/stream`, import screen, HEIC, dataset eval + live runner. Live: resplan-439 render 8/8
+  rooms in 23 s; Residenz PDF 2 floors / 56 spaces / 0 errors in 174 s.
+- **Learned:** walls segmentation misses rooms open to the outside (foyers) → `add_rooms` with cell 0; the model
+  falls back to coarse boxes on busy plans (escape-plan photos, the Residenz brochure) and still names rooms well from
+  legends; wall-mask thresholds 190 / 50 lift dataset IoU 0.30 → 0.40; Utku's Photos drag-out gave 768 px previews,
+  the originals are HEIC 5712×4284.
+- **Next:** Urban Colab re-run, browser check, full eval, docs.
+
+## 2026-10-25 — Plan import (Creator), core stages 1–7
+
+- **Did:** designed Builder project 2 with Utku ([spec](../docs/superpowers/specs/2026-10-25-plan-import-design.md),
+  [plan](../docs/superpowers/plans/2026-10-25-plan-import.md)); built the deterministic core `core/plan_import/`
+  (ingest, rectify / crop / wall mask, cells, labels, scale, stacking, assembly) on branch `3-plan-import`
+  (worktree `.claude/worktrees/3-plan-import`). New deps: numpy, opencv-python-headless, pypdfium2, pypdf, pillow,
+  python-multipart.
+- **Learned:** door gaps close at 6 × the measured wall thickness (scale-free); "outside" must come from the
+  building footprint, not the image border (wide foyers leak); Residenz walls are shades of the fill colour →
+  separator mask with straight thin lines (hatching ignored). Urban Colab photos are only 768×1024 px.
+- **Next:** draft store import bases, Creator tools + loop, `/imports/stream`, import screen, eval, demo runs.
+
 ## 2026-10-25 — Round buttons, one size system (not committed)
 
 - **Did:** buttons across `building/hud.css`, `access/access.css` and `edit/edit.css` are round with three heights,

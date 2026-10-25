@@ -109,9 +109,11 @@ type ScreenProps = {
   leaving: boolean
   onBack: () => void
   onOpen: (buildingId: string) => void
+  /** open straight into the Edit mode (a building just created from floor plans: ImportScreen) */
+  startEditing?: boolean
 }
 
-export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving, onBack, onOpen }: ScreenProps) {
+export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving, onBack, onOpen, startEditing = false }: ScreenProps) {
   const theme = useTheme()
   const palette = theme.dark ? DARK : LIGHT
   const viewport = useViewport()
@@ -127,7 +129,7 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
     const note = sessionStorage.getItem(noteKey(buildingId))
     return note ? [{ role: 'note', text: note }] : []
   })
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(startEditing)
   // Edit mode (src/edit/): the model becomes the draft copy's, handles sit on it, the edit card takes the Guide's place
   const draft = useDraft(buildingId, editing)
   const align = useRef<SVGGElement>(null)

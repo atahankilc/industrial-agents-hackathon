@@ -102,6 +102,7 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | POST | `/drafts/{id}/proposals/{pid}/apply` | – | apply an open proposal → draft state; unknown or made against an older draft → 409 |
 | POST | `/drafts/{id}/undo` | – | drops the last step (nothing to undo → 409) |
 | POST | `/drafts/{id}/save` | `{"name"}` | `{"building": "user/<slug>", "issues"}` — written to `GUIDE_USER_DIR` (default `data/user/`, gitignored), listed in `/buildings`; name clash → `-2` |
+| POST | `/imports/stream` | multipart `files` (PDF / images incl. HEIC; ≤ 20 files, ≤ 25 MB each, else 413; at most 40 pages / images read, the rest named in a `warning`; access mode: admin only, like `/drafts`; closing the stream stops the Creator) | the Creator (`agent/creator.py`, `CREATOR_MODEL` default `claude-opus-5-5`, `CREATOR_EFFORT`) builds a building from floor plans, as NDJSON: `warning` per unreadable file, `step` lines (`say` / `tool` / `tool_done`), then `{"type":"done","draft_id","base":"import/<id>","name","issues","notes"}` / `no_plan` / `error`; the draft opens in the Edit mode, the base is private until saved |
 | POST | `/v1/chat/completions` | OpenAI body, `stream` | OpenAI-compatible (SSE: `"... "` first, then sentences, `data: [DONE]`) for an ElevenLabs Custom LLM |
 | POST | `/tts` | `{"text", "lang"?}` (≤ 1,000 chars after `speakable()`) | the Guide's voice: ElevenLabs MP3 (`audio/mpeg`, `backend/tts.py`); no `ELEVENLABS_API_KEY` → 503, ElevenLabs refused → 502, empty → 422, too long → 413 — the app then uses the browser voice. `/health` says `"tts": true` when the key is set. `TTS_VOICE_ID` / `TTS_MODEL` override voice "River" / `eleven_flash_v2_5` |
 | POST | `/stt/token` | `{"session_id"?}` | `{"token", "keyterms"}`: a single-use ElevenLabs Scribe Realtime token (15 min, one connection) and ≤ 50 keyterms (≤ 20 chars) from the session's building (`backend/stt.py`); the browser then streams the mic to Scribe itself (`voice/scribe.ts`). Scribe off (`STT_MODE=browser` or no key) → 503, ElevenLabs refused → 502, unknown session → 404 — the app then uses browser recognition. `/health` says `"stt": true` when it is on |
@@ -185,6 +186,19 @@ under `data/user/`; with it (`uv run --env-file .env uvicorn …`, and on Vercel
 
 Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8765`). Design and data path:
 [visualization.md](../product/visualization.md#app-and-data-path).
+
+### Plan import (Creator)
+
+```bash
+uv run --env-file .env python scripts/live_creator.py <file|folder>... [--out building.json] [--images DIR]  # live run, steps + tokens
+uv run python scripts/eval_import.py --segment-only [--n 30] [--method walls|colours]   # free: segmentation vs dataset renders
+uv run --env-file .env python scripts/eval_import.py --full [--n 10]                    # the Creator on dataset renders
+```
+
+In the app: "New building from floor plans" on the map, or "New from floor plans" in the list (`?view=import`) →
+`POST /imports/stream` → the building screen on the private base, opened in the Edit mode (`?building=import/<id>&edit=1`). Locally without the database: `GUIDE_PERSIST=off` (the `builder_imports` table
+from `supabase/migrations/20261025180000_builder_imports.sql` must be applied before imports work with
+`SUPABASE_DB_URL`). Tests: `uv run pytest -q tests/test_plan_import_*.py tests/test_creator*.py tests/test_import*.py`.
 
 ## Dev panel
 

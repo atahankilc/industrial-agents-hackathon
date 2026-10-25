@@ -11,6 +11,7 @@
 import maplibregl, { type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useAccess } from '../access/auth'
 import type { Building } from '../api'
 import { useTheme } from '../theme'
 import { applyBlocks, attachMap, FLAT_FOV, osmHeights, setTheme, toLngLat, type Origin } from './bridge'
@@ -66,13 +67,15 @@ function easeFov(map: MapLibreMap, to: number, ms: number) {
   easing.set(map, requestAnimationFrame(step))
 }
 
-export function MapLanding({ buildings, error, focus, onOpen, onList }: {
+export function MapLanding({ buildings, error, focus, onOpen, onList, onImport }: {
   buildings: Building[] | null
   error: string | null
   focus: Focus | null
   onOpen: (id: string) => void
   onList: () => void
+  onImport: () => void
 }) {
+  const access = useAccess() // access mode: only the admin creates buildings (an import is a paid Creator run)
   const { dark } = useTheme()
   setTheme(dark) // the blocks the bridge draws around an open building take the map's colours
   const container = useRef<HTMLDivElement>(null)
@@ -470,6 +473,12 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
           <span>{buildings ? `${elsewhere} more without a location` : 'More buildings'}</span>
           <span aria-hidden>Search →</span>
         </button>
+        {(!access.mode || access.admin) && (
+          <button className="ml-more" onClick={onImport}>
+            <span>New building from floor plans</span>
+            <span aria-hidden>Create →</span>
+          </button>
+        )}
       </aside>
     </main>
   )

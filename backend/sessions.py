@@ -167,7 +167,7 @@ class SessionStore:
             session = BuildingSession(BuildingMap(filter_building(data, restricted)))
             session.restricted_names = restricted_names(data, restricted)
             return session
-        entry = self.catalogue[building]
+        entry = self.catalogue.get(building, {})  # not listed: a draft's private base (an import, `import/<id>`)
         if "path" in entry:
             return BuildingSession.load(entry["path"])
         return BuildingSession(BuildingMap(copy.deepcopy(self.user_buildings.base_building(building))))
@@ -175,7 +175,7 @@ class SessionStore:
     def base_data(self, building: str) -> dict:
         """building.json data of a catalogue or saved building, as stored (cached per dataset building; callers
         must not mutate it)."""
-        entry = self.catalogue[building]
+        entry = self.catalogue.get(building, {})
         if "path" not in entry:
             return self.user_buildings.base_building(building)
         with self.guard:

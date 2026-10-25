@@ -429,3 +429,85 @@ def move_edge(building: dict, space_id: str, edge: list[list[float]], offset_m: 
             other["polygon"] = checked_outline(moved, other["name"])
             changed.add(other["id"])
     settle(before, building, space["floor_id"], changed)
+
+
+# ---------- position on the map (core/geoplace.py) ----------
+
+
+@op("scale_building")
+def scale_building(building: dict, factor: float) -> None:
+    """Scale the whole building about its (0, 0) — a map fit correcting the import's scale estimate. Door widths
+    stay (they are real door widths)."""
+    factor = float(factor)
+    if not 0.5 <= factor <= 2.0:
+        raise EditError(f"scale_building: factor {factor} is out of range (0.5–2)")
+    for space in building["spaces"]:
+        space["polygon"] = [[round(x * factor, 3), round(y * factor, 3)] for x, y in space["polygon"]]
+    for item in (*building["openings"], *building["assets"]):
+        if item.get("position"):
+            item["position"] = [round(value * factor, 3) for value in item["position"][:2]] + list(item["position"][2:])
+    # the import's plans (Edit mode's reference / trace) map pixels to these metres: they scale with them
+    for floor in ((building["building"].get("source_ref") or {}).get("import") or {}).get("floors", {}).values():
+        if floor.get("reference"):
+            floor["reference"]["transform"] = [[value * factor for value in row] for row in floor["reference"]["transform"]]
+        if floor.get("m_per_px"):
+            floor["m_per_px"] *= factor
+
+
+@op("set_reference")
+def set_reference(building: dict, floor_id: str, transform: list) -> None:
+    """Where a floor's kept plan lies under the editor (its 2×3 px → metres transform) — Edit mode's trace, moved /
+    turned / scaled by hand onto the rooms. The rooms do not move."""
+    floor = find(building, "floors", floor_id)
+    plan = (((building["building"].get("source_ref") or {}).get("import") or {}).get("floors") or {}).get(str(floor["level"]))
+    if not plan or not plan.get("reference"):
+        raise EditError(f"set_reference: floor {floor_id} has no plan image")
+    try:
+        rows = [[float(value) for value in row] for row in transform]
+    except (TypeError, ValueError):
+        rows = []
+    if len(rows) != 2 or any(len(row) != 3 for row in rows) or abs(rows[0][0] * rows[1][1] - rows[0][1] * rows[1][0]) < 1e-12:
+        raise EditError("set_reference: transform must be 2×3 numbers [[a, b, c], [d, e, f]] that do not flatten the image")
+    plan["reference"]["transform"] = rows
+
+
+@op("straighten_floor")
+def straighten_floor(building: dict, floor_id: str) -> None:
+    """Turn a floor in place (about its middle) so its walls run parallel to the lowest floor's — a floor added from
+    a plan drawn or photographed a few degrees off. Its kept plan turns with it."""
+    from core.plan_import.merge import lowest_spaces, outline, turn_floor, wall_angle
+
+    floor = find(building, "floors", floor_id)
+    spaces = [space for space in building["spaces"] if space["floor_id"] == floor["id"]]
+    if not spaces:
+        raise EditError(f"straighten_floor: floor {floor_id} has no rooms")
+    off = (wall_angle(lowest_spaces(building)) - wall_angle(spaces) + 45) % 90 - 45  # the smallest turn, ±45°
+    middle = outline({"spaces": spaces}).centroid
+    turn_floor(building, floor["id"], off, (middle.x, middle.y))
+
+
+@op("add_floors")
+def add_floors(building: dict, building_with_floors: dict) -> None:
+    """The floors of another import (a building of their own) laid onto this one and stacked on it
+    (core/plan_import/merge.py) — "Add a floor" in Edit mode."""
+    from core.plan_import.merge import add_floors as merged  # merge → geoplace → edits: imported when used
+
+    if not isinstance(building_with_floors, dict) or not building_with_floors.get("floors"):
+        raise EditError("add_floors: building_with_floors needs floors")
+    try:
+        result = merged(building, building_with_floors)
+    except ValueError as error:
+        raise EditError(f"add_floors: {error}") from None
+    building.clear()
+    building.update(result)
+
+
+@op("set_location")
+def set_location(building: dict, location: dict | None) -> None:
+    """The building's real position (`building.location`, core/geoplace.location_for); None removes it."""
+    if location is None:
+        building["building"].pop("location", None)
+    elif not isinstance(location, dict) or not {"origin", "bearing"} <= set(location):
+        raise EditError("set_location: location needs origin and bearing")
+    else:
+        building["building"]["location"] = location

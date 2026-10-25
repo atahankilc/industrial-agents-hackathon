@@ -95,3 +95,33 @@ export function inside(p: XY, polygon: XY[]) {
   })
   return hit
 }
+
+/** The SVG transform that draws an import's plan image (pixels) at the building metres its 2×3 `transform` gives
+ * (x = t00·u + t01·v + t02, y = t10·u + t11·v + t12) — EditLayer's trace underneath. */
+export function traceMatrix(transform: [[number, number, number], [number, number, number]] | number[][]): string {
+  const [[t00, t01, t02], [t10, t11, t12]] = transform
+  return `matrix(${t00} ${t10} ${t01} ${t11} ${t02} ${t12})`
+}
+
+/** Where an image pixel (u, v) lands in building metres under a trace's 2×3 transform. */
+export function traceAt(transform: number[][], u: number, v: number): XY {
+  const [[t00, t01, t02], [t10, t11, t12]] = transform
+  return [t00 * u + t01 * v + t02, t10 * u + t11 * v + t12]
+}
+
+/** A trace's transform moved by (dx, dy) metres, turned by `angle` (radians, counter-clockwise) and scaled about
+ * `centre` — the trace dragged, turned or resized onto the rooms by hand. */
+export function adjustTrace(
+  transform: number[][], { dx = 0, dy = 0, angle = 0, scale = 1, centre = [0, 0] }: { dx?: number; dy?: number; angle?: number; scale?: number; centre?: XY },
+): number[][] {
+  const cos = Math.cos(angle) * scale
+  const sin = Math.sin(angle) * scale
+  const [cx, cy] = centre
+  // A = translate(centre + d) · rotate · scale · translate(−centre), applied after the transform
+  const a = [[cos, -sin, cx + dx - cos * cx + sin * cy], [sin, cos, cy + dy - sin * cx - cos * cy]]
+  const [[t00, t01, t02], [t10, t11, t12]] = transform
+  return [
+    [a[0][0] * t00 + a[0][1] * t10, a[0][0] * t01 + a[0][1] * t11, a[0][0] * t02 + a[0][1] * t12 + a[0][2]],
+    [a[1][0] * t00 + a[1][1] * t10, a[1][0] * t01 + a[1][1] * t11, a[1][0] * t02 + a[1][1] * t12 + a[1][2]],
+  ]
+}

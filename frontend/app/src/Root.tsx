@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AccessLayer } from './access/AccessLayer.tsx'
 import { startAccess, useAccess } from './access/auth'
-import { api, type Building } from './api'
+import { api, type Building, type ImportPlace } from './api'
 import { BuildingScreen, type Showing } from './building/BuildingScreen.tsx'
 import { prefetch } from './building/opening'
 import { MapLanding } from './map/MapLanding.tsx'
@@ -48,9 +48,14 @@ export function Root() {
   // access mode: which buildings are listed depends on who is signed in
   const { version } = useAccess()
 
+  // where "Create a building here" was tapped on the map (null: an import started from the list, no place)
+  const [place, setPlace] = useState<ImportPlace | null>(null)
+  const [deleted, setDeleted] = useState(0) // a building was deleted on the map: list again
+
+  // again whenever the screen changes: a building saved in Edit mode (with its place on the map) shows at once
   useEffect(() => {
     api.buildings().then(setBuildings).catch((reason) => setError(String(reason)))
-  }, [version])
+  }, [version, view.building, view.landing, deleted])
 
   useEffect(() => {
     const onPop = () => setView(fromUrl())
@@ -85,7 +90,10 @@ export function Root() {
     setView(fromUrl())
   }
 
-  const originOf = (id: string | null) => (id && buildings?.find((item) => item.id === id)?.location?.origin) || null
+  const originOf = (id: string | null) => {
+    const location = id ? buildings?.find((item) => item.id === id)?.location : null
+    return location?.origin ? { ...location.origin, bearing: location.bearing ?? 0 } : null
+  }
   const target = originOf(view.building)
   const focus = useMemo(
     () => (view.building && target ? { id: view.building, origin: target } : null),
@@ -99,13 +107,19 @@ export function Root() {
   return (
     <>
       {withMap && (
-        <MapLanding buildings={buildings} error={error} focus={focus} onOpen={(id) => go(id, 'map')} onList={() => go(null, 'list')} onImport={() => go(null, 'import')} />
+        <MapLanding buildings={buildings} error={error} focus={focus} onOpen={(id) => go(id, 'map')} onList={() => go(null, 'list')} onImport={(where) => {
+          setPlace(where ?? null)
+          go(null, 'import')
+        }} onDeleted={() => setDeleted((n) => n + 1)} />
       )}
       {!view.building && !shown && view.landing === 'list' && (
-        <BuildingSearch onOpen={(id) => go(id, 'list')} onMap={() => go(null, 'map')} onImport={() => go(null, 'import')} />
+        <BuildingSearch onOpen={(id) => go(id, 'list')} onMap={() => go(null, 'map')} onImport={() => {
+          setPlace(null)
+          go(null, 'import')
+        }} />
       )}
       {!view.building && !shown && view.landing === 'import' && (
-        <ImportScreen onDone={(base) => go(base, 'list', true)} onExit={() => go(null, 'list')} />
+        <ImportScreen place={place} onDone={(base) => go(base, 'list', true)} onExit={() => go(null, place ? 'map' : 'list')} />
       )}
       {shown && (
         <BuildingScreen

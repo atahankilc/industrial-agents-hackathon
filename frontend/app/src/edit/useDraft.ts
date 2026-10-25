@@ -8,7 +8,7 @@
 // reload resumes the same draft.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api, type BuildingJson, type ChatStep, type DraftState, type Op, type Plan, type Proposal } from '../api'
+import { api, type BuildingJson, type ChatStep, type DraftState, type FloorReference, type Op, type Plan, type Proposal } from '../api'
 import type { Message, Suggestion } from '../building/Guide'
 import { addStep, settle, type Step } from '../ui/guideSteps'
 import { placeOps, REACH_PX } from './place'
@@ -67,6 +67,7 @@ const typing = (target: EventTarget | null) =>
 export function useDraft(base: string, active: boolean) {
   const [state, setState] = useState<DraftState | null>(null)
   const [plan, setPlan] = useState<Plan | null>(null)
+  const [references, setReferences] = useState<FloorReference[]>([]) // the import's plans, per floor
   const [selected, setSelected] = useState<Selection>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -105,6 +106,20 @@ export function useDraft(base: string, active: boolean) {
       cancelled = true
     }
   }, [draftId, state, active])
+
+  // The import's straightened plans (Edit mode's reference panel and trace): per draft, again when floors come or go
+  // ("Add a floor", its undo).
+  const floorCount = state?.building.floors.length
+  const [referenceRevision, setReferenceRevision] = useState(0) // the trace moved (set_reference) or a step was undone
+  const touchesReference = (ops: Op[]) => ops.some((item) => item.op === 'set_reference')
+  useEffect(() => {
+    if (!draftId || !active) return
+    let cancelled = false
+    api.draftReferences(draftId).then((next) => !cancelled && setReferences(next)).catch(() => !cancelled && setReferences([]))
+    return () => {
+      cancelled = true
+    }
+  }, [draftId, active, floorCount, referenceRevision])
 
   // A message goes away by itself.
   useEffect(() => {
@@ -151,6 +166,7 @@ export function useDraft(base: string, active: boolean) {
     const steps = state?.draft.steps ?? 0
     void run(() => api.applyOps(draftId, ops), (next) => {
       known(next, ops, steps)
+      if (touchesReference(ops)) setReferenceRevision((n) => n + 1)
       setRedoable([])
     })
   }, [draftId, busy, run, state])
@@ -161,6 +177,7 @@ export function useDraft(base: string, active: boolean) {
     const undone = history.current.at(-1)
     void run(() => api.undo(draftId), () => {
       history.current = history.current.slice(0, -1)
+      if (!undone || touchesReference(undone)) setReferenceRevision((n) => n + 1)
       // a step made before this tab knew it can be undone, but not redone
       setRedoable((stack) => (undone ? [...stack, undone] : []))
     })
@@ -173,6 +190,7 @@ export function useDraft(base: string, active: boolean) {
     const steps = state?.draft.steps ?? 0
     void run(() => api.applyOps(draftId, ops), (next) => {
       known(next, ops, steps)
+      if (touchesReference(ops)) setReferenceRevision((n) => n + 1)
       setRedoable((stack) => stack.slice(0, -1))
     })
   }, [draftId, busy, state, run, redoable])
@@ -348,8 +366,15 @@ export function useDraft(base: string, active: boolean) {
     setProposal(null)
   }, [active])
 
+  // a state changed outside the ops above (the map placement, PUT /drafts/{id}/location): one more undoable step
+  const adopt = (next: DraftState) => {
+    known(next, null, state?.draft.steps ?? 0)
+    setRedoable([])
+    setState(next)
+  }
+
   return {
-    state, plan, selected, setSelected, message, setMessage, busy, revision, proposal, tool, setTool,
+    adopt, state, plan, references, selected, setSelected, message, setMessage, busy, revision, proposal, tool, setTool,
     preset, setPreset, onOps, undo, redo, canRedo: redoable.length > 0, placeAt, discard, deleteSelected, turnSelected, save,
     messages, setMessages, asking, ask, apply, cancel, suggestions, proposalFloorId,
   }

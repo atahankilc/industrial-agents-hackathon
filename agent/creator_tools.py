@@ -194,6 +194,8 @@ class CreatorTools:
                            corners: list | None = None, label_sources: list | None = None,
                            replace: bool = False) -> list[dict]:
         source = self.source(source_id)
+        if source.level is not None:  # the user said which floor this file is: that wins
+            level = source.level
         if level in self.session.floors and not replace:
             existing = self.session.floors[level]
             raise ToolError(f"level {level} already has a plan ({existing.source_id}, {existing.name!r}); keep the "

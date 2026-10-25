@@ -8,7 +8,7 @@ sources:
   - frontend/app/src/map/bridge.ts, src/building/opening.ts, src/Root.tsx (map → building transition, verified headless 2026-10-24)
   - https://threejs.org/docs/ (three.js r160)
   - https://r3f.docs.pmnd.rs/ (react-three-fiber)
-related: [../architecture/overview.md, personas.md, routing-profiles.md, ../architecture/ai-agents.md]
+related: [../superpowers/specs/2026-10-25-plan-reference-and-location-design.md, ../architecture/overview.md, personas.md, routing-profiles.md, ../architecture/ai-agents.md]
 ---
 
 # Visualization
@@ -133,6 +133,30 @@ place card) with a floating Guide conversation.
 - **Nearby buildings** (2026-10-25, [D-021](../../memory-bank/decisions.md#d-021)): a "found nearby" card lists matches
   in neighbouring buildings (Directions / Open); a route to one ends at the exit with a dashed line across outside to
   the other entrance and a Continue badge/button, which opens that building and draws the rest from its entrance.
+
+## Buildings from plans: reference, trace and map position (2026-10-25)
+
+Design: [plan-reference-and-location-design.md](../superpowers/specs/2026-10-25-plan-reference-and-location-design.md).
+
+- **Create here:** right-click a building (or a spot) on the map → a card at the cursor ("This building" / "This
+  spot"; left click elsewhere or Esc closes it). The building under the cursor is outlined (`src/map/MapLanding.tsx`,
+  `src/map/geo.ts` `outerRing` picks the part of a merged tile polygon that holds the point). "Create a building
+  here" opens the import with that place; every file gets a "Floor" number the user sets (one floor per file).
+  Right-click on one of ours: Open / Delete (asks once more; "Which version?" first when versions overlap).
+- **Placement** (`src/map/Placement.tsx`): after the import the building is fitted onto the OSM footprint
+  (dashed); drag, turn (slider, ±1°) and size (0.75–1.25) by hand. Without a tap the photos' EXIF GPS (median) or
+  the browser's position place it; a tap far from the photos offers "did you mean …". Overpass busy → the map's
+  own building tiles are used.
+- **Edit mode:** the import's straightened plan sits right of the editor (`src/edit/ReferencePanel.tsx`, sized to
+  the image, wheel zoom, drag pan, follows the floor); "Trace" draws it under the editor at an adjustable opacity
+  (`EditLayer` `trace`). The window can be dragged by its header and resized from its corner (double-click the
+  header puts it back). "Adjust" lets the trace be dragged, turned and resized on the editor (handles, or the
+  Turn / Size buttons; edit op `set_reference`, undoable). Edit bar: "Edit position" (map pin) reopens Placement
+  with the floor being edited drawn; "Add a floor" (＋) imports plans into the open draft at the floors typed per
+  file; "Straighten this floor" (ruler) turns the floor shown parallel to the lowest floor. The floor chip / list
+  follows the draft's floors.
+- **On the map:** a saved building is drawn at its position with its bearing (`building.location.bearing`, MapLibre
+  bearing = view − building); re-saving a placed user building supersedes the older one on the map.
 
 ## Dev panel
 

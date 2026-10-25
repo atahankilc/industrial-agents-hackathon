@@ -10,6 +10,31 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 15:00 — Buildings from plans: reference + trace in Edit mode, real map position (branch `7-buildings-from-plans` (started as `6-plan-reference-location`))
+
+- **Did:** design + plan (`docs/superpowers/specs|plans/2026-10-25-plan-reference-and-location*`), executed inline.
+  Part 1: the import stores each floor's straightened plan + px → metres transform (`core/plan_import/reference.py`,
+  `GET /drafts/{id}/references`, stripped from every other payload); Edit mode shows it right of the editor
+  (sized to the image) with a "Trace" overlay. Part 2: right-click card on the map ("Create a building here", at the
+  cursor, outline of the building under it); the import is fitted onto the OSM footprint (`core/geoplace.py`), placed
+  by hand (`Placement.tsx`, `PUT /drafts/{id}/location`), saved with `building.location` incl. `bearing`, shown on the
+  map; re-save supersedes. GPS: EXIF GPS median → Overpass building (`core/osm_lookup.py`) → fit; browser position as
+  fallback; "did you mean" when the tap is > 50 m from the photos. "Edit position" in the Edit bar.
+- **Learned:** overpass-api.de answered 406 to curl's UA and 502 "at capacity" → the app falls back to the map's own
+  vector-tile buildings (`querySourceFeatures`); tiles merge same-look buildings into MultiPolygons, so the part
+  holding the point must be picked. A fit at the scale bound (×1.25) moved the trace off the plan: `scale_building`
+  now scales the references too (Utku's live test). The kit's TUM main building fits its own OSM outline at IoU 0.86.
+- **Changed docs:** visualization.md (new section), commands.md (3 endpoints, import fields), the design's status.
+- **Then (Utku's live test):** floors: one per file with a floor number the user types (`levels`), "Add a floor"
+  only in Edit mode (into the open draft, walls kept parallel — a free-angle fit had tilted added floors 7–11°),
+  "Straighten this floor"; map card: Open / Delete only (`DELETE /buildings/user/{slug}`, file store keeps it in
+  `.deleted/`); trace adjustable (`set_reference`); reference window draggable / resizable; problems list over the
+  reference; floor picker follows the draft.
+- **Fixed before shipping (commit-verifier round 2):** save rebuilt `source_ref.import` from the base, so an adjusted
+  trace, a scaled plan, added floors' plans and every plan after a second save were lost; save now keeps the draft's
+  own `source_ref.import` (`tests/test_plan_references.py::test_reference_edits_and_added_floors_survive_save_and_a_second_save`).
+- **Decisions:** D-023 (proposed). **Next:** ship on a new branch and push (Utku asked); merge into `dev` later.
+
 ## 2026-10-25 08:30 — Chat Guide gets the Sunday layers; readable Claude API errors; dev c3ab8f0 merged (branch `4-sunday-agent`)
 
 - **Did:** merged `origin/dev` (6fa882e step card / `find_nearest` / route line from the figure, c3ab8f0 landing

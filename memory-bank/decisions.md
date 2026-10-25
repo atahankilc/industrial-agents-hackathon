@@ -356,3 +356,19 @@ Template:
 - **Evidence:** `tests/test_route_query.py`, `tests/test_llm_route_spec.py`, `tests/test_solver_agent.py`,
   `tests/test_answer_agentic.py`, `scripts/eval_sunday_probe.py` (`tests/sunday_probe/`),
   [ai-agents.md](../docs/architecture/ai-agents.md#sunday-layers-route-specs-solver-agent-decision-cache-2026-10-25).
+
+<a id="d-023"></a>
+### D-023 — A building from plans gets a real position: origin + bearing, fitted onto OSM, adjusted by hand
+- **Status:** proposed · **Date:** 2026-10-25 · **By:** Utku (brainstorming; branch `7-buildings-from-plans` (started as `6-plan-reference-location`))
+- **Context:** Imported buildings had no place on the map, so they could not be found again there, and the user had
+  no way to compare the generated building with the plan it came from while correcting it.
+- **Decision:** `building.location` = {lat, lon, address, origin, bearing (° CCW from east to the building's x),
+  outline, height_m, fit, supersedes}; the building's own coordinates are never rotated (Edit mode keeps the plan's
+  orientation, the map applies the bearing). Position from the tapped OSM building, else the photos' EXIF GPS, else
+  the browser's position; fit = principal axes + IoU descent, scale clamped 0.75–1.25 (low confidence below IoU 0.5
+  or at a bound); the user always confirms by hand. The straightened plan is kept per floor with its px → metres
+  transform and scales with the building. Re-saving a placed user building supersedes the older one on the map.
+  Floors: the user types each file's floor number; more floors are added only in Edit mode, into the open draft,
+  turned only by quarter turns of the angle that keeps their walls parallel to the lowest floor's.
+- **Consequences:** only the coordinate goes to Overpass; Overpass outages fall back to the map's tiles. Design:
+  [plan-reference-and-location-design.md](../docs/superpowers/specs/2026-10-25-plan-reference-and-location-design.md).

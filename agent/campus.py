@@ -19,6 +19,7 @@ from pathlib import Path
 
 from agent import places
 from core import navigation, route_models
+from core.geoplace import to_lnglat
 from core.building_map import DOOR_PREFIX, OUTSIDE, BuildingMap, MapError
 from core.directions import about_m, guidance_steps
 
@@ -49,10 +50,9 @@ def heading(a: tuple[float, float], b: tuple[float, float]) -> str:
     return COMPASS[round(math.degrees(math.atan2(east, north)) % 360 / 45) % 8]
 
 
-def lnglat(origin: dict, x: float, y: float) -> tuple[float, float]:
-    """A point in a building's metres → (lon, lat), as the map places it (bridge.ts toLngLat)."""
-    return (origin["lon"] + math.degrees(x / (EARTH_R * math.cos(math.radians(origin["lat"])))),
-            origin["lat"] + math.degrees(y / EARTH_R))
+def lnglat(origin: dict, x: float, y: float, bearing: float = 0.0) -> tuple[float, float]:
+    """Building metres → [lon, lat] (core/geoplace.py; `bearing` 0 for kit buildings, x east / y north)."""
+    return to_lnglat(origin, bearing, x, y)
 
 
 class Campus:
@@ -116,7 +116,8 @@ class Campus:
 
     def entrances(self, building_id: str, building: BuildingMap, distances: dict[str, float]) -> list[dict]:
         """Open entrances reachable in `distances` (route metres to their door node), with their map position."""
-        origin = (self.location(building_id) or {}).get("origin")
+        location = self.location(building_id) or {}
+        origin, bearing = location.get("origin"), location.get("bearing", 0.0)
         if not origin:
             return []
         out = []
@@ -124,7 +125,7 @@ class Campus:
             door = DOOR_PREFIX + opening["id"]
             if OUTSIDE in opening["space_ids"] and door in distances and opening.get("position"):
                 out.append({"id": opening["id"], "metres": distances[door],
-                            "lnglat": lnglat(origin, *opening["position"][:2])})
+                            "lnglat": lnglat(origin, *opening["position"][:2], bearing=bearing)})
         return out
 
     def route(self, session: "BuildingSession", start: str, building: str, destination: str) -> dict:  # noqa: F821

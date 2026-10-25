@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-25** (step guide faces the step + animated route band, step card and Guide in sync via `route_step` / `show_route_step`, `find_nearest` tool, route line from the figure, calmer voice, map building tones, round-button system — shipped on `dev`; before that: building screen "Quiet HUD" steps 1–5 with the pulls of `origin/dev` 26b908f + b352e83)
+[Memory bank](README.md) · Last updated: **2026-10-25** (buildings from plans get a reference panel + trace in Edit mode and a real map position — right-click "Create a building here", OSM fit, EXIF GPS / browser position, Edit position, supersede on re-save; branch `7-buildings-from-plans` (started as `6-plan-reference-location`), [D-023](decisions.md#d-023); before that: step guide faces the step + animated route band, step card and Guide in sync via `route_step` / `show_route_step`, `find_nearest` tool, route line from the figure, calmer voice, map building tones, round-button system — shipped on `dev`; before that: building screen "Quiet HUD" steps 1–5 with the pulls of `origin/dev` 26b908f + b352e83)
 
 ## Phase
 
@@ -35,6 +35,14 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `backend/locations.json`) + list view for all 280 (`src/search/`); building = vector plan view
   (`frontend/app/src/plan/`, `core/floorplan.py`); the point-cloud prototype and
   scene moved to the gitignored `.viz-archive/`, see [visualization.md](../docs/product/visualization.md).
+- Buildings from plans on the map (2026-10-25, [D-023](decisions.md#d-023),
+  [design](../docs/superpowers/specs/2026-10-25-plan-reference-and-location-design.md)): right-click card on the map
+  starts an import at a building / spot; one floor per file at the floor number the user types; the result is fitted
+  onto the OSM footprint (`core/geoplace.py`, `core/osm_lookup.py`, tile fallback), placed by EXIF GPS / browser
+  position without a tap, adjusted by hand (`src/map/Placement.tsx`) and saved with `building.location`; re-saving
+  supersedes, the card deletes saved buildings. Edit mode: the kept plan beside the editor (movable window) and as an
+  adjustable trace; "Add a floor" (walls kept parallel), "Straighten this floor", "Edit position". Not done: Postgres
+  delete / supersede tests, merging tile-cut OSM pieces, a final whole-branch review.
 - Map → building (2026-10-25): the map stays under the building screen, flies in, then follows the model's camera
   (`src/map/bridge.ts`); plan preloaded on the tap (`src/building/opening.ts`), model rises in; menu toggle "in the
   city" (default, neighbour pins tappable) / "alone"; buildings with a model drawn as blue blocks on the map; new

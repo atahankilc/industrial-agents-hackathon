@@ -3,7 +3,7 @@
 // again from the original (asks once more), Save as a new building and Done. The conversation with the Builder is the Guide's card (building/Guide.tsx), the inspector for
 // what is selected is shown in it (EditCard).
 
-import { Check, DoorOpen, MousePointer2, Package, Redo2, RotateCcw, TriangleAlert, Undo2, X } from 'lucide-react'
+import { Check, DoorOpen, MapPin, MousePointer2, Plus, Ruler, Package, Redo2, RotateCcw, TriangleAlert, Undo2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Issue } from '../api'
 import type { Draft } from './useDraft'
@@ -21,9 +21,12 @@ type Props = {
   onFocusIssue: (issue: Issue) => void
   onDone: () => void
   onSave: (name: string) => void
+  onPlace?: () => void // the building has a map position: move / turn / scale it on the map
+  onAddFloor?: () => void // new floors from plans, into this draft
+  onStraighten?: () => void // turn the floor shown so its walls run parallel to the lowest floor's
 }
 
-export function EditBar({ draft, onFocusIssue, onDone, onSave }: Props) {
+export function EditBar({ draft, onFocusIssue, onDone, onSave, onPlace, onAddFloor, onStraighten }: Props) {
   const { state, busy, tool, setTool } = draft
   const [problems, setProblems] = useState(false)
   const [naming, setNaming] = useState<string | null>(null)
@@ -75,6 +78,24 @@ export function EditBar({ draft, onFocusIssue, onDone, onSave }: Props) {
           <button type="button" className="edit-icon" onClick={() => setDiscarding(true)} disabled={busy || changes === 0}
             aria-label="Discard changes" title="Discard all changes and start again from the original building">
             <RotateCcw size={16} strokeWidth={2} />
+          </button>
+        )}
+        {onStraighten && (
+          <button type="button" className="edit-icon" onClick={onStraighten} disabled={busy}
+            aria-label="Straighten this floor" title="Straighten this floor (walls parallel to the lowest floor)">
+            <Ruler size={16} strokeWidth={2} />
+          </button>
+        )}
+        {onAddFloor && (
+          <button type="button" className="edit-icon" onClick={onAddFloor} disabled={busy} aria-label="Add a floor from plans"
+            title="Add a floor from plans">
+            <Plus size={16} strokeWidth={2} />
+          </button>
+        )}
+        {onPlace && (
+          <button type="button" className="edit-icon" onClick={onPlace} disabled={busy} aria-label="Edit position on the map"
+            title="Edit position on the map">
+            <MapPin size={16} strokeWidth={2} />
           </button>
         )}
         <button type="button" className="edit-save-button" disabled={busy || changes === 0}

@@ -4,8 +4,9 @@ looks at the pages and its own intermediate results (tool results carry PNGs) an
 which segmentation fits, and what every cell is; code does all geometry and checks every answer. It never asks the
 user anything — corrections come afterwards, in Edit mode, from the Builder.
 
-The model's short sentences before each tool call are the progress the user sees (`on_step` "say" events). Older
-images are dropped from the conversation (only the last KEEP_IMAGES stay) so long imports stay affordable."""
+The model's short sentences before each tool call are the progress the user sees (`on_step` "say" events). Images
+stay in the conversation (the cached prefix keeps growing, so earlier turns are cheap cache reads); only past
+MAX_IMAGES are the old ones dropped, all at once."""
 
 import os
 from collections.abc import Callable
@@ -19,7 +20,8 @@ from agent.guide import FALLBACK_BETA, MAX_TOKENS, Usage, llm_mode
 DEFAULT_MODEL = "claude-opus-5-5"  # override with CREATOR_MODEL
 DEFAULT_EFFORT = "medium"  # override with CREATOR_EFFORT
 MAX_TOOL_ROUNDS = 60
-KEEP_IMAGES = 6
+MAX_IMAGES = 40  # images in the conversation before old ones are dropped (each ~1.5–2.5k tokens)
+KEEP_IMAGES = 8  # how many of the newest stay when that happens
 DROPPED = {"type": "text", "text": "[image dropped to save space — call the tool again to see it]"}
 NUDGE = ("[not from the user] You stopped without ending the import. Call finish (or no_plan if no file shows a floor "
          "plan).")
@@ -149,19 +151,18 @@ class Creator:
                              usage=self.usage)
 
     def prune(self) -> None:
-        """Keep only the last KEEP_IMAGES images in tool results."""
-        seen = 0
-        for turn in reversed(self.messages):
-            if turn["role"] != "user" or not isinstance(turn["content"], list):
-                continue
-            for block in reversed(turn["content"]):
-                if block.get("type") != "tool_result" or not isinstance(block.get("content"), list):
-                    continue
-                for index in range(len(block["content"]) - 1, -1, -1):
-                    if block["content"][index].get("type") == "image":
-                        seen += 1
-                        if seen > KEEP_IMAGES:
-                            block["content"][index] = DROPPED
+        """Past MAX_IMAGES images, replace all but the newest KEEP_IMAGES with a note — in one go. Dropping one image
+        per turn would change the conversation's prefix every turn and turn every cache read into a cache write
+        (measured: ~0.87 M cache-write tokens for one 5-floor import), so the prefix only changes on these rare cuts."""
+        images = [(block["content"], index) for turn in self.messages
+                  if turn["role"] == "user" and isinstance(turn["content"], list)
+                  for block in turn["content"]
+                  if block.get("type") == "tool_result" and isinstance(block.get("content"), list)
+                  for index, part in enumerate(block["content"]) if part.get("type") == "image"]
+        if len(images) <= MAX_IMAGES:
+            return
+        for content, index in images[:-KEEP_IMAGES]:
+            content[index] = DROPPED
 
     def request(self) -> object:
         response = self.client.beta.messages.create(

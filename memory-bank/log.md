@@ -10,6 +10,14 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Creator cost: stop rewriting the prompt cache every turn
+
+- **Learned:** cost by run at Opus 5.5 prices (input $4, output $20, cache write ≈ $5, cache read $0.20 per MTok):
+  ResPlan floor ≈ $0.08, Residenz ≈ $1.50, Urban Colab ≈ $4.80 — of that ≈ $4.4 was cache *writes* (0.87 M tokens),
+  because dropping one old image per turn changed the conversation prefix every turn.
+- **Did:** images now stay; only past 40 are all but the newest 8 dropped, in one cut (`agent/creator.py` `prune`).
+  Expected Urban Colab ≈ $1.5–2 (estimate, to be measured on the next live run).
+
 ## 2026-10-25 — Plan import: stacking fix, API errors, docs; credits ran out
 
 - **Did:** floors registered with a relative-scale search (each photo has its own px/m), stairs / lifts joined by name

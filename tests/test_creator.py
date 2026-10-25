@@ -2,7 +2,7 @@
 
 import json
 
-from agent.creator import KEEP_IMAGES, Creator
+from agent.creator import Creator
 from agent.creator_tools import ImportSession
 from agent.offline_llm import message, text_block, tool_use
 from core.plan_import.ingest import load_sources
@@ -63,15 +63,31 @@ def test_no_plan_ends_without_building():  # Review Focus 1
     assert result.status == "no_plan" and result.building is None and result.reason == "only project text"
 
 
-def test_old_images_are_dropped():
-    script = [message(tool_use("view_source", {"source_id": "s1"})) for _ in range(KEEP_IMAGES + 2)]
+def images_per_request(creator) -> list[int]:
+    return [sum(part.get("type") == "image" for turn in request if turn["role"] == "user"
+                and isinstance(turn["content"], list) for block in turn["content"] if block.get("type") == "tool_result"
+                and isinstance(block.get("content"), list) for part in block["content"])
+            for request in creator.client.requests]
+
+
+def test_images_are_kept_so_the_cached_prefix_stays_the_same():
+    script = [message(tool_use("view_source", {"source_id": "s1"})) for _ in range(8)]
     script.append(message(tool_use("no_plan", {"reason": "x"})))
     creator, _, _ = run(plan_session(), script)
-    last = creator.client.requests[-1]
-    images = [part["type"] for turn in last if turn["role"] == "user" and isinstance(turn["content"], list)
-              for block in turn["content"] if block.get("type") == "tool_result"
-              for part in block["content"] if isinstance(block.get("content"), list)]
-    assert images.count("image") == KEEP_IMAGES
+    assert images_per_request(creator) == list(range(9))  # nothing dropped: every request extends the last one
+    first, second = creator.client.requests[3], creator.client.requests[4]
+    assert second[:len(first)] == first
+
+
+def test_past_the_limit_old_images_are_dropped_in_one_go(monkeypatch):
+    import agent.creator as module
+
+    monkeypatch.setattr(module, "MAX_IMAGES", 6)
+    monkeypatch.setattr(module, "KEEP_IMAGES", 2)
+    script = [message(tool_use("view_source", {"source_id": "s1"})) for _ in range(8)]
+    script.append(message(tool_use("no_plan", {"reason": "x"})))
+    creator, _, _ = run(plan_session(), script)
+    assert images_per_request(creator) == [0, 1, 2, 3, 4, 5, 6, 2, 3]  # one cut, then the prefix grows again
 
 
 def test_stops_after_max_rounds():

@@ -3,7 +3,7 @@
 // straight into the Edit mode, where the Builder corrects it and Save turns it into a building. The Edit mode resumes
 // the Creator's draft through its localStorage key (`draft:<base>`, edit/useDraft.ts).
 import { FileUp, X } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, type ImportLine } from '../api'
 import './import.css'
 
@@ -33,6 +33,8 @@ export function ImportScreen({ onDone, onExit }: Props) {
   const [message, setMessage] = useState('')
   const [dragging, setDragging] = useState(false)
   const picker = useRef<HTMLInputElement>(null)
+  const running = useRef<AbortController | null>(null)
+  useEffect(() => () => running.current?.abort(), []) // leaving the screen stops the Creator (and its Claude calls)
 
   const add = (list: FileList | null) => {
     if (!list) return
@@ -60,10 +62,13 @@ export function ImportScreen({ onDone, onExit }: Props) {
         setPhase('error')
       }
     }
+    const controller = new AbortController()
+    running.current = controller
     try {
-      await api.importPlans(files, onLine)
+      await api.importPlans(files, onLine, controller.signal)
     } catch (error) {
-      setMessage(String(error))
+      if (controller.signal.aborted) return
+      setMessage(error instanceof Error ? error.message : String(error))
       setPhase('error')
     }
   }

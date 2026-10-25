@@ -82,11 +82,12 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   0 errors, ≈ $0.35; Projektsteckbrief → no_plan in 10 s. origin/dev (`ed7e974`, new UI) merged into the branch
   (dev as the base, Utku 2026-10-25): the import now opens the building screen on `import/<id>` straight into the new
   Edit mode (`?edit=1`, `BuildingScreen` `startEditing`); sessions open private import bases; checked in headless
-  Chrome (upload → Creator → Edit mode "No problems"; Urban Colab draft with "23 problems"). **Next:** the rest of plan
-  Task 14 — cross-floor Guide
-  route on the saved Urban Colab building, end-to-end run in the app (upload → Builder fix → Save → 3D + route),
-  Q-018 note, spec status → built; final branch review; merge to dev with Utku's go. Demo inputs in the main
-  checkout's `building_plans/` (not committed).
+  Chrome (upload → Creator → Edit mode "No problems"; Urban Colab draft with "23 problems"). Plan done (Tasks 1–14): cross-floor
+  routes on the Urban Colab result (stairs; step-free via lift), Builder fix → Save → `user/munich-urban-colab` with a
+  route F0 → F4; final review (opus) fixes in (imports admin-only in access mode, no silent merges, bar scales kept,
+  cancel on leave, PDF limits); spec status built; Q-018 note. **Next:** merge to dev and apply the
+  `builder_imports` migration (Utku: go, 2026-10-25). Deferred minors in the log. Demo inputs in the main checkout's
+  `building_plans/` (not committed).
 
 - **Sunday agentic layers (2026-10-25, branch `4-sunday-agent`, [D-022](decisions.md#d-022) proposed):** P0 committed
   (`b1805d4`: crash-safe runner, hybrid Sunday command, top-level ids in `answers.json`). P1: LLM route spec →

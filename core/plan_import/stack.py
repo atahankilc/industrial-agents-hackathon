@@ -64,7 +64,8 @@ def align(floors: list[FloorPlan]) -> None:
         criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 200, 1e-5)
         blur = lambda m: cv2.GaussianBlur(m, (0, 0), 5).astype(np.float32)  # noqa: E731
         best = MIN_CORRELATION
-        for trial in SCALE_FACTORS:  # each photo has its own px/m estimate; search the relative scale too
+        trials = (1.0,) if floor.scale_method == "bar" else SCALE_FACTORS  # a scale read off the plan is trusted
+        for trial in trials:  # each photo has its own px/m estimate; search the relative scale too
             metric = np.diag([trial, trial, 1.0]) @ metrics[id(floor)]
             candidate = canvas(floor, metric, size)
             b = cv2.moments(candidate, True)
@@ -81,6 +82,8 @@ def align(floors: list[FloorPlan]) -> None:
                 best, warp, alignment, factor = correlation, found, "registered", trial
         if factor != 1.0:
             floor.m_per_px *= factor
+            if not str(floor.scale_method).endswith("+aligned"):  # the notes show the alignment changed it (once)
+                floor.scale_method = f"{floor.scale_method}+aligned"
             metrics[id(floor)] = np.diag([factor, factor, 1.0]) @ metrics[id(floor)]
         # ECC: moving(x) = warp · template(x)  →  template grid = warp⁻¹ · moving grid
         inverse = np.linalg.inv(np.vstack([warp, [0, 0, 1]]))

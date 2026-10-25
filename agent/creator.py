@@ -9,6 +9,7 @@ stay in the conversation (the cached prefix keeps growing, so earlier turns are 
 MAX_IMAGES are the old ones dropped, all at once."""
 
 import os
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -69,7 +70,7 @@ photo.", "The upper floor is page 2."). Never ask the user anything; never inven
 
 @dataclass
 class CreatorResult:
-    status: str  # "done" | "no_plan" | "failed"
+    status: str  # "done" | "no_plan" | "failed" | "cancelled"
     building: dict | None = None
     issues: list[dict] = field(default_factory=list)
     reason: str = ""
@@ -91,6 +92,7 @@ class Creator:
         self.usage = Usage()
         self.max_rounds = MAX_TOOL_ROUNDS
         self.on_step: Callable[[dict], None] | None = None
+        self.cancel = threading.Event()  # set when the user leaves (the backend stream closed): stop before the next call
 
     def step(self, step: dict) -> None:
         if self.on_step is not None:
@@ -116,6 +118,8 @@ class Creator:
         self.messages = [{"role": "user", "content": self.opening()}]
         nudged = False
         for _ in range(self.max_rounds):
+            if self.cancel.is_set():
+                return CreatorResult("cancelled", reason="the import was cancelled", usage=self.usage)
             self.prune()
             try:
                 response = self.request()

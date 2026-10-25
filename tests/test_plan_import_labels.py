@@ -81,3 +81,12 @@ def test_door_numbers_stay_the_ones_the_model_saw_after_a_merge():
                          {"cell": 3, "action": "room", "type": "corridor", "room_type": "corridor", "name": "Corridor"}],
                  [to_corridor_from_2], [3])
     assert [door.cells for door in floor.doors if "outside" not in door.cells] == [(2, 3)]
+
+
+def test_merging_cells_that_do_not_touch_is_a_problem_not_a_silent_loss():
+    from tests.plan_fixtures import WITH_STAIR
+
+    floor = floor_from(WITH_STAIR)  # 1 and 4 (room west, stair east) share no wall
+    problems = apply_labels(floor, [{"cell": 4, "action": "merge", "into": 1}], None, None)
+    assert any("cannot merge cell 4 into 1" in problem and "touch" in problem for problem in problems)
+    assert 4 in floor.seg.cells

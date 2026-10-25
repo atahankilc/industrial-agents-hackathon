@@ -23,6 +23,8 @@ PROCESS_MAX_SIDE = 2400  # px, long side of every source image
 MODEL_MAX_SIDE = 1568  # px, long side of every image sent to the model
 PDF_DPI = 200
 MIN_EMBEDDED_SIDE = 800  # px, smaller embedded images (logos, icons) are skipped
+MAX_SOURCES = 40  # pages + images per import; the rest are reported, not read
+SAME_ASPECT = 0.03  # an embedded image with the page's aspect ratio is the page itself (a scan)
 
 
 def fit(image: np.ndarray, max_side: int) -> np.ndarray:
@@ -38,26 +40,38 @@ def from_pil(picture: Image.Image) -> np.ndarray:
     return fit(np.asarray(picture)[:, :, ::-1].copy(), PROCESS_MAX_SIDE)
 
 
-def pdf_parts(name: str, data: bytes) -> list[tuple[str, np.ndarray, str]]:
+def pdf_parts(name: str, data: bytes, limit: int = MAX_SOURCES) -> tuple[list[tuple[str, np.ndarray, str]], int]:
+    """Each page rendered straight at the working size (≤ PDF_DPI, long side ≤ PROCESS_MAX_SIDE — a plan sheet can be
+    metres wide), plus embedded images that are not just the page again (a scanned page holds one full-page image).
+    Stops after `limit` parts; returns them and how many the PDF has in all (pages + kept images, as far as counted)."""
     parts = []
+    aspects = []
     document = pypdfium2.PdfDocument(data)
-    for index in range(len(document)):
+    for index in range(min(len(document), limit)):
         page = document[index]
-        picture = page.render(scale=PDF_DPI / 72).to_pil()
+        width, height = page.get_size()  # points
+        scale = min(PDF_DPI / 72, PROCESS_MAX_SIDE / max(width, height, 1))
+        picture = page.render(scale=scale).to_pil()
         text = page.get_textpage().get_text_range()
         parts.append((f"{name} p{index + 1}", from_pil(picture), text))
+        aspects.append(width / max(height, 1))
     try:
         reader = pypdf.PdfReader(BytesIO(data))
         count = 0
-        for page in reader.pages:
+        for page_index, page in enumerate(reader.pages):
             for embedded in page.images:
                 picture = Image.open(BytesIO(embedded.data))
-                if max(picture.size) >= MIN_EMBEDDED_SIDE:
-                    count += 1
+                if max(picture.size) < MIN_EMBEDDED_SIDE:
+                    continue
+                aspect = picture.size[0] / max(picture.size[1], 1)
+                if page_index < len(aspects) and abs(aspect - aspects[page_index]) <= SAME_ASPECT * aspects[page_index]:
+                    continue
+                count += 1
+                if len(parts) < limit:
                     parts.append((f"{name} img{count}", from_pil(picture), ""))
     except Exception:  # embedded images are a bonus; the rendered pages already show them
         pass
-    return parts
+    return parts, len(document) + count
 
 
 def load_sources(files: list[tuple[str, bytes]]) -> tuple[list[Source], list[str]]:
@@ -67,13 +81,18 @@ def load_sources(files: list[tuple[str, bytes]]) -> tuple[list[Source], list[str
         try:
             if not data:
                 raise ValueError("empty file")
+            room = MAX_SOURCES - len(sources)
             if data[:5] == b"%PDF-":
-                parts = pdf_parts(name, data)
+                parts, total = pdf_parts(name, data, max(room, 0))
             else:
-                parts = [(name, from_pil(Image.open(BytesIO(data))), "")]
+                parts = [(name, from_pil(Image.open(BytesIO(data))), "")] if room > 0 else []
+                total = 1
         except Exception as error:
             warnings.append(f"{name}: could not read it ({type(error).__name__}: {error})"[:200])
             continue
+        if total > len(parts):
+            warnings.append(f"{name}: only the first {MAX_SOURCES} pages / images of an import are read; "
+                            f"{total - len(parts)} skipped")
         for origin, image, text in parts:
             sources.append(Source(f"s{len(sources) + 1}", origin, image, text))
     return sources, warnings

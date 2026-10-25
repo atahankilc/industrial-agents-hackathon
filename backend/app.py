@@ -83,9 +83,11 @@ access = Access()  # access mode (ACCESS_MODE=on): accounts, restricted spaces â
 
 @app.middleware("http")
 async def drafts_admin_only(request: Request, call_next):
-    """Access mode: Edit mode (/drafts) hands out a building's full data, so only the admin may use it."""
+    """Access mode: Edit mode (/drafts) hands out a building's full data, and an import (/imports) is a paid Creator
+    run that ends in the Edit mode, so only the admin may use them."""
     path = request.url.path.removeprefix(API_PREFIX)
-    if access.enabled and (path == "/drafts" or path.startswith("/drafts/")) and request.method != "OPTIONS":
+    admin_only = any(path == root or path.startswith(root + "/") for root in ("/drafts", "/imports"))
+    if access.enabled and admin_only and request.method != "OPTIONS":
         try:
             viewer = await run_in_threadpool(access.viewer, request.headers.get("authorization"))
         except AuthError:
@@ -803,6 +805,7 @@ def import_stream(files: list[UploadFile] = File(...)) -> StreamingResponse:
             raise HTTPException(413, f"{upload.filename}: larger than {MAX_IMPORT_BYTES // (1024 * 1024)} MB")
         uploads.append((upload.filename or "upload", data))
     lines: queue.Queue[dict | None] = queue.Queue()
+    cancel = threading.Event()  # the client went away: the Creator stops and no draft is made
 
     def work() -> None:
         try:
@@ -813,8 +816,11 @@ def import_stream(files: list[UploadFile] = File(...)) -> StreamingResponse:
                 lines.put({"type": "error", "detail": "no readable PDF or image among the files"})
                 return
             creator = make_creator(ImportSession(sources, warnings))
+            creator.cancel = cancel
             creator.on_step = lambda step: lines.put({"type": "step", **step})
             result = creator.run()
+            if cancel.is_set() or result.status == "cancelled":
+                return
             if result.status == "no_plan":
                 lines.put({"type": "no_plan", "reason": result.reason})
             elif result.status != "done" or result.building is None:
@@ -831,8 +837,11 @@ def import_stream(files: list[UploadFile] = File(...)) -> StreamingResponse:
 
     def stream():
         threading.Thread(target=work, daemon=True).start()
-        while (line := lines.get()) is not None:
-            yield json.dumps(line, ensure_ascii=False) + "\n"
+        try:
+            while (line := lines.get()) is not None:
+                yield json.dumps(line, ensure_ascii=False) + "\n"
+        finally:  # also on GeneratorExit: the client disconnected or the screen was left
+            cancel.set()
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 

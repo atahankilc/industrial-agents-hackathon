@@ -31,7 +31,7 @@ export function BuildingSearch({ onOpen, onMap, onImport }: { onOpen: (id: strin
   const [active, setActive] = useState(0)
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLOListElement>(null)
-  const { version } = useAccess() // access mode: the list depends on who is signed in
+  const { version, mode, admin } = useAccess() // access mode: the list depends on who is signed in
 
   useEffect(() => {
     api.buildings()
@@ -87,7 +87,7 @@ export function BuildingSearch({ onOpen, onMap, onImport }: { onOpen: (id: strin
       <div className="bs-inner">
         <div className="bs-top">
           <button className="bs-map" onClick={onMap}>← Map</button>
-          <button className="bs-map" onClick={onImport}>New from floor plans →</button>
+          {(!mode || admin) && <button className="bs-map" onClick={onImport}>New from floor plans →</button>}
         </div>
         <header className="bs-head">
           <h1>Find a building</h1>

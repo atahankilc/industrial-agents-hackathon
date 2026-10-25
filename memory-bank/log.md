@@ -10,6 +10,18 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Plan import: final review fixes
+
+- **Did:** whole-branch review (opus) → "with fixes". Fixed with a failing test first: `/imports` admin-only in access
+  mode (it let anyone start paid Creator runs; frontend now sends the token and hides the buttons for non-admins);
+  merges of cells that don't touch are refused (one was silently dropped); a scale-bar scale is never rescaled by the
+  alignment, an aligned one is noted `+aligned`; closing the stream cancels the Creator (and the screen aborts on
+  leave); a stream without its last line is an error in the UI; PDF pages render straight at the working size, ≤ 40
+  pages / images per import, scanned pages not added twice. End-to-end: the Builder fixed an unreachable kitchen on
+  the Urban Colab draft (door proposal → apply → Save → `user/munich-urban-colab`, route F0 → F4 104 m).
+- **Deferred minors:** no reachability check without an entrance; carved / coarse rooms not marked per space; imports
+  never cleaned up; photos decoded at full size first; `%PDF-` only at byte 0; door scale not recomputed after door changes.
+
 ## 2026-10-25 — Plan import: origin/dev (new UI) merged into 3-plan-import
 
 - **Did:** merged `origin/dev` `ed7e974` (voice, Access mode, Sunday agent, Edit mode inside the building view) with

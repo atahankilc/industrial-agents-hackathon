@@ -97,3 +97,31 @@ def test_an_import_opens_in_the_building_screen(client):
     assert session.status_code == 200, session.text
     plan = api.get(f"/sessions/{session.json()['session_id']}/plan")
     assert plan.status_code == 200 and len(plan.json()["spaces"]) == 3
+
+
+def test_closing_the_stream_cancels_the_creator(client, monkeypatch):
+    import threading
+    import time
+
+    started, made = threading.Event(), []
+
+    class SlowCreator:
+        def __init__(self, session):
+            self.cancel, self.on_step = threading.Event(), None
+            made.append(self)
+
+        def run(self):
+            self.on_step({"kind": "say", "text": "working"})
+            started.set()
+            self.cancel.wait(10)
+            return CreatorResult("cancelled", reason="cancelled")
+
+    api = client()
+    monkeypatch.setattr(backend_app, "make_creator", SlowCreator)
+    with api.stream("POST", "/imports/stream", files=[("files", ("plan.png", PLAN))]) as response:
+        next(response.iter_lines())
+        assert started.wait(5)
+    deadline = time.monotonic() + 5
+    while not made[0].cancel.is_set() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert made[0].cancel.is_set()

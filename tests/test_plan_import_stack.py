@@ -95,3 +95,21 @@ def test_floors_with_no_joinable_stairs_still_get_the_nearest_pair():
     align(floors)
     (kind, stops, guessed), = connectors(floors, max_dist_m=0.0)
     assert kind == "stairs" and len(stops) == 2 and guessed
+
+
+def test_a_scale_bar_is_never_rescaled_by_the_alignment():
+    ground = labelled_floor(0, stair=True)
+    upper = labelled_floor(1, stair=True, offset_px=(40, 25))
+    ensure_scales([ground, upper])
+    upper.m_per_px, upper.scale_method = ground.m_per_px * 1.15, "bar"  # measured on the plan: trust it
+    align([ground, upper])
+    assert upper.m_per_px == ground.m_per_px * 1.15 and upper.scale_method == "bar"
+
+
+def test_a_scale_the_alignment_corrected_says_so():
+    ground = labelled_floor(0, stair=True)
+    upper = labelled_floor(1, stair=True, offset_px=(40, 25))
+    ensure_scales([ground, upper])
+    upper.m_per_px *= 1.15
+    align([ground, upper])
+    assert upper.scale_method == "doors+aligned"

@@ -493,23 +493,32 @@ async function builderStream(draftId: string, message: string, onStep?: (step: B
   }
 }
 
-/** Floor plans → the Creator → a draft (POST /imports/stream, multipart). Every NDJSON line goes to `onLine`. */
-async function importPlans(files: File[], onLine: (line: ImportLine) => void): Promise<void> {
+/** Floor plans → the Creator → a draft (POST /imports/stream, multipart). Every NDJSON line goes to `onLine`; a stream
+ *  that ends without its last line (done / no_plan / error) throws. `signal` aborts the request (the backend then
+ *  stops the Creator). */
+async function importPlans(files: File[], onLine: (line: ImportLine) => void, signal?: AbortSignal): Promise<void> {
   const form = new FormData()
   for (const file of files) form.append('files', file, file.name)
-  const response = await fetch(BASE + '/imports/stream', { method: 'POST', body: form })
-  if (!response.ok || !response.body) {
-    const detail = await response.text().catch(() => '')
-    throw new Error(`${response.status} /imports/stream: ${detail.slice(0, 200)}`)
-  }
+  const { 'content-type': _json, ...auth } = (await headers()) as Record<string, string> // the browser sets the multipart boundary
+  const response = await fetch(BASE + '/imports/stream', { method: 'POST', body: form, headers: auth, signal })
+  if (!response.ok || !response.body) throw await failed(response, '/imports/stream')
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
   let buffer = ''
+  let ended = false
   for (;;) {
     const { value, done } = await reader.read()
     buffer += value ?? ''
     const lines = buffer.split('\n')
     buffer = done ? '' : lines.pop() ?? ''
-    for (const line of lines) if (line.trim()) onLine(JSON.parse(line) as ImportLine)
-    if (done) return
+    for (const line of lines) {
+      if (!line.trim()) continue
+      const item = JSON.parse(line) as ImportLine
+      ended ||= item.type === 'done' || item.type === 'no_plan' || item.type === 'error'
+      onLine(item)
+    }
+    if (done) {
+      if (!ended) throw new Error('the import stream ended early (connection lost); try again')
+      return
+    }
   }
 }

@@ -1,7 +1,7 @@
 ---
 id: plan-import-design
 summary: Design of Builder project 2 — create a building.json draft from PDFs / images of floor plans with an agentic pipeline (find plans, segment rooms in code, label with Claude vision, scale, stack floors, validate), then hand it to the existing Edit mode for prompt corrections.
-status: proposed
+status: built (branch 3-plan-import, 2026-10-25)
 sources:
   - conversation with Utku, 2026-10-25
   - docs/challenge/brief.md (Level 4 "Build")

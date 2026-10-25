@@ -61,3 +61,24 @@ def test_iphone_heic_photo_is_read():
     sources, warnings = load_sources([("IMG_6543.HEIC", out.getvalue()), ("IMG_6543.mov", b"\x00\x00\x00\x14ftypqt  ")])
     assert [source.origin for source in sources] == ["IMG_6543.HEIC"] and sources[0].image.shape[:2] == (240, 280)
     assert len(warnings) == 1 and warnings[0].startswith("IMG_6543.mov:")
+
+
+def test_a_huge_pdf_page_renders_straight_to_the_working_size():
+    page = Image.new("RGB", (2000, 1400), "white")
+    out = BytesIO()
+    page.save(out, format="PDF", resolution=12)  # a ~4.2 × 3 m sheet (A0 is 1.19 m)
+    (source,), warnings = load_sources([("sheet.pdf", out.getvalue())])
+    assert max(source.image.shape[:2]) <= 2400 and warnings == []
+
+
+def test_too_many_pages_are_capped_with_a_warning():
+    plan = draw_plan(*TWO_ROOMS_AND_CORRIDOR)
+    sources, warnings = load_sources([("long.pdf", pdf_of(*[plan] * 45))])
+    assert len(sources) == 40
+    assert any(w.startswith("long.pdf:") and "40" in w for w in warnings)
+
+
+def test_a_scanned_pdf_page_is_not_added_twice():
+    scan = np.full((900, 1200, 3), 255, np.uint8)
+    sources, _ = load_sources([("scan.pdf", pdf_of(scan, scan))])
+    assert [source.origin for source in sources] == ["scan.pdf p1", "scan.pdf p2"]

@@ -41,6 +41,8 @@ def merge(floor: FloorPlan, cell_id: int, into: int) -> str | None:
         return f"cannot merge cell {cell_id} into {into}"
     if cells[cell_id].outside or cells[into].outside:
         return f"cannot merge cell {cell_id} into {into}: one of them is outside"
+    if (min(cell_id, into), max(cell_id, into)) not in floor.seg.adjacency:
+        return f"cannot merge cell {cell_id} into {into}: they do not touch (merge only neighbours)"
     union = unary_union([Polygon(cells[into].polygon).buffer(0.5), Polygon(cells[cell_id].polygon).buffer(0.5)])
     union = union.buffer(-0.5)
     if union.geom_type != "Polygon":

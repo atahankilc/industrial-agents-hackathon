@@ -121,3 +121,11 @@ def test_an_api_error_ends_the_import_with_its_message():
 
     result = Creator(plan_session(), client=Broke([])).run()
     assert result.status == "failed" and "credit balance is too low" in result.reason
+
+
+def test_a_cancelled_import_stops_before_the_next_request():
+    script = [message(tool_use("list_sources", {})) for _ in range(5)]
+    creator = Creator(plan_session(), client=ScriptedClient(script))
+    creator.on_step = lambda step: creator.cancel.set() if step["kind"] == "tool_done" else None
+    result = creator.run()
+    assert result.status == "cancelled" and len(creator.client.requests) == 1

@@ -10,6 +10,14 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Plan import merged into local dev; builder_imports migration applied
+
+- **Did:** local `dev` fast-forwarded to `3-plan-import` (`99e6203`; not pushed — the main checkout was on another
+  session's branch with open work, left untouched). The `builder_imports` migration was applied by Utku (the permission
+  classifier blocked it as a production change; `.superpowers/runs/migrate.sh` held the documented command); a
+  read-only check shows columns `id, building, created_at` and RLS on.
+- **Next:** push `dev` when Utku says so.
+
 ## 2026-10-25 — Plan import: final review fixes
 
 - **Did:** whole-branch review (opus) → "with fixes". Fixed with a failing test first: `/imports` admin-only in access

@@ -73,7 +73,7 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   incl. HEIC, rectify / crop / wall mask, cells by walls / colours / boxes, labels with stable door numbers, scale,
   stacking with scale search + name joins, assembly + autofix + validate); the Creator (`agent/creator.py` +
   `agent/creator_tools.py`, 11 tools); private import drafts (`import/<id>`; migration
-  `20261025180000_builder_imports.sql` NOT applied); `POST /imports/stream`; the "Create from floor plans" screen
+  `20261025180000_builder_imports.sql` applied to Supabase 2026-10-25 by Utku, table + RLS checked); `POST /imports/stream`; the "Create from floor plans" screen
   (`frontend/app/src/import/`, checked in headless Chrome); `scripts/eval_import.py`, `scripts/live_creator.py`.
   New deps: numpy, opencv-python-headless, pypdfium2, pypdf, pillow, pillow-heif, python-multipart (no PyMuPDF, D-009).
   Measured live (Opus 5.5, logs in the worktree's `.superpowers/runs/`): dataset eval (8 floors) count ratio 0.97,
@@ -85,8 +85,8 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   Chrome (upload → Creator → Edit mode "No problems"; Urban Colab draft with "23 problems"). Plan done (Tasks 1–14): cross-floor
   routes on the Urban Colab result (stairs; step-free via lift), Builder fix → Save → `user/munich-urban-colab` with a
   route F0 → F4; final review (opus) fixes in (imports admin-only in access mode, no silent merges, bar scales kept,
-  cancel on leave, PDF limits); spec status built; Q-018 note. **Next:** merge to dev and apply the
-  `builder_imports` migration (Utku: go, 2026-10-25). Deferred minors in the log. Demo inputs in the main checkout's
+  cancel on leave, PDF limits); spec status built; Q-018 note. Local `dev` fast-forwarded to the branch
+  (`99e6203`, not pushed); migration applied. **Next:** push `dev` to origin when Utku says so; deferred minors. Deferred minors in the log. Demo inputs in the main checkout's
   `building_plans/` (not committed).
 
 - **Sunday agentic layers (2026-10-25, branch `4-sunday-agent`, [D-022](decisions.md#d-022) proposed):** P0 committed

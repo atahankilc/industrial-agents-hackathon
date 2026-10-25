@@ -5,14 +5,15 @@
 // are dropped by the map itself.
 // With a building open the map stays mounted under its screen (src/Root.tsx): it flies in to the building and then
 // follows the model's camera (./bridge.ts), so in the city view the neighbours stay on screen and their pins can be
-// tapped; shown alone, the building screen's own stage covers it. Closing the building flies back out to every pin.
+// tapped; shown alone, the building screen's own stage covers it. Closing the building flies back to where the map was
+// when it was opened (every pin, if it was opened from a link).
 
 import maplibregl, { type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Building } from '../api'
 import { useTheme } from '../theme'
-import { applyBlocks, attachMap, FLAT_FOV, osmHeights, toLngLat, type Origin } from './bridge'
+import { applyBlocks, attachMap, FLAT_FOV, osmHeights, setTheme, toLngLat, type Origin } from './bridge'
 import './map.css'
 import { BUILDINGS_FROM_ZOOM, mapStyle, modelColours } from './style'
 
@@ -64,6 +65,7 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
   onList: () => void
 }) {
   const { dark } = useTheme()
+  setTheme(dark) // the blocks the bridge draws around an open building take the map's colours
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const openRef = useRef(onOpen)
@@ -207,8 +209,7 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     // the OSM blocks' heights arrive with the tiles
     const modelsSource = () => map.getSource('models') as GeoJSONSource | undefined
     const heights = { key: '' }
-    const modelData = (): GeoJSONSourceSpecification['data'] => {
-      const osm = osmHeights(located.map((b) => b.location.outline ?? []))
+    const modelData = (osm = osmHeights(located.map((b) => b.location.outline ?? []))): GeoJSONSourceSpecification['data'] => {
       heights.key = osm.join(',')
       return {
         type: 'FeatureCollection',
@@ -219,18 +220,26 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
         })),
       }
     }
+    // only once new tiles have arrived: the map goes idle after every move, and reading every block costs a frame or more
+    let tiles = true
+    const onTiles = (event: maplibregl.MapSourceDataEvent) => {
+      if (event.sourceId === 'openmaptiles') tiles = true
+    }
     const updateHeights = () => {
       const source = modelsSource()
-      if (!source) return
-      const key = osmHeights(located.map((b) => b.location.outline ?? [])).join(',')
-      if (key !== heights.key) source.setData(modelData())
+      if (!source || !tiles) return
+      tiles = false
+      const osm = osmHeights(located.map((b) => b.location.outline ?? []))
+      if (osm.join(',') !== heights.key) source.setData(modelData(osm))
     }
     tryPins()
+    map.on('sourcedata', onTiles)
     map.on('idle', updateHeights)
     map.on('style.load', addPins)
     map.on('style.load', hideFocused)
     map.on('style.load', applyBlocks)
     return () => {
+      map.off('sourcedata', onTiles)
       map.off('idle', updateHeights)
       map.off('style.load', addPins)
       map.off('style.load', hideFocused)
@@ -251,9 +260,11 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
   }
 
   // fly in to the open building (or jump, if the map just appeared under it), flattening the perspective so the
-  // model's camera can take over; fly back out to every pin when it closes
+  // model's camera can take over; fly back to where the map was when it closes (to every pin, if there is no such view)
   const focusId = focus?.id ?? null
   const flownTo = useRef<string | null>(null)
+  // where the map was when a building was opened from it: closing the building flies back there
+  const before = useRef<maplibregl.CameraOptions | null>(null)
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -262,6 +273,8 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     const current = focusRef.current
     if (current) {
       const first = !was && !map.loaded() && !framed.current
+      // (opened from a link, the map has not been looked at yet: closing frames every pin instead)
+      if (!was) before.current = first ? null : { center: map.getCenter(), zoom: map.getZoom(), pitch: map.getPitch(), bearing: map.getBearing() }
       framed.current = true
       const ms = first ? 0 : flyMs()
       const camera = { center: toLngLat(current.origin, 0, 0), ...FLY }
@@ -274,7 +287,10 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     if (!was) return
     const bounds = pinBounds(located)
     const ms = flyMs()
-    if (bounds) {
+    const back = before.current
+    before.current = null
+    if (back) map.flyTo({ ...back, duration: ms, essential: true })
+    else if (bounds) {
       const camera = map.cameraForBounds(bounds, { padding: fitPadding(), maxZoom: 15 })
       if (camera) map.flyTo({ ...camera, pitch: PITCH, bearing: 0, duration: ms, essential: true })
     }

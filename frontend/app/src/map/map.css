@@ -61,7 +61,8 @@
 
 /* a building open on top: the panel and controls step aside, the map stays as its city */
 .ml-panel, .ml .maplibregl-ctrl-bottom-right { transition: opacity 0.45s var(--ease), transform 0.45s var(--ease); }
-.ml-open .ml-panel { opacity: 0; transform: translateX(-12px); pointer-events: none; }
+/* hidden, not only see-through, once it has faded: a blurred panel over the moving map costs a re-blur every frame */
+.ml-open .ml-panel { opacity: 0; transform: translateX(-12px); pointer-events: none; visibility: hidden; transition: opacity 0.45s var(--ease), transform 0.45s var(--ease), visibility 0s linear 0.45s; }
 .ml-open .maplibregl-ctrl-bottom-right { opacity: 0; pointer-events: none; }
 
 /* narrow screens: a bottom sheet, the list capped so the map stays the main thing */

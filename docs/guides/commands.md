@@ -131,7 +131,7 @@ uv run --env-file .env python -c "import os,sys,psycopg; psycopg.connect(os.envi
 
 Off unless `ACCESS_MODE=on`; off = every endpoint as above. Design:
 [access-profiles-design](../superpowers/specs/2026-10-25-access-profiles-design.md). Needs `SUPABASE_URL`,
-`SUPABASE_ANON_KEY` (sign-in), `SUPABASE_SERVICE_ROLE_KEY` (invite links) and `ADMIN_EMAIL` (the one admin);
+`SUPABASE_ANON_KEY` (sign-in), `SUPABASE_SERVICE_ROLE_KEY` (invite links) and `ADMIN_EMAIL` (admin emails, comma-separated);
 tables in `supabase/migrations/20261025200000_access.sql` (in memory without `SUPABASE_DB_URL`). Requests carry
 the Supabase access token as `Authorization: Bearer …`.
 

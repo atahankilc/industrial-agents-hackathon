@@ -15,7 +15,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import * as THREE from 'three'
 import type { MapControls as MapControlsImpl } from 'three-stdlib'
 import type { FleetObject, Plan, PlanSpace } from '../api'
-import { MAX_MAP_PITCH, type View } from '../map/bridge'
+import { MAX_MAP_PITCH, type ShellBlock, type View } from '../map/bridge'
 import { assetAt, paintAsset } from './furniture'
 import { buildFloors, contains, fillOf, fromScene, paintSpace, toScene, WALL_CUT_M, type FloorGeometry } from './geometry'
 import type { PlanPalette } from './palette'
@@ -48,6 +48,9 @@ type Props = {
   story: Story
   /** draw the model's own ground grid (off when the map is the ground) */
   ground?: boolean
+  /** shown in its city: the map's own blocks of this building (drawn as a wireframe) and the map's ground colour
+   * (floors under the ground are seen through it) */
+  city?: { shell: ShellBlock[]; ground: string }
   /** the map under the model: its camera now (where the model's camera starts), and the model's camera on every frame */
   camera?: { intro: () => View | null; follow?: (view: View) => void }
   /** a tap that hit nothing of the building; true when it was used (a pin on the map around it) */
@@ -74,7 +77,7 @@ const TILTED = { polar: 0.98, azimuth: Math.PI / 4 } // ~34° above the horizon,
 // "All floors" stacks every floor at its real elevation (from the lowest floor), so the building keeps its proportions
 const floorLift = (plan: Plan, index: number) => (plan.floors[index]?.elevation_m ?? 0) - (plan.floors[0]?.elevation_m ?? 0)
 export function PlanView(props: Props) {
-  const { plan, floor, stacked, palette, selected, insets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, camera, onMiss, objects } = props
+  const { plan, floor, stacked, palette, selected, insets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, city, camera, onMiss, objects } = props
   const groundRef = useRef<THREE.Mesh>(null)
   const labels = useRef<HTMLCanvasElement>(null)
   const { wallHeight, colours } = settings
@@ -96,6 +99,8 @@ export function PlanView(props: Props) {
   useEffect(() => () => floors.forEach(disposeFloor), [floors])
   const down = useRef<{ x: number; y: number } | null>(null)
   const pick = useRef<(x: number, y: number) => Hit | null>(() => null)
+  // the ground (the map's, over the map) under the ground floor; one floor alone stands on it
+  const groundY = (spreading || stacked ? lift(groundIndex(plan)) : 0) - GROUND_BELOW_M
   const shown = stacked ? [...floors.keys()] : spreading ? [...floors.keys()].filter((i) => i <= floor) : [floor]
   const markers = useMemo(() => storyMarkers(plan, story), [plan, story])
   const markerElements = useRef(new Map<string, HTMLElement>())
@@ -140,7 +145,17 @@ export function PlanView(props: Props) {
         <Lights plan={plan} floors={shown} palette={palette} lift={lift} />
         <Reveal>
         <Slide floor={floor} mode={mode} lift={lift} heightOf={spreading ? elevation : stackLift}>
-          <Ground plan={plan} palette={palette} y={(spreading || stacked ? lift(groundIndex(plan)) : 0) - GROUND_BELOW_M} visible={ground} mesh={groundRef} />
+          <Ground plan={plan} palette={palette} y={groundY} visible={ground} mesh={groundRef} />
+          {city && (
+            <City
+              plan={plan}
+              palette={palette}
+              y={groundY}
+              shell={city.shell}
+              ground={city.ground}
+              underground={(spreading || stacked) && shown.some((index) => elevation(index) < elevation(groundIndex(plan)))}
+            />
+          )}
           {shown.map((index) => (
             <group key={index} position={[0, lift(index), 0]}>
               <FloorModel
@@ -382,6 +397,98 @@ function Ground({ plan, palette, y, visible, mesh }: { plan: Plan; palette: Plan
     <mesh ref={mesh} position={[centre.x, y, centre.y]} rotation={[-Math.PI / 2, 0, 0]} material={material} renderOrder={-2} visible={visible}>
       <planeGeometry args={[600, 600]} />
     </mesh>
+  )
+}
+
+const SHELL_CORNER_DEG = 25 // a wireframe corner gets its upright edge when the outline turns at least this much
+const VEIL_ALPHA = 0.7 // how much of the ground colour lies over what is under the ground
+
+/** The building in its city, drawn with the model so both share one depth: the map's own blocks of it as a wireframe
+ * (the map leaves them out, src/map/bridge.ts), the ground floor's outline as a line where it meets the ground, and,
+ * with floors under the ground shown, a veil in the map's ground colour at ground level, so basements read as
+ * under the street (seen through the ground) rather than lying on it. */
+function City({ plan, palette, y, shell, ground, underground }: { plan: Plan; palette: PlanPalette; y: number; shell: ShellBlock[]; ground: string; underground: boolean }) {
+  const invalidate = useThree((state) => state.invalidate)
+  const wireframe = useMemo(() => {
+    const points: number[] = []
+    const at = (x: number, height: number, z: number) => points.push(x, height, z)
+    for (const block of shell)
+      for (const ring of block.rings) {
+        const scene = ring.map(([x, yy]) => toScene(plan, x, yy))
+        const n = scene.length - (scene.length > 1 && scene[0][0] === scene[scene.length - 1][0] && scene[0][1] === scene[scene.length - 1][1] ? 1 : 0)
+        for (let i = 0; i < n; i++) {
+          const [ax, az] = scene[i]
+          const [bx, bz] = scene[(i + 1) % n]
+          for (const height of [block.base, block.top]) {
+            at(ax, height, az)
+            at(bx, height, bz)
+          }
+          const [px, pz] = scene[(i - 1 + n) % n]
+          const turn = Math.abs(Math.atan2((ax - px) * (bz - az) - (az - pz) * (bx - ax), (ax - px) * (bx - ax) + (az - pz) * (bz - az)))
+          if (THREE.MathUtils.radToDeg(turn) >= SHELL_CORNER_DEG) {
+            at(ax, block.base, az)
+            at(ax, block.top, az)
+          }
+        }
+      }
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3))
+    return geometry
+  }, [plan, shell])
+  const footprint = useMemo(() => {
+    const points: number[] = []
+    for (const polygon of plan.outlines?.[groundIndex(plan)] ?? []) {
+      const ring = polygon[0] ?? []
+      ring.forEach(([x, yy], i) => {
+        const [nx, ny] = ring[(i + 1) % ring.length]
+        points.push(...[toScene(plan, x, yy), toScene(plan, nx, ny)].flatMap(([sx, sz]) => [sx, 0, sz]))
+      })
+    }
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3))
+    return geometry
+  }, [plan])
+  // the veil: the biggest outline under the ground (deeper floors mostly sit within it), so only the street over the
+  // basements is tinted; one shape, so overlapping outlines never darken twice
+  const veil = useMemo(() => {
+    const ground = plan.floors[groundIndex(plan)]?.elevation_m ?? 0
+    let best: { area: number; polygons: [number, number][][][] } = { area: 0, polygons: [] }
+    plan.floors.forEach((item, index) => {
+      if (item.elevation_m >= ground) return
+      const polygons = plan.outlines?.[index] ?? []
+      const area = polygons.reduce((sum, polygon) => sum + Math.abs(THREE.ShapeUtils.area((polygon[0] ?? []).map(([x, yy]) => new THREE.Vector2(x, yy)))), 0)
+      if (area > best.area) best = { area, polygons }
+    })
+    const shapes = best.polygons.map(([outer, ...holes]) => {
+      const shape = new THREE.Shape((outer ?? []).map(([x, yy]) => new THREE.Vector2(...toScene(plan, x, yy))))
+      shape.holes = holes.map((hole) => new THREE.Path(hole.map(([x, yy]) => new THREE.Vector2(...toScene(plan, x, yy)))))
+      return shape
+    })
+    return new THREE.ShapeGeometry(shapes)
+  }, [plan])
+  const veilMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: ground, transparent: true, opacity: VEIL_ALPHA, depthWrite: false, side: THREE.DoubleSide }), [ground])
+  const lineMaterials = useMemo(
+    () => ({
+      shell: new THREE.LineBasicMaterial({ color: palette.labelSoft, transparent: true, opacity: 0.55 }),
+      footprint: new THREE.LineBasicMaterial({ color: palette.labelSoft, transparent: true, opacity: 0.9 }),
+    }),
+    [palette.labelSoft],
+  )
+  useEffect(() => () => wireframe.dispose(), [wireframe])
+  useEffect(() => () => footprint.dispose(), [footprint])
+  useEffect(() => () => veil.dispose(), [veil])
+  useEffect(() => () => veilMaterial.dispose(), [veilMaterial])
+  useEffect(() => () => Object.values(lineMaterials).forEach((material) => material.dispose()), [lineMaterials])
+  useEffect(() => invalidate(), [wireframe, underground, invalidate])
+  return (
+    <group position={[0, y, 0]}>
+      <lineSegments geometry={wireframe} material={lineMaterials.shell} />
+      <lineSegments geometry={footprint} material={lineMaterials.footprint} position={[0, 0.02, 0]} />
+      {underground && (
+        // shapes are drawn in (x, z) on the xy plane: turned flat, their y becomes the scene's z
+        <mesh geometry={veil} material={veilMaterial} position={[0, 0.01, 0]} rotation={[Math.PI / 2, 0, 0]} />
+      )}
+    </group>
   )
 }
 

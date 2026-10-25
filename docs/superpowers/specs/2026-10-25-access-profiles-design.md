@@ -73,7 +73,8 @@ a settings UI (the Guide may still help). "Manager" = the one admin account (bel
   free tier — UNVERIFIED limit). The frontend signs in with `@supabase/supabase-js` (anon key) and sends the access
   token as `Authorization: Bearer …`; the backend checks it with `GET {SUPABASE_URL}/auth/v1/user` (cached
   per token for a minute) — no JWT secret in our code.
-- **Admin:** the account whose email equals env `ADMIN_EMAIL`. Rights over every building.
+- **Admin:** an account whose email is listed in env `ADMIN_EMAIL` (comma-separated; two admins since 2026-10-25,
+  Atahan). Rights over every building.
 - **Members:** the admin invites by email and picks access groups per building. The backend creates the user with
   the service-role admin API and returns an **invite link** the admin copies (Supabase `generate_link`, no email
   sent — demo-safe).

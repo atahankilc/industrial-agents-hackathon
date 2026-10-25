@@ -3,7 +3,7 @@
 Off unless ACCESS_MODE=on; off = every viewer sees everything, exactly as before. On:
 
 - A viewer is anonymous, a member (Supabase Auth user, invited by the admin, with access groups per building) or
-  the admin (the account whose email is ADMIN_EMAIL; rights over every building). The bearer token is checked with
+  an admin (an account whose email is listed in ADMIN_EMAIL, comma-separated; rights over every building). The bearer token is checked with
   Supabase `GET /auth/v1/user` (cached for a minute), so no JWT secret lives in our code.
 - Per building: a `public` flag (default true) and rules — by room_type and by space id (a space rule wins) — that
   restrict spaces to groups. The reserved group "public" makes a space public again (an exception to a room-type
@@ -28,6 +28,11 @@ from backend.persistence import PostgresConnection, db_url
 
 PUBLIC = "public"  # reserved group: everyone
 TOKEN_TTL_S = 60
+
+
+def admin_emails() -> set[str]:
+    """ADMIN_EMAIL: one or more admin emails, comma-separated (Atahan, 2026-10-25: two admins)."""
+    return {email.strip().lower() for email in os.environ.get("ADMIN_EMAIL", "").split(",") if email.strip()}
 
 
 def access_mode() -> bool:
@@ -103,8 +108,7 @@ class SupabaseAuth:
         _, anon, _ = self.settings()
         user = self.request("GET", "/auth/v1/user", {"apikey": anon, "Authorization": f"Bearer {token}"})
         email = (user.get("email") or "").lower()
-        admin_email = os.environ.get("ADMIN_EMAIL", "").strip().lower()
-        viewer = Viewer(user_id=user["id"], email=email, admin=bool(admin_email) and email == admin_email)
+        viewer = Viewer(user_id=user["id"], email=email, admin=bool(email) and email in admin_emails())
         with self.lock:
             self.cache[token] = (now + TOKEN_TTL_S, viewer)
         return viewer

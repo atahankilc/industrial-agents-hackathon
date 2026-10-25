@@ -228,3 +228,11 @@ def test_dev_panel_uses_the_viewer_token(client):
     anonymous = client.post(f"/dev/sessions/{session_id}/tool",
                             json={"name": "locate", "arguments": {"query": "Shelf 1.14-A"}}).json()
     assert anonymous["result"]["error"] == "restricted"
+
+
+def test_admin_emails_comma_separated(monkeypatch):
+    from backend.access import admin_emails
+    monkeypatch.setenv("ADMIN_EMAIL", " A@x.org, b@y.org ,")
+    assert admin_emails() == {"a@x.org", "b@y.org"}
+    monkeypatch.delenv("ADMIN_EMAIL")
+    assert admin_emails() == set()

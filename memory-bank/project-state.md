@@ -41,7 +41,9 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   light map palette ([visualization.md](../docs/product/visualization.md#current-vector-plan-view-2026-10-24)).
   Since: buildings refitted onto their OSM ways (`scripts/fit_locations.py`, 12 shifted, 5 partial models kept),
   open with all floors, transition plays with "reduce motion" on, map field of view 1° + model tilt ≤ 60° over the map
-  (≤ 10 px apart), open building's map blocks drawn as a see-through shell.
+  (≤ 10 px apart). City view refinements: open building's map blocks drawn as a wireframe in the model's scene,
+  no z-fighting under the blue blocks, an x-ray cut-away of blocks in front (`src/map/neighbours.ts`), roads at estimated real widths, a ground line plus an underground veil
+  over basements, and Back flies the map to where it was when the building was opened.
 - Licensing: `LICENSE` (MIT, our code only), `NOTICE.md` (third-party paths + terms), `data/README.md`
   (per-source data licences) — [D-009](decisions.md#d-009) accepted.
 - Verified-commit workflow in `.claude/` (verifier + fixer agents, `/ship` skill, commit-gate hook, worklog) —

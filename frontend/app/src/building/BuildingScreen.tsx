@@ -22,7 +22,8 @@ import { devApi, type DevEvent } from '../dev/devApi'
 import { routeRuns } from '../dev/StoryLayer'
 import { applyEvents, EMPTY_STORY, type Story } from '../dev/story'
 import { addStep, settle, type Step } from '../ui/guideSteps'
-import { follow, hideBlocks, mapView, pinAt, settled, showBlocks, type Origin } from '../map/bridge'
+import { follow, hideBlocks, mapView, onShell, pinAt, settled, showBlocks, type Origin, type ShellBlock } from '../map/bridge'
+import { groundColour } from '../map/style'
 import { useTheme } from '../theme'
 import { useVoice, voiceSupported } from '../voice/useVoice'
 import { Guide, type InfoCard, type Message, type Suggestion } from './Guide'
@@ -256,9 +257,14 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   // the map's own block of this building gives way to the model while this screen is up
   useEffect(() => {
     if (!origin || !plan) return
-    hideBlocks(buildingId, origin, (plan.outlines ?? []).flatMap((floor) => floor.map((polygon) => polygon[0] ?? [])))
+    const ground = plan.floors.find((item) => item.level === 0)?.elevation_m ?? plan.floors[0]?.elevation_m ?? 0
+    const height = Math.max(3, ...plan.floors.map((item) => item.elevation_m + item.height_m - ground))
+    hideBlocks(buildingId, origin, (plan.outlines ?? []).flatMap((floor) => floor.map((polygon) => polygon[0] ?? [])), height)
   }, [buildingId, origin, plan])
   useEffect(() => () => showBlocks(buildingId), [buildingId])
+  // ...and the model draws them as a wireframe instead
+  const [shell, setShell] = useState<ShellBlock[]>([])
+  useEffect(() => onShell(setShell), [])
 
   // the map under the model: where the model's camera starts, and the camera the map follows
   const alone = !origin || showing === 'alone'
@@ -429,6 +435,7 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
           story={shownStory}
           objects={access.mode ? objects : undefined}
           ground={alone}
+          city={alone ? undefined : { shell, ground: groundColour(theme.dark) }}
           camera={mapCamera}
           onMiss={alone ? undefined : (x, y) => {
             const id = pinAt(x, y)

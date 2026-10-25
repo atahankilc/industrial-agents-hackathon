@@ -10,6 +10,31 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — City view: wireframe, flicker, cut-away, ground level, return flight
+
+- **Did:** open building's OSM blocks → wireframe in the model's scene (`PlanView` `City`); OSM blocks under the blue
+  model blocks left out; blocks in front of the model cut away to ghost layers; ground-floor line + underground
+  veil over basements; Back flies the map to the camera it had on opening (`src/map/*`, `PlanView`, `BuildingScreen`).
+- **Learned:** OpenMapTiles merges same-looking blocks into one MultiPolygon feature; matching only its first
+  polygon missed Arcisstraße 21 entirely (the old shell never showed there). At the 1° field of view, 0.4–0.6 m
+  offsets still z-fight, so coplanar blocks have to be removed, not nudged. `osmHeights` still tests only the first
+  polygon of a merged feature (not changed).
+- **Changed docs:** [visualization.md](../docs/product/visualization.md#current-vector-plan-view-2026-10-24).
+- **Fix (same day):** hiding a merged feature by id made whole districts of buildings vanish from the map (one
+  feature held 1,797 polygons); now its other polygons are put back from a `rest` GeoJSON source.
+- **Perf pass (same day):** cut-away moved from `setFilter` ghosts to feature-state flattening; block gathering and
+  OSM heights only after new tiles (not every idle), with box prefilters; `osmHeights` now per polygon too.
+  Measured: `applyBlocks` 183 → 16 ms, `osmHeights` 68 → 7 ms, filter changes per rotation 54 → 2. The model renders
+  in ~0.6 ms and the frame times did not change with the pixel ratio, so render size is not the bottleneck.
+- **X-ray (same day):** Atahan found whole blocks popping in and out too abrupt and asked for an x-ray (only the part
+  in front, dithered edge). Now a MapLibre custom layer draws the blocks within 500 m with MapLibre's own lighting
+  and cuts per pixel in a rounded box over the building, dissolving in a Bayer dither. Checked in dark and light
+  themes; frame times unchanged (p50 8 ms, p90 17 ms).
+- **Footprints + road widths (same day):** cut blocks leave their footprint on the ground; roads drawn at estimated
+  real widths per class (the tiles have no width attribute).
+- **Walkways (same day):** the dashed path line replaced by solid walkway / cycle-path lines and tread-dashed steps.
+- **Next:** tune the x-ray size/softness with Atahan; ask which issues still remain.
+
 ## 2026-10-25 02:00–05:00 — Access mode: accounts, restricted spaces, preferences, moving objects
 
 - **Did:** reviewed Utku's access-roles spec with Atahan; wrote the replacing design

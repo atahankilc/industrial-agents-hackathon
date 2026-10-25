@@ -87,11 +87,26 @@ const RECOGNITION_ERRORS: Record<string, string> = {
   'scribe-unavailable': 'ElevenLabs speech recognition is unreachable right now. Tap the orb to try again.',
 }
 
-const END_PAUSE_MS = 1000 // this long without new words, once the user has spoken, ends the utterance
+const END_PAUSE_MS = 1700 // this long without new words, once the user has spoken, ends the utterance
+const MID_PAUSE_MS = 2800 // … when the last word leaves the sentence open ("and", "to the", "ve", "um")
 const NO_WORDS_MS = 8000 // nothing heard at all after a tap: stop listening
 const AUTO_NO_WORDS_MS = 6000 // … after listening started by itself: the conversation is over
-const CARRY_PAUSE_MS = 2000 // after talking over the Guide: the words so far are sent unless more follow
-const BARGE_GRACE_MS = 1000 // talking over the Guide counts only after its voice has played this long
+const CARRY_PAUSE_MS = 2500 // after talking over the Guide: the words so far are sent unless more follow
+const BARGE_GRACE_MS = 1500 // talking over the Guide counts only after its voice has played this long
+const BARGE_HOLD_MS = 700 // … and only once the user's words have kept coming this long (one burst is echo or noise)
+// Voice on the level meter (0…1, rms × 5): room noise after noise suppression stays well below; a voice is above.
+// Words recognised while the meter never heard a voice are noise the recogniser made words of ("thank you").
+const VOICE_LEVEL = 0.12
+const VOICE_FRAMES = 8 // animation frames above VOICE_LEVEL (about 130 ms) before the listen counts as voiced
+
+// Words a sentence doesn't end on: after one of these the user is mid-thought, so the pause may run longer.
+const OPEN_ENDINGS = new Set([
+  'and', 'or', 'but', 'to', 'the', 'a', 'an', 'of', 'from', 'in', 'on', 'at', 'with', 'for', 'is', 'um', 'uh', 'er', 'so',
+  'und', 'oder', 'aber', 'zum', 'zur', 'der', 'die', 'das', 'den', 'dem', 'ein', 'eine', 'von', 'mit', 'nach', 'im', 'äh', 'ähm',
+  've', 'veya', 'ile', 'ama', 'için', 'bir', 'en', 'şey', 'eee', 'ıı', 'hmm', 'yani', 'mı', 'mi', 'mu', 'mü', 'da', 'de',
+])
+const pauseAfter = (text: string) =>
+  OPEN_ENDINGS.has(text.toLowerCase().match(/[\p{L}]+(?=[^\p{L}]*$)/u)?.[0] ?? '') ? MID_PAUSE_MS : END_PAUSE_MS
 
 type SpeakOptions = { conversation?: boolean; waitMs?: number; listenAfter?: () => boolean }
 
@@ -111,6 +126,7 @@ export function useVoice({ onUtterance }: Options) {
   /** 0…1, read every animation frame by the orb (a ref, not state: it changes 60 times a second). */
   const level = useRef(0)
   const peakLevel = useRef(0) // loudest mic level of the current listen, to tell "silent mic" from "no words"
+  const voiced = useRef(0) // frames of the current listen the meter heard a voice in (VOICE_LEVEL)
   // The level meter opens its own mic stream. If that ever costs recognition the device ("audio-capture"), retry
   // once without it for the rest of the session: hearing the words matters more than the orb's wobble.
   const meterBlocked = useRef(false)
@@ -167,6 +183,7 @@ export function useVoice({ onUtterance }: Options) {
         const rms = Math.sqrt(sum / samples.length)
         level.current += (Math.min(1, rms * 5) - level.current) * 0.3
         peakLevel.current = Math.max(peakLevel.current, level.current)
+        if (level.current > VOICE_LEVEL) voiced.current += 1
         if (mic.current) mic.current.frame = requestAnimationFrame(tick)
       }
       mic.current = { stream, context, frame: requestAnimationFrame(tick) }
@@ -206,11 +223,14 @@ export function useVoice({ onUtterance }: Options) {
         if (result.isFinal) finalText += result[0].transcript
         else heard += result[0].transcript
       }
-      setInterim((finalText + heard).trim())
+      // the meter hears no voice yet: room noise made into words, which must neither show nor keep the listen open
+      if (mic.current && voiced.current < VOICE_FRAMES && !carry) return
+      const sofar = (finalText + heard).trim()
+      setInterim(sofar)
       setHearing(true)
       if (!mic.current) level.current = 0.45 + Math.random() * 0.4 // no meter: pulse on each recognised word
       clearTimeout(timer)
-      timer = setTimeout(() => recognizer.stop(), END_PAUSE_MS) // stop() still delivers the words in flight
+      timer = setTimeout(() => recognizer.stop(), pauseAfter(sofar)) // stop() still delivers the words in flight
     }
     let failed = false
     let retry = false
@@ -241,8 +261,10 @@ export function useVoice({ onUtterance }: Options) {
       if (recognition.current !== recognizer) return
       recognition.current = null
       const silentMic = mic.current !== null && peakLevel.current < 0.04 // the meter ran and heard nothing
+      const unvoiced = mic.current !== null && voiced.current < VOICE_FRAMES && !carry // … or heard no voice
       stopMeter()
-      const text = finalText.trim()
+      const text = unvoiced ? '' : finalText.trim()
+      if (unvoiced && finalText.trim()) console.info('[voice] dropped words heard without a voice:', finalText.trim())
       setInterim('')
       if (stateRef.current !== 'listening') return
       if (retry) {
@@ -268,6 +290,7 @@ export function useVoice({ onUtterance }: Options) {
     }
     recognition.current = recognizer
     peakLevel.current = 0
+    voiced.current = 0
     setError(null)
     setInterim('')
     setHearing(false)
@@ -302,16 +325,16 @@ export function useVoice({ onUtterance }: Options) {
     recognizer.lang = lang
     recognizer.interimResults = true
     recognizer.continuous = true
-    let heldTalk = false // "talk" must be heard on two results in a row (or a final one): one stray result is noise
+    let talkSince = 0 // "talk" must be heard on results spanning BARGE_HOLD_MS: a stray burst is echo or noise
     recognizer.onresult = (event) => {
-      if (Date.now() - spokeAt.current < BARGE_GRACE_MS) return // the echo is loudest as the voice starts
+      const now = Date.now()
+      if (now - spokeAt.current < BARGE_GRACE_MS) return // the echo is loudest as the voice starts
       const results = Array.from(event.results, (result) => result[0].transcript)
       const kind = interruption(userPart(results, said.current), said.current)
-      if (kind === 'talk' && !heldTalk && !event.results[event.results.length - 1]?.isFinal) {
-        heldTalk = true
-        return
-      }
-      heldTalk = kind === 'talk'
+      if (kind === 'talk') {
+        talkSince ||= now
+        if (now - talkSince < BARGE_HOLD_MS) return
+      } else talkSince = 0
       if (!kind) return
       unwatch()
       if (kind === 'stop') {

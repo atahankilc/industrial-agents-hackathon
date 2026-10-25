@@ -54,7 +54,9 @@ How to talk:
 - Ask only what changes the answer. When a place is vague ("the printer") or a name matches several spaces, \
 use search/locate first; if the user's words still don't settle it, ask one short question with at most 3 \
 options, each with its floor. This holds when items of the asked kind sit in several rooms and the user wants \
-to go to one: ask which before routing, even if one is nearer (you may give each option's distance). Don't ask \
+to go to one: ask which before routing, even if one is nearer (you may give each option's distance). But when \
+they ask for the nearest or closest one ("nearest toilet", "a kitchen near me"), call find_nearest and take them \
+there without asking; mention the next one only if it is about as close. Don't ask \
 for anything the question doesn't need, and don't end a complete answer with an offer ("Do you want…?").
 - Remember what you learn. When the user mentions a mobility constraint for themselves or the person they \
 guide (wheelchair, pram, trolley width, no lifts, or that a constraint no longer applies), call set_profile \
@@ -67,7 +69,9 @@ start of every route: pass "here" as the start and never ask where they are.
 time, waiting until they say they've arrived at each step. So don't read out all the steps: give one line echoing \
 what you understood (from → to, constraints, closures), the total as about_m ("about 85 m", never the exact \
 length_m), which floors it crosses, and the first step only (from the route's steps, which carry the turns, \
-landmarks and rounded metres). The user starts the step-by-step guide with the Start button or by saying "start".
+landmarks and rounded metres). The user starts the step-by-step guide with the Start button or by saying "start". \
+While they follow it, a [route note] lists the app's step card and the step they are at; use its numbering, and \
+whenever you talk about another step than that one, call show_route_step with it so the card shows what you say.
 - If something is not in this building and search_nearby_buildings is available, look there before saying it \
 isn't here; name the building and how far it is, and use route_to_building when they want to go.
 - Changes go propose_change → show the user the summary and its effect → apply_change only after the user \
@@ -145,7 +149,7 @@ RESET = re.compile(
     r"(?:my\s+|the\s+)?(?:routing\s+)?(?:profile|constraints|preferences|settings)\b|\bi can (?:walk|use the stairs|"
     r"take the stairs|climb stairs)(?: normally)? (?:again|now)\b|\bnicht mehr im rollstuhl\b")
 NEGATED_CUES = ("wheelchair", "pram", "scooter", "trolley")
-PROFILE_TOOLS = {"find_route", "tour", "reachable_rooms", "compare_routes", "propose_change"}
+PROFILE_TOOLS = {"find_route", "find_nearest", "tour", "reachable_rooms", "compare_routes", "propose_change"}
 
 
 SENTENCE_END = r"[.;!?](?=\s|$)"  # not the dot in "0.7 m" or "3.07"
@@ -387,10 +391,11 @@ class Guide:
         self.speech: SpokenStream | None = None
 
     def reply(self, text: str, channel: str = "text", photo: dict | None = None, heard: bool = True,
-              selected: str | None = None) -> GuideTurn:
+              selected: str | None = None, route_step: int | None = None) -> GuideTurn:
         """One user turn. channel="voice" asks for a spoken style and fills `GuideTurn.spoken`; `heard=False` marks
         a voice turn whose text was tapped, not transcribed, so it skips the transcript rewrite. `selected`: the
-        space or asset id tapped on the app's plan while asking, so "this room" / "there" resolve to it. `photo`
+        space or asset id tapped on the app's plan while asking, so "this room" / "there" resolve to it.
+        `route_step`: the step (0-based) the app's step card shows while a route is on the map. `photo`
         ({"media_type", "data": base64}) is shown to the model for this turn only, then dropped from the history."""
         if channel not in CHANNELS:
             raise ValueError(f"channel must be one of {CHANNELS}")
@@ -406,7 +411,8 @@ class Guide:
         note, self.profile_note = self.profile_note, None
         where, self.location_note = self.location_note, None
         picked = self.selection_note(selected)
-        note = "\n\n".join(part for part in (where, picked, note) if part)
+        on_route = self.route_note(route_step)
+        note = "\n\n".join(part for part in (where, picked, on_route, note) if part)
         content = f"{note}\n\n{said}" if note else said
         system_role = self.model.startswith(SYSTEM_MESSAGE_MODELS)
         if channel == "voice" and not system_role:
@@ -469,10 +475,14 @@ class Guide:
             self.speech = None
         return turn
 
-    def set_location(self, space_id: str | None) -> dict | None:
+    def set_location(self, space_id: str | None, point: list[float] | None = None) -> dict | None:
         """The user put the app's "you are here" figure down (or took it away): the session resolves "here" to
-        that space, and the next turn tells the model, so it routes from there without asking."""
-        location = self.session.set_location(space_id)
+        that space, and the next turn tells the model, so it routes from there without asking. Moved within the
+        same room, only the point changes (no new note)."""
+        same_room = space_id is not None and (self.session.user_location or {}).get("space_id") == space_id
+        location = self.session.set_location(space_id, point)
+        if same_room and point is not None:
+            return location
         if location is None:
             self.location_note = "[location note, from the app] The user removed their position; ask if you need it."
         else:
@@ -497,6 +507,18 @@ class Guide:
             return None
         note = (f"[selection note, from the app] The user has {what} selected on the map (id {item_id}). Words like "
                 "\"this\", \"it\" or \"there\" mean it.")
+        self.corpus.append(note)
+        return note
+
+    def route_note(self, index: int | None) -> str | None:
+        """Where the user is on the route on the map, for this turn, with the app's step card (its numbering
+        differs from find_route's steps, which add a start line); None when no route is shown."""
+        steps = self.session.route_card() if index is not None else []
+        if not 0 <= (index or 0) < len(steps):
+            return None
+        listed = " ".join(f"{number}. {step['text']}" for number, step in enumerate(steps, 1))
+        note = (f"[route note, from the app] The route is on the user's map and its step card shows step "
+                f"{index + 1} of {len(steps)}, where the user is. The card's steps: {listed}")
         self.corpus.append(note)
         return note
 

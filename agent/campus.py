@@ -179,6 +179,7 @@ class Campus:
             session.events.append({
                 "type": "route", "space_path": inside_here["space_path"], "element_path": inside_here["element_path"],
                 "length_m": inside_here["length_m"], "profile": session.profile.describe(),
+                **session.start_point(start_id),
                 "next_building": {
                     "building": target_id, "name": name, "destination": end_id,
                     "destination_name": there.spaces[end_id]["name"], "entrance": entry_door["id"],

@@ -6,7 +6,7 @@
 
 import type { ExpressionSpecification, GeoJSONSource, Map as MapLibreMap, MapSourceDataEvent } from 'maplibre-gl'
 import { neighbourLayer, type Neighbour } from './neighbours'
-import { blockLook, BUILDINGS_3D_FILTER, rgb } from './style'
+import { blockLook, BUILDINGS_3D_FILTER, modelColours, rgb } from './style'
 
 const R = 6378137 // the sphere the (archived) georef.py projected the OSM outline with
 const TILE_PX = 512 // MapLibre's world is 512 px wide at zoom 0
@@ -277,7 +277,8 @@ export function applyBlocks() {
         models.push({ id, ring, centre })
         if (blocks && id !== blocks.id && centre && nearby(centre[0], centre[1]) && !nearModels.has(`${id}#${ring.length}#${ring[0]}`)) {
           nearModels.add(`${id}#${ring.length}#${ring[0]}`)
-          neighbours.push({ rings: polygon as [number, number][][], base: 0, top, colour: shade(look.ours, look.oursRoof, top) })
+          const tone = modelColours(dark, Number(feature.properties?.tone ?? 0)) // its shade on the map (MapLanding)
+          neighbours.push({ rings: polygon as [number, number][][], base: 0, top, colour: shade(tone.wall, tone.roof, top) })
         }
       }
     }
@@ -354,7 +355,8 @@ function applyFilters(nearModels: string[]) {
   if (key === filtersKey) return
   filtersKey = key
   map.setFilter('buildings-3d', ['all', BUILDINGS_3D_FILTER as ExpressionSpecification, ['!', ['in', ['id'], ['literal', ownIds]]]])
-  if (map.getLayer('model-blocks')) map.setFilter('model-blocks', hidden.length ? ['!', ['in', ['get', 'id'], ['literal', hidden]]] : null)
+  for (const layer of ['model-blocks', 'model-edges'])
+    if (map.getLayer(layer)) map.setFilter(layer, hidden.length ? ['!', ['in', ['get', 'id'], ['literal', hidden]]] : null)
 }
 
 /** A block's colour as the map draws it: wall colour at the ground to roof colour at 45 m (./style.ts). */

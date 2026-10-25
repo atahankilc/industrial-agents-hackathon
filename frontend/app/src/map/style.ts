@@ -240,10 +240,63 @@ function layers(p: Palette, dark: boolean): LayerSpecification[] {
   ]
 }
 
-/** the accent the buildings with a model are drawn in: walls at the ground, lighter towards the roof */
-export const modelColours = (dark: boolean) => {
+/** the accent the buildings with a model are drawn in: walls at the ground, lighter towards the roof. Kit buildings
+ * often touch (a campus is one block of wings), so each takes one of MODEL_TONES shades (`tone`, chosen by
+ * `modelTones` so touching ones differ); the one under the pointer lights up (`hover`), and `edge` traces every
+ * footprint. */
+export const MODEL_TONES = [0, 0.22, -0.2] // + towards white, − towards black
+export const modelColours = (dark: boolean, tone = 0) => {
   const p = PALETTE[dark ? 'dark' : 'light']
-  return { wall: p.ours, roof: p.oursRoof }
+  const shift = MODEL_TONES[tone] ?? 0
+  return {
+    wall: mix(p.ours, shift),
+    roof: mix(p.oursRoof, shift),
+    hover: mix(p.oursRoof, dark ? 0.45 : 0.35),
+    edge: dark ? mix(p.oursRoof, 0.55) : mix(p.ours, -0.55),
+  }
+}
+
+/** a #RRGGBB colour moved `by` (−1..1) towards black or white */
+export const mix = (colour: string, by: number) => {
+  const target = by >= 0 ? 1 : 0
+  const out = rgb(colour).map((c) => Math.round((c + (target - c) * Math.abs(by)) * 255))
+  return '#' + out.map((c) => c.toString(16).padStart(2, '0')).join('')
+}
+
+/** A tone per building (indices into MODEL_TONES) so that buildings whose outlines touch or nearly touch (within
+ * about 4 m) differ: greedy colouring, most-connected first. */
+export function modelTones(outlines: [number, number][][][]): number[] {
+  const NEAR = 0.00004 // degrees: about 4 m north–south, 3 m east–west at Munich's latitude
+  const boxes = outlines.map((rings) => {
+    const points = rings.flat()
+    const xs = points.map((p) => p[0])
+    const ys = points.map((p) => p[1])
+    return points.length ? [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] : null
+  })
+  const touches = (a: number, b: number) => {
+    const [p, q] = [boxes[a], boxes[b]]
+    if (!p || !q) return false
+    if (p[0] > q[2] + NEAR || q[0] > p[2] + NEAR || p[1] > q[3] + NEAR || q[1] > p[3] + NEAR) return false
+    // boxes overlap: touching if some corner of one lies within NEAR of some corner or edge of the other
+    const near = (from: [number, number][][], to: [number, number][][]) =>
+      from.flat().some(([x, y]) =>
+        to.some((ring) => ring.some(([ax, ay], i) => {
+          const [bx, by] = ring[(i + 1) % ring.length]
+          const [dx, dy] = [bx - ax, by - ay]
+          const t = dx || dy ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy))) : 0
+          return Math.hypot(x - (ax + t * dx), y - (ay + t * dy)) <= NEAR
+        })),
+      )
+    return near(outlines[a], outlines[b]) || near(outlines[b], outlines[a])
+  }
+  const links = outlines.map((_, a) => outlines.map((_, b) => b).filter((b) => b !== a && touches(a, b)))
+  const tones: number[] = outlines.map(() => -1)
+  for (const a of outlines.map((_, i) => i).sort((x, y) => links[y].length - links[x].length)) {
+    const taken = new Set(links[a].map((b) => tones[b]))
+    const free = MODEL_TONES.findIndex((_, tone) => !taken.has(tone))
+    tones[a] = free < 0 ? a % MODEL_TONES.length : free
+  }
+  return tones
 }
 
 const BLOCK_OPACITY = 0.95

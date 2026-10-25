@@ -108,7 +108,8 @@ def safe_steps(building: BuildingMap, event: dict) -> list[dict]:
 def safe_line(building: BuildingMap, event: dict) -> list[list[float]]:
     """The route as a plan polyline [[x, y, floor_index], …] (core/routeline.py), for drawing it on the map."""
     try:
-        return route_line(building, event.get("space_path") or [], event.get("element_path") or [])
+        return route_line(building, event.get("space_path") or [], event.get("element_path") or [],
+                          start=event.get("start_point"))
     except (KeyError, StopIteration):  # path no longer valid on this building
         return []
 

@@ -11,13 +11,20 @@ is skipped and the line runs door to door along the shortest path inside the spa
 its corners, doors entered at their 30 cm landing: the walk core/building_map.py measures), instead of running on
 to the space's centre and turning back. The first and last space are drawn the
 same way between their anchor and the door. Route lengths are not affected (they come from core/route_models.py,
-not from this line)."""
+not from this line).
+
+`start` (optional): where the user really stands in the first space (the app's "you are here" figure); the line
+starts there instead of at the space's anchor. A door between two spaces whose outlines overlap there (each
+30 cm landing lies in both spaces, e.g. an OSM lecture hall outline that takes in its lobby) is left out of the
+drawing with its landings: no wall stands between the two, and the door may sit on the wall of a third room, so
+the line would only dip into it and turn back."""
 
 import math
 from functools import lru_cache
 
 import networkx as nx
 import numpy as np
+from shapely.geometry import Point
 
 from core.building_map import (
     COVER_TOLERANCE_M,
@@ -91,17 +98,28 @@ def route_nodes(building_map: BuildingMap, space_path: list[str], element_path: 
     return nodes
 
 
-def route_line(building_map: BuildingMap, space_path: list[str], element_path: list[str]) -> list[list[float]]:
+def overlap_at(first: list[list[float]], second: list[list[float]], landings: tuple[Point2, Point2]) -> bool:
+    """Each landing of a door also lies in the other space: the two spaces overlap there (an OSM hall outline that
+    takes in its lobby), so no wall stands between them and the door is not where one walks from one to the other."""
+    return (outline(first).buffer(COVER_TOLERANCE_M).contains(Point(landings[1]))
+            and outline(second).buffer(COVER_TOLERANCE_M).contains(Point(landings[0])))
+
+
+def route_line(building_map: BuildingMap, space_path: list[str], element_path: list[str],
+               start: Point2 | None = None) -> list[list[float]]:
     """[[x, y, floor_index], …] in building metres; points outside the building are skipped."""
     if not space_path:
         return []
     floor_index = floor_indices(building_map)
     nodes = route_nodes(building_map, space_path, element_path)
 
-    def point(kind: str, node: str) -> tuple[str, tuple[float, float]]:
+    def point(index: int) -> tuple[str, tuple[float, float]]:
+        kind, node = nodes[index]
         if kind == "door":
             opening = building_map.openings[node]
             return opening["floor_id"], tuple(opening["position"])
+        if index == 0 and start is not None:
+            return building_map.spaces[node]["floor_id"], tuple(start)
         return building_map.spaces[node]["floor_id"], building_map.anchor(node)
 
     def is_door(index: int) -> bool:
@@ -112,25 +130,43 @@ def route_line(building_map: BuildingMap, space_path: list[str], element_path: l
         return walk_corners(building_map.spaces[space_id]["polygon"], first, last)
 
     walk: list[tuple[str, tuple[float, float]]] = []
+    # per door node: its walk index and the walk indices of its landing on each side (None = no landing drawn)
+    doors: dict[int, list[int | None]] = {}
     for index, (kind, node) in enumerate(nodes):
         if node == OUTSIDE:
             continue
-        floor_id, here = point(kind, node)
+        floor_id, here = point(index)
         if kind == "door":
+            doors.setdefault(index, [None, None, None])[1] = len(walk)
             walk.append((floor_id, here))
             continue
         before, after = is_door(index - 1), is_door(index + 1)
         if before and after:  # passed through: door to door, the anchor is skipped
-            walk += [(floor_id, corner) for corner in inside(node, point(*nodes[index - 1])[1], point(*nodes[index + 1])[1])]
+            lead = inside(node, point(index - 1)[1], point(index + 1)[1])
+            corners, tail = lead, lead
+        else:
+            lead = inside(node, point(index - 1)[1], here) if before else []  # end of a walk: door → anchor
+            tail = inside(node, here, point(index + 1)[1]) if after else []  # start of a walk: anchor → door
+            corners = [*lead, here, *tail]
+        if before and lead:  # the walk in this space starts at the door's landing
+            doors.setdefault(index - 1, [None, None, None])[2] = len(walk)
+        if after and tail:  # ... and ends at the next door's landing
+            doors.setdefault(index + 1, [None, None, None])[0] = len(walk) + len(corners) - 1
+        walk += [(floor_id, corner) for corner in corners]
+
+    # a door between two spaces that overlap there: drawn as neither a dip into the doorway nor a zigzag between
+    # its landings, the line goes on from the walk in one space to the walk in the other
+    dropped: set[int] = set()
+    for index, (landing_in, door, landing_out) in doors.items():
+        if landing_in is None or landing_out is None:
             continue
-        if before:  # end of a walk inside this space: door → anchor
-            walk += [(floor_id, corner) for corner in inside(node, point(*nodes[index - 1])[1], here)]
-        walk.append((floor_id, here))
-        if after:  # start of a walk inside this space: anchor → door
-            walk += [(floor_id, corner) for corner in inside(node, here, point(*nodes[index + 1])[1])]
+        first, second = nodes[index - 1][1], nodes[index + 1][1]
+        if overlap_at(building_map.spaces[first]["polygon"], building_map.spaces[second]["polygon"],
+                      (walk[landing_in][1], walk[landing_out][1])):
+            dropped |= {landing_in, door, landing_out} - {0, len(walk) - 1}
 
     points: list[list[float]] = []
-    for floor_id, (x, y) in walk:
+    for floor_id, (x, y) in (step for index, step in enumerate(walk) if index not in dropped):
         item = [round(x, 3), round(y, 3), floor_index[floor_id]]
         if not points or points[-1] != item:
             points.append(item)

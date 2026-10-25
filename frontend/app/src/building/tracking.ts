@@ -12,6 +12,8 @@ export type RouteTrack = {
   at: (metres: number) => { at: [number, number]; floor: number; ahead: [number, number] }
   /** the step a walked distance falls in */
   stepAt: (metres: number) => number
+  /** route-model metres → metres along the drawn line (what the route band measures, dev/StoryLayer routeRuns) */
+  toLine: (metres: number) => number
 }
 
 export function routeTrack(line: [number, number, number][], legs: RouteLeg[]): RouteTrack | null {
@@ -58,5 +60,7 @@ export function routeTrack(line: [number, number, number][], legs: RouteLeg[]): 
     return step
   }
 
-  return { starts, total, at, stepAt }
+  const toLine = (metres: number) => Math.max(0, Math.min(length, metres * scale))
+
+  return { starts, total, at, stepAt, toLine }
 }

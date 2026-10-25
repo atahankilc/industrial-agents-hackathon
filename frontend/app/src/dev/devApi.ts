@@ -1,7 +1,7 @@
 // Client for the backend's dev endpoints (backend/devtools.py): run one Guide tool directly, read the
 // session's routing state, reset it. Same /api base as src/api.ts.
 
-import type { SessionSummary, UiEvent } from '../api'
+import { headers, type SessionSummary, type UiEvent } from '../api'
 
 const BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
@@ -18,7 +18,7 @@ export type DevState = SessionSummary & {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(BASE + path, { ...init, headers: { 'content-type': 'application/json', ...init?.headers } })
+  const response = await fetch(BASE + path, { ...init, headers: await headers(init?.headers) })
   if (!response.ok) {
     const detail = await response.text().catch(() => '')
     throw new Error(`${response.status} ${path}: ${detail.slice(0, 200)}`)

@@ -33,7 +33,9 @@ class FakeCreator:
 def client(monkeypatch, tmp_path):
     catalogue = dict(backend_app.store.catalogue)
     monkeypatch.setattr(backend_app.store, "catalogue", catalogue)
-    monkeypatch.setattr(backend_app, "drafts", DraftStore(tmp_path, catalogue))
+    drafts = DraftStore(tmp_path, catalogue)
+    monkeypatch.setattr(backend_app, "drafts", drafts)
+    monkeypatch.setattr(backend_app.store, "user_buildings", drafts)
 
     def use(outcome: str = "done") -> TestClient:
         monkeypatch.setattr(backend_app, "make_creator", lambda session: FakeCreator(session, outcome))
@@ -86,3 +88,12 @@ def test_too_many_files_is_413(client):
 def test_too_large_file_is_413(client, monkeypatch):
     monkeypatch.setattr(backend_app, "MAX_IMPORT_BYTES", len(PLAN) - 1)
     assert client().post("/imports/stream", files=[("files", ("plan.png", PLAN))]).status_code == 413
+
+
+def test_an_import_opens_in_the_building_screen(client):
+    api = client()
+    done = post_files(api, [("plan.png", PLAN)])[-1]
+    session = api.post("/sessions", json={"building": done["base"]})
+    assert session.status_code == 200, session.text
+    plan = api.get(f"/sessions/{session.json()['session_id']}/plan")
+    assert plan.status_code == 200 and len(plan.json()["spaces"]) == 3

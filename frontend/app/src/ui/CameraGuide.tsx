@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RouteLeg } from '../api'
+import { silence } from '../voice/tts'
 import { hearOnce, say } from '../voice/useVoice'
 import type { RouteCardData } from './cards/Cards'
 import { legGlyph, legText, TurnIcon } from './TurnIcon'
@@ -66,7 +67,7 @@ export function CameraGuide({ route, lang, ask, onClose }: Props) {
     return () => {
       cancelled = true
       stream?.getTracks().forEach((track) => track.stop())
-      speechSynthesis.cancel()
+      silence()
     }
   }, [])
 
@@ -145,7 +146,7 @@ export function CameraGuide({ route, lang, ask, onClose }: Props) {
           <span className="cg-kicker">To</span>
           <strong>{route.to}</strong>
         </div>
-        <button type="button" className="cg-round" onClick={() => { setMuted((on) => !on); speechSynthesis.cancel() }} aria-label={muted ? 'Unmute directions' : 'Mute directions'} aria-pressed={muted}>
+        <button type="button" className="cg-round" onClick={() => { setMuted((on) => !on); silence() }} aria-label={muted ? 'Unmute directions' : 'Mute directions'} aria-pressed={muted}>
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
             <path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
             {muted ? <path d="M11 6l3.5 4M14.5 6 11 10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /> : <path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />}

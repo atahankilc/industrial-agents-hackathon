@@ -36,8 +36,9 @@ def sse_deltas(response) -> tuple[list[dict], list[str]]:
     return chunks, lines
 
 
-def test_health_and_buildings(client):
-    assert client.get("/health").json() == {"ok": True, "llm": "offline"}
+def test_health_and_buildings(client, monkeypatch):
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
+    assert client.get("/health").json() == {"ok": True, "llm": "offline", "tts": False, "stt": False}
     ids = [item["id"] for item in client.get("/buildings").json()]
     assert BUILDING in ids and all(item.count("/") == 1 for item in ids)
 
@@ -212,10 +213,24 @@ def test_chat_stream_steps_then_reply(client):
     assert any(event["type"] == "route" for event in lines[-1]["events"])
 
 
+def test_chat_stream_voice_says_sentences_before_the_reply(client):
+    session_id = new_session(client)
+    response = client.post("/chat/stream", json={"session_id": session_id, "message": ROUTE, "channel": "voice"})
+    lines = [json.loads(line) for line in response.text.splitlines() if line]
+    said = [line["text"] for line in lines if line["type"] == "say"]
+    assert said and lines[-1]["type"] == "reply"
+    assert all(line["type"] != "say" for line in lines[lines.index(lines[-1]):])  # every say precedes the reply
+    assert " ".join(said) == lines[-1]["spoken"]  # together they are the whole spoken reply
+    text = client.post("/chat/stream", json={"session_id": session_id, "message": ROUTE}).text
+    assert '"say"' not in text  # text turns are not spoken
+
+
 def test_chat_voice_channel_and_bad_channel(client):
     session_id = new_session(client)
     turn = client.post("/chat", json={"session_id": session_id, "message": ROUTE, "channel": "voice"}).json()
     assert turn["spoken"] and "**" not in turn["spoken"]
+    tapped = client.post("/chat", json={"session_id": session_id, "message": ROUTE, "channel": "voice", "heard": False})
+    assert tapped.status_code == 200 and tapped.json()["spoken"]  # a tapped button, answered aloud
     assert client.post("/chat", json={"session_id": session_id, "message": "hi", "channel": "fax"}).status_code == 422
     assert client.post("/chat/stream", json={"session_id": session_id, "message": "hi", "channel": "fax"}).status_code == 422
 

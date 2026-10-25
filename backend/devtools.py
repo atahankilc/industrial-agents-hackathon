@@ -10,11 +10,13 @@ inspected by hand.
   POST /dev/sessions/{id}/reset        a fresh session on the same building (profile, changes and events cleared)
 
 The tools are the same ones the Guide calls in a conversation; a tool call is saved like a Guide turn.
-`router(...)` takes the app's store and helpers so this module does not import backend.app."""
+`router(...)` takes the app's store and helpers so this module does not import backend.app. Session endpoints
+pass the request's Authorization header to `lookup`, so in access mode the dev panel sees the same building copy
+as the signed-in viewer (`/dev/tools` has no session and lists TOOL_DEFINITIONS)."""
 
 from collections.abc import Callable
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Header
 from pydantic import BaseModel
 
 from agent.tools import TOOL_DEFINITIONS
@@ -28,7 +30,7 @@ class ToolCall(BaseModel):
     arguments: dict = {}
 
 
-def router(store: SessionStore, lookup: Callable[[str], Conversation], save: Callable[[Conversation], None]) -> APIRouter:
+def router(store: SessionStore, lookup: Callable[[str, str | None], Conversation], save: Callable[[Conversation], None]) -> APIRouter:
     routes = APIRouter(prefix="/dev")
 
     @routes.get("/tools")
@@ -36,8 +38,8 @@ def router(store: SessionStore, lookup: Callable[[str], Conversation], save: Cal
         return TOOL_DEFINITIONS
 
     @routes.post("/sessions/{session_id}/tool")
-    def call_tool(session_id: str, body: ToolCall) -> dict:
-        conversation = lookup(session_id)
+    def call_tool(session_id: str, body: ToolCall, authorization: str | None = Header(None)) -> dict:
+        conversation = lookup(session_id, authorization)
         with conversation.lock:
             session = conversation.session
             first = len(session.events)
@@ -47,8 +49,8 @@ def router(store: SessionStore, lookup: Callable[[str], Conversation], save: Cal
         return {"result": result, "events": events}
 
     @routes.get("/sessions/{session_id}/state")
-    def state(session_id: str) -> dict:
-        conversation = lookup(session_id)
+    def state(session_id: str, authorization: str | None = Header(None)) -> dict:
+        conversation = lookup(session_id, authorization)
         with conversation.lock:
             session = conversation.session
             building = session.building
@@ -71,8 +73,8 @@ def router(store: SessionStore, lookup: Callable[[str], Conversation], save: Cal
             }
 
     @routes.post("/sessions/{session_id}/reset")
-    def reset(session_id: str) -> dict:
-        conversation = lookup(session_id)
+    def reset(session_id: str, authorization: str | None = Header(None)) -> dict:
+        conversation = lookup(session_id, authorization)
         return summary(store.switch_building(conversation, conversation.building))
 
     return routes

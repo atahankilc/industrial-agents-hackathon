@@ -243,6 +243,9 @@ Template:
   `SUBMISSION/BENCHMARK.md` + `SUBMISSION/answers.json` from `agent.run_benchmark_v1`: a list of 145 objects
   (`question_id`, `reply`, `answer`, `kind`, `inputs`, `result`, `route`, `error`), ids = `data/test/questions.csv`,
   0 errors (checked 2026-10-25). The schema is our own, see [BENCHMARK.md](../SUBMISSION/BENCHMARK.md).
+  **Since branch `4-sunday-agent` (2026-10-25):** also `parser` and the PDF's top-level ids (`item_id`, `space_id`,
+  whole-route `space_path`, `element_path`, `length_m`, `reachable`); `--layout dict` keys it by question id. The 145
+  replies are unchanged.
 - **Unknown:** (1) does `answers.json` hold the 145 test questions, the Sunday building's questions, or both;
   (2) its schema (the image may show it; links to [Q-001](#q-001)).
 - **How to resolve:** compare with the Discord image; if Sunday questions belong there, regenerate with
@@ -275,6 +278,17 @@ Template:
 - **How to resolve:** ask whether Sunday brings one file with several buildings, several files plus links, or
   outdoor travel via `outside`; meanwhile a site layer (several `BuildingMap`s + typed links: walkway / outdoor
   path with length) is the smallest change (starter README idea, [starter-agent.md](../docs/kit/starter-agent.md)).
+
+<a id="q-020"></a>
+### Q-020 — Keep the voice transcript rewriter now that Scribe hears the building's names?
+- **Status:** open · **Priority:** medium · **Resolve by:** Atahan's call after a real-mic comparison
+- **Context:** [D-013](decisions.md#d-013) puts a Haiku rewriter before every voice turn (~1–1.1 s, measured
+  2026-10-25 before the first Guide request) because browser transcripts mangle names. With Scribe Realtime and the
+  building's keyterms ([D-019](decisions.md#d-019)) "Where is the CNC mill?" came back exactly; the rewriter may now
+  cost more latency than it saves. Browser recognition (the fallback) still needs it.
+- **Options:** (a) keep it for all voice turns; (b) skip it when the transcript came from Scribe (the app would send
+  `stt: "scribe"` with `/chat/stream`); (c) keep it only for numbers ("two seventeen" → "2.17").
+- **How to resolve:** a few real spoken questions with room numbers through Scribe, rewriter on vs off.
 
 ## Resolved
 

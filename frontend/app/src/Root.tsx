@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AccessLayer } from './access/AccessLayer.tsx'
+import { startAccess, useAccess } from './access/auth'
 import { api, type Building } from './api'
 import { BuildingScreen, type Showing } from './building/BuildingScreen.tsx'
 import { prefetch } from './building/opening'
@@ -18,11 +20,14 @@ type Landing = 'map' | 'list' | 'import'
 const LEAVE_MS = 350 // the building screen's fade-out (building/screen.css .screen.leaving)
 const SHOWING_KEY = 'ttyb-building-showing'
 
+startAccess() // GET /config; in access mode, the sign-in (src/access/auth.ts)
+
 const fromUrl = () => {
   const params = new URLSearchParams(location.search)
   const view = params.get('view')
   const landing: Landing = view === 'list' || view === 'import' ? view : 'map'
-  return { building: params.get('building'), landing }
+  // ?edit=1: the building opens in the Edit mode (a building just created from floor plans)
+  return { building: params.get('building'), landing, edit: params.get('edit') === '1' }
 }
 
 function storedShowing(): Showing {
@@ -40,10 +45,12 @@ export function Root() {
   const [showing, setShowing] = useState(storedShowing)
   // the building on screen: it lags behind the URL while the one before fades out
   const [shown, setShown] = useState(view.building)
+  // access mode: which buildings are listed depends on who is signed in
+  const { version } = useAccess()
 
   useEffect(() => {
     api.buildings().then(setBuildings).catch((reason) => setError(String(reason)))
-  }, [])
+  }, [version])
 
   useEffect(() => {
     const onPop = () => setView(fromUrl())
@@ -67,12 +74,13 @@ export function Root() {
     }
   }, [showing])
 
-  const go = (building: string | null, landing: Landing) => {
+  const go = (building: string | null, landing: Landing, edit = false) => {
     if (building) prefetch(building) // the session and plan load while the map flies in
     const params = new URLSearchParams(location.search)
-    for (const key of ['go', 'view', 'building']) params.delete(key)
+    for (const key of ['go', 'view', 'building', 'edit']) params.delete(key)
     if (landing !== 'map') params.set('view', landing)
     if (building) params.set('building', building)
+    if (building && edit) params.set('edit', '1')
     history.pushState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}`)
     setView(fromUrl())
   }
@@ -97,7 +105,7 @@ export function Root() {
         <BuildingSearch onOpen={(id) => go(id, 'list')} onMap={() => go(null, 'map')} onImport={() => go(null, 'import')} />
       )}
       {!view.building && !shown && view.landing === 'import' && (
-        <ImportScreen onSaved={(id) => go(id, 'list')} onExit={() => go(null, 'list')} />
+        <ImportScreen onDone={(base) => go(base, 'list', true)} onExit={() => go(null, 'list')} />
       )}
       {shown && (
         <BuildingScreen
@@ -107,10 +115,12 @@ export function Root() {
           showing={showing}
           onShowing={setShowing}
           leaving={leaving}
+          startEditing={view.edit && view.building === shown}
           onBack={() => go(null, view.landing)}
           onOpen={(id) => go(id, view.landing)}
         />
       )}
+      <AccessLayer />
     </>
   )
 }

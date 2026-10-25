@@ -7,10 +7,13 @@ sources:
   - core/building_map.py (closed spaces/openings/connectors leave the graph)
   - backend/persistence.py, backend/sessions.py (per-conversation state)
 related: [../../product/routing-profiles.md, ../../product/personas.md, ../../architecture/ai-agents.md]
-status: draft — design only, nothing built
+status: draft — design only, nothing built; partly replaced by 2026-10-25-access-profiles-design.md (real accounts instead of claimed roles)
 ---
 
 # Access roles: who may go where (design)
+
+> Partly replaced (2026-10-25) by [access-profiles-design](2026-10-25-access-profiles-design.md): roles are real
+> accounts, access is set in settings, building-wide applied changes moved to "Later".
 
 ## Intent
 

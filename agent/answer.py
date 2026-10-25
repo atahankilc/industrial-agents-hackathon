@@ -5,13 +5,20 @@
 The answer line follows benchmark/score.py (D-003): number kinds carry exactly one number (a room ref such as
 "1.02" would count as a second number, so refs stay on the explanation lines); space kinds name the room by its
 ref, which every train/dev `accept` list contains, and largest_room adds the area. Warm-up kinds: locate names the
-room and floor, count gives the number, routes give the step-by-step directions and the length (or "no route")."""
+room and floor, count gives the number, routes give the step-by-step directions and the length (or "no route").
 
-from dataclasses import dataclass, field
+Outside `PARSER_MODE=regex`, a question that fails anywhere (no template, slots the LLM parser hands over as kind
+`other` or a kind that does not answer what is asked, slots that never resolve, a solver error) goes to the solver
+agent (agent/solver_agent.py), unless SOLVER_AGENT=off. Its decisions and the parser's are replayed from the
+decision cache (agent/llm_cache.py) when present."""
+
+import os
+from dataclasses import asdict, dataclass, field
 from functools import cache
 from pathlib import Path
 
 from agent.parsing import QuestionUnderstanding
+from agent.solver_agent import SolverAgent
 from core.building_map import BuildingMap
 from core.question_parser import ParsedQuestion, ParseError
 from core.solvers_v1 import solve
@@ -47,7 +54,7 @@ def explain(kind: str, params: dict, result: dict) -> tuple[str, str]:
                 f"{result['name']} ({result['ref']}), {result['floor']}")
     if kind == "count":
         return f"{result['count']} {params['asset_type'].replace('_', ' ')} items on that floor.", str(result["count"])
-    if kind in ("route", "route_step_free", "route_with_closure", "tour"):
+    if kind in ("route", "route_step_free", "route_with_closure", "tour", "route_query"):
         if not result["reachable"]:
             return result["reason"], "no step-free route" if kind == "route_step_free" else "no route"
         return "\n".join(result["steps"]), f"{result['optimal_length_m']:.2f} m"
@@ -65,6 +72,7 @@ class Response:
     params: dict = field(default_factory=dict)
     result: dict | None = None
     error: str | None = None
+    parser: str | None = None
 
 
 def reply(parsed: ParsedQuestion, bmap: BuildingMap, result: dict) -> str:
@@ -76,15 +84,44 @@ def reply(parsed: ParsedQuestion, bmap: BuildingMap, result: dict) -> str:
     return "\n".join([*lines, f"Answer: {committed}"])
 
 
-def respond(building_directory: Path, question_text: str) -> Response:
-    """The reply plus what produced it (kind, resolved ids, solver result) for structured outputs."""
-    bmap = building(Path(building_directory))
-    try:
-        parsed = QuestionUnderstanding().parse(question_text, bmap)
-        result = solve(bmap, parsed.kind, parsed.params)
-        return Response(reply(parsed, bmap, result), parsed.kind, parsed.params, result)
-    except (ParseError, ValueError, KeyError) as error:
+def failure(error: Exception) -> Response:
+    if isinstance(error, (ParseError, ValueError, KeyError)):
         return Response(f"I could not answer this: {error}", error=str(error))
+    return Response(f"I could not answer this: {error}", error=f"{type(error).__name__}: {error}")
+
+
+def agent_response(question_text: str, bmap: BuildingMap, cause: Exception) -> Response:
+    """The solver agent's answer; `cause` (why the parser path failed) goes along as a hint."""
+    try:
+        answered = SolverAgent().solve(question_text, bmap, hint=str(cause))
+    except Exception as error:  # noqa: BLE001 — no model and no cached answer: the question fails alone
+        return failure(error)
+    parser = "agent-cache" if answered.cached else "agent"
+    if answered.error or answered.submission is None:
+        return Response(answered.reply, error=answered.error or "agent gave no answer", parser=parser)
+    return Response(answered.reply, "agent", {}, {**asdict(answered.submission), "runs": len(answered.runs),
+                                                  "parser_failure": str(cause)[:300]}, parser=parser)
+
+
+def respond(building_directory: Path, question_text: str) -> Response:
+    """The reply plus what produced it (kind, resolved ids, solver result, parser) for structured outputs.
+
+    Never raises: unknown wording, an API error or an unreadable building becomes an error reply without an
+    `Answer:` line, so one bad question cannot stop a benchmark run."""
+    try:
+        bmap = building(Path(building_directory))
+    except Exception as error:  # noqa: BLE001
+        return failure(error)
+    understanding = QuestionUnderstanding()
+    try:
+        parsed = understanding.parse(question_text, bmap)
+        result = solve(bmap, parsed.kind, parsed.params)
+        return Response(reply(parsed, bmap, result), parsed.kind, parsed.params, result,
+                        parser=parsed.notes.get("parser"))
+    except Exception as error:  # noqa: BLE001 — anything else (network, geometry) is still one failed question
+        if understanding.mode == "regex" or os.environ.get("SOLVER_AGENT", "on").lower() == "off":
+            return failure(error)
+        return agent_response(question_text, bmap, error)
 
 
 def answer(building_directory: Path, question_text: str) -> str:

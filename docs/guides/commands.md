@@ -83,14 +83,16 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
-| GET | `/health` | – | `{"ok", "llm": "anthropic"\|"offline"}` |
+| GET | `/health` | – | `{"ok", "llm": "anthropic"\|"offline", "tts", "stt"}` — `tts` / `stt`: ElevenLabs voice / Scribe recognition available (see `/tts`, `/stt/token`) |
 | GET | `/buildings` | – | `[{"id": "train/proc-campus-train-000", "split", "name"}]` |
 | POST | `/sessions` | `{"building"?}` | `{"session_id", "building", "overview"}` (unknown building → 422) |
 | GET | `/sessions/{id}` | – | building, profile, applied/pending changes, event count |
 | PUT | `/sessions/{id}/building` | `{"building"}` | fresh session on another building, same id |
+| PUT | `/sessions/{id}/location` | `{"space_id"}` (or `null` = figure taken away) | `{"location"}` — the app's "you are here" figure; the Guide routes from there ("here") and stops asking where the user is; unknown space → 422 |
+| POST | `/sessions/{id}/arrive` | `{"entrance", "destination", "from_session"?}` | `{"route": {reachable, reason, about_m, length_m}, "location", "events"}` — coming over from a nearby building (`route_to_building` → Continue): the user stands at opening `entrance`, the route to space `destination` comes back as events; bad entrance / destination → 422; `from_session`'s routing profile carries over only if this viewer may see that session (same access check), else it is ignored |
 | GET | `/sessions/{id}/plan` | – | vector floor plan of the current building (`core/floorplan.py`, gzip) |
-| POST | `/chat` | `{"session_id", "message", "channel"?, "photo"?}` | `{"reply", "tool_calls", "events", "ungrounded", "spoken"}` — `channel: "voice"` fills `spoken`; `photo` = base64 data URL (jpeg/png/webp, ≤1.5 M chars), shown to the Guide for this turn only |
-| POST | `/chat/stream` | same as `/chat` | NDJSON: `{"type":"step","kind":"tool"\|"tool_done"\|"check",…}` while the Guide works, then `{"type":"reply",…/chat payload}` or `{"type":"error","detail"}` |
+| POST | `/chat` | `{"session_id", "message", "channel"?, "photo"?, "heard"?, "selected"?}` | `{"reply", "tool_calls", "events", "ungrounded", "spoken"}` — `channel: "voice"` fills `spoken`; `heard: false` = a tapped button's text on the voice channel: spoken, not rewritten as a transcript (default true); `selected` = the space or asset id tapped on the plan while asking → a selection note for the Guide; `photo` = base64 data URL (jpeg/png/webp, ≤1.5 M chars), shown to the Guide for this turn only |
+| POST | `/chat/stream` | same as `/chat` | NDJSON: `{"type":"step","kind":"tool"\|"tool_done"\|"check",…}` while the Guide works, then `{"type":"reply",…/chat payload}` or `{"type":"error","detail"}`; voice turns also send `{"type":"say","text"}` per sentence as soon as it may be spoken (grounding-checked, all before `reply`, together the whole spoken reply — `agent/speech.py` `SpokenStream`) |
 | GET | `/events` | `?session_id=&after=N` | `{"events": [...since N], "next"}` — UI highlights, routes (with turn-by-turn `legs` and the Guide's followable `steps` — turn, rounded metres, door, landmark, text — both `core/directions.py`), changes |
 | POST | `/drafts` | `{"base"}` (catalogue id) | Edit mode: new draft copy → `{"draft": {id, base, name, steps}, "building", "issues"}` (unknown base → 422) |
 | GET | `/drafts/{id}` | – | same shape (unknown / malformed id → 404) |
@@ -102,6 +104,8 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | POST | `/drafts/{id}/save` | `{"name"}` | `{"building": "user/<slug>", "issues"}` — written to `GUIDE_USER_DIR` (default `data/user/`, gitignored), listed in `/buildings`; name clash → `-2` |
 | POST | `/imports/stream` | multipart `files` (PDF / images incl. HEIC; ≤ 20 files, ≤ 25 MB each, else 413) | the Creator (`agent/creator.py`, `CREATOR_MODEL` default `claude-opus-5-5`, `CREATOR_EFFORT`) builds a building from floor plans, as NDJSON: `warning` per unreadable file, `step` lines (`say` / `tool` / `tool_done`), then `{"type":"done","draft_id","base":"import/<id>","name","issues","notes"}` / `no_plan` / `error`; the draft opens in the Edit mode, the base is private until saved |
 | POST | `/v1/chat/completions` | OpenAI body, `stream` | OpenAI-compatible (SSE: `"... "` first, then sentences, `data: [DONE]`) for an ElevenLabs Custom LLM |
+| POST | `/tts` | `{"text", "lang"?}` (≤ 1,000 chars after `speakable()`) | the Guide's voice: ElevenLabs MP3 (`audio/mpeg`, `backend/tts.py`); no `ELEVENLABS_API_KEY` → 503, ElevenLabs refused → 502, empty → 422, too long → 413 — the app then uses the browser voice. `/health` says `"tts": true` when the key is set. `TTS_VOICE_ID` / `TTS_MODEL` override voice "River" / `eleven_flash_v2_5` |
+| POST | `/stt/token` | `{"session_id"?}` | `{"token", "keyterms"}`: a single-use ElevenLabs Scribe Realtime token (15 min, one connection) and ≤ 50 keyterms (≤ 20 chars) from the session's building (`backend/stt.py`); the browser then streams the mic to Scribe itself (`voice/scribe.ts`). Scribe off (`STT_MODE=browser` or no key) → 503, ElevenLabs refused → 502, unknown session → 404 — the app then uses browser recognition. `/health` says `"stt": true` when it is on |
 
 `/v1/chat/completions` uses only the last user message (the Guide keeps its own history). Session id, first
 match wins: body `session_id`, `elevenlabs_extra_body.session_id`, header `X-Session-Id`, body `user`; none → a
@@ -127,6 +131,35 @@ Schema changes go in `supabase/migrations/` (idempotent SQL). Apply one with:
 ```bash
 uv run --env-file .env python -c "import os,sys,psycopg; psycopg.connect(os.environ['SUPABASE_DB_URL'], autocommit=True, prepare_threshold=None).execute(open(sys.argv[1]).read())" supabase/migrations/<file>.sql
 ```
+
+### Access mode (demo: accounts, restricted spaces, preferences, moving objects)
+
+Off unless `ACCESS_MODE=on`; off = every endpoint as above. Design:
+[access-profiles-design](../superpowers/specs/2026-10-25-access-profiles-design.md). Needs `SUPABASE_URL`,
+`SUPABASE_ANON_KEY` (sign-in), `SUPABASE_SERVICE_ROLE_KEY` (invite links) and `ADMIN_EMAIL` (admin emails, comma-separated);
+tables in `supabase/migrations/20261025200000_access.sql` (in memory without `SUPABASE_DB_URL`). Requests carry
+the Supabase access token as `Authorization: Bearer …`.
+
+```bash
+ACCESS_MODE=on uv run --env-file .env uvicorn backend.app:app --port 8765
+uv run pytest -q tests/test_access.py tests/test_fleet.py                     # offline, fake sign-in
+uv run python scripts/sim_object.py --api http://localhost:8765 --object <id> --token <device token>
+```
+
+| Method | Path | Who | Does |
+|---|---|---|---|
+| GET | `/config` | all | `{"access_mode"}` (+ Supabase URL / anon key when on) |
+| GET | `/me` | all | viewer (`admin`, `anonymous`) + member groups per building |
+| GET/PUT | `/me/preferences` | signed in | stored preferences (anonymous users keep theirs in the browser) |
+| PUT | `/sessions/{id}/preferences` | all | `{"values", "auto_capture"}` → the session's profile + talking preferences |
+| GET/PUT | `/access/building` | admin | public flag, room-type / space rules (groups; `public` = exception) |
+| GET/PUT | `/access/members`, POST `/access/invite` | admin | members' groups; invite → sign-in link, no email sent |
+| GET | `/objects?building=` | all | moving objects: position, trail, mission + its `line` (objects in spaces the viewer may not enter left out) |
+| POST/PUT/DELETE | `/objects`, `/objects/{id}`, POST `/objects/import-forklifts` | admin | create (returns the device `token` once), edit, delete, forklifts from `equipment.csv` |
+| POST/DELETE | `/objects/{id}/mission` | admin | dispatch `{"destination"}` / cancel |
+| POST | `/objects/{id}/position`, GET `/objects/{id}/mission`, POST `.../mission/done` | device (`X-Object-Token`) | report position, fetch machine steps, finish |
+
+`/drafts` (Edit mode) answers 403 for anyone but the admin while access mode is on.
 
 ## Frontend app
 
@@ -163,7 +196,7 @@ uv run --env-file .env python scripts/eval_import.py --full [--n 10]            
 ```
 
 In the app: "New building from floor plans" on the map, or "New from floor plans" in the list (`?view=import`) →
-`POST /imports/stream` → the Edit mode. Locally without the database: `GUIDE_PERSIST=off` (the `builder_imports` table
+`POST /imports/stream` → the building screen on the private base, opened in the Edit mode (`?building=import/<id>&edit=1`). Locally without the database: `GUIDE_PERSIST=off` (the `builder_imports` table
 from `supabase/migrations/20261025180000_builder_imports.sql` must be applied before imports work with
 `SUPABASE_DB_URL`). Tests: `uv run pytest -q tests/test_plan_import_*.py tests/test_creator*.py tests/test_import*.py`.
 
@@ -192,8 +225,11 @@ Atahan (once): Vercel → *Add New → Project* → import the GitHub repo. Leav
 | `SUPABASE_DB_URL` | Transaction pooler URI (port 6543), same as `.env` |
 | `GUIDE_MODEL` / `GUIDE_EFFORT` | optional (defaults `claude-opus-5-5` / `medium`; Sonnet + `low` is cheaper and faster) |
 | `CORS_ORIGINS` | optional; the frontend is same-origin, so it isn't needed |
+| `ELEVENLABS_API_KEY` | the Guide's ElevenLabs voice (`/tts`); without it the app speaks with the browser voice |
+| `TTS_VOICE_ID` / `TTS_MODEL` | optional (defaults "River" `SAz9YHcvj6GT2YYXdXww` / `eleven_flash_v2_5`) |
+| `STT_MODE` | optional: `scribe` (default with the key) or `browser` (keep the browser's speech recognition) |
 
-Smoke test after a deploy: `curl -s https://<deployment>/api/health` → `{"ok":true,"llm":"anthropic"}`. Then
+Smoke test after a deploy: `curl -s https://<deployment>/api/health` → `{"ok":true,"llm":"anthropic","tts":true,"stt":true}`. Then
 in the app, say "I use a wheelchair" and ask for a route in the next message: the route must be step-free (proof
 that persistence works across instances). Edit mode: open a building → Edit → drag a corner → reload (the draft
 resumes) → prompt "make <room> 1 m wider to the <side>" → Apply → Save → the saved building opens and the Guide
@@ -238,9 +274,15 @@ Design: [guide-agent spec](../superpowers/specs/2026-10-24-guide-agent-design.md
 
 ## Sunday benchmark
 
-`PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> SUBMISSION/answers.json` —
-documented in [`SUBMISSION/BENCHMARK.md`](../../SUBMISSION/BENCHMARK.md) (v1 is the submission pipeline: it also
-answers the warm-up kinds, routes included; `agent.run_benchmark` has no solvers for them). Output format still unannounced →
+`uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> SUBMISSION/answers.json` (default `hybrid`:
+templates first, the LLM only for unseen wording; `.env` is read automatically; `--layout dict` keys the .json by
+question id) — documented in [`SUBMISSION/BENCHMARK.md`](../../SUBMISSION/BENCHMARK.md) (v1 is the submission
+pipeline: it also answers the warm-up kinds, routes included; `agent.run_benchmark` has no solvers for them). Do not
+use `PARSER_MODE=regex` on Sunday: on 14 reworded questions it answered 1 (2026-10-25). A failing question becomes an
+`error` entry and the run goes on; the file is rewritten after every question. Model decisions go to
+`llm_cache/decisions.json` — **commit it together with `SUBMISSION/answers.json`**, so a re-run without a key
+reproduces the answers ([ai-agents.md](../architecture/ai-agents.md#sunday-layers-route-specs-solver-agent-decision-cache-2026-10-25)).
+Probe of the agentic layers: `uv run python scripts/eval_sunday_probe.py` (`tests/sunday_probe/`, calls Claude). Output format still unannounced →
 [Q-001](../../memory-bank/open-questions.md#q-001).
 
 ## Related

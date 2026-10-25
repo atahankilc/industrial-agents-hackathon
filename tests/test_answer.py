@@ -9,7 +9,8 @@ from collections import Counter
 
 import pytest
 
-from agent.answer import answer
+from agent.answer import answer, respond
+from agent.parsing import QuestionUnderstanding
 from benchmark.score import committed_answer, score_reply
 from core.question_parser import parse_question
 from tests.test_question_parser import building, labelled_questions
@@ -44,3 +45,21 @@ def test_every_reply_commits_an_answer() -> None:
 def test_unparseable_question_has_no_answer_line() -> None:
     directory, _ = labelled_questions()[0]
     assert committed_answer(answer(directory, "What colour is the roof?")) is None
+
+
+def test_unexpected_parser_failure_becomes_an_error_reply(monkeypatch: pytest.MonkeyPatch) -> None:
+    def connection_reset(self, text, building_map):
+        raise ConnectionResetError("connection reset by peer")
+
+    monkeypatch.setattr(QuestionUnderstanding, "parse", connection_reset)
+    directory, question = labelled_questions()[0]
+    response = respond(directory, question["question"])
+    assert "connection reset by peer" in response.error
+    assert committed_answer(response.reply) is None
+
+
+def test_unloadable_building_becomes_an_error_reply(tmp_path) -> None:
+    (tmp_path / "building.json").write_text("{not json", encoding="utf-8")
+    response = respond(tmp_path, "Where is the coat rack?")
+    assert response.error
+    assert committed_answer(response.reply) is None

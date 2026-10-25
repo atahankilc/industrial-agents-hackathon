@@ -24,9 +24,10 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from agent.guide import Guide, make_client
+from agent.guide import Guide, make_client, system_blocks
 from backend import persistence
 from agent.tools import BuildingSession
+from core.access import filter_building, restricted_names, restricted_polygons
 from core.building_map import OUTSIDE, BuildingMap
 from core.directions import guidance, route_legs
 from core.floorplan import export_plan
@@ -134,6 +135,10 @@ class Conversation:
     lock: threading.Lock = field(default_factory=threading.Lock)
     view: MapView = field(default_factory=MapView)
     version: int = 0  # stored version this object reflects (0 = not persisted)
+    # Access mode (backend/access.py): space ids the current viewer may not enter; the session runs on a building
+    # copy without them, `restricted_shapes` are their outlines for the plan (darkened, nothing else).
+    restricted: frozenset[str] = frozenset()
+    restricted_shapes: list[dict] = field(default_factory=list)
 
 
 class UnknownBuilding(ValueError):
@@ -147,6 +152,7 @@ class SessionStore:
         self.conversations: dict[str, Conversation] = {}
         self.guard = threading.Lock()  # protects the dict, not the conversations
         self.user_buildings: object | None = None  # the DraftStore: saved buildings (`known`, `base_building`)
+        self.base_cache: dict[str, dict] = {}  # dataset building id → building.json data (access mode)
 
     def known(self, building: str) -> bool:
         """In the catalogue, or saved by another instance since this one last looked."""
@@ -154,11 +160,55 @@ class SessionStore:
             return True
         return self.user_buildings is not None and self.user_buildings.known(building)
 
-    def load_session(self, building: str) -> BuildingSession:
-        entry = self.catalogue[building]
+    def load_session(self, building: str, restricted: frozenset[str] = frozenset()) -> BuildingSession:
+        if restricted:
+            data = self.base_data(building)
+            session = BuildingSession(BuildingMap(filter_building(data, restricted)))
+            session.restricted_names = restricted_names(data, restricted)
+            return session
+        entry = self.catalogue.get(building, {})  # not listed: a draft's private base (an import, `import/<id>`)
         if "path" in entry:
             return BuildingSession.load(entry["path"])
         return BuildingSession(BuildingMap(copy.deepcopy(self.user_buildings.base_building(building))))
+
+    def base_data(self, building: str) -> dict:
+        """building.json data of a catalogue or saved building, as stored (cached per dataset building; callers
+        must not mutate it)."""
+        entry = self.catalogue.get(building, {})
+        if "path" not in entry:
+            return self.user_buildings.base_building(building)
+        with self.guard:
+            cached = self.base_cache.get(building)
+        if cached is None:
+            cached = json.loads((Path(entry["path"]) / "building.json").read_text(encoding="utf-8"))
+            with self.guard:
+                self.base_cache[building] = cached
+        return cached
+
+    def ensure_access(self, conversation: Conversation, restricted: frozenset[str]) -> Conversation:
+        """Put the conversation on the building copy for this restricted set (access mode). Same set → nothing.
+        Otherwise its state is replayed onto the new copy; if a change no longer applies there (it touched a space
+        that is now restricted) the conversation starts fresh on that building. The Guide's system prompt is
+        rebuilt from the copy, so its overview never names a restricted space."""
+        if conversation.restricted == restricted:
+            return conversation
+        with conversation.lock:
+            if conversation.restricted == restricted:
+                return conversation
+            state = persistence.dump(conversation.session, conversation.guide)
+            try:
+                session, guide = persistence.restore(state, self.load_session(conversation.building, restricted),
+                                                     make_client())
+            except (KeyError, ValueError, persistence.StateError):
+                session = self.load_session(conversation.building, restricted)
+                guide = Guide(session, client=make_client())
+            session.preferences_enabled = conversation.session.preferences_enabled
+            guide.system = system_blocks(session)
+            conversation.session, conversation.guide = session, guide
+            conversation.restricted = restricted
+            data = self.base_data(conversation.building)
+            conversation.restricted_shapes = restricted_polygons(data, restricted)
+        return conversation
 
     def default_building(self) -> str:
         for wanted in (os.environ.get("GUIDE_BUILDING"), DEMO_BUILDING):
@@ -239,6 +289,7 @@ class SessionStore:
         fresh = self.build(conversation.id, building)
         with conversation.lock:
             conversation.building, conversation.session, conversation.guide = building, fresh.session, fresh.guide
+            conversation.restricted, conversation.restricted_shapes = frozenset(), []  # ensure_access sets them
             self.save(conversation)
         return conversation
 

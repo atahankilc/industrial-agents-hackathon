@@ -2,7 +2,17 @@
 
 Claude never produces ids or numbers we score on. It fills the same slots the regex templates capture
 (core/question_parser.py), choosing names from the building's own vocabulary, and the shared Resolver turns
-them into ids. A resolution error is sent back once so the model can correct its slot text."""
+them into ids. A resolution error is sent back once so the model can correct its slot text.
+
+Route questions use one general spec (P1, 2026-10-25): start, destination and ordered stops — each a room name, a
+room type or an item, the nearest one taken — plus any mix of step-free, forklift, minimum door width and
+closures (lifts, stairs, rooms, corridors, doors). A spec that fits a warm-up kind exactly (route, route_step_free,
+route_with_closure, tour) keeps that kind and its solver; anything richer becomes `route_query`
+(core/route_query.py). `asks_for` names what the question wants back: a kind that cannot answer it, or kind
+`other`, raises NeedsAgent and agent/answer.py hands the question to the solver agent.
+
+Every decision is stored in the decision cache (agent/llm_cache.py) before it is used, so a re-run reproduces it
+without the model."""
 
 import json
 import os
@@ -10,14 +20,18 @@ from dataclasses import dataclass
 
 import anthropic
 
-from core.building_map import BuildingMap
-from core.question_parser import ANSWER_INSTRUCTION, ParsedQuestion, ParseError, Resolver
+from agent.llm_cache import DecisionCache, decision_key
+from core.building_map import BuildingMap, MapError
+from core.question_parser import ANSWER_INSTRUCTION, ParsedQuestion, ParseError, Resolver, normalise
+from core.route_query import resolve_place
 
 MODEL = os.environ.get("PARSER_LLM_MODEL", "claude-opus-5-5")
 EFFORT = os.environ.get("PARSER_LLM_EFFORT", "medium")
 MAX_TOKENS = 16000
 MAX_ATTEMPTS = 2
+API_RETRIES = 4  # the SDK retries connection errors, 429 and 5xx with backoff; a benchmark run must not lose a question
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+VERSION = "2"  # bump when the schema or the instructions change: cached decisions of another version are not reused
 KINDS = [
     "largest_room",
     "floor_area_total",
@@ -31,34 +45,46 @@ KINDS = [
     "locate",
     "count",
     "route",
-    "route_step_free",
-    "route_with_closure",
-    "tour",
-    "unsupported",
+    "other",
 ]
+ASKS_FOR = ["room", "item_location", "area_m2", "count", "distance_m", "route", "other"]
+ANSWERS = {  # what each kind's solver gives back; a question asking for anything else goes to the agent
+    "largest_room": {"room", "area_m2"},
+    "room_stacked": {"room"},
+    "floor_area_total": {"area_m2"},
+    "errand": {"distance_m", "route"},
+    "straight_line_3d": {"distance_m"},
+    "shared_walls_count": {"count"},
+    "wide_delivery_count": {"count"},
+    "step_free_reachable_count": {"count"},
+    "what_if_door": {"count"},
+    "count": {"count"},
+    "locate": {"item_location", "room"},
+    "route": {"route", "distance_m"},
+}
+OLD_ROUTE_KINDS = {"route_step_free", "route_with_closure", "tour"}  # earlier schema; read as `route`
 NULLABLE_TEXT = {"anyOf": [{"type": "string"}, {"type": "null"}]}
 NULLABLE_NUMBER = {"anyOf": [{"type": "number"}, {"type": "null"}]}
-SPACE_SLOT = {
-    "anyOf": [
-        {
-            "type": "object",
-            "properties": {"name": {"type": "string"}, "floor": {"type": "string"}},
-            "required": ["name", "floor"],
-            "additionalProperties": False,
-        },
-        {"type": "null"},
-    ]
+NULLABLE_BOOL = {"anyOf": [{"type": "boolean"}, {"type": "null"}]}
+# The API rejects a schema with more than 16 union-typed parameters (HTTP 400 on every call), so flags are plain
+# booleans, lists are empty when unused and a place's floor is "" when the question names none.
+PLACE = {
+    "type": "object",
+    "properties": {"name": {"type": "string"}, "floor": {"type": "string"}, "is_item": {"type": "boolean"}},
+    "required": ["name", "floor", "is_item"],
+    "additionalProperties": False,
 }
-SPACE = SPACE_SLOT["anyOf"][0]
+PLACE_SLOT = {"anyOf": [PLACE, {"type": "null"}]}
 SCHEMA = {
     "type": "object",
     "properties": {
         "kind": {"type": "string", "enum": KINDS},
-        "start": SPACE_SLOT,
-        "first": SPACE_SLOT,
-        "second": SPACE_SLOT,
-        "destination": SPACE_SLOT,
-        "stops": {"anyOf": [{"type": "array", "items": SPACE}, {"type": "null"}]},
+        "asks_for": {"type": "string", "enum": ASKS_FOR},
+        "start": PLACE_SLOT,
+        "first": PLACE_SLOT,
+        "second": PLACE_SLOT,
+        "destination": PLACE_SLOT,
+        "stops": {"type": "array", "items": PLACE},
         "floor": NULLABLE_TEXT,
         "room_type": NULLABLE_TEXT,
         "asset_type": NULLABLE_TEXT,
@@ -66,22 +92,31 @@ SCHEMA = {
         "item": NULLABLE_TEXT,
         "closed": NULLABLE_TEXT,
         "direction": {"anyOf": [{"type": "string", "enum": ["above", "below"]}, {"type": "null"}]},
-        "may_use_stairs": {"anyOf": [{"type": "boolean"}, {"type": "null"}]},
+        "may_use_stairs": NULLABLE_BOOL,
+        "step_free": {"type": "boolean"},
+        "forklift": {"type": "boolean"},
+        "closures": {"type": "array", "items": {"type": "string"}},
     },
     "required": [
-        "kind", "start", "first", "second", "destination", "stops", "floor", "room_type", "asset_type",
-        "min_width_m", "item", "closed", "direction", "may_use_stairs",
+        "kind", "asks_for", "start", "first", "second", "destination", "stops", "floor", "room_type", "asset_type",
+        "min_width_m", "item", "closed", "direction", "may_use_stairs", "step_free", "forklift", "closures",
     ],
     "additionalProperties": False,
 }
 
 INSTRUCTIONS = """You turn one question about a building into structured slots. You do not answer it.
 
-Kinds and the slots each needs (every other slot is null):
-- largest_room: room_type, floor. "Which is the largest <room type> on <floor>?"
+asks_for: what the question wants back — room (which room), item_location (where something is), area_m2,
+count, distance_m, route (how to get somewhere, or whether one can), other (anything else: a width, a list, a
+yes/no about something that is not a route, a name that is not a room …).
+
+Kinds and the slots each needs (every other slot is null, false or [] by its type):
+- largest_room: room_type, floor. "Which is the largest <room type> on <floor>?" (only the largest — the smallest,
+  second largest etc. is `other`)
 - floor_area_total: room_type, floor. Total floor area of every <room type> on <floor>.
 - errand: start, asset_type, room_type, floor, may_use_stairs. From start, fetch the nearest <asset type>, carry
-  it to the largest <room type> on <floor>; total walking distance.
+  it to THE LARGEST <room type> on <floor>; total walking distance. If the target is a named room or anything but
+  "the largest <room type>", use `route` with the item as a stop instead.
 - shared_walls_count: start. How many rooms on the same floor share a wall with start.
 - wide_delivery_count: start (the room the entrance opens into), min_width_m, item, floor. How many rooms on
   <floor> a wide load can reach without stairs or steps.
@@ -93,17 +128,36 @@ Kinds and the slots each needs (every other slot is null):
 - what_if_door: first, second (the two spaces the new door joins), floor (the floor whose rooms are counted).
 - locate: asset_type. Where is a piece of equipment ("Where is the coffee machine?").
 - count: asset_type, floor. How many items of that type are on <floor>.
-- route: start, destination. How to get from start to destination.
-- route_step_free: start, destination. The same without stairs or steps (wheelchair, trolley, "step-free").
-- route_with_closure: closed (the lift or stair that is closed), start, destination.
-- tour: start, stops (the spaces visited in between, in order), destination (the last one).
-- unsupported: anything else.
+- route: any question about getting from one place to another (directions, the shortest / fastest way, whether a
+  route exists, its length). start, destination, stops (places visited in between, in order; [] if none), and
+  the constraints the question states (step_free and forklift are false unless stated):
+  step_free true for wheelchairs, prams, trolleys, carts, "without stairs / steps", "lifts only";
+  forklift true when driving a forklift or pallet truck through the hall;
+  min_width_m when a load or vehicle of a stated width must pass every door;
+  closures: every lift, stair, room, corridor, aisle or door named as closed, blocked, out of service or to be
+  avoided (names copied from the vocabulary), else [].
+- other: anything none of these kinds answers completely. Prefer `other` over a kind that answers a different
+  question; another solver will handle it.
+
+Places (start, first, second, destination, stops) are {"name", "floor", "is_item"}:
+- a room or space: its name exactly as listed, its floor name ("" if the question gives none), is_item false;
+- a room type when the question means "the nearest toilet / kitchen …": name = the room type, is_item false;
+- an item when the question means the room holding it ("to the coffee machine", "pick up a pallet jack"): name =
+  the asset type or asset name, is_item true, floor "" unless the question names one. Starting "at the
+  entrance" means the room the entrance opens into.
 
 Rules:
 - Copy every name, floor, room type, asset type and lift/stair name EXACTLY from the building vocabulary below
   (the canonical spelling, e.g. room_type "meeting_room", floor "Floor 1"). Never invent one.
-- A space slot is {"name": <space name as listed>, "floor": <floor name as listed>}.
 - Numbers only for min_width_m, in metres as written in the question."""
+
+
+def make_client() -> anthropic.Anthropic:
+    return anthropic.Anthropic(max_retries=API_RETRIES)
+
+
+class NeedsAgent(ParseError):
+    """The question is understood but no solver kind answers it: agent/answer.py hands it to the solver agent."""
 
 
 @dataclass
@@ -126,18 +180,42 @@ def building_vocabulary(building_map: BuildingMap) -> str:
     return "\n".join(lines)
 
 
-def slots_to_groups(slots: dict) -> tuple[str, dict[str, str | None]]:
-    """Map the LLM's slots onto the Resolver's regex-group names."""
+def floor_of(building_map: BuildingMap, name: str) -> str:
+    """The floor name of the space(s) called `name` (or with that ref) when they all lie on one floor."""
+    wanted = normalise(name)
+    floors = {space["floor_id"] for space in building_map.spaces.values()
+              if wanted in (normalise(space["name"]), normalise(space.get("ref") or ""))}
+    if len(floors) == 1:
+        return building_map.floor_name(floors.pop())
+    if not floors:
+        raise ParseError(f"No space named '{name}'")
+    names = sorted(building_map.floor_name(floor_id) for floor_id in floors)
+    raise ParseError(f"'{name}' exists on several floors ({', '.join(names)}); give its floor")
+
+
+def check_kind(slots: dict) -> str:
+    """The kind to use, after reading old route kinds as `route`; raises NeedsAgent for `other` or a mismatch."""
+    kind = slots.get("kind")
+    if kind in ("other", "unsupported"):
+        raise NeedsAgent("The parser found no solver kind that answers this question completely")
+    if kind in OLD_ROUTE_KINDS:
+        kind = "route"
+    if kind not in ANSWERS:
+        raise ParseError(f"Unknown kind '{kind}'")
+    asks_for = slots.get("asks_for")
+    if asks_for is not None and asks_for not in ANSWERS[kind]:
+        raise NeedsAgent(f"The question asks for {asks_for}, which kind {kind} does not answer")
+    return kind
+
+
+def slots_to_groups(slots: dict, building_map: BuildingMap) -> tuple[str, dict[str, str | None]]:
+    """Map the LLM's slots onto the Resolver's regex-group names (non-route kinds)."""
     kind = slots["kind"]
-    if kind == "unsupported":
-        raise ParseError("The LLM parser classified the question as unsupported")
     groups: dict[str, str | None] = {}
     for slot in ("start", "first", "second", "destination"):
         if slots.get(slot):
             groups[slot] = slots[slot]["name"]
-            groups[f"{slot}_floor"] = slots[slot]["floor"]
-    if kind == "tour":
-        groups["stops"] = [(stop["name"], stop["floor"]) for stop in slots.get("stops") or []]
+            groups[f"{slot}_floor"] = slots[slot].get("floor") or floor_of(building_map, slots[slot]["name"])
     for slot in ("floor", "room_type", "asset_type", "item", "closed"):
         groups[slot] = slots.get(slot)
     if slots.get("min_width_m") is not None:
@@ -155,12 +233,76 @@ def slots_to_groups(slots: dict) -> tuple[str, dict[str, str | None]]:
     return template_name, groups
 
 
+def place_ids(building_map: BuildingMap, place: dict) -> list[str]:
+    floor_id = Resolver(building_map).floor_id(place["floor"]) if place.get("floor") else None
+    found = resolve_place(building_map, place["name"], floor_id, bool(place.get("is_item")))
+    if not found:
+        raise ParseError(f"No place matches '{place['name']}'" + (f" on {place['floor']}" if place.get("floor") else ""))
+    return found
+
+
+def route_spec(slots: dict, building_map: BuildingMap) -> ParsedQuestion:
+    """A route question: the warm-up kind it matches exactly, else `route_query` with every constraint."""
+    if not slots.get("start") or not slots.get("destination"):
+        raise ParseError("A route needs a start and a destination")
+    stops = [place_ids(building_map, slots["start"]),
+             *[place_ids(building_map, stop) for stop in slots.get("stops") or []],
+             place_ids(building_map, slots["destination"])]
+    names = list(slots.get("closures") or [])
+    if slots.get("kind") == "route_with_closure" and slots.get("closed"):
+        names.append(slots["closed"])
+    try:
+        closed = list(dict.fromkeys(building_map.find_element(name) for name in names))
+    except MapError as error:
+        raise ParseError(f"Closure: {error}") from error
+    step_free = bool(slots.get("step_free")) or slots.get("kind") == "route_step_free"
+    forklift, min_width = bool(slots.get("forklift")), slots.get("min_width_m")
+    if all(len(candidates) == 1 for candidates in stops) and not forklift and min_width is None:
+        ids = [candidates[0] for candidates in stops]
+        ends = {"start": ids[0], "destination": ids[-1]}
+        if len(ids) > 2 and not step_free and not closed:
+            return ParsedQuestion("tour", {**ends, "stops": ids})
+        if len(ids) == 2 and not closed:
+            return ParsedQuestion("route_step_free" if step_free else "route", ends)
+        if len(ids) == 2 and not step_free and len(closed) == 1 and closed[0] in building_map.connectors:
+            return ParsedQuestion("route_with_closure", {**ends, "closed": closed[0]})
+    return ParsedQuestion("route_query", {"stops": stops, "step_free": step_free, "forklift": forklift,
+                                          "min_width": min_width, "closed": closed})
+
+
+def build(slots: dict, building_map: BuildingMap) -> ParsedQuestion:
+    """Slots (from the model or the cache) → resolved question; ParseError/NeedsAgent when they don't resolve."""
+    kind = check_kind(slots)
+    if kind == "route":
+        return route_spec(slots, building_map)
+    template_name, groups = slots_to_groups(slots, building_map)
+    return Resolver(building_map).build(template_name, groups)
+
+
 class LlmQuestionParser:
-    def __init__(self, client: anthropic.Anthropic | None = None) -> None:
-        self.client = client or anthropic.Anthropic()
+    def __init__(self, client: anthropic.Anthropic | None = None, cache: DecisionCache | None = None) -> None:
+        self._client = client  # created on the first model call, so cached decisions need no API key
+        self.cache = cache if cache is not None else DecisionCache.configured()
         self.usage = LlmUsage()
 
+    @property
+    def client(self) -> anthropic.Anthropic:
+        if self._client is None:
+            self._client = make_client()
+        return self._client
+
     def parse(self, text: str, building_map: BuildingMap) -> ParsedQuestion:
+        key = decision_key("parser", VERSION, building_map, text)
+        cached = self.cache.get(key)
+        if isinstance(cached, dict):
+            try:
+                parsed = build(cached, building_map)
+                parsed.notes["parser"] = "llm-cache"
+                return parsed
+            except NeedsAgent:
+                raise
+            except (ParseError, KeyError, TypeError):
+                pass  # a decision that no longer resolves: ask the model again
         system = [
             {"type": "text", "text": INSTRUCTIONS},
             {
@@ -174,16 +316,21 @@ class LlmQuestionParser:
         for _ in range(MAX_ATTEMPTS):
             reply = self.request(system, messages)
             try:
-                template_name, groups = slots_to_groups(json.loads(reply))
-                parsed = Resolver(building_map).build(template_name, groups)
-                parsed.notes["parser"] = "llm"
-                return parsed
-            except (ParseError, KeyError, TypeError) as caught:
+                slots = json.loads(reply)
+                parsed = build(slots, building_map)
+            except NeedsAgent:
+                self.cache.put(key, slots)
+                raise
+            except (ParseError, KeyError, TypeError, ValueError) as caught:
                 error = ParseError(str(caught))
                 messages += [
                     {"role": "assistant", "content": reply},
                     {"role": "user", "content": f"Those slots could not be resolved: {caught}. Correct them."},
                 ]
+                continue
+            self.cache.put(key, slots)
+            parsed.notes["parser"] = "llm"
+            return parsed
         raise error or ParseError("LLM parser failed")
 
     def request(self, system: list[dict], messages: list[dict]) -> str:

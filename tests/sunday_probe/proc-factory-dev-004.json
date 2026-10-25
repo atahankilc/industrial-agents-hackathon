@@ -1,0 +1,149 @@
+{
+ "building": "data/dev/proc-factory-dev-004",
+ "note": "Sunday-style rewordings, new constraints and new kinds; expected answers computed by direct code (core.navigation, shapely areas, asset records) on 2026-10-25, never by the agent.",
+ "questions": [
+  {
+   "id": "p00-template",
+   "question": "How do I get from Kitchen 1.12 (Floor 1) to Office 0.31 (Ground floor)?",
+   "expected": {
+    "type": "number",
+    "value": 92.01,
+    "relative_tolerance": 0.01,
+    "absolute_tolerance": 1.0
+   }
+  },
+  {
+   "id": "p01-no-floor",
+   "question": "How do I get from Kitchen 1.12 to Office 0.31?",
+   "expected": {
+    "type": "number",
+    "value": 92.01,
+    "relative_tolerance": 0.01,
+    "absolute_tolerance": 1.0
+   }
+  },
+  {
+   "id": "p02-paraphrase",
+   "question": "What's the shortest way from Locker room 0.30 to Quality lab 0.26?",
+   "expected": {
+    "type": "number",
+    "value": 27.43,
+    "relative_tolerance": 0.01,
+    "absolute_tolerance": 1.0
+   }
+  },
+  {
+   "id": "p03-item-destination",
+   "question": "Route me from Hall access 0.16 to the coordinate measuring machine.",
+   "expected": {
+    "type": "number",
+    "value": 16.45,
+    "relative_tolerance": 0.01,
+    "absolute_tolerance": 1.0
+   }
+  },
+  {
+   "id": "p04-wheelchair-item",
+   "question": "I'm in a wheelchair in Office 1.04. How do I reach the compressor without stairs?",
+   "expected": {
+    "type": "number",
+    "value": 77.93,
+    "relative_tolerance": 0.01,
+    "absolute_tolerance": 1.0
+   }
+  },
+  {
+   "id": "p05-blocked-aisle",
+   "question": "Main aisle H-B2 is blocked. What's the fastest route from Locker room 0.30 to Warehouse zone H-C3?",
+   "expected": {
+    "type": "number",
+    "value": 52.81,
+    "relative_tolerance": 0.01,
+    "absolute_tolerance": 1.0
+   }
+  },
+  {
+   "id": "p06-forklift",
+   "question": "I'm driving a forklift. Fastest route from Logistics zone H-C1 to Production zone H-A2?",
+   "expected": {
+    "type": "number",
+    "value": 36.43,
+    "relative_tolerance": 0.01,
+    "absolute_tolerance": 1.0
+   }
+  },
+  {
+   "id": "p07-locate-3d-printer",
+   "question": "Where is the 3D printer?",
+   "expected": {
+    "type": "space",
+    "accept": [
+     "Additive zone H-A4",
+     "H-A4"
+    ],
+    "reject": []
+   }
+  },
+  {
+   "id": "p08-which-room-item",
+   "question": "Which room has the press brake?",
+   "expected": {
+    "type": "space",
+    "accept": [
+     "Production zone H-A2",
+     "H-A2"
+    ],
+    "reject": []
+   }
+  },
+  {
+   "id": "p09-item-stop",
+   "question": "Starting at Office 0.19, pick up a pallet jack, then go to Warehouse zone H-C4. How far is that in metres?",
+   "expected": {
+    "type": "number",
+    "value": 107.02,
+    "relative_tolerance": 0.01,
+    "absolute_tolerance": 1.0
+   }
+  },
+  {
+   "id": "p10-smallest",
+   "question": "Which is the smallest office on floor 1?",
+   "expected": {
+    "type": "space",
+    "accept": [
+     "Office 1.18",
+     "1.18"
+    ],
+    "reject": []
+   }
+  },
+  {
+   "id": "p11-count-rooms",
+   "question": "How many rooms are on the ground floor?",
+   "expected": {
+    "type": "number",
+    "value": 14,
+    "relative_tolerance": 0,
+    "absolute_tolerance": 0
+   }
+  },
+  {
+   "id": "p12-narrowest-door",
+   "question": "How wide is the narrowest door on the shortest way from Office 0.31 to Production zone H-A2, in metres?",
+   "expected": {
+    "type": "number",
+    "value": 0.9,
+    "relative_tolerance": 0,
+    "absolute_tolerance": 0.01
+   }
+  },
+  {
+   "id": "p13-closure-step-free",
+   "question": "The office lift is out of order. How do I get from Office 1.04 to Quality lab 0.26 step-free?",
+   "expected": {
+    "type": "no_route"
+   }
+  }
+ ]
+}

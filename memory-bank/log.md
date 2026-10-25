@@ -10,6 +10,17 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Plan import: origin/dev (new UI) merged into 3-plan-import
+
+- **Did:** merged `origin/dev` `ed7e974` (voice, Access mode, Sunday agent, Edit mode inside the building view) with
+  dev as the base. Conflicts: `backend/app.py` imports (kept both), memory-bank log / project-state (kept both sides).
+  The standalone `EditMode` is gone in dev → the import screen now hands the base to `Root` (`?building=import/<id>&
+  edit=1`), `BuildingScreen` takes `startEditing`, `SessionStore` opens a private import base (not in the catalogue).
+- **Learned:** `npx tsc --noEmit -p .` checks nothing in `frontend/app` (root tsconfig has `files: []` + references) —
+  earlier "typecheck clean" claims in this branch were vacuous; the real check is `npx tsc -b --noEmit` (now clean).
+  `tests/test_commit_hook.py` fails while a merge has unmerged index entries (`git write-tree`); passes once resolved.
+- **Checked:** `uv run pytest -q` 944 passed, 2 skipped; `tsc -b` exit 0; headless Chrome: upload → Creator → Edit mode.
+
 ## 2026-10-25 — Creator live results; stable door numbers; what counts as a floor plan
 
 - **Did:** door candidates keep the number they were drawn with ("d<n>"), so merges no longer shift them; the prompt
@@ -61,6 +72,254 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   building footprint, not the image border (wide foyers leak); Residenz walls are shades of the fill colour →
   separator mask with straight thin lines (hatching ignored). Urban Colab photos are only 768×1024 px.
 - **Next:** draft store import bases, Creator tools + loop, `/imports/stream`, import screen, eval, demo runs.
+
+## 2026-10-25 — Calmer barge-in, readable nearby-buildings card, bigger map click target (not committed)
+
+- **Did:** Barge-in no longer fires on one stray word: `voice/bargeIn.ts` `interruption` now needs a stop word in a
+  phrase of ≤3 words, or ≥3 own words that are at least half of the user's part; `useVoice.ts` ignores results in
+  the first 1 s of the voice (`BARGE_GRACE_MS`) and holds "talk" until two results in a row (or a final one) agree.
+  Nearby-buildings card (`building/Elsewhere.tsx`): own buttons (Directions in the route blue, Open outlined), names
+  ellipsised, rows wrap. Map (`map/MapLanding.tsx`): a building opens from its pin, name, halo or block, with 14 px
+  slop; the nearest pin wins when pins overlap.
+- **Learned:** the dark-mode buttons were unreadable because `.screen button { color: inherit }`
+  (`building/screen.css`, 0,1,1) beat `.hud-pill` (0,1,0): text took the panel ink, same as the solid fill. Fixed by
+  scoping `.screen .hud-pill` (also fixes the camera pill in `NextMove`).
+- **Checked:** `tsc -b` clean; oxlint warnings only (pre-existing); in Chrome (dark + light): card buttons
+  rgb(75,133,255)/white and transparent/ink; a click 15 px off a pin opened the nearest building; interruption cases
+  via node ("okay", "hmm", misheard echo → nothing; "stop", "wait please" → stop; "actually where is the cafeteria"
+  → talk). Not tested with a live microphone.
+- **Changed docs:** `docs/architecture/ai-agents.md` (barge-in rules).
+
+## 2026-10-25 — Voice gaps: tapped questions spoken, selection and "I'm in …" reach the Guide, faster turns (not committed)
+
+- **Did:** Tapped questions (room card Directions, chips, nearby-building directions, camera "Where am I", Builder
+  chips) are answered aloud: `send(text, via)` in `BuildingScreen.tsx`, voice channel with `heard: false` (no
+  transcript rewrite, `Guide.reply(heard=)`); one that asks something back listens for the answer. The room or item
+  selected on the plan goes with the question (`/chat` `selected` → a `[selection note]`, `Guide.selection_note`).
+  New Guide tool `set_my_location` (on `session.set_location`) + event `location`: "I'm in Lobby 0.01" puts the figure
+  there and frames the room; the offline Guide understands "I'm in/at …" and "take me to …" from here. "start" also
+  inside a short sentence; the step guide keeps listening 45 s for "I'm there" (`waitMs`/`until` in useVoice).
+  Latency: end-of-speech pause 1.3 → 1.0 s, Scribe commit wait 2 → 0.8 s, mic + worklet kept warm 8 s, the real mic
+  remembered when the default input is virtual (was two opens per listen), barge-in from the reply's first sound and on
+  one own word, an utterance during a pending turn is queued. "Mic starting" until audio really flows (`hearing`).
+  TTS: a failed piece is retried once; cool-off 60 → 15 s; a short first sentence ("Step 2.") rides with the next.
+- **Checked:** `tsc -b`, oxlint (warnings only, none new as errors), full pytest (810 passed, new
+  `tests/test_voice_location.py`). In Chrome on the local backend (Arcisstraße 21): "I'm in Lobby 0.01" → figure and
+  zoom; route + Start + next step → `/tts` 200 for every step (ElevenLabs); room tap → Directions → voice turn with
+  `selected`, spoken, then the mic opened by itself for the answer ("Mic starting" ~0.7 s).
+- **Learned:** could not reproduce steps in the browser voice; the likely cause was the 60 s cool-off after any one
+  failed piece. Auto-listening also catches room talk (it sent "No. How was-" from background speech).
+- **Next:** Atahan to try by voice; consider browser recognition for short step commands to save Scribe minutes.
+
+## 2026-10-25 — Edit mode inside the building view (not committed)
+
+- **Did:** Edit mode is no longer a separate full-screen editor (`EditMode.tsx`, `PlanEditor.tsx` deleted). "Edit this
+  building" (… menu) keeps the building screen — map, model, top line, floor chip — and: the model shows the draft
+  (`GET /drafts/{id}/plan`, refetched after every change, one floor); the edit card (`edit/EditPanel.tsx`) takes the
+  Guide card's slot (tools Select / Door / Item, problems, undo, Inspector, "Describe a change instead" → Builder chat,
+  Save as a new building); handles sit on the model in `edit/EditLayer.tsx`, an SVG whose group PlanView keeps on the
+  floor plane (`align` prop + `Align` in `plan/PlanView.tsx`: the camera is orthographic, so the plane maps to the
+  screen affinely; 3 projected points per frame). State in `edit/useDraft.ts`. Taps on the model select rooms /
+  items (PlanView's own picking) or, with the Door / Item tool, place (`place` ref) — pan / zoom / tilt keep working.
+  Inspector: room name / number / use / delete, door kind / width / step-free / delete, item name / size / turn /
+  delete. Wall drags (`move_edge`), corner drags, door drags, item drags with a readout. Phone inset `EDIT_PX`.
+  Story, focus, figure and next-move are hidden while editing (their state is kept).
+- **Learned:** a first version as a restyled separate screen was rejected by Atahan: Edit mode must live in the
+  current view. `.screen button` (0,1,1) beats single-class button rules — scope them.
+- **Checked:** `tsc --noEmit`, `vite build`. Headless Chromium (playwright-core in the scratchpad) on the local
+  backend, Forschungsbau 024, tilted 3D view: tap selects Toilet 0.16, corner / wall handles in register with the
+  model, wall drag → 1 change and the model redraws; door tool → door Office 0.15 ↔ Toilet 0.16 (2 changes, 3
+  problems listed); item tool → Plant placed + selected, dragged; Stop editing → Guide back; 390 px phone layout.
+  Not checked: real touch device, live Builder chat, save → reopen.
+- **Then (same day, Atahan: "use the same AI assistant UI"):** the edit card is gone (`EditPanel.tsx`,
+  `BuilderChat.tsx` deleted). While editing, the Guide's own card (`building/Guide.tsx`, new optional `persona` +
+  `card` props) talks to the Builder: greeting, chips from the building's rooms, typed or spoken requests (voice
+  `onUtterance` routes to `draft.ask` while editing, replies spoken), the Builder's tool steps as the work trail
+  (`ui/guideSteps.ts` labels for overview / find / space_info / floor_plan / propose_edit). The inspector and the
+  Builder's proposal (Apply / Cancel) show in the card's room-card slot (`edit/EditCard.tsx`). Tools, problems, undo,
+  Save, Done moved to `edit/EditBar.tsx` (top right; under the top line on phones). Header: "Editing a copy · N
+  changes"; "All floors" hidden while editing. Live check (Opus via the local backend): chip "Rename 0.03" → trail →
+  proposal card + dashed ghost on the model → Apply → label "Quiet room" on the model.
+- **View behaviour (Atahan's list):** PlanView — labels no longer vanish when zoomed out (a room too small for its
+  name gets its number, else its name, at 10 px; only overlapping labels are skipped); one tap on the stacked view
+  steps onto the floor *and* selects the room; changing floors keeps the camera (Rig no longer refits on a floor
+  change, nor when the plan object is replaced by the same building — draft edits used to snap the camera back —
+  and keeps the user's tilt); the floor under the mouse lights up in "All floors" (`FloorGlow`); the Edit mode no
+  longer forces one floor (handles hidden while stacked, a tap steps in and selects). `hud.css` `.screen
+  .hud-primary`: the room card's Directions button text was invisible (`.screen button` won). Checked headless:
+  hover glow top / ground floor, one tap → Lecture hall 0.19, zoomed G → 3 same camera, far zoom labels, camera
+  unchanged after a wall drag, edit + all floors one tap → Office 3.09 with handles.
+- **Improvements + the Guide opens the Edit mode:** new Guide tool `open_edit_mode(request?)` (agent/tools.py) →
+  UI event `edit_mode` → the app switches to the Edit mode and hands the request to the Builder (spoken stays spoken;
+  access mode: admin only). Prompt rule in agent/guide.py (closing / reopening / adding a door for routing stays
+  propose_change); offline intent `EDIT` in agent/offline_llm.py; `tests/test_edit_mode_tool.py`. Edit mode: one
+  tap places with Door / Item on "All floors" too (PlanView `onTap` gives the plan point; `edit/place.ts` shared by
+  the ghost and the tap); redo (⇧⌘Z / Ctrl+Y) kept in the tab (`useDraft` remembers the ops of its own steps — no
+  backend change, lost on reload); "Discard changes" (asks in place, fresh draft of the original); the Builder's own
+  words in the proposal card (markdown stripped); a proposal steps onto its floor. **Learned:** `tsc -p .` in
+  frontend/app checks nothing (`files: []`) — use `tsc -p tsconfig.app.json`; a local backend with `.env` writes
+  drafts and saved buildings to the shared Supabase — run tests with `GUIDE_PERSIST=off`. A test save
+  "Forschungsbau 024 quiet test" (`user/forschungsbau-024-quiet-test`) landed in Supabase `saved_buildings` before
+  that was noticed; deleted on Atahan's go (that one row only). Checked: pytest 805 passed / 2 skipped; headless live
+  run on a separate backend: Guide "rename office 0.03…" → Edit mode, proposal on G with ghost → Apply; Item tool one
+  tap on All floors → desk on floor 3; undo → redo; save → reopen as the new building; discard.
+- **Next:** commit via `/ship` when Atahan asks.
+## 2026-10-25 — Guide highlights, "you are here" figure, step-by-step guide, nearby buildings
+
+- **Did (Atahan's four asks):** (1) clearer answers on the plan: `search` / `locate` / `room_facts` / `show_on_map`
+  emit highlights with `asset_ids`; rooms tinted + pulsing + name badges, items ringed; camera frames the answer
+  (`PlanView` `focus`, `fitPoints`). (2) Draggable "you are here" figure with a dock (`PlanView`, `StoryLayer`
+  `MeFigure`), `PUT /sessions/{id}/location`, `Guide.set_location` → a location note, "here" resolves to it.
+  (3) Routes framed whole (stacked across floors), Start → one step framed and read aloud at a time, "I'm there" /
+  "geldim" / "next" moves on (`NextMove` actions, `BuildingScreen.routeCommand`); the Guide's route replies are now a
+  summary + first step ([D-020](decisions.md#d-020)). (4) `agent/campus.py`: `search_nearby_buildings`,
+  `route_to_building` (entrance pair with the shortest total, straight-line outdoor leg), `POST /sessions/{id}/arrive`;
+  app: "found nearby" card (`building/Elsewhere.tsx`), dashed outdoor line + Continue that opens the other building and
+  draws the rest ([D-021](decisions.md#d-021)).
+- **Checked:** `tests/test_campus.py` 10 passed; full suite 801 passed, 2 skipped (offline); `tsc -b` clean; headless
+  Chrome (own servers on 8775/5183, real Opus): figure → "Stairwell 0190", "Where are the toilets on the ground
+  floor?" answered from the figure ("closest to you") with both toilets tinted and framed; "Take me to the lecture
+  hall" routed from the figure without asking (route framed, Start button); "Is there a canteen?" → Mensa
+  Arcisstraße found, route to the exit, dashed outdoor line, "Continue in Mensa Arcisstraße · 120 m south-west".
+  Not yet seen in a browser: clicking Start / "I'm there", the Continue → arrival in the Mensa. Open bug: the route
+  overview did not frame the other building's entrance (the dashed line runs off screen); cause not found yet.
+- **Learned:** headless Chrome with SwiftShader takes ~60 s per screenshot of the plan; the "alone" view (no map) is
+  faster. Neighbour pins on the TUM main campus are 95–250 m apart, so the campus tools matter there.
+- **Not done:** no street graph (outdoor metres are straight lines); the other building's leg ignores this session's
+  closures; the interaction eval's directions judge still expects full step lists.
+
+## 2026-10-25 02:50 — Sunday hardening P1: route specs, solver agent, decision cache (branch `4-sunday-agent`)
+
+- **Did:** `core/route_query.py` (one route with any mix of constraints; places = rooms, room types or items, the
+  nearest taken via one Dijkstra per leg; on `core.navigation`); LLM schema: general `route` spec + `asks_for`,
+  kinds `other` / mismatches → `NeedsAgent`; simple specs keep the warm-up kinds and v1 solvers.
+  `agent/solver_agent.py`: Opus 5.5 tool loop with a `python` sandbox (restricted builtins, module whitelist, 30 s,
+  deep-copied building) and `submit_answer`; 2 runs, a third on disagreement, majority; Answer line by code.
+  `agent/llm_cache.py`: parser slots and agent submissions (with code) keyed by building hash + question + version,
+  replayed first. Probe set `tests/sunday_probe/proc-factory-dev-004.json` (expected answers by direct code) +
+  `scripts/eval_sunday_probe.py`. Solver agent effort lowered to `medium` (Utku).
+- **Learned:** the first live probe was 14/14 but every question went to the agent: the new schema had 21
+  union-typed parameters and the API rejects more than 16 (HTTP 400 on every parser call) — the fallback masked it.
+  Fixed (flags plain booleans, empty lists, `""` floors; 12 unions) and guarded by a test; agent answers now carry
+  `parser_failure`. After the fix: 14/14, parser for 10 reworded routes/locates, agent only for the 3 new kinds
+  (smallest room, room count, narrowest door), 76 s (high) / 71 s (medium). Replay with an empty key and an
+  unreachable API base URL: 14/14 identical in 0 s. Tests initially wrote to the committed cache → `tests/conftest.py`
+  sets `LLM_CACHE=off`. The old pipeline's silent errors confirmed: p09 70.59 m (true 107.02), p12 30.85 m (0.9 m),
+  p13 31.24 m (no route).
+- **Decisions:** D-022 proposed (numbered D-015 on the branch; renumbered when merging `dev`, which had D-015–D-021).
+- **Next:** ship P1, merge `4-sunday-agent` into `dev` (ask before pushing); P2 (bay / forklift rules on Sunday) when
+  the question file shows the wording; Sunday run → commit `answers.json` + `llm_cache/decisions.json`.
+
+## 2026-10-25 02:20 — Sunday hardening P0: crash-safe runner, hybrid by default (branch `4-sunday-agent`)
+
+- **Did:** probed the v1 pipeline with 14 Sunday-style questions on `proc-factory-dev-004` (paraphrases, no floor
+  name, item as destination, blocked aisle, forklift, step-free + closure, new analytics). `regex` answered 1/14;
+  `hybrid` 11/14 without an error, but at least 4 of those answer a different question (wheelchair route → `locate`,
+  forklift → plain step-free route, closure + step-free → closure only, "narrowest door" → route length), 3 errors
+  (space closure, "smallest office", "how many rooms" → `unsupported`). Then P0: `respond` never raises (API /
+  geometry / unreadable building → `error` entry), the runner rewrites the answers file after every question (via a
+  `.partial` file), reads `.env` itself, records `parser` and the PDF's top-level ids (`item_id`, `space_id`, whole
+  `space_path`, `element_path`, `length_m`, `reachable`), `--layout dict`; LLM parser `max_retries=4`.
+  `SUBMISSION/answers.json` regenerated: 145 replies, results and routes unchanged, new keys only. BENCHMARK.md,
+  commands.md and the state say `hybrid` for Sunday.
+- **Learned:** the LLM parser must squeeze every question into one of 15 fixed templates, so combined constraints
+  and new kinds become near-miss kinds — silently wrong answers, worse than errors. `core.navigation.find_route`
+  already handles space/door closures, item endpoints, step-free + closures and `RouteRules` (forklift, bays).
+  Rehearsal of the Sunday command on one dev building: 27 questions in 73 s (14 template, 13 LLM at ~5 s each).
+- **Next:** P1 — compositional route spec into `find_route`, agentic tool-use fallback for unsupported kinds,
+  answer-type check, nearest-of-many items.
+
+## 2026-10-25 — City view: wireframe, flicker, cut-away, ground level, return flight
+
+- **Did:** open building's OSM blocks → wireframe in the model's scene (`PlanView` `City`); OSM blocks under the blue
+  model blocks left out; blocks in front of the model cut away to ghost layers; ground-floor line + underground
+  veil over basements; Back flies the map to the camera it had on opening (`src/map/*`, `PlanView`, `BuildingScreen`).
+- **Learned:** OpenMapTiles merges same-looking blocks into one MultiPolygon feature; matching only its first
+  polygon missed Arcisstraße 21 entirely (the old shell never showed there). At the 1° field of view, 0.4–0.6 m
+  offsets still z-fight, so coplanar blocks have to be removed, not nudged. `osmHeights` still tests only the first
+  polygon of a merged feature (not changed).
+- **Changed docs:** [visualization.md](../docs/product/visualization.md#current-vector-plan-view-2026-10-24).
+- **Fix (same day):** hiding a merged feature by id made whole districts of buildings vanish from the map (one
+  feature held 1,797 polygons); now its other polygons are put back from a `rest` GeoJSON source.
+- **Perf pass (same day):** cut-away moved from `setFilter` ghosts to feature-state flattening; block gathering and
+  OSM heights only after new tiles (not every idle), with box prefilters; `osmHeights` now per polygon too.
+  Measured: `applyBlocks` 183 → 16 ms, `osmHeights` 68 → 7 ms, filter changes per rotation 54 → 2. The model renders
+  in ~0.6 ms and the frame times did not change with the pixel ratio, so render size is not the bottleneck.
+- **X-ray (same day):** Atahan found whole blocks popping in and out too abrupt and asked for an x-ray (only the part
+  in front, dithered edge). Now a MapLibre custom layer draws the blocks within 500 m with MapLibre's own lighting
+  and cuts per pixel in a rounded box over the building, dissolving in a Bayer dither. Checked in dark and light
+  themes; frame times unchanged (p50 8 ms, p90 17 ms).
+- **Footprints + road widths (same day):** cut blocks leave their footprint on the ground; roads drawn at estimated
+  real widths per class (the tiles have no width attribute).
+- **Walkways (same day):** the dashed path line replaced by solid walkway / cycle-path lines and tread-dashed steps.
+- **Next:** tune the x-ray size/softness with Atahan; ask which issues still remain.
+
+## 2026-10-25 02:00–05:00 — Access mode: accounts, restricted spaces, preferences, moving objects
+
+- **Did:** reviewed Utku's access-roles spec with Atahan; wrote the replacing design
+  ([access-profiles-design](../docs/superpowers/specs/2026-10-25-access-profiles-design.md), D-015) and plan.
+  Backend: `core/access.py` (filtered building copy), `backend/access.py` (switch, Supabase token check, rules,
+  members, invites), `core/preferences.py` (soft penalties / avoided room types, true metres reported),
+  RoutingProfile preference fields + `set_preference` + `preference` events (gated: only with access mode),
+  `core/fleet.py` + `backend/fleet.py` (objects, positions, missions, forklift import, Guide `send_object` for the
+  admin), `scripts/sim_object.py`, migration `20261025200000_access.sql` (applied; Postgres stores round-trip
+  verified live, test rows removed). Frontend (subagent): sign-in, darkened restricted spaces, Preferences,
+  Building settings (My preferences, Access, Members, Objects), object markers / trails / mission lines.
+  Committed without a parallel session's unfinished `src/map/` work, which stays in the working tree.
+- **Learned:** openings have no height and lifts no cabin size → height/weight attributes left out; 107 forklifts in
+  `equipment.csv` with position + footprint; route_line passes exactly through door positions (mission split points).
+- **Checks:** `uv run pytest` 770 passed, 2 skipped; dev benchmark 138/138 (regex); `tests/test_access.py` 12,
+  `tests/test_fleet.py` 5.
+- **Next:** create the admin account (Atahan's email), live sign-in check, demo run with the simulator.
+
+## 2026-10-25 — Voice step 4: ElevenLabs Scribe Realtime with building keyterms (branch `voice-improvements`)
+
+- **Did:** `backend/stt.py` (single-use token, `keyterms(building)`), `POST /stt/token`, `/health` `stt`,
+  `STT_MODE`; `frontend/app/src/voice/scribe.ts` `ScribeRecognition` (SpeechRecognition shape, AudioWorklet 16 kHz
+  PCM, token fetched ahead, 60 s cool-off on failure); `useVoice` prefers it and retries with browser recognition on
+  `scribe-unavailable`; `BuildingScreen` sets the Scribe session. `tests/test_stt.py`; suite 773 passed, 2 skipped.
+- **Learned:** live probes — `keyterms` repeated in the query; > 50 terms or > 20 chars → `invalid_request`. Scribe
+  repeats the same partial every ~1 s through silence, which kept the pause timer from firing (fixed: only changed
+  partials count). With ElevenLabs-spoken audio as the mic, "Where is the CNC mill?" came back exactly.
+- **Decisions / questions:** D-019 accepted; Q-020 opened (keep the rewriter for Scribe transcripts?).
+- **Next:** real-mic run of the whole voice loop; Q-020; commit via `/ship`.
+
+## 2026-10-25 — Voice step 3: hands-free conversation, barge-in, pause tolerance (branch `voice-improvements`)
+
+- **Did:** `useVoice`: continuous recognition with a 1.3 s end-of-utterance timer (8 s / 6 s with no words),
+  conversation mode for spoken questions (listen again after the reply, quiet end), barge-in watcher while the
+  complete reply plays; `voice/bargeIn.ts` echo filter (`userWords`, `interruption`, `userPart`); `stream`/`speak`
+  take `{ conversation }`; `BuildingScreen` no longer forces one question, one answer; orb hint "Talk to interrupt".
+- **Learned:** verified with a scripted SpeechRecognition in the real UI. First run carried the echo ("About 60 m,
+  stairs allowed.") into the next question because the stray "m" counted as the user's → single letters ignored,
+  carry starts at the first result that is mostly the user's. Automation re-sends pointer events at the last click
+  position, which looked like spurious orb taps (not app behaviour; a traced run was clean).
+- **Decisions:** D-018 accepted.
+- **Next:** try it with a real mic/speakers; voice step 4 — Scribe Realtime with building keyterms.
+
+## 2026-10-25 — Voice step 2: speak while the Guide works (branch `voice-improvements`)
+
+- **Did:** `SpokenStream` (`agent/speech.py`) + `Guide.on_say` / streamed requests (`agent/guide.py`): grounded
+  sentences go out as `say` lines on `/chat/stream` voice turns; repairs / profile redos hold live speech and
+  `finish` adds only what is new. `VOICE_STYLE` asks for one fact-free sentence before tools. Frontend
+  `openSpeech` queue (`voice/tts.ts`), `voice.stream()`, `BuildingScreen` feeds `onSay`. Suite 769 passed, 2 skipped.
+- **Learned:** raw API text streams smoothly (84 deltas over ~4 s), but in Guide turns the answer after tool results
+  arrived in one burst every time (with or without the fallback beta) — the win is the early first sentence:
+  first sound 2.35 s vs answer at 10.4 s (6 tool calls). The voice rewriter costs ~1.1 s before the first request.
+- **Decisions:** D-017 accepted.
+- **Next:** voice step 3 — barge-in (stop the voice when the user speaks) and hands-free listening.
+
+## 2026-10-25 — Voice step 1: the Guide speaks with ElevenLabs (branch `voice-improvements`)
+
+- **Did:** Reviewed the voice path: the app used only browser Web Speech; the ElevenLabs Custom LLM endpoint was
+  never connected. Added `POST /tts` (`backend/tts.py`, stdlib urllib proxy, key server-side), `/health` `tts` flag,
+  `frontend/app/src/voice/tts.ts` (sentence pieces fetched ahead, Web Audio playback with real orb level, browser
+  voice fallback, one voice app-wide); `useVoice` / `CameraGuide` use it. Sentence splitter no longer breaks
+  "Room 2.03". `tests/test_tts.py`; full suite 762 passed, 2 skipped; frontend build OK.
+- **Learned:** account tier Creator, 131,000 chars/month. Flash v2.5 + River: 0.3–1.3 s per sentence server-side;
+  Scribe heard "Meeting room 3.07 … 124 meters" back exactly. `speakable()` spells units in English for every language.
+- **Decisions:** D-016 accepted.
+- **Next:** voice step 2 — stream the reply sentence by sentence into speech, filler while tools run.
 
 ## 2026-10-25 — `SUBMISSION/` folder for the graded benchmark (v1 pipeline)
 

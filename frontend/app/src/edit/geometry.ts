@@ -70,3 +70,28 @@ export function bounds(polygons: XY[][]) {
 
 /** SVG points attribute for a building-frame polygon (y flipped). */
 export const svgPoints = (polygon: XY[]) => polygon.map(([x, y]) => `${x},${-y}`).join(' ')
+
+/** Unit outward normal of each edge i → i+1, from the ring's orientation (core/edits.outward_normals). */
+export function outwardNormals(polygon: XY[]): XY[] {
+  let twice = 0
+  polygon.forEach((a, i) => {
+    const b = polygon[(i + 1) % polygon.length]
+    twice += a[0] * b[1] - b[0] * a[1]
+  })
+  const sign = twice > 0 ? 1 : -1
+  return polygon.map((a, i) => {
+    const b = polygon[(i + 1) % polygon.length]
+    const length = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+    return [(sign * (b[1] - a[1])) / length, (-sign * (b[0] - a[0])) / length]
+  })
+}
+
+/** Ray-casting point-in-polygon test. */
+export function inside(p: XY, polygon: XY[]) {
+  let hit = false
+  polygon.forEach((a, i) => {
+    const b = polygon[(i + 1) % polygon.length]
+    if (a[1] > p[1] !== b[1] > p[1] && p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]) hit = !hit
+  })
+  return hit
+}

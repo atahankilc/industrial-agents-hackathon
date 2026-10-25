@@ -33,6 +33,10 @@ export type PlanPalette = {
   /** doorway threshold strips (no door leaves: the data has no swing) and building entrances */
   door: string
   entrance: string
+  /** access mode: a space this viewer may not enter, a dark neutral floor with nothing on it */
+  restricted: string
+  /** access mode: moving objects (marker, trail, mission line): a calm violet, apart from the route blue */
+  object: string
   fills: Record<Category, string>
 }
 
@@ -104,6 +108,8 @@ export const LIGHT: PlanPalette = {
   selectedEdge: '#0A84FF',
   door: '#9CC3F0',
   entrance: '#0A84FF',
+  restricted: '#6E6B66',
+  object: '#7A5CC4',
   fills: {
     walk: '#F7F6F2',
     core: '#DCE3EE',
@@ -146,6 +152,8 @@ export const DARK: PlanPalette = {
   selectedEdge: '#409CFF',
   door: '#4D78A8',
   entrance: '#409CFF',
+  restricted: '#1B1B1E',
+  object: '#A08BE8',
   fills: {
     walk: '#4A4A4F',
     core: '#3C4049',

@@ -1,13 +1,10 @@
 // Create a building from floor plans (docs/superpowers/specs/2026-10-25-plan-import-design.md §7): pick PDFs / photos
-// → the Creator works (its short sentences stream in) → the draft opens in the Edit mode, where the Builder corrects
-// it by prompt and Save turns it into a building. The Edit mode resumes the draft through its own localStorage key.
+// → the Creator works (its short sentences stream in) → the building screen opens on the private base `import/<id>`
+// straight into the Edit mode, where the Builder corrects it and Save turns it into a building. The Edit mode resumes
+// the Creator's draft through its localStorage key (`draft:<base>`, edit/useDraft.ts).
 import { FileUp, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { api, type ImportLine } from '../api'
-import { EditMode } from '../edit/EditMode'
-import { DARK, LIGHT } from '../plan/palette'
-import { useTheme } from '../theme'
-import '../building/screen.css'
 import './import.css'
 
 const ACCEPT = '.pdf,image/*,.heic,.heif'
@@ -25,18 +22,15 @@ const TOOL_LABEL: Record<string, string> = {
 }
 
 type Phase = 'pick' | 'working' | 'no_plan' | 'error'
-type Props = { onSaved: (building: string) => void; onExit: () => void }
+type Props = { onDone: (base: string) => void; onExit: () => void }
 
-export function ImportScreen({ onSaved, onExit }: Props) {
-  const theme = useTheme()
-  const palette = theme.dark ? DARK : LIGHT
+export function ImportScreen({ onDone, onExit }: Props) {
   const [files, setFiles] = useState<File[]>([])
   const [phase, setPhase] = useState<Phase>('pick')
   const [said, setSaid] = useState<string[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
   const [doing, setDoing] = useState<string | null>(null)
   const [message, setMessage] = useState('')
-  const [base, setBase] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const picker = useRef<HTMLInputElement>(null)
 
@@ -57,7 +51,7 @@ export function ImportScreen({ onSaved, onExit }: Props) {
       else if (line.type === 'step' && line.kind === 'tool') setDoing(TOOL_LABEL[line.name] ?? line.name)
       else if (line.type === 'done') {
         localStorage.setItem(`draft:${line.base}`, line.draft_id)
-        setBase(line.base)
+        onDone(line.base)
       } else if (line.type === 'no_plan') {
         setMessage(line.reason)
         setPhase('no_plan')
@@ -73,13 +67,6 @@ export function ImportScreen({ onSaved, onExit }: Props) {
       setPhase('error')
     }
   }
-
-  if (base)
-    return (
-      <main className="screen editing">
-        <EditMode base={base} palette={palette} onExit={onExit} onSaved={(saved) => onSaved(saved)} />
-      </main>
-    )
 
   return (
     <main className="im">

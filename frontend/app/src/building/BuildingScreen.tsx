@@ -21,11 +21,17 @@ import { notify, useAccess } from '../access/auth'
 import { BuildingSettings } from '../access/BuildingSettings'
 import { useAccessRules } from '../access/useAccessRules'
 import { capture, effective, sessionValues as toSession, setHere, setSpokenReplies, usePreferences } from '../access/preferences'
-import { api, ApiError, ServiceError, type FleetObject, type GuideStep, type Issue, type NextBuilding, type Plan, type Preferences } from '../api'
+import { api, ApiError, ServiceError, type FleetObject, type GuideStep, type Issue, type LiveDevice, type NextBuilding, type PlacedLocation, type Plan, type Preferences } from '../api'
 import { EditLayer } from '../edit/EditLayer'
+import { LiveButton, LiveNotice, LivePanel, type Notice, type Placing } from '../live/LivePanel'
+import { useLive, type LiveNews } from '../live/useLive'
+import { ReferencePanel, useImageSize, type Trace } from '../edit/ReferencePanel'
 import { EditBar } from '../edit/EditBar'
 import { EditCard } from '../edit/EditCard'
 import { useDraft } from '../edit/useDraft'
+import { Placement } from '../map/Placement'
+import '../import/import.css'
+import { ImportScreen } from '../import/ImportScreen'
 import { CATEGORY_LABEL, DARK, LIGHT } from '../plan/palette'
 import { contains, prepareFloors } from '../plan/geometry'
 import { PlanView, type Focus, type Insets, type Me, type Selected, type ViewMode } from '../plan/PlanView'
@@ -142,9 +148,9 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   })
   // access mode (src/access/): who is signed in, and the building settings sheet (admin)
   const access = useAccess()
-  // who may change the building: its admin in access mode, anyone without it (editing works on a copy); while a
-  // sign-in is still being checked the Edit mode stays, so an admin's ?edit=1 doesn't blink off and on
-  const mayChange = !access.mode || access.admin || access.checking
+  // who may change the building: its admin in access mode, anyone without it (editing works on a copy); nobody
+  // until /config (and a signed-in viewer's /me) has answered, so ?edit=1 never shows the Edit mode to the wrong one
+  const mayChange = !access.checking && (!access.mode || access.admin)
   // the admin in access mode also sets who may go where: the Access tool, and the Building settings button
   const admin = access.mode && access.admin
   // the Edit mode as asked for (the admin button, the Guide, ?edit=1) and as shown: only to whoever may change the
@@ -152,13 +158,34 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   const [editAsked, setEditing] = useState(startEditing)
   const editing = editAsked && mayChange
   // Edit mode (src/edit/): the model becomes the draft copy's, handles sit on it, the edit card takes the Guide's place
-  // the copy is only asked for once the sign-in check is over, so a non-admin's ?edit=1 never requests one
-  const draft = useDraft(buildingId, editing && !access.checking, admin)
+  // the copy is only asked for once that check is over, so a non-admin's ?edit=1 never requests one
+  const draft = useDraft(buildingId, editing, admin)
   // the Building settings sheet (admin): the shield button, the Access tool or the Guide open it
   const [settingsOpen, setSettingsOpen] = useState(false)
   // the access rules, shared by the Access tool and the Building settings sheet
   const accessRules = useAccessRules(buildingId, admin && (editing || settingsOpen))
+  // "Edit position": the saved building's map placement, moved / turned / scaled again (one undoable step)
+  const [placingOnMap, setPlacingOnMap] = useState(false)
+  const [addingFloor, setAddingFloor] = useState(false) // "Add a floor": an import into this draft
+  const placedAt = (draft.state?.building.building as { location?: PlacedLocation } | undefined)?.location
   const align = useRef<SVGGElement>(null)
+  // the import's plan beside the editor (edit/ReferencePanel.tsx): open unless closed before, remembered per browser
+  const [referenceOpen, setReferenceOpen] = useState(() => {
+    try {
+      return localStorage.getItem('edit.referenceOpen') !== 'false'
+    } catch {
+      return true
+    }
+  })
+  const showReference = (open: boolean) => {
+    setReferenceOpen(open)
+    try {
+      localStorage.setItem('edit.referenceOpen', String(open))
+    } catch {
+      // private mode: just not remembered
+    }
+  }
+  const [trace, setTrace] = useState<Trace>({ on: false, opacity: 0.4 })
   // a request the Guide handed over with open_edit_mode, sent to the Builder once the draft is open
   const handOver = useRef<{ text: string; spoken: boolean } | null>(null)
   // a nearby building the Guide opened (open_nearby_building), gone to once its reply has been said
@@ -287,6 +314,51 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
       pollNow.current = () => undefined
     }
   }, [access.mode, hasPlan, buildingId, access.version])
+  // the living building (src/live/): connected things polled while the screen shows the building, the panel with
+  // its demo controls, a tap that puts something down, and notices when the route on the map has to change
+  const [liveOpen, setLiveOpen] = useState(false)
+  const [placing, setPlacing] = useState<Placing>(null)
+  const [liveFocus, setLiveFocus] = useState<string | null>(null)
+  const [notice, setNotice] = useState<Notice | null>(null)
+  const noticeKey = useRef(0)
+  const dismissed = useRef(new Set<string>())
+  const onLiveNews = (news: LiveNews) => {
+    if (news.reroute) {
+      const wasGuiding = guiding
+      onEvents([news.reroute])
+      if (wasGuiding) {
+        setGuideKey(storyRef.current.key) // the step guide goes on, on the new route
+        quietStep.current = null
+      }
+      setNotice({ kind: 'reroute', message: news.reroute.message, key: ++noticeKey.current })
+      setMessages((list) => [...list, { role: 'note', text: news.reroute!.message }])
+      if ((guiding || walking) && !muted) speak(news.reroute.message)
+    } else if (news.alert && !dismissed.current.has(news.alert.message)) {
+      setNotice({ kind: 'alert', message: news.alert.message, key: ++noticeKey.current })
+    } else if (news.suggestion && !dismissed.current.has(news.suggestion.message)) {
+      setNotice((shown) => (shown?.message === news.suggestion!.message ? shown : { kind: 'suggestion', message: news.suggestion!.message, key: ++noticeKey.current }))
+    }
+  }
+  const { live, pollNow: pollLive } = useLive(buildingId, sessionId, hasPlan && !editing, onLiveNews)
+  // a reroute notice goes by itself after a while; an alert or a suggestion stays until dismissed or taken
+  useEffect(() => {
+    if (notice?.kind !== 'reroute') return
+    const timer = setTimeout(() => setNotice((shown) => (shown?.key === notice.key ? null : shown)), 9000)
+    return () => clearTimeout(timer)
+  }, [notice])
+  const liveControl = (action: 'speed' | 'pause' | 'resume' | 'clear' | 'block_route', value?: number) => {
+    void api
+      .liveControl({ building: buildingId, action, value, session_id: action === 'block_route' ? sessionId ?? undefined : undefined })
+      .then(() => pollLive())
+      .catch((reason) => setMessages((list) => [...list, { role: 'note', text: `Live: ${reason instanceof Error ? reason.message : String(reason)}` }]))
+  }
+  const focusDevice = (item: LiveDevice) => {
+    setLiveFocus(item.id)
+    if (item.position.floor === null) return
+    setFloor(item.position.floor)
+    setStacked(false)
+    frameOn([[item.position.x, item.position.y, item.position.floor]], FOCUS_ROOM_M)
+  }
   /** Show a new answer and take the camera to it: a route whole (when it crosses floors, only its floors, stacked:
    * the overview), or the rooms and items found (their floor, zoomed to them). */
   const present = (next: Story) => {
@@ -459,6 +531,10 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
 
   const routeSteps = useMemo(() => story.route?.steps ?? [], [story.route])
   const moving = routeSteps.length > 0
+  // an alert or a suggestion is about the route on the map: it goes with the route
+  useEffect(() => {
+    if (!moving) setNotice((shown) => (shown && shown.kind !== 'reroute' ? null : shown))
+  }, [moving])
   const moveIndex = moveAt.key === story.key ? Math.min(moveAt.index, routeSteps.length - 1) : 0
   const guiding = moving && guideKey === story.key
   // a route over several floors is first shown whole: only its floors, stacked, until it starts or a floor is picked
@@ -666,22 +742,35 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, plan, buildingId])
 
-  const insets: Insets = wide
+  const referenceShown = editing && draft.references.length > 0 && referenceOpen
+  // on a wide screen the reference is a column on the right; the generated building keeps the middle
+  const referenceWidth = referenceShown ? Math.round(Math.min(560, Math.max(320, viewport.width * 0.3))) : 0
+  const baseInsets: Insets = wide
     ? { top: TOP_PX + 8 + (moving ? MOVE_PX + (followed ? TRACK_PX : 0) : 0), right: ACTIONS_RIGHT_PX, bottom: 24, left: 16 + GUIDE_COL_PX + 24 }
     : editing
       ? { top: TOP_PX + 8 + EDIT_BAR_PX, right: 0, bottom: guideHeight, left: 0 }
       : { top: TOP_PX + 8 + (moving ? MOVE_PX + (followed ? TRACK_PX : 0) : 0), right: 0, bottom: guideHeight, left: 0 }
+  // beside the reference the building is framed in the space left of it
+  const insets: Insets = referenceShown && wide ? { ...baseInsets, right: 16 + referenceWidth + 24 } : baseInsets
 
   // the whole building is centred on the screen: on a wide screen the Guide floats in the bottom-left corner, not
   // in a column, so it does not push the building right (the floor rail on the right is mirrored on the left); an
   // answer's own rooms still keep clear of it (`insets`). On a phone the plan's buttons stand on the Guide's top
   // edge (its measured height), so they never sit under a longer answer.
-  const frameInsets: Insets = wide ? { ...insets, left: RAIL_PX, right: RAIL_PX } : insets
+  const frameInsets: Insets = referenceShown
+    ? insets
+    : wide ? { ...insets, left: RAIL_PX, right: RAIL_PX } : insets
   // an answer's rooms and route: clear of the Guide column on the left (`insets`) and of the floor rail on the right
   // (`insets.right` only places the plan's buttons under the rail), with room for the start's step callout
   const focusInsets: Insets = wide ? { ...insets, right: RAIL_PX + CALLOUT_PX } : insets
 
-  const current = plan?.floors[floor]
+  // while editing the model is the draft's (the original until the draft's plan has loaded), one floor at a time —
+  // the floor chip and list follow it, so floors added in Edit mode can be picked
+  const shownPlan = editing && draft.plan ? draft.plan : plan
+  const current = shownPlan?.floors[floor]
+  // the plan's buttons (figure, street view, compass), then the admin corner (Edit, and Building settings for the
+  // admin in access mode): the Live button goes on top of them
+  const liveBottom = insets.bottom + 16 + (44 + 10) * (3 + (!access.mode || access.admin ? (admin ? 2 : 1) : 0))
   const suggestions = useMemo(() => (plan ? suggest(plan, plan.floors[floor]?.name ?? '') : []), [plan, floor])
 
   const info = useMemo((): InfoCard | null => {
@@ -881,9 +970,11 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
     setPopover(null)
   }
 
-  // while editing the model is the draft's (the original until the draft's plan has loaded), one floor at a time
-  const shownPlan = editing && draft.plan ? draft.plan : plan
+  // a floor that only the draft has (added in Edit mode) is gone once editing ends: back to one the building has
+  if (!editing && plan && floor >= plan.floors.length) setFloor(0)
   const editFloorId = shownPlan?.floors[floor]?.id
+  const editReference = draft.references.find((item) => item.floor_id === editFloorId) ?? null
+  const traceSize = useImageSize(editReference?.image)
   const focusIssue = (issue: Issue) => {
     const building = draft.state?.building
     const id = issue.ids[0]
@@ -923,7 +1014,7 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   }
 
   return (
-    <main className={`screen${origin ? ' on-map' : ''}${alone ? ' alone' : ''}${plan ? ' ready' : ''}${leaving ? ' leaving' : ''}`}>
+    <main className={`screen${origin ? ' on-map' : ''}${alone ? ' alone' : ''}${plan ? ' ready' : ''}${leaving ? ' leaving' : ''}${placing ? ' placing' : ''}`}>
       <div className="screen-stage" aria-hidden="true" />
       {shownPlan && (
         <PlanView
@@ -953,6 +1044,12 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
           settings={settings}
           story={editing ? EMPTY_STORY : shownStory}
           objects={access.mode && !editing ? objects : undefined}
+          live={editing ? null : live}
+          liveFocus={liveFocus}
+          onLiveFocus={(id) => {
+            setLiveFocus(id)
+            if (id) setLiveOpen(false)
+          }}
           focus={editing ? null : focus}
           // while guided, the dot on the route is you; the figure would stay behind at the start
           me={editing || guiding ? null : me}
@@ -965,6 +1062,15 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
           onTap={editing && (draft.tool === 'door' || draft.tool === 'item') ? (tap) => {
             const floorId = shownPlan?.floors[tap.floor]?.id
             if (floorId) draft.placeAt(floorId, tap.at, tap.pixelsPerMetre)
+            return true
+          } : placing ? (tap) => {
+            // the Live panel's Drop pallet / Park forklift: it goes where the plan was tapped
+            const kind = placing
+            setPlacing(null)
+            void api
+              .liveControl({ building: buildingId, action: 'drop', floor: tap.floor, x: tap.at[0], y: tap.at[1], kind })
+              .then(() => pollLive())
+              .catch(() => setMessages((list) => [...list, { role: 'note', text: `Put the ${kind} inside a room or corridor.` }]))
             return true
           } : undefined}
           ground={alone}
@@ -992,8 +1098,29 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
           preset={draft.preset}
           align={align}
           restricted={admin ? accessRules.restricted : undefined}
+          trace={trace.on && referenceShown && editReference && traceSize
+            ? { image: editReference.image, ...traceSize, transform: editReference.transform, opacity: trace.opacity, adjust: trace.adjust }
+            : null}
         />
       )}
+      {editing && draft.references.length > 0 && (referenceOpen ? (
+        <ReferencePanel
+          reference={editReference}
+          floorName={shownPlan?.floors[floor]?.name ?? ''}
+          style={wide
+            ? { right: 16, top: TOP_PX + 8 + EDIT_BAR_PX, maxHeight: `calc(100% - ${TOP_PX + 8 + EDIT_BAR_PX + 24}px)`, width: referenceWidth }
+            : { left: 8, right: 8, top: TOP_PX + 8 + EDIT_BAR_PX, maxHeight: '42%' }}
+          trace={trace}
+          onTrace={setTrace}
+          onAdjust={editFloorId ? (transform) => draft.onOps([{ op: 'set_reference', floor_id: editFloorId, transform }]) : undefined}
+          onClose={() => {
+            showReference(false)
+            setTrace((current) => ({ ...current, on: false }))
+          }}
+        />
+      ) : (
+        <button type="button" className="hud-pill edit-reference-open" onClick={() => showReference(true)}>Show plan</button>
+      ))}
 
       {/* "Opening the building…" from the tap until the model is there, the map's fly-in included; it fades in a
           beat late (screen.css), so a building that opens at once shows nothing */}
@@ -1017,7 +1144,7 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
         <div className="hud-place">
           <h1>{plan?.building.name ?? 'Building'}</h1>
         </div>
-        {plan && plan.floors.length > 1 && (
+        {shownPlan && shownPlan.floors.length > 1 && (
           <button
             type="button"
             className="hud-chip floor-chip"
@@ -1064,16 +1191,16 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
 
       {plan && popover && <div className="hud-scrim" onClick={() => setPopover(null)} />}
       {/* on a phone the floors open from the chip; on a wide screen they stay open on the right */}
-      {plan && plan.floors.length > 1 && (
+      {shownPlan && shownPlan.floors.length > 1 && (
         <nav className={`hud-pop floors${popover === 'floors' ? ' open' : ''}`} aria-label="Floors" role="menu">
           <button type="button" role="menuitemradio" aria-checked={stacked} onClick={() => pickFloor('all')} title="All floors">
             <span className="tab"><Layers size={15} strokeWidth={2} /></span>
             <span className="name">All floors</span>
           </button>
-          {[...plan.floors.keys()].reverse().map((index) => (
-            <button key={index} type="button" role="menuitemradio" aria-checked={!stacked && index === floor} onClick={() => pickFloor(index)} title={plan.floors[index].name}>
-              <span className="tab">{floorTab(plan.floors[index].level)}</span>
-              <span className="name">{plan.floors[index].name}</span>
+          {[...shownPlan.floors.keys()].reverse().map((index) => (
+            <button key={index} type="button" role="menuitemradio" aria-checked={!stacked && index === floor} onClick={() => pickFloor(index)} title={shownPlan.floors[index].name}>
+              <span className="tab">{floorTab(shownPlan.floors[index].level)}</span>
+              <span className="name">{shownPlan.floors[index].name}</span>
             </button>
           ))}
         </nav>
@@ -1109,6 +1236,50 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
         </div>
       )}
 
+      {/* the living building: its button on top of the column (over the admin button when there is one), its panel
+          beside the column on a wide screen and above it on a phone, and the notice under the top line */}
+      {plan && !editing && (
+        <LiveButton
+          live={live}
+          open={liveOpen}
+          onToggle={() => {
+            setLiveOpen((open) => !open)
+            setPlacing(null)
+          }}
+          style={{ right: insets.right + 16, bottom: liveBottom }}
+        />
+      )}
+      {plan && !editing && liveOpen && (
+        <LivePanel
+          live={live}
+          hasRoute={moving}
+          placing={placing}
+          focus={liveFocus}
+          onPlace={setPlacing}
+          onControl={liveControl}
+          onFocus={focusDevice}
+          onClose={() => {
+            setLiveOpen(false)
+            setPlacing(null)
+          }}
+          style={wide ? { right: insets.right + 16 + 44 + 12, bottom: Math.max(16, liveBottom - 200) } : { right: 16, bottom: liveBottom + 44 + 10, maxHeight: Math.max(220, viewport.height - (liveBottom + 44 + 10) - TOP_PX - 8) }}
+        />
+      )}
+      {plan && notice && !editing && (
+        <LiveNotice
+          notice={notice}
+          top={TOP_PX + 8 + (moving && !walking ? MOVE_PX + 8 : 0)}
+          onTake={() => {
+            setNotice(null)
+            if (sessionId) void api.liveShorter(sessionId).then((reply) => onEvents(reply.events)).catch(() => undefined)
+          }}
+          onClose={() => {
+            dismissed.current.add(notice.message)
+            setNotice(null)
+          }}
+        />
+      )}
+
       {access.mode && settingsOpen && (
         <BuildingSettings
           buildingId={buildingId}
@@ -1127,7 +1298,35 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
       )}
 
       {editing && (
-        <EditBar draft={draft} onFocusIssue={focusIssue} onDone={() => setEditing(false)} onSave={(name) => void saveDraft(name)} accessTool={admin} />
+        <EditBar draft={draft} onFocusIssue={focusIssue} onDone={() => setEditing(false)} onSave={(name) => void saveDraft(name)} accessTool={admin}
+          onPlace={placedAt?.origin ? () => setPlacingOnMap(true) : undefined} onAddFloor={() => setAddingFloor(true)}
+          onStraighten={editFloorId && shownPlan && shownPlan.floors.length > 1 && floor > 0
+            ? () => draft.onOps([{ op: 'straighten_floor', floor_id: editFloorId }]) : undefined} />
+      )}
+      {editing && addingFloor && draft.state && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60 }}>
+          <ImportScreen draft={{ id: draft.state.draft.id, name: draft.state.draft.name, levels: draft.state.building.floors.map((floor) => floor.level) }} onExit={() => setAddingFloor(false)}
+            onDone={() => {
+              const id = draft.state?.draft.id
+              setAddingFloor(false)
+              if (id) void api.draft(id).then(draft.adopt).catch((reason) => draft.setMessage(String(reason)))
+            }} />
+        </div>
+      )}
+      {editing && placingOnMap && draft.state && placedAt?.origin && (
+        <main className="im" style={{ zIndex: 60 }}>
+          <div className="im-inner">
+            <button type="button" className="im-back" onClick={() => setPlacingOnMap(false)}>← Back to editing</button>
+            <header className="im-head"><h1>Edit position</h1></header>
+            <Placement draftId={draft.state.draft.id} location={placedAt} target={null} doneLabel="Save position"
+              shape={editFloorId ? draft.state.building.spaces.filter((space) => space.floor_id === editFloorId)
+                .map((space) => space.polygon as [number, number][]) : null}
+              onDone={(next) => {
+                setPlacingOnMap(false) // back to the editor first, whatever the answer holds
+                if (next?.draft) draft.adopt(next)
+              }} />
+          </div>
+        </main>
       )}
 
       {/* one assistant card: the Guide, or while editing the Builder (with the selection's inspector in it); it

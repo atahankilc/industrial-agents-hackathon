@@ -20,7 +20,7 @@ export type AccessState = {
   email: string | null
   /** the admin (GET /me) */
   admin: boolean
-  /** signed in and GET /me not answered yet: whether this is the admin is still open */
+  /** GET /config, or a signed-in viewer's GET /me, not answered yet: whether this is the admin is still open */
   checking: boolean
   /** arrived from an invite: the account has no password yet */
   needsPassword: boolean
@@ -32,7 +32,7 @@ export type AccessState = {
   notice: string | null
 }
 
-let state: AccessState = { mode: false, email: null, admin: false, checking: false, needsPassword: false, version: 0, panel: null, notice: null }
+let state: AccessState = { mode: false, email: null, admin: false, checking: true, needsPassword: false, version: 0, panel: null, notice: null }
 const listeners = new Set<() => void>()
 let client: SupabaseClient | null = null
 let userId: string | null = null
@@ -119,7 +119,7 @@ export function startAccess() {
   api
     .config()
     .then(async (config) => {
-      if (!config.access_mode) return done()
+      if (!config.access_mode) return set({ checking: false }), done()
       readLink()
       // a sign-in that may be restored counts as being checked until it is (or isn't)
       set({ mode: true, checking: maySignIn(), needsPassword: storedFlag(NEEDS_PASSWORD_KEY) })

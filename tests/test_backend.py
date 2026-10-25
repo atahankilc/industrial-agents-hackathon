@@ -45,7 +45,8 @@ def test_health_and_buildings(client, monkeypatch):
 
 def test_buildings_carry_a_location_only_where_one_is_known(client):
     items = {item["id"]: item for item in client.get("/buildings").json()}
-    located = {building_id for building_id, item in items.items() if item["location"]}
+    # kit buildings only: a building made from plans (user/…) is placed on the map by its import
+    located = {building_id for building_id, item in items.items() if item["location"] and not building_id.startswith("user/")}
     assert located and all("/osm-way" in building_id for building_id in located)  # only OSM buildings have one
     main = items["train/osm-way10053349"]["location"]  # TUM main building, Arcisstraße 21
     assert abs(main["lat"] - 48.1489) < 0.001 and abs(main["lon"] - 11.5680) < 0.001

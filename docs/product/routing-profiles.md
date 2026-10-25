@@ -9,7 +9,7 @@ sources:
   - agent/guide.py (profile_cues, profile safety net)
   - "data/*/*/building.json scan 2026-10-24: 576 stairs connectors all step_free false, 136 lifts all true"
   - "dataset scan of all 280 buildings with core/building_map.py, 2026-10-24"
-related: [personas.md, ../kit/route-model.md, ../architecture/solver-plan.md, ../architecture/overview.md]
+related: [personas.md, ../kit/route-model.md, ../architecture/solver-plan.md, ../architecture/overview.md, living-building.md]
 ---
 
 # Routing profiles
@@ -253,3 +253,5 @@ aisles inside halls, door opening direction or automatic doors.
 
 - [personas.md](personas.md) · [route-model.md](../kit/route-model.md) ·
   [solver-plan.md](../architecture/solver-plan.md) · [overview.md](../architecture/overview.md)
+
+Live obstacles (forklifts, pallets, wet floors) on top of these profiles: [living-building.md](living-building.md).

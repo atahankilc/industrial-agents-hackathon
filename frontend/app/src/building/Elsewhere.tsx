@@ -1,5 +1,5 @@
 // What the Guide found in the buildings next to this one (search_nearby_buildings): one line per building, nearest
-// first, with its distance and the first match; ask for the way there, or open it. Sits where the next-move card goes.
+// first, with its distance and the first match; ask for the way there, or open it. Sits above the Guide, as a route's step card does.
 
 import { Building2, Navigation, X } from 'lucide-react'
 import type { ElsewhereEvent } from '../api'

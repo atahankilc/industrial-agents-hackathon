@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-25** (verifier fixes for 3113a99..a5f5407: access-mode prompt rebuilt on a restricted switch, "I'm there" at the exit opens the next building, one "Spoken replies"; the Guide opens a nearby building itself (`open_nearby_building`) and directions answers are an overview ending in Start (D-020 amended) — shipped on `dev`; before that: route following variant B — `maneuvers` steps, `RouteHud` trip pill + dock line, thin route line with a step callout; floating Guide with the shader ball, hold/tap talk, history arrows; one settings corner; `open_building_settings` tool; learned preferences with Undo; street view + phone compass; opening without the freeze; Mensa fit inside its OSM way; basement veil removed — shipped on `dev`; before that: step guide faces the step + animated route band, step card and Guide in sync via `route_step` / `show_route_step`, `find_nearest` tool, route line from the figure, calmer voice, map building tones, round-button system — shipped on `dev`; before that: building screen "Quiet HUD" steps 1–5 with the pulls of `origin/dev` 26b908f + b352e83)
+[Memory bank](README.md) · Last updated: **2026-10-25** (merged `7-buildings-from-plans` into dev: buildings from plans get a reference panel + trace in Edit mode and a real map position — right-click "Create a building here", OSM fit, EXIF GPS / browser position, Edit position, supersede on re-save; branch `7-buildings-from-plans` (started as `6-plan-reference-location`), [D-023](decisions.md#d-023); the living building: forklifts, robots and tagged pallets report positions, block walks and reroute the route on the map; post-commit verifier fixes for d6b07c9: Edit mode waits for /config and /me, `set_my_location("outside")` errors clearly; d6b07c9 itself: Edit-mode Access tool, Building settings tabs Access / People / Objects, "maybe here" positions and `suggest_my_location`, stacked floor rides, destination shortlist + highlight, metres left across floors; before that, verifier fixes for 3113a99..a5f5407: access-mode prompt rebuilt on a restricted switch, "I'm there" at the exit opens the next building, one "Spoken replies"; the Guide opens a nearby building itself (`open_nearby_building`) and directions answers are an overview ending in Start (D-020 amended) — shipped on `dev`; before that: route following variant B — `maneuvers` steps, `RouteHud` trip pill + dock line, thin route line with a step callout; floating Guide with the shader ball, hold/tap talk, history arrows; one settings corner; `open_building_settings` tool; learned preferences with Undo; street view + phone compass; opening without the freeze; Mensa fit inside its OSM way; basement veil removed — shipped on `dev`; before that: step guide faces the step + animated route band, step card and Guide in sync via `route_step` / `show_route_step`, `find_nearest` tool, route line from the figure, calmer voice, map building tones, round-button system — shipped on `dev`; before that: building screen "Quiet HUD" steps 1–5 with the pulls of `origin/dev` 26b908f + b352e83)
 
 ## Phase
 
@@ -36,6 +36,14 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `backend/locations.json`) + list view for all 280 (`src/search/`); building = vector plan view
   (`frontend/app/src/plan/`, `core/floorplan.py`); the point-cloud prototype and
   scene moved to the gitignored `.viz-archive/`, see [visualization.md](../docs/product/visualization.md).
+- Buildings from plans on the map (2026-10-25, [D-023](decisions.md#d-023),
+  [design](../docs/superpowers/specs/2026-10-25-plan-reference-and-location-design.md)): right-click card on the map
+  starts an import at a building / spot; one floor per file at the floor number the user types; the result is fitted
+  onto the OSM footprint (`core/geoplace.py`, `core/osm_lookup.py`, tile fallback), placed by EXIF GPS / browser
+  position without a tap, adjusted by hand (`src/map/Placement.tsx`) and saved with `building.location`; re-saving
+  supersedes, the card deletes saved buildings. Edit mode: the kept plan beside the editor (movable window) and as an
+  adjustable trace; "Add a floor" (walls kept parallel), "Straighten this floor", "Edit position". Not done: Postgres
+  delete / supersede tests, merging tile-cut OSM pieces, a final whole-branch review.
 - Map → building (2026-10-25): the map stays under the building screen, flies in, then follows the model's camera
   (`src/map/bridge.ts`); plan preloaded on the tap (`src/building/opening.ts`), model rises in; (a menu toggle "in the
   city" / "alone" was removed later; neighbour pins tappable); buildings with a model drawn as blue blocks on the map; new
@@ -67,6 +75,16 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## What works (verified 2026-10-24)
 
+- **Living building (2026-10-25, branch `5-living-building`, merged into dev):** [living-building.md](../docs/product/living-building.md).
+  Simulated connected things per building (forklifts + AGV in factories, delivery and cleaning robots, pallets/carts
+  with BLE tags; real devices via `POST /live/devices`), each reporting at its own interval; trails = last 50 m.
+  `core/live.py`: standing things cut the door-to-door walks they block for the viewer's clearance (walker 0.7 m,
+  step-free 0.9 m), moving ones cost a wait, wet floors a little; the near side of a blockage stays reachable.
+  `GET /live` re-asks the route on the map by its event's `request` (reroute / alert / "clear again" suggestion);
+  Guide `live_status` + `[live note]`; app layer, Live panel with demo controls, notices. In access mode
+  `POST /live/control` and `POST /live/devices` need the building admin; with access mode off both stay open (demo).
+  Tests: `tests/test_live.py` 37; stress over all 280 buildings 0 errors. Not tried: a real hardware device, a live mic, several app instances
+  (worlds are per process, in memory).
 - **Phones (2026-10-25, branch `6-mobile`):** Guide voice no longer hangs when iOS blocks the browser voice, streams
   are not gzipped and ping every 10 s, the app drops a silent stream after 45 s, home-screen app metas + manifest,
   16 px fields on touch ([ai-agents.md](../docs/architecture/ai-agents.md)). **Blocker:** `ELEVENLABS_API_KEY` is
@@ -116,6 +134,12 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   Directions answers are an overview (about how far, floors, a landmark) ending in "Say start or press Start".
   `tests/test_campus.py`; headless Chrome check of figure + highlight (log 2026-10-25).
 
+- **Asking between rooms and metres left (2026-10-25, d6b07c9, session 50):** a destination that fits several rooms
+  answers with the options (route metres, nearest first; more than 8 cut to the 12 nearest) and highlights them; one
+  answer's plain highlights add up instead of the last one winning; an ambiguous start ("I'm in the kitchen") marks
+  its matches as where the user might be (`start_of` → `maybe_here`, drawn in the figure's orange); the trip pill's
+  metres left count down across floors (`tracking.ts` `metresLeft`).
+
 - **Access mode (2026-10-25, D-015, `ACCESS_MODE=on`, off by default):** design
   [access-profiles-design](../docs/superpowers/specs/2026-10-25-access-profiles-design.md), plan
   [access-profiles](../docs/superpowers/plans/2026-10-25-access-profiles.md). Backend all four phases built and
@@ -124,7 +148,7 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `solve` included, plan `restricted`), remembered preferences (soft penalties, `set_preference`, `preference`
   events), moving objects (`/objects`, device tokens, missions, `scripts/sim_object.py`, Guide `send_object`).
   Frontend done (`frontend/app/src/access/`, `plan/ObjectsLayer.tsx`): sign-in, darkened spaces, Preferences,
-  Building settings (admin only: Access / Members / Objects; My preferences moved to the Preferences sheet
+  Building settings (admin only: tabs Access / People / Objects, the shield button; My preferences moved to the Preferences sheet
   2026-10-25), live object markers — checked headless with a
   fake sign-in. Migration `20261025200000_access.sql` applied 2026-10-25 (Postgres stores round-trip verified live).
   **Not yet:** admin account (`ADMIN_EMAIL`), a real Supabase sign-in, invite redirect URLs in Supabase, `/events`

@@ -110,7 +110,7 @@ def safe_legs(building: BuildingMap, event: dict) -> list[dict]:
 
 def safe_steps(building: BuildingMap, event: dict) -> list[dict]:
     """The Guide's followable steps (core/directions.guidance: turns where a person makes them, landmarks, rounded
-    metres) as data, for the app's next-move card; the same steps the Guide says."""
+    metres) as data, for the app's route bar and step card; the same steps the Guide says."""
     try:
         return maneuvers(guidance(building, event.get("space_path") or [], event.get("element_path") or []))
     except (KeyError, StopIteration):  # path no longer valid on this building

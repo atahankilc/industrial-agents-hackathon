@@ -119,3 +119,8 @@ def test_an_ambiguous_start_marks_every_match_as_where_the_user_might_be(session
         marked = [event for event in session.events[before:] if event["type"] == "maybe_here"]
         assert marked == [{"type": "maybe_here", "space_ids": found[:8], "source": "guide"}]
     assert session.user_location is None
+
+
+def test_outside_is_no_position(session):
+    result = session.call("set_my_location", {"place": "outside"})
+    assert "error" in result and result["error"] != "outside" and session.user_location is None

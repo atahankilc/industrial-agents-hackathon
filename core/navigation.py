@@ -27,6 +27,7 @@ import networkx as nx
 
 from core import route_models
 from core.building_map import DOOR_PREFIX, OUTSIDE, BuildingMap, MapError, expand, path_parts
+from core.live import LiveEffects, collapse_hops, path_graph, route_notes
 from core.preferences import Penalties
 from core.route_models import KIT, NO_RULES, RouteRules
 
@@ -185,6 +186,7 @@ class RouteAnswer(Serialisable):
     reason: str | None = None
     model: str | None = None  # None = kit route model
     rules: list[str] | None = None  # active route rules, None = none
+    live: dict | None = None  # app only (core/live.py): obstacles avoided / passed, detour_m, blocked_by
 
 
 @dataclass
@@ -239,14 +241,26 @@ def leg(
     model: str = KIT,
     rules: RouteRules = NO_RULES,
     penalties: Penalties | None = None,
+    live: LiveEffects | None = None,
 ) -> RouteAnswer:
     closed = sorted(view.closed)
     labels = {"model": None if model == KIT else model, "rules": rules.describe() or None}
     walk = route_models.leg_graph(graph, route_models.endpoint_only(view, rules), start, destination)
-    if penalties is not None and penalties.active():  # app preferences only (core/preferences.py)
-        walk = penalties.path_only(view, walk, start, destination)
+    preferring = penalties is not None and penalties.active()
+    base_walk = penalties.path_only(view, walk, start, destination) if preferring else walk
+    live = live if live is not None and live.active() else None
+    if live is None:
+        walk = base_walk
+    else:  # app only: obstacles and hazards right now (core/live.py); their penalties ride on path_only
+        walk, soft = live.apply(walk, {start, destination})
+        live_walk = walk
+        if preferring or soft:
+            walk = (penalties or Penalties()).path_only(view, walk, start, destination, live.extra if soft else None)
     try:
         length, nodes = nx.single_source_dijkstra(walk, start, destination, weight="weight")
+        if live is not None and (kept := collapse_hops(live_walk, nodes)) != nodes:
+            nodes = kept
+            walk, length = path_graph(live_walk, nodes)
     except (nx.NetworkXNoPath, nx.NodeNotFound):
         blocked = [stop for stop in (start, destination) if stop in view.closed]
         reason = (
@@ -254,6 +268,11 @@ def leg(
             if blocked
             else f"no {'step-free ' if step_free else ''}path with the current closures"
         )
+        notes = live_notes(live, base_walk, None, start, destination) if live is not None and live.notes else None
+        if not blocked and notes and notes.get("blocked_by"):
+            names = ", ".join(f"{item['name']} ({item.get('state', 'wet')}{' in ' + item['space'] if item.get('space') else ''})"
+                              for item in notes["blocked_by"])
+            reason = f"blocked right now by {names}; without it the route is {notes['without_live_m']} m"
         if not blocked and labels["rules"]:
             reason = f"no route under these rules ({'; '.join(labels['rules'])}): " + reason
         if not blocked and penalties is not None and penalties.avoid_room_types:
@@ -265,8 +284,10 @@ def leg(
             step_free=step_free,
             closed=closed,
             reason=reason,
+            live=notes or None,
             **labels,
         )
+    notes = live_notes(live, base_walk, (walk, nodes, length), start, destination) if live is not None and live.notes else None
     space_path, element_path = path_parts(walk, nodes)
     nodes, walked = expand(walk, nodes)
     return RouteAnswer(
@@ -279,8 +300,32 @@ def leg(
         steps=directions(view, walked, nodes) if include_steps else None,
         step_free=step_free,
         closed=closed,
+        live=notes or None,
         **labels,
     )
+
+
+def live_notes(live: LiveEffects, base: nx.MultiGraph, chosen: tuple | None, start: str, destination: str) -> dict:
+    """core/live.py route_notes for one leg, plus the length without the live state (`without_live_m`, `detour_m`)
+    and, for a leg with no route, what cut the route it would have taken (`blocked_by`)."""
+    try:
+        base_length, base_nodes = nx.single_source_dijkstra(base, start, destination, weight="weight")
+    except (nx.NetworkXNoPath, nx.NodeNotFound):
+        base_length, base_nodes = None, None
+    endpoints = {start, destination}
+    if chosen is None:
+        if base_nodes is None:
+            return {}
+        notes = route_notes(live, base, base_nodes, base, None, endpoints)
+        return {"blocked_by": notes.get("avoided", []), "without_live_m": round(base_length, 2)}
+    walk, nodes, length = chosen
+    notes = route_notes(live, base, base_nodes, walk, nodes, endpoints)
+    if base_length is not None and notes:
+        notes["without_live_m"] = round(base_length, 2)
+        notes["detour_m"] = round(length - base_length, 2)
+        if notes["detour_m"] < 0.5:  # an equally long way: nothing worth saying was avoided
+            notes.pop("avoided", None)
+    return notes
 
 
 def find_route(
@@ -295,6 +340,7 @@ def find_route(
     model: str = KIT,
     rules: RouteRules = NO_RULES,
     penalties: Penalties | None = None,
+    live: LiveEffects | None = None,
 ) -> RouteAnswer:
     """Shortest route (route-model metres). Places are ids, refs, exact names, asset ids/names, or "outside".
 
@@ -305,7 +351,7 @@ def find_route(
     stops = [resolve_stop(view, reference) for reference in (start, *via, destination)]
     graph = route_models.route_graph(view, step_free, model, rules)
     legs = [
-        leg(view, graph, first, second, step_free, include_steps, model, rules, penalties)
+        leg(view, graph, first, second, step_free, include_steps, model, rules, penalties, live)
         for first, second in itertools.pairwise(stops)
     ]
     if len(legs) == 1:
@@ -335,7 +381,23 @@ def find_route(
         via=stops[1:-1],
         model=legs[0].model,
         rules=legs[0].rules,
+        live=merged_live(legs),
     )
+
+
+def merged_live(legs: list[RouteAnswer]) -> dict | None:
+    """The legs' live notes as one (route through `via` stops)."""
+    notes = [item.live for item in legs if item.live]
+    if not notes:
+        return None
+    merged: dict = {}
+    for key in ("avoided", "passing"):
+        items = {(item["id"], item.get("effect")): item for note in notes for item in note.get(key, [])}
+        if items:
+            merged[key] = list(items.values())
+    if any("detour_m" in note for note in notes):
+        merged["detour_m"] = round(sum(note.get("detour_m", 0.0) for note in notes), 2)
+    return merged or None
 
 
 def tour(
@@ -348,6 +410,7 @@ def tour(
     model: str = KIT,
     rules: RouteRules = NO_RULES,
     penalties: Penalties | None = None,
+    live: LiveEffects | None = None,
 ) -> TourAnswer:
     """Visit `stops` in the given order; one shortest leg per consecutive pair. Total = sum of the legs."""
     if len(stops) < 2:
@@ -356,7 +419,7 @@ def tour(
     resolved = [resolve_stop(view, reference) for reference in stops]
     graph = route_models.route_graph(view, step_free, model, rules)
     legs = [
-        leg(view, graph, first, second, step_free, include_steps, model, rules, penalties)
+        leg(view, graph, first, second, step_free, include_steps, model, rules, penalties, live)
         for first, second in itertools.pairwise(resolved)
     ]
     failed = next((item for item in legs if not item.reachable), None)

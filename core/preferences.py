@@ -7,6 +7,7 @@ route answer always reports real lengths ("12 m longer to avoid the canteen"). T
 are never penalised or avoided."""
 
 from dataclasses import dataclass
+from typing import Callable
 
 import networkx as nx
 
@@ -31,7 +32,8 @@ class Penalties:
         return any((self.stairs_per_flight_m, self.door_m, self.noisy_m, self.hall_m, self.space_change_m,
                     self.avoid_room_types))
 
-    def path_only(self, view: BuildingMap, graph: nx.MultiGraph, start: str, end: str) -> nx.MultiGraph:
+    def path_only(self, view: BuildingMap, graph: nx.MultiGraph, start: str, end: str,
+                  live_extra: Callable[[dict], float] | None = None) -> nx.MultiGraph:
         """The cheapest path under these penalties, as a graph holding only its edges (true metres), so the
         normal shortest-path code on it returns exactly that path with its real length. Empty graph (just the two
         stops) when there is none."""
@@ -52,7 +54,7 @@ class Penalties:
             via = edge.get("via")
             if via in view.connectors and view.connectors[via]["kind"] != LIFT:
                 extra += self.stairs_per_flight_m
-            return edge["weight"] + extra
+            return edge["weight"] + extra + (live_extra(edge) if live_extra else 0.0)  # core/live.py: wait, wet floor
 
         def weight(first: str, second: str, edges: dict) -> float | None:
             costs = [value for value in (cost(edge) for edge in edges.values()) if value is not None]

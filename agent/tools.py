@@ -27,6 +27,7 @@ from agent.solver_agent import ALLOWED_MODULES, namespace, run_code
 from core.directions import about_m, guidance, guidance_steps, maneuvers
 from core import navigation, route_models
 from core.building_map import LIFT, OUTSIDE, BuildingMap, MapError
+from core.live import WALKER_CLEARANCE_M, LiveEffects
 from core.preferences import Penalties
 from core.route_query import route_query, shortlist
 from core.route_models import FORKLIFT_MIN_WIDTH_M, KIT, RouteRules
@@ -150,6 +151,10 @@ class BuildingSession:
         self.user_location: dict | None = None
         # Buildings nearby (agent/campus.py), set by the backend for buildings with a real position; None = none.
         self.campus = None
+        # The living building (backend/live.py): what connected things report right now (`state()` → obstacles,
+        # hazards; `devices()` → their list), set by the backend while the building's live world runs; None = none,
+        # and every route is the plain route model.
+        self.live = None
 
     @classmethod
     def load(cls, directory: Path) -> "BuildingSession":
@@ -204,6 +209,18 @@ class BuildingSession:
         if self.profile.avoid_lifts:
             closed += [c["id"] for c in building.connectors.values() if c["kind"] == LIFT]
         return closed
+
+    def live_clearance(self) -> float:
+        """Free width this user needs to get past something standing in a walkway (core/live.py)."""
+        if self.profile.forklift:
+            return 1.6
+        return max(WALKER_CLEARANCE_M, self.profile.min_door_width_m or 0.0, 0.9 if self.profile.step_free else 0.0)
+
+    def live_effects(self) -> LiveEffects | None:
+        if self.live is None:
+            return None
+        obstacles, hazards = self.live.state()
+        return LiveEffects(self.building, obstacles, hazards, self.live_clearance()) if obstacles or hazards else None
 
     def route_rules(self) -> RouteRules:
         """Rules every Guide route obeys; the forklift rule follows the profile."""
@@ -273,10 +290,12 @@ class BuildingSession:
             return None
         routed = shortlist(self.building, start, found) if len(found) > places.MAX_OPTIONS else found
         options = []
+        live = self.live_effects()
         for space_id in routed:
             route = navigation.find_route(self.building, start, space_id, step_free=self.profile.step_free,
                                           closed=self.profile_closures(), via=via, model=self.route_model,
-                                          rules=self.route_rules(), penalties=self.profile.penalties()).to_dict()
+                                          rules=self.route_rules(), penalties=self.profile.penalties(),
+                                          live=live).to_dict()
             options.append({**self.space_summary(space_id),
                             "length_m": route["length_m"] if route.get("reachable") else None})
         options.sort(key=lambda option: (option["length_m"] is None, option["length_m"] or 0.0))
@@ -370,15 +389,34 @@ class BuildingSession:
             model=self.route_model,
             rules=self.route_rules(),
             penalties=self.profile.penalties(),
+            live=self.live_effects(),
         ).to_dict()
         route["profile"] = self.profile.describe()
         self.guide_steps(route)
         if route.get("reachable") and self.emitting:
-            self.last_route = {"start": start, "destination": destination, "via": via or []}
+            self.last_route = {"start": start, "destination": destination, "via": via or [], "closed": closed or []}
             self.events.append({"type": "route", "space_path": route["space_path"],
                                 "element_path": route["element_path"], "length_m": route["length_m"],
-                                "profile": route["profile"], **self.start_point(start)})
+                                "profile": route["profile"], **self.start_point(start),
+                                **({"live": route["live"]} if route.get("live") else {}),
+                                "request": self.last_route})
         return route
+
+    def reroute(self, request: dict | None = None) -> dict | None:
+        """A route asked for again under what the live things report now: `request` = a route event's
+        {"start", "destination", "via", "closed"} (default: the last find_route), from where the user is when the app
+        knows it, else from where it started. The route dict, or None without a request. No event is added."""
+        request = request or self.last_route
+        if request is None:
+            return None
+        start = (self.user_location or {}).get("space_id") or request["start"]
+        if start == request["destination"]:
+            start = request["start"]
+        return navigation.find_route(
+            self.building, start, request["destination"], step_free=self.profile.step_free,
+            closed=[*self.profile_closures(), *request.get("closed", [])],
+            via=request.get("via") or (), model=self.route_model, rules=self.route_rules(),
+            penalties=self.profile.penalties(), live=self.live_effects()).to_dict()
 
     def tool_find_nearest(self, start: str, query: str, floor_id: str | None = None,
                           closed: list[str] | None = None) -> dict:
@@ -402,10 +440,12 @@ class BuildingSession:
                 result["hint"] = "search_nearby_buildings looks in the buildings next to this one."
             return result
         ranked = []
+        live = self.live_effects()
         for space_id in spaces:
             route = navigation.find_route(self.building, start, space_id, step_free=self.profile.step_free,
                                           closed=closures, model=self.route_model,
-                                          rules=self.route_rules(), penalties=self.profile.penalties()).to_dict()
+                                          rules=self.route_rules(), penalties=self.profile.penalties(),
+                                          live=live).to_dict()
             if route.get("reachable"):
                 ranked.append((route["length_m"], space_id))
         if not ranked:
@@ -423,7 +463,7 @@ class BuildingSession:
         tour = navigation.tour(
             self.building, [self.stop(item) for item in stops], step_free=self.profile.step_free,
             closed=self.profile_closures(), model=self.route_model, rules=self.route_rules(),
-            penalties=self.profile.penalties(),
+            penalties=self.profile.penalties(), live=self.live_effects(),
         ).to_dict()
         if tour.get("reachable"):
             tour["about_m"] = about_m(tour["length_m"])
@@ -585,13 +625,29 @@ class BuildingSession:
 
     def tool_definitions(self) -> list[dict]:
         """TOOL_DEFINITIONS, with the preference fields and set_preference only when preferences are on,
-        send_object for the building admin, and the campus tools for a building with neighbours."""
+        send_object for the building admin, the campus tools for a building with neighbours, and live_status while
+        the building is live."""
         campus = CAMPUS_TOOLS if self.campus is not None and self.campus.neighbours() else []
+        if self.live is not None:
+            campus = [*campus, LIVE_STATUS]
         if not self.preferences_enabled:
             return TOOL_DEFINITIONS + campus if campus else TOOL_DEFINITIONS
         tools = [PREFERENCE_SET_PROFILE if tool["name"] == "set_profile" else tool
                  for tool in TOOL_DEFINITIONS] + [SET_PREFERENCE]
         return (tools + [SEND_OBJECT] if self.object_dispatch is not None else tools) + campus
+
+    def tool_live_status(self, query: str | None = None) -> dict:
+        """What the building's connected things report now (backend/live.py): each one's kind, state, where it is,
+        where it drives to and whether it blocks a walkway; `query` keeps those whose name, kind or place has it."""
+        if self.live is None:
+            return {"error": "This building has no live data right now."}
+        devices = self.live.devices(set(self.building.spaces))  # none in a space this viewer may not see
+        if query:
+            wanted = query.strip().lower()
+            devices = [item for item in devices if any(wanted in str(item.get(key) or "").lower()
+                                                       for key in ("name", "kind", "label", "space", "to"))] or devices
+        self.highlight([item["space_id"] for item in devices if item.get("space_id") and query][:MAX_RESULTS])
+        return {"simulated": any(item.get("source") == "sim" for item in devices), "devices": devices[:MAX_RESULTS * 2]}
 
     def tool_send_object(self, object: str, destination: str) -> dict:
         if self.object_dispatch is None:
@@ -781,11 +837,12 @@ class BuildingSession:
         self.highlight(rooms, items)
         return {"shown": rooms + items}
 
-    def start_of(self, reference: str) -> str:
+    def start_of(self, reference: str, outside: bool = True) -> str:
         """`stop` for where the user is: a phrase that fits several rooms ("I'm in the kitchen") marks them all as
-        where they might be (`maybe_here`, drawn apart from the answer), so they can tap theirs."""
+        where they might be (`maybe_here`, drawn apart from the answer), so they can tap theirs. `outside=False`
+        (a position, not a route start): "outside" is no space and gets resolve's error."""
         try:
-            return self.stop(reference)
+            return self.stop(reference) if outside else self.resolve(reference)
         except MapError as error:
             found = [] if reference.strip().lower() in HERE else places.candidates(self.building, reference)
             if len(found) < 2:
@@ -796,7 +853,7 @@ class BuildingSession:
     def tool_set_my_location(self, place: str) -> dict:
         """The user said where they are: that space is "here" from now on, and the app puts its "you are here"
         figure there (event `location`) and zooms to it."""
-        space_id = self.start_of(place)
+        space_id = self.start_of(place, outside=False)
         location = self.set_location(space_id)
         if self.emitting:
             self.events.append({"type": "location", "space_id": space_id})
@@ -1099,6 +1156,14 @@ SET_PREFERENCE = {
     "input_schema": {"type": "object", "properties": {
         "language": {"type": "string"}, "reply_style": {"type": "string", "enum": ["brief", "detailed"]},
         "voice": {"type": "boolean"}, "favourite": {"type": "string"}, "scope": SCOPE}},
+}
+LIVE_STATUS = {
+    "name": "live_status",
+    "description": "Connected things in the building right now (forklifts, AGVs, robots, pallets and carts with tags): "
+    "kind, state (moving, loading, left behind…), where, heading to, and `blocking` when it cuts a walkway. Use it for "
+    "\"where is the forklift\", \"is anything in the way\", \"what's moving around\". Route results already avoid "
+    "what blocks; `simulated: true` means a demo simulation — say so if asked where the data comes from.",
+    "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}},
 }
 SEND_OBJECT = {
     "name": "send_object",

@@ -1,0 +1,241 @@
+/* The living building (./LiveLayer.tsx, ./LivePanel.tsx): markers over the plan, the round Live button on the plan's
+   button column, its panel, and the route notices. Same glass, hairlines and round buttons as the HUD (hud.css);
+   tones: violet = moving, orange = standing in the way, grey = standing out of the way. The only motion is the
+   ping of a report coming in. */
+
+.screen {
+  --live-block-ink: #D2560F;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .screen { --live-block-ink: #FF8A3D; }
+}
+:root[data-theme='dark'] .screen { --live-block-ink: #FF8A3D; }
+
+/* ---------- markers ---------- */
+
+.live-markers { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
+.live-marker { position: absolute; top: 0; left: 0; will-change: transform; --tone: var(--live-moving); }
+.live-marker.block { --tone: var(--live-block); }
+.live-marker.idle { --tone: var(--live-idle); }
+
+.live-marker button {
+  position: absolute;
+  left: -13px;
+  top: -13px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid var(--hud-solid-ink);
+  border-radius: 50%;
+  background: var(--tone);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.live-marker.focused button { outline: 2px solid var(--tone); outline-offset: 2px; }
+
+/* a report came in: one ring, once */
+.live-marker .ping {
+  position: absolute;
+  left: -13px;
+  top: -13px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--tone);
+  opacity: 0;
+  animation: live-ping 900ms ease-out 1;
+}
+@keyframes live-ping {
+  from { opacity: 0.7; transform: scale(1); }
+  to { opacity: 0; transform: scale(2.1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-marker .ping { animation: none; }
+}
+
+.live-card {
+  position: absolute;
+  left: 18px;
+  top: -14px;
+  z-index: 2;
+  display: grid;
+  gap: 1px;
+  min-width: 170px;
+  max-width: 260px;
+  padding: 7px 10px 8px;
+  border: 1px solid var(--hud-line);
+  border-radius: 12px;
+  background: var(--hud-glass-2);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: var(--hud-ink);
+  box-shadow: var(--hud-shadow);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.live-card b { font-weight: 600; font-size: 13px; }
+.live-card small { color: var(--hud-ink-2); font-size: 12px; }
+.live-card small.link { color: var(--hud-ink-3); font: 500 11px var(--font-mono, ui-monospace, monospace); }
+.live-card em { font-style: normal; color: var(--live-block-ink); font-weight: 500; }
+
+/* ---------- the Live button ---------- */
+
+.live-corner { position: absolute; z-index: 3; }
+.live-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--btn-lg);
+  height: var(--btn-lg);
+  padding: 0;
+  border: 1px solid var(--hud-line);
+  border-radius: 50%;
+  background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+}
+.live-button.open { background: var(--hud-solid); color: var(--hud-solid-ink); }
+.live-button i {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--hud-live);
+  color: var(--hud-solid-ink);
+  font: 600 11px/18px var(--font-mono, ui-monospace, monospace);
+  font-style: normal;
+  text-align: center;
+}
+.live-button.blocking i { background: var(--live-block-ink); color: #FFFFFF; }
+
+/* ---------- the panel ---------- */
+
+.live-panel {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(70vh, 620px);
+  border: 1px solid var(--hud-line);
+  border-radius: 20px;
+  background: var(--hud-glass-2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+  overflow: hidden;
+}
+.live-panel header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 14px 12px 8px 16px; }
+.live-panel h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.live-panel header p { margin: 2px 0 0; color: var(--hud-ink-2); font-size: 12px; }
+.live-panel header p b { color: var(--live-block-ink); font-weight: 600; }
+.live-panel .sim {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid var(--hud-line-2);
+  border-radius: 999px;
+  color: var(--hud-ink-2);
+  font: 500 10px/16px var(--font-mono, ui-monospace, monospace);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.live-list { flex: 1; min-height: 0; margin: 0; padding: 0 6px; list-style: none; overflow-y: auto; }
+.live-list li.empty { padding: 12px 10px; color: var(--hud-ink-2); font-size: 13px; }
+.live-list button {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  --tone: var(--live-moving, #7A5CC4);
+}
+.live-list button.block { --tone: var(--live-block-ink); }
+.live-list button.idle { --tone: var(--hud-ink-3); }
+.live-list button.focused { background: var(--hud-fill); }
+@media (hover: hover) { .live-list button:hover { background: var(--hud-fill); } }
+.live-list .glyph { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--tone); color: #FFFFFF; }
+.live-list .what { display: grid; min-width: 0; }
+.live-list .what b { overflow: hidden; font-size: 13px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+.live-list .what small { overflow: hidden; color: var(--hud-ink-2); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.live-list button.block .what small { color: var(--live-block-ink); }
+.live-list .when { display: grid; justify-items: end; color: var(--hud-ink-3); font: 500 10.5px/1.4 var(--font-mono, ui-monospace, monospace); }
+
+.live-tools { display: grid; gap: 8px; padding: 10px 12px 14px; border-top: 1px solid var(--hud-line); }
+.live-hint { margin: 0 4px; color: var(--hud-ink-2); font-size: 12px; }
+.live-tools .row { display: flex; flex-wrap: wrap; gap: 6px; }
+.live-tools .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--btn-md);
+  padding: 0 12px;
+  border: 1px solid var(--hud-line);
+  border-radius: 999px;
+  background: var(--hud-fill);
+  color: var(--hud-ink);
+  font: 500 13px var(--font);
+}
+.live-tools .chip.icon { width: var(--btn-md); padding: 0; justify-content: center; }
+.live-tools .chip.on { background: var(--hud-solid); color: var(--hud-solid-ink); border-color: transparent; }
+.live-tools .chip:disabled { opacity: 0.45; }
+@media (hover: hover) { .live-tools .chip:not(:disabled):not(.on):hover { background: var(--hud-fill-2); } }
+
+/* ---------- notices about the route on the map ---------- */
+
+.live-notice {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 14px;
+  border: 1px solid var(--hud-line);
+  border-radius: 16px;
+  background: var(--hud-glass-2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ink);
+  animation: live-in 220ms ease-out;
+}
+@media (min-width: 900px) {
+  .live-notice { left: 50%; right: auto; width: min(560px, calc(100vw - 480px)); translate: -50% 0; }
+}
+@keyframes live-in { from { opacity: 0; transform: translateY(-6px); } }
+.live-notice > svg { flex: none; color: var(--hud-route); }
+.live-notice.alert > svg { color: var(--live-block-ink); }
+.live-notice.suggestion > svg { color: var(--hud-live); }
+.live-notice p { flex: 1; margin: 0; font-size: 13px; line-height: 1.4; }
+.live-notice .take {
+  flex: none;
+  height: var(--btn-md);
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--hud-solid);
+  color: var(--hud-solid-ink);
+  font: 600 13px var(--font);
+}
+
+/* putting something down: the plan takes the next tap */
+.screen.placing .plan-view canvas, .screen.placing canvas { cursor: crosshair; }

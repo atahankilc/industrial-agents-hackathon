@@ -4,6 +4,7 @@ Creator looks at: contact sheets of all sources and a single source with a 0–1
 PDFs: pypdfium2 renders pages and reads their text, pypdf lists embedded images (not PyMuPDF: AGPL, D-009). A file
 that cannot be read becomes a warning ("<name>: <why>"); the rest go on."""
 
+import io
 import logging
 from io import BytesIO
 
@@ -74,10 +75,11 @@ def pdf_parts(name: str, data: bytes, limit: int = MAX_SOURCES) -> tuple[list[tu
     return parts, len(document) + count
 
 
-def load_sources(files: list[tuple[str, bytes]]) -> tuple[list[Source], list[str]]:
+def load_sources(files: list[tuple[str, bytes]], levels: list[int] | None = None) -> tuple[list[Source], list[str]]:
+    """`levels`: the floor of each file as the user gave it (same order); a PDF's pages get level, level + 1, …"""
     sources: list[Source] = []
     warnings: list[str] = []
-    for name, data in files:
+    for index, (name, data) in enumerate(files):
         try:
             if not data:
                 raise ValueError("empty file")
@@ -93,8 +95,9 @@ def load_sources(files: list[tuple[str, bytes]]) -> tuple[list[Source], list[str
         if total > len(parts):
             warnings.append(f"{name}: only the first {MAX_SOURCES} pages / images of an import are read; "
                             f"{total - len(parts)} skipped")
-        for origin, image, text in parts:
-            sources.append(Source(f"s{len(sources) + 1}", origin, image, text))
+        for page, (origin, image, text) in enumerate(parts):
+            level = levels[index] + page if levels is not None else None
+            sources.append(Source(f"s{len(sources) + 1}", origin, image, text, level))
     return sources, warnings
 
 
@@ -135,3 +138,28 @@ def grid_view(image: np.ndarray) -> bytes:
         cv2.putText(view, label, (min(x + 2, width - 30), 14), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 0, 255), 1)
         cv2.putText(view, label, (2, max(y - 3, 28)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 0, 255), 1)
     return cv2.imencode(".png", view)[1].tobytes()
+
+
+GPS_IFD = 0x8825  # EXIF GPSInfo
+
+
+def photo_gps(data: bytes) -> tuple[float, float] | None:
+    """(lat, lon) from a photo's EXIF GPS, None without one (or for a PDF / an image that is not a photo)."""
+    try:
+        gps = Image.open(io.BytesIO(data)).getexif().get_ifd(GPS_IFD)
+        if not gps or 2 not in gps or 4 not in gps:
+            return None
+        degrees = lambda values: float(values[0]) + float(values[1]) / 60 + float(values[2]) / 3600
+        lat, lon = degrees(gps[2]), degrees(gps[4])
+        return (-lat if gps.get(1) == "S" else lat, -lon if gps.get(3) == "W" else lon)
+    except Exception:  # noqa: BLE001 — not an image Pillow reads, or broken EXIF: no position
+        return None
+
+
+def median_gps(files: list[bytes]) -> tuple[float, float, int] | None:
+    """The median position of the photos that carry GPS, and how many did; None if none did."""
+    found = [position for position in map(photo_gps, files) if position]
+    if not found:
+        return None
+    middle = lambda values: sorted(values)[len(values) // 2] if len(values) % 2 else sum(sorted(values)[len(values) // 2 - 1:len(values) // 2 + 1]) / 2
+    return middle([lat for lat, _ in found]), middle([lon for _, lon in found]), len(found)

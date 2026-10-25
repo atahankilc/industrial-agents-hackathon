@@ -13,6 +13,7 @@ class Source:
     origin: str  # "plan.pdf p2", "IMG_1.jpeg"
     image: np.ndarray  # BGR uint8, long side ≤ PROCESS_MAX_SIDE
     text: str = ""  # PDF page text, "" for images
+    level: int | None = None  # the floor the user said this file is (a PDF's later pages count up from it)
 
 
 @dataclass

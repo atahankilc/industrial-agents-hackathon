@@ -151,7 +151,7 @@
 
 .edit-issues {
   position: absolute;
-  z-index: 3;
+  z-index: 5; /* over the reference panel (4) */
   top: calc(max(12px, env(safe-area-inset-top)) + 104px);
   right: 12px;
   width: min(360px, calc(100vw - 24px));
@@ -188,7 +188,7 @@
 
 .edit-toast {
   position: absolute;
-  z-index: 3;
+  z-index: 5; /* over the reference panel (4) */
   top: calc(max(12px, env(safe-area-inset-top)) + 104px);
   left: 50%;
   transform: translateX(-50%);
@@ -396,3 +396,32 @@
   .edit-card .edit-card-button:not(:disabled):hover, .edit-save .edit-card-button:not(:disabled):hover { background: var(--hud-fill-2); }
   .edit-bar .edit-save-button:not(:disabled):hover, .edit-card .edit-primary:not(:disabled):hover, .edit-save .edit-primary:not(:disabled):hover { opacity: 0.88; }
 }
+
+/* ---------- the import's plan beside the editor (ReferencePanel) ---------- */
+
+.edit-layer .trace.adjusting { cursor: move; }
+.edit-layer .trace-handles polygon { fill: none; stroke: #2563EB; stroke-width: 1.5px; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; pointer-events: none; }
+.edit-layer .trace-handles rect, .edit-layer .trace-handles circle { fill: #fff; stroke: #2563EB; stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: all; }
+.edit-layer .trace-handles rect { cursor: nwse-resize; }
+.edit-layer .trace-handles circle { cursor: grab; }
+.edit-reference { position: absolute; z-index: 4; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column;
+  background: var(--hud-glass); color: var(--hud-ink); border: 1px solid var(--hud-line); backdrop-filter: blur(18px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.12); }
+.edit-reference header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--hud-line); }
+.edit-reference header .who { flex: 1; margin: 0; }
+.edit-reference .edit-trace { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.edit-reference .edit-trace input[type='range'] { width: 90px; }
+.edit-trace-adjust { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-bottom: 1px solid var(--hud-line); font-size: 13px; }
+.edit-trace-adjust span { margin-left: 6px; color: var(--hud-ink-2); }
+.edit-trace-adjust span:first-child { margin-left: 0; }
+.edit-reference-grab { cursor: grab; touch-action: none; user-select: none; }
+.edit-reference-grab:active { cursor: grabbing; }
+.edit-reference-size {
+  position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; z-index: 1;
+  background: linear-gradient(135deg, transparent 50%, var(--hud-line) 50%, var(--hud-line) 60%, transparent 60%, transparent 72%, var(--hud-line) 72%, var(--hud-line) 82%, transparent 82%);
+}
+.edit-reference-view { position: relative; flex: 0 1 auto; min-height: 120px; overflow: hidden; cursor: grab; touch-action: none; }
+.edit-reference-view:active { cursor: grabbing; }
+.edit-reference-view img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: 0 0; user-select: none; }
+.edit-reference-empty { margin: 40px 16px; text-align: center; opacity: 0.7; }
+.screen .edit-reference-open { position: absolute; z-index: 4; right: 16px; bottom: 24px; }

@@ -92,6 +92,13 @@ they've arrived somewhere on the route ("I'm at the stairs", "made it to the cor
 the step after the one they reached and give that step in one line; when they reach the destination, call \
 end_route with arrived true and tell them they have arrived. When they want to stop, cancel or close the \
 directions, call end_route (arrived false; place if they say where they are).
+- The building may be live: forklifts, robots and pallets left in corridors report where they are, and routes \
+already go round what blocks them. A route result with `live` says what: `avoided` (name it in one short clause \
+with its place and the extra metres from detour_m, rounded: "a forklift is loading in Aisle B, so I take you round, \
+about 15 m longer"), `passing` (squeeze = you pass right beside it; wait = it is moving there, you may wait a \
+moment; wet_floor = mind the wet floor). `blocked_by` with no route: say what blocks and that it usually moves \
+soon. Say nothing about live things the result doesn't mention. When the app moved the route because something \
+blocked it, a [live note] tells you.
 - If something is not in this building and search_nearby_buildings is available, look there before saying it \
 isn't here; name the building and how far it is, and use route_to_building when they want to go. You can \
 open a nearby building yourself: when they want to go in, open or switch to it, or go on with a route to it \
@@ -408,6 +415,7 @@ class Guide:
         self.location_note: str | None = None  # where the app's "you are here" figure stands, sent with the next turn
         self.system_note: str | None = None  # a system prompt change after the first turn, sent with the next turn
         self.seen_overview = self.system[1]["text"]  # the overview the model last got (prompt or settings note)
+        self.live_note: str | None = None  # the app moved the route round something live (backend/live.py)
         # Voice transcripts are normalised first (D-013), only when talking to the real API.
         self.rewriter: TranscriptRewriter | None = (
             TranscriptRewriter(session.building) if isinstance(self.client, anthropic.Anthropic)
@@ -438,9 +446,10 @@ class Guide:
         note, self.profile_note = self.profile_note, None
         where, self.location_note = self.location_note, None
         settings, self.system_note = self.system_note, None
+        live, self.live_note = self.live_note, None
         picked = self.selection_note(selected)
         on_route = self.route_note(route_step)
-        note = "\n\n".join(part for part in (settings, where, picked, on_route, note) if part)
+        note = "\n\n".join(part for part in (settings, where, live, picked, on_route, note) if part)
         content = f"{note}\n\n{said}" if note else said
         system_role = self.model.startswith(SYSTEM_MESSAGE_MODELS)
         if channel == "voice" and not system_role:

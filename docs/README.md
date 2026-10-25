@@ -44,7 +44,9 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 - [architecture/ai-agents.md](architecture/ai-agents.md) — Building Guide, benchmark pipeline, Builder; shared tools; voice path.
 - [superpowers/specs/2026-10-24-builder-edit-mode-design.md](superpowers/specs/2026-10-24-builder-edit-mode-design.md) — PROPOSED design of the app's Edit mode (L4 step 1): edit a copy of a building by prompt and drag on a 2D plan with 3D preview; validator; drafts; Builder agent.
 - [superpowers/plans/2026-10-25-plan-import.md](superpowers/plans/2026-10-25-plan-import.md) — implementation plan (14 tasks) for the Creator / plan import.
+- [superpowers/plans/2026-10-25-plan-reference-and-location.md](superpowers/plans/2026-10-25-plan-reference-and-location.md) — implementation plan (8 tasks, 3 milestones) for the plan reference in Edit mode and buildings created at a place on the map.
 - [superpowers/specs/2026-10-25-plan-import-design.md](superpowers/specs/2026-10-25-plan-import-design.md) — PROPOSED design of Builder project 2 (L4): the Creator agent turns PDFs / photos of floor plans into a building.json draft (code segments rooms, Claude vision labels them, scale, stacking, validate) and hands it to Edit mode.
+- [superpowers/specs/2026-10-25-plan-reference-and-location-design.md](superpowers/specs/2026-10-25-plan-reference-and-location-design.md) — IMPLEMENTED 2026-10-25: the straightened source plan beside the editor in Edit mode (with a trace underneath), and creating a building at a place on the map, fitted onto its OSM footprint (position with bearing), GPS check, supersede on re-save.
 - [superpowers/specs/2026-10-24-guide-agent-design.md](superpowers/specs/2026-10-24-guide-agent-design.md) — design of the v1 Guide (`agent/guide_v1/`, branch `1-agentic-yarag`): terminal, multi-turn, grounded, clarifies only what matters.
 - [superpowers/plans/2026-10-24-builder-edit-mode-m3.md](superpowers/plans/2026-10-24-builder-edit-mode-m3.md) — Builder Edit mode milestone-3 plan: drafts, saved buildings and Builder history in Supabase for the deployed app (6 tasks; Tasks 1–5 done 2026-10-24, deploy pending).
 - [superpowers/plans/2026-10-24-builder-edit-mode-m2.md](superpowers/plans/2026-10-24-builder-edit-mode-m2.md) — Builder Edit mode milestone-2 plan: prompt edits by a Builder agent (5 tasks).
@@ -59,6 +61,7 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 - [product/personas.md](product/personas.md) — 18 ranked personas with needs, data feasibility, what to ask / never ask.
 - [product/visualization.md](product/visualization.md) — app visuals: current vector plan view (`core/floorplan.py`, `GET /sessions/{id}/plan`) and the superseded (removed) point-cloud scene; three.js vs react-three-fiber.
 - [product/routing-profiles.md](product/routing-profiles.md) — deterministic profile model (hard filters + soft penalties) on top of the exact route model.
+- [product/living-building.md](product/living-building.md) — connected things (forklifts, robots, tagged pallets) reporting positions; how they cut walks, reroute the route on the map, the plan layer and the demo simulation.
 
 ### Research (dated 2026-10-24)
 - [research/elevenlabs.md](research/elevenlabs.md) — Agents Platform, Scribe STT, TTS, integration options.

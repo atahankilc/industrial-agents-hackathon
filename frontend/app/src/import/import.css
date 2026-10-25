@@ -2,7 +2,7 @@
 
 .im { position: fixed; inset: 0; overflow: auto; background: var(--bg); color: var(--ink); }
 .im-inner { max-width: 640px; margin: 0 auto; padding: 12vh 24px 64px; }
-.im-back {
+.im .im-back {
   margin: 0 0 18px -10px; padding: 6px 10px; border: 0; border-radius: 999px; background: transparent;
   color: var(--ink-2); font-size: 13px; cursor: pointer;
 }
@@ -20,16 +20,21 @@
 
 .im-files { list-style: none; margin: 16px 0 0; padding: 0; border-top: 1px solid var(--hair); }
 .im-files li {
-  display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px; padding: 8px 4px;
+  display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 12px; padding: 8px 4px;
   border-bottom: 1px solid var(--hair); font-size: 13.5px;
 }
 .im-files li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.im-floor { display: flex; align-items: center; gap: 6px; color: var(--ink-3); font-size: 12.5px; }
+.im-floor input {
+  width: 56px; padding: 4px 8px; border: 1px solid var(--hair-strong); border-radius: 8px;
+  background: transparent; color: var(--ink); font: inherit; font-size: 13.5px;
+}
 .im-size { font: 11.5px var(--mono); color: var(--ink-3); }
 .im-files button { border: 0; background: transparent; color: var(--ink-3); cursor: pointer; padding: 2px; display: flex; }
 .im-files button svg { width: 15px; height: 15px; }
 .im-files button:hover { color: var(--ink); }
 
-.im-go {
+.im .im-go { /* .im: over .screen button inside the building screen (Edit position) */
   margin-top: 22px; padding: 11px 20px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg);
   font-size: 14px; cursor: pointer;
 }
@@ -46,3 +51,16 @@
 .im-end { margin: 18px 0 0; font-size: 14px; color: var(--ink); }
 
 @media (max-width: 760px) { .im-inner { padding: 8vh 16px 48px; } }
+/* placing a new building on the map (map/Placement.tsx) */
+.im-place { margin-top: 6px; font-weight: 600; }
+.im-place-step { display: flex; flex-direction: column; gap: 12px; }
+.im-place-map { height: min(56vh, 460px); border-radius: 14px; overflow: hidden; }
+.im-place-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.im-place-controls label { display: flex; align-items: center; gap: 8px; }
+.im-place-controls button { padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(127, 127, 127, 0.35); background: transparent; color: inherit; cursor: pointer; }
+.im-suggest { display: grid; gap: 10px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--hair); background: var(--fill); }
+.im-suggest p { margin: 0; }
+.im-suggest div { display: flex; flex-wrap: wrap; gap: 8px; }
+.im-suggest button { padding: 9px 14px; border-radius: 999px; border: 1px solid var(--hair); background: transparent; color: inherit; cursor: pointer; }
+.im-suggest .im-suggest-take { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+.im-located { margin: 0; color: var(--ink-2); }

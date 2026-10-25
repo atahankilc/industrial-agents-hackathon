@@ -8,7 +8,7 @@ sources:
   - docs/kit/data-format.md
   - backend/drafts.py, core/validate.py, agent/builder.py
   - building_plans/ (Residenz PDF, Rathaus JPEG, Urban Colab photos, Projektsteckbrief PDF — looked at 2026-10-25)
-related: [../plans/2026-10-25-plan-import.md, 2026-10-24-builder-edit-mode-design.md, ../../architecture/ai-agents.md, ../../kit/data-format.md, ../../challenge/brief.md]
+related: [2026-10-25-plan-reference-and-location-design.md, ../plans/2026-10-25-plan-import.md, 2026-10-24-builder-edit-mode-design.md, ../../architecture/ai-agents.md, ../../kit/data-format.md, ../../challenge/brief.md]
 ---
 
 # Builder · Plan import — design

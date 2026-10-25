@@ -24,7 +24,20 @@ export type Building = {
     outline?: [number, number][][]
     /** from the lowest floor to the top of the highest */
     height_m?: number
+    /** degrees counter-clockwise from east to the building's x axis (core/geoplace.py); absent = 0 (kit buildings) */
+    bearing?: number
   } | null
+}
+
+/** Where a new building stands (POST /imports/stream `place`): the tapped OSM footprint, or a point on open ground. */
+export type ImportPlace = { ring: [number, number][]; name?: string } | { point: [number, number]; name?: string }
+export type ImportSuggestion = { ring?: [number, number][]; point?: [number, number]; name: string | null }
+/** A placed building's position (core/geoplace.py location_for) as the import returns it. */
+export type PlacedLocation = NonNullable<Building['location']> & {
+  origin: { lat: number; lon: number }
+  bearing: number
+  outline: [number, number][][]
+  fit: { scale: number; iou?: number; low_confidence?: boolean } | null
 }
 
 /** core/floorplan.py export: building metres (x right, y up). `center` centres the y-up scene:
@@ -136,7 +149,13 @@ export type RouteEvent = {
   steps?: GuideStep[]
   /** route_to_building: this route ends at the exit, the rest is in a nearby building (agent/campus.py) */
   next_building?: NextBuilding
+  /** the living building (core/live.py): what the route goes round or passes right now */
+  live?: RouteLive
+  /** the app moved the route round something that blocked it (backend/live.py live_check) */
+  reroute?: { by: LiveRef[]; was_m?: number | null }
 }
+export type LiveRef = { id: string; name: string; kind: string; state?: string; space?: string; effect?: 'blocked' | 'wait' | 'squeeze' | 'wet_floor' }
+export type RouteLive = { avoided?: LiveRef[]; passing?: LiveRef[]; detour_m?: number; without_live_m?: number; blocked_by?: LiveRef[] }
 /** The rest of a route in a nearby building: across outside from `from` to `to` ([lon, lat] of the two entrances),
  * then in through `entrance` to `destination`. */
 export type NextBuilding = {
@@ -264,7 +283,13 @@ export type ImportLine =
   | { type: 'step'; kind: 'say'; text: string }
   | { type: 'step'; kind: 'tool'; name: string; level?: number }
   | { type: 'step'; kind: 'tool_done'; name: string; ok: boolean }
-  | { type: 'done'; draft_id: string; base: string; name: string; issues: Issue[]; notes: unknown }
+  | {
+      type: 'done'; draft_id: string; base: string; name: string; issues: Issue[]; notes: unknown; location?: PlacedLocation | null
+      /** how the position was found: the map tap, the photos' GPS, or the browser's position */
+      located_by?: 'tap' | 'photos' | 'device' | null
+      /** the tapped building and the photos disagree: the building the photos point at */
+      suggestion?: ImportSuggestion | null
+    }
   | { type: 'no_plan'; reason: string }
   | { type: 'error'; detail: string }
 export type BuilderStep = { kind: 'tool' | 'tool_done' | 'check'; name: string; input?: Record<string, unknown>; ok?: boolean }
@@ -284,6 +309,15 @@ export const auth = {
 }
 
 /** An API error with its HTTP status; 403 carries the admin-only message. */
+/** One floor's straightened source plan from the import (core/plan_import/reference.py): a JPEG data URL and the 2×3
+ * transform from its pixels to the building's metres (x right, y up). */
+export type FloorReference = {
+  floor_id: string
+  level: number
+  image: string
+  transform: [[number, number, number], [number, number, number]]
+}
+
 export class ApiError extends Error {
   status: number
   constructor(status: number, message: string) {
@@ -390,6 +424,57 @@ export type FleetObject = {
 }
 export type DispatchResult = { reachable: boolean; object: FleetObject; reason?: string; to?: string; length_m?: number }
 
+/** backend/live.py `LiveWorld.snapshot`: connected things, as last reported (points are plan metres + floor index). */
+export type LiveKind = 'forklift' | 'agv' | 'delivery_robot' | 'cleaning_robot' | 'pallet' | 'cart' | 'pallet_jack' | 'device'
+export type LiveDevice = {
+  id: string
+  name: string
+  kind: LiveKind
+  label: string
+  /** "sim": the demo simulation; "device": a real device posting its position */
+  source: 'sim' | 'device'
+  /** how it reports: telematics, fleet manager, Wi-Fi, BLE tag, API */
+  link: string
+  state: string
+  moving: boolean
+  position: { x: number; y: number; floor: number | null; floor_id: string; heading_deg: number | null; space_id: string | null; space: string | null }
+  footprint: { length_m: number; width_m: number }
+  report_every_s: number
+  reported_ago_s: number
+  /** the world's clock at the last report: changes with every report */
+  reported_at: number
+  /** the last 50 m of reports, oldest first */
+  trail: [number, number, number | null][]
+  /** where a moving thing drives next (≈ 12 m) */
+  ahead: [number, number, number | null][]
+  to: string | null
+  /** it cuts walks of this space for the viewer right now */
+  blocking: { space: string; space_id: string; cuts: number } | null
+  /** a thing left behind: seconds until it is picked up (simulated) */
+  left_s: number | null
+  dropped: boolean
+}
+export type LiveHazard = { id: string; name: string; kind: 'wet_floor'; floor: number | null; polygon: [number, number][] }
+export type LiveSnapshot = {
+  building: string
+  t: number
+  speed: number
+  paused: boolean
+  flavour: 'factory' | 'home' | 'other'
+  simulated: boolean
+  devices: LiveDevice[]
+  hazards: LiveHazard[]
+  /** the free width this viewer needs to pass (m): what `blocking` was judged with */
+  clearance_m: number
+  /** the route on this viewer's map was cut: the new route (already in the session) */
+  reroute?: RouteEvent & { line?: [number, number, number][]; message: string }
+  /** cut with no way round */
+  alert?: { by: LiveRef[]; message: string }
+  /** a detour that is no longer needed: POST /live/shorter takes it */
+  suggestion?: { message: string; save_m: number }
+}
+export type LiveAction = 'speed' | 'pause' | 'resume' | 'drop' | 'clear' | 'block_route' | 'reset'
+
 export type AccessMember = { user_id: string; email: string; building: string; groups: string[] }
 
 export const api = {
@@ -409,6 +494,12 @@ export const api = {
   saveMyPreferences: (store: PreferenceStore) => request<PreferenceStore>('/me/preferences', { method: 'PUT', body: JSON.stringify(store) }),
   sessionPreferences: (id: string, values: Preferences, autoCapture: boolean) =>
     request<SessionSummary>(`/sessions/${id}/preferences`, { method: 'PUT', body: JSON.stringify({ values, auto_capture: autoCapture }) }),
+  live: (building: string, sessionId: string | null) =>
+    request<LiveSnapshot>(`/live?building=${encodeURIComponent(building)}${sessionId ? `&session_id=${encodeURIComponent(sessionId)}` : ''}`),
+  liveControl: (body: { building: string; action: LiveAction; value?: number; floor?: number; x?: number; y?: number; session_id?: string; kind?: 'pallet' | 'forklift' }) =>
+    request<{ ok: boolean; speed: number; paused: boolean }>('/live/control', { method: 'POST', body: JSON.stringify(body) }),
+  liveShorter: (sessionId: string) =>
+    request<{ events: UiEvent[] }>('/live/shorter', { method: 'POST', body: JSON.stringify({ session_id: sessionId }) }),
   objects: (building: string) => request<FleetObject[]>(`/objects?building=${encodeURIComponent(building)}`),
   createObject: (building: string, name: string, kind: ObjectKind, attributes: ObjectAttributes) =>
     request<FleetObject>('/objects', { method: 'POST', body: JSON.stringify({ building, name, kind, attributes }) }),
@@ -452,6 +543,14 @@ export const api = {
   createDraft: (base: string) => request<DraftState>('/drafts', { method: 'POST', body: JSON.stringify({ base }) }),
   draft: (id: string) => request<DraftState>(`/drafts/${id}`),
   draftPlan: (id: string) => request<Plan>(`/drafts/${id}/plan`),
+  /** Fit the draft's building onto another OSM footprint (the "did you mean" building). */
+  fitDraft: (id: string, ring: [number, number][], name: string | null) =>
+    request<DraftState>(`/drafts/${id}/fit`, { method: 'POST', body: JSON.stringify({ ring, name }) }),
+  /** Where the draft's building stands on the map, set by hand (scale relative to now, within 0.75–1.25). */
+  setDraftLocation: (id: string, body: { origin: { lat: number; lon: number }; bearing_deg: number; scale: number }) =>
+    request<DraftState>(`/drafts/${id}/location`, { method: 'PUT', body: JSON.stringify(body) }),
+  /** The import's straightened plan per floor, for Edit mode's reference panel and trace ([] when none). */
+  draftReferences: (id: string) => request<{ floors: FloorReference[] }>(`/drafts/${id}/references`).then((body) => body.floors),
   applyOps: (id: string, ops: Op[]) =>
     request<DraftState>(`/drafts/${id}/ops`, { method: 'POST', body: JSON.stringify({ ops }) }),
   undo: (id: string) => request<DraftState>(`/drafts/${id}/undo`, { method: 'POST' }),
@@ -459,6 +558,8 @@ export const api = {
     request<{ building: string; issues: Issue[] }>(`/drafts/${id}/save`, { method: 'POST', body: JSON.stringify({ name }) }),
   builderStream,
   importPlans,
+  /** Delete a building saved from the Edit mode or an import (user/<slug>); a version it replaced comes back. */
+  deleteBuilding: (id: string) => request<{ deleted: string }>(`/buildings/${id}`, { method: 'DELETE' }),
   cancelProposal: (id: string, proposalId: string) =>
     request<{ cancelled: string }>(`/drafts/${id}/proposals/${proposalId}/cancel`, { method: 'POST' }),
   applyProposal: (id: string, proposalId: string) =>
@@ -596,9 +697,16 @@ async function readBuilder(reader: { read: () => Promise<ReadableStreamReadResul
 /** Floor plans → the Creator → a draft (POST /imports/stream, multipart). Every NDJSON line goes to `onLine`; a stream
  *  that ends without its last line (done / no_plan / error) throws. `signal` aborts the request (the backend then
  *  stops the Creator). */
-async function importPlans(files: File[], onLine: (line: ImportLine) => void, signal?: AbortSignal): Promise<void> {
+async function importPlans(
+  files: File[], onLine: (line: ImportLine) => void, signal?: AbortSignal, place?: ImportPlace | null,
+  device?: { lat: number; lon: number } | null, draft?: string | null, levels?: number[],
+): Promise<void> {
   const form = new FormData()
   for (const file of files) form.append('files', file, file.name)
+  if (place) form.append('place', JSON.stringify('ring' in place ? { ring: place.ring } : { point: place.point }))
+  if (device) form.append('device', JSON.stringify(device))
+  if (draft) form.append('draft', draft) // Edit mode's "Add a floor": into the open draft, one undo step
+  if (levels) form.append('levels', JSON.stringify(levels)) // the floor of each file, as the user said
   const { 'content-type': _json, ...auth } = (await headers()) as Record<string, string> // the browser sets the multipart boundary
   const response = await fetch(BASE + '/imports/stream', { method: 'POST', body: form, headers: auth, signal })
   if (!response.ok || !response.body) throw await failed(response, '/imports/stream')

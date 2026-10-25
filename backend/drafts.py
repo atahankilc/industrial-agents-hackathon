@@ -32,6 +32,7 @@ from psycopg.types.json import Jsonb
 
 from backend.persistence import Conflict, PostgresConnection, db_url
 from core.building_map import BuildingMap
+from core.plan_import.reference import strip_references
 from core.edits import EditError, apply_op, apply_steps
 from core.floorplan import export_plan
 from core.validate import validate
@@ -72,6 +73,7 @@ class DraftBackend(Protocol):
     def saved_buildings(self) -> list[dict]: ...  # [{"slug", "name"}]
     def load_building(self, slug: str) -> dict | None: ...
     def building_path(self, slug: str) -> Path | None: ...  # directory of a saved building, if it is a file
+    def delete_building(self, slug: str) -> bool: ...  # False = no such building
     def insert_import(self, import_id: str, building: dict) -> None: ...
     def load_import(self, import_id: str) -> dict | None: ...
 
@@ -145,6 +147,15 @@ class FileDraftBackend:
     def building_path(self, slug: str) -> Path | None:
         return self.root / slug
 
+    def delete_building(self, slug: str) -> bool:
+        folder = self.root / slug
+        if not (folder / "building.json").exists():
+            return False
+        trash = self.root / ".deleted"  # kept out of the listing, not erased: a deleted building can be put back
+        trash.mkdir(exist_ok=True)
+        folder.rename(trash / f"{slug}-{uuid.uuid4().hex[:8]}")
+        return True
+
     def insert_import(self, import_id: str, building: dict) -> None:
         self.write(self.root / ".imports" / f"{import_id}.json", building)
 
@@ -211,6 +222,10 @@ class MemoryDraftBackend:
 
     def building_path(self, slug: str) -> Path | None:
         return None
+
+    def delete_building(self, slug: str) -> bool:
+        with self.lock:
+            return self.buildings.pop(slug, None) is not None
 
     def insert_import(self, import_id: str, building: dict) -> None:
         with self.lock:
@@ -279,6 +294,9 @@ class PostgresDraftBackend(PostgresConnection):
     def building_path(self, slug: str) -> Path | None:
         return None
 
+    def delete_building(self, slug: str) -> bool:
+        return bool(self.execute("delete from saved_buildings where slug = %s returning slug", (slug,)))
+
     def insert_import(self, import_id: str, building: dict) -> None:
         self.execute("insert into builder_imports (id, building) values (%s, %s)", (import_id, Jsonb(building)))
 
@@ -315,8 +333,32 @@ class DraftStore:
         entry = {"id": building_id, "split": USER_SPLIT, "name": name, "source": "saved", "kind": "saved"}
         if (path := self.backend.building_path(slug)) is not None:
             entry["path"] = path
+        location = ((self.backend.load_building(slug) or {}).get("building") or {}).get("location")
+        if location:  # a building placed on the map (core/geoplace.py)
+            entry["location"] = location
+            if location.get("supersedes"):  # re-saved: the older save keeps its entry but leaves the map
+                older = self.catalogue.get(f"{USER_SPLIT}/{location['supersedes']}")
+                if older is not None:
+                    older["superseded"] = True
         self.catalogue[building_id] = entry
         return building_id
+
+    def delete(self, building_id: str) -> bool:
+        """Remove a saved building (user/<slug>) from the store and the catalogue; the version it superseded, if
+        any, comes back to the map. False when there is no such saved building."""
+        if not building_id.startswith(f"{USER_SPLIT}/"):
+            return False
+        slug = building_id.removeprefix(f"{USER_SPLIT}/")
+        location = ((self.backend.load_building(slug) or {}).get("building") or {}).get("location") or {}
+        if not self.backend.delete_building(slug):
+            return False
+        with self.lock:
+            self.catalogue.pop(building_id, None)
+            self.bases.pop(building_id, None)
+            older = self.catalogue.get(f"{USER_SPLIT}/{location.get('supersedes')}")
+            if older is not None:
+                older.pop("superseded", None)
+        return True
 
     def refresh(self, max_age: float = CATALOGUE_TTL_S, quiet: bool = False) -> None:
         """Add buildings saved since the last refresh (by any instance) to the catalogue. `quiet`: a database error
@@ -502,8 +544,16 @@ class DraftStore:
         while True:
             if f"{USER_SPLIT}/{slug}" not in self.catalogue:
                 source_ref = {"base": draft.base}
-                if self.import_id(draft.base):
-                    source_ref["import"] = self.base_building(draft.base)["building"]["source_ref"].get("import")
+                # the plans as the draft has them (adjusted trace, scaled, floors added), else the base's import
+                kept = (building["building"].get("source_ref") or {}).get("import")
+                if kept is None and self.import_id(draft.base):
+                    kept = self.base_building(draft.base)["building"]["source_ref"].get("import")
+                if kept is not None:
+                    source_ref["import"] = kept
+                old = draft.base.removeprefix(f"{USER_SPLIT}/") if draft.base.startswith(f"{USER_SPLIT}/") else None
+                location = building["building"].get("location")
+                if location and old:  # a positioned building saved again: the new save stands where the old one did
+                    location["supersedes"] = old
                 building["building"].update({"id": slug, "name": name,
                                              "source": "imported" if self.import_id(draft.base) else "edited",
                                              "source_ref": source_ref, "split": USER_SPLIT})
@@ -517,7 +567,22 @@ class DraftStore:
     def state(self, draft: Draft) -> dict:
         with self.draft_lock(draft.id):
             return {"draft": {"id": draft.id, "base": draft.base, "name": draft.name, "steps": len(draft.steps)},
-                    "building": self.building(draft), "issues": self.issues(draft)}
+                    "building": strip_references(self.building(draft)), "issues": self.issues(draft)}
+
+    def references(self, draft: Draft) -> list[dict]:
+        """The import's straightened plan per floor (core/plan_import/reference.py), for Edit mode's reference
+        panel: [{"floor_id", "level", "image", "transform"}] by level; [] for buildings that did not come from an
+        import. Kept through saves, as the draft has them (save keeps the draft's `source_ref.import`)."""
+        with self.draft_lock(draft.id):
+            building = self.building(draft)
+        floors = ((building["building"].get("source_ref") or {}).get("import") or {}).get("floors") or {}
+        by_level = {floor["level"]: floor["id"] for floor in building["floors"]}
+        found = []
+        for level, notes in floors.items():
+            reference = notes.get("reference")
+            if reference and int(level) in by_level:
+                found.append({"floor_id": by_level[int(level)], "level": int(level), **reference})
+        return sorted(found, key=lambda item: item["level"])
 
 
 def adopt(draft: Draft, other: Draft) -> None:

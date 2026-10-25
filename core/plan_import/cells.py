@@ -129,6 +129,8 @@ def from_labels(labels: np.ndarray, outside: np.ndarray | None, walls: np.ndarra
                 doors.append(DoorCandidate((a, b), position, width))
             elif len(near) == 1 and touches_outside:
                 doors.append(DoorCandidate((next(iter(near)), "outside"), position, width))
+    for number, door in enumerate(doors, start=1):
+        door.number = number
     return Segmentation(method, cells, adjacency, doors)
 
 
@@ -299,8 +301,8 @@ def render_cells(image: np.ndarray, seg: Segmentation) -> bytes:
         text, at = str(cell.id), (int(point.x) - 8, int(point.y) + 6)
         cv2.putText(view, text, at, cv2.FONT_HERSHEY_SIMPLEX, scale, (255, 255, 255), 4)
         cv2.putText(view, text, at, cv2.FONT_HERSHEY_SIMPLEX, scale, (0, 0, 0), 1)
-    for index, door in enumerate(seg.doors, start=1):
+    for door in seg.doors:
         x, y = int(door.position[0]), int(door.position[1])
         cv2.circle(view, (x, y), max(3, int(3 * scale)), (0, 0, 230), -1)
-        cv2.putText(view, f"d{index}", (x + 4, y - 4), cv2.FONT_HERSHEY_SIMPLEX, scale * 0.7, (0, 0, 230), 1)
+        cv2.putText(view, f"d{door.number}", (x + 4, y - 4), cv2.FONT_HERSHEY_SIMPLEX, scale * 0.7, (0, 0, 230), 1)
     return png(view)

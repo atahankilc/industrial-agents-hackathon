@@ -10,6 +10,17 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Creator live results; stable door numbers; what counts as a floor plan
+
+- **Did:** door candidates keep the number they were drawn with ("d<n>"), so merges no longer shift them; the prompt
+  defines a floor plan (rooms divided by walls) and forbids made-up rooms; full eval and demo runs.
+- **Learned:** eval (8 dataset floors): count ratio 0.97, IoU 0.91, doors 89 %, ≈ $1.09. Urban Colab: off-wall doors
+  49 → 13 with stable numbers, errors 69 → 23, ≈ $1.73 (cache fix measured: ≈ $1.24–1.73 vs ≈ $4.80; the "before"
+  figures come from the previous run's output, whose log was overwritten — UNVERIFIED from a saved file).
+  Projektsteckbrief first turned a landscape plan into "blocks" (`.superpowers/runs/live_projekt.log`) → now `no_plan`
+  in 10 s (`live_projekt_after.log`). Rathaus 59 spaces / 0 errors.
+- **Next:** merge origin/dev (new UI), show the imports there; final branch review; merge to dev with Utku's go.
+
 ## 2026-10-25 — Creator cost: stop rewriting the prompt cache every turn
 
 - **Learned:** cost by run at Opus 5.5 prices (input $4, output $20, cache write ≈ $5, cache read $0.20 per MTok):

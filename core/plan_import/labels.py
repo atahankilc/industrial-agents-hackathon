@@ -95,7 +95,6 @@ def entrance_door(floor: FloorPlan, cell_id: int) -> DoorCandidate | None:
 
 def apply_labels(floor: FloorPlan, cells: list[dict], doors: list | None, entrances: list[int] | None) -> list[str]:
     problems: list[str] = []
-    candidates = list(floor.seg.doors)  # "d<n>" refers to this list (as rendered), before this call's merges
 
     for item in cells:
         cell_id, action = item.get("cell"), item.get("action", "room")
@@ -133,11 +132,11 @@ def apply_labels(floor: FloorPlan, cells: list[dict], doors: list | None, entran
         chosen: list[DoorCandidate] = []
         for entry in doors:
             if isinstance(entry, str) and entry.startswith("d") and entry[1:].isdigit():
-                index = int(entry[1:]) - 1
-                if not 0 <= index < len(candidates) or candidates[index] not in floor.seg.doors:
-                    problems.append(f"door {entry} does not exist (any more)")
-                elif "outside" not in candidates[index].cells:
-                    chosen.append(candidates[index])
+                found = [door for door in floor.seg.doors if door.number == int(entry[1:])]
+                if not found:
+                    problems.append(f"door {entry} does not exist (any more: it joined two cells you merged)")
+                elif "outside" not in found[0].cells:
+                    chosen.append(found[0])
                 continue
             try:
                 a, b = int(entry[0]), int(entry[1])

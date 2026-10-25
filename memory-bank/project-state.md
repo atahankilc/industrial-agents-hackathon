@@ -54,21 +54,21 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - **Plan import / Creator (branch `3-plan-import`, worktree `.claude/worktrees/3-plan-import`, in progress,
   2026-10-25):** create a building from floor-plan PDFs / photos —
   [spec](../docs/superpowers/specs/2026-10-25-plan-import-design.md) (approved by Utku),
-  [plan](../docs/superpowers/plans/2026-10-25-plan-import.md). Tasks 1–7 done: deterministic core
-  `core/plan_import/` (ingest, rectify / crop / wall mask, cells by walls / colours / boxes, labels, scale, stacking
-  + connectors, assembly + autofix + validate; 35 tests in `tests/test_plan_import_*.py`). New deps: numpy,
-  opencv-python-headless, pypdfium2, pypdf, pillow, python-multipart (no PyMuPDF, D-009). Tasks 8–12 built: private import
-  drafts (`import/<id>`, `DraftStore.create_import`; migration `20261025180000_builder_imports.sql` NOT applied), the
-  Creator (`agent/creator.py` + `agent/creator_tools.py`, 11 tools), `POST /imports/stream`, the "Create from floor
-  plans" screen (`frontend/app/src/import/`, typechecked, not yet seen in a browser), HEIC support,
-  `scripts/eval_import.py`, `scripts/live_creator.py`. Live (Opus 5.5): Residenz PDF → 2 floors, 56 spaces, 0 errors
-  in 174 s (coarse boxes with legend names); Urban Colab originals (HEIC) 5 floors / 107 spaces but floors misaligned
-  → stacking fixed (scale search, stairs joined by name, nearest pair as `synthetic` fallback), not re-run yet.
-  Browser check done (headless Chrome: upload → Creator lines → Edit mode). **Blocked: the Anthropic API key's
-  credit balance ran out (2026-10-25)** — Urban Colab re-run, `eval_import.py --full` and the demo runs wait for
-  credits. Cost fix: images no longer pruned per turn (it rewrote the prompt cache every turn; Urban Colab ≈ $4.80, ≈ $4.4 of
-  it cache writes) — expected ≈ $1.5–2, to measure. Pending: those runs, then Task 14 (generalisation checks, Q-018 note). Demo inputs in the main checkout's
-  `building_plans/` (not committed).
+  [plan](../docs/superpowers/plans/2026-10-25-plan-import.md). Built: deterministic core `core/plan_import/` (ingest
+  incl. HEIC, rectify / crop / wall mask, cells by walls / colours / boxes, labels with stable door numbers, scale,
+  stacking with scale search + name joins, assembly + autofix + validate); the Creator (`agent/creator.py` +
+  `agent/creator_tools.py`, 11 tools); private import drafts (`import/<id>`; migration
+  `20261025180000_builder_imports.sql` NOT applied); `POST /imports/stream`; the "Create from floor plans" screen
+  (`frontend/app/src/import/`, checked in headless Chrome); `scripts/eval_import.py`, `scripts/live_creator.py`.
+  New deps: numpy, opencv-python-headless, pypdfium2, pypdf, pillow, pillow-heif, python-multipart (no PyMuPDF, D-009).
+  Measured live (Opus 5.5, logs in the worktree's `.superpowers/runs/`): dataset eval (8 floors) count ratio 0.97,
+  IoU 0.91, doors 89 %, ≈ $1.09; Urban Colab photos 5 floors / 104 spaces / 23 errors, all floors joined by stairs +
+  lift, ≈ $1.73 (≈ $4.80 before the prompt-cache fix); Residenz 2 floors / 56 spaces / 0 errors; Rathaus 59 spaces /
+  0 errors, ≈ $0.35; Projektsteckbrief → no_plan in 10 s. **Next:** merge origin/dev (new UI; on conflicts dev wins,
+  Utku 2026-10-25) and hook the import into the new Edit mode; then the rest of plan Task 14 — cross-floor Guide
+  route on the saved Urban Colab building, end-to-end run in the app (upload → Builder fix → Save → 3D + route),
+  Q-018 note, spec status → built; final branch review; merge to dev with Utku's go. Demo inputs in the main
+  checkout's `building_plans/` (not committed).
 
 - **Builder Edit mode (branch `2-builder-edit`, in progress):** design
   [builder-edit-mode-design](../docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md) (proposed, approved by

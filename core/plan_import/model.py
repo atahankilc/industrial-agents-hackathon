@@ -28,6 +28,7 @@ class DoorCandidate:
     cells: tuple  # (a, b) with a < b, or (a, "outside")
     position: Point  # px
     width_px: float
+    number: int = 0  # "d<number>" as drawn for the model; stays fixed while cells are merged
 
 
 @dataclass

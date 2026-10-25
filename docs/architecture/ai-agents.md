@@ -237,11 +237,15 @@ with cell 0), coarse boxes per room (marked `low_confidence`). Stairs / lifts jo
 floors that would stay unconnected get their nearest pair (`synthetic: true`). Import notes (scale method, segmentation,
 alignment, carved rooms) are kept in `building.source_ref.import`.
 
-Measured (live, Opus 5.5 medium): a ResPlan render 8/8 rooms in 23 s; the Residenz brochure PDF 2 floors / 56 spaces /
-0 errors in 174 s (coarse boxes, legend names); the Urban Colab escape-plan photos (HEIC originals) 5 floors / 107
-spaces in 329 s but 80 rooms unreachable — the floors were misaligned (fixed since: scale search + name joins + nearest
-pair, not yet re-run). Segmentation alone on 30 dataset renders: median count ratio 1.07, median IoU 0.40 (procedural
-≈ 0.97, Swiss / OSM 0.1–0.3) — `scripts/eval_import.py`.
+Measured (live, Opus 5.5 medium, 2026-10-25): `eval_import.py --full --n 8` on dataset renders — median room-count
+ratio 0.97, median IoU 0.91, median door pairs found 89 %, 6/8 runs without errors, ≈ $1.09 for all 8 (16–152 s each;
+weakest: a 71-room OSM basement, 21 % of doors). Urban Colab escape-plan photos (11 HEIC originals): 5 floors / 104
+spaces, all floors joined by real stairs + lift, 23 errors left (13 doors off a shared wall, 7 unreachable, 3 overlaps)
+for the Builder to fix, 766 s, ≈ $1.73. Residenz brochure PDF: 2 floors / 56 spaces / 0 errors, 174 s (coarse boxes,
+legend names). Rathaus 1900s drawing: 59 spaces / 0 errors, 139 s, ≈ $0.35. Projektsteckbrief (text + landscape plans):
+`no_plan` in 10 s. Segmentation alone (no model) on 30 renders: median IoU 0.40 — the Creator's labelling and fixes take
+it to 0.91. Cost lesson: keep the prompt prefix stable (an earlier version dropped one image per turn and paid ≈ $4.4
+of ≈ $4.8 per Urban Colab run in cache writes).
 
 ## Budget
 

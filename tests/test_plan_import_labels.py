@@ -70,3 +70,14 @@ def test_stair_fixture_and_render():
     floor = labelled_floor(stair=True)
     assert any(label.type == "stair" for label in floor.labels.values())
     assert render_labels(floor)[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_door_numbers_stay_the_ones_the_model_saw_after_a_merge():
+    floor = floor_from()
+    seen = {f"d{index}": door.cells for index, door in enumerate(floor.seg.doors, start=1)}  # as rendered
+    to_corridor_from_2 = next(name for name, cells in seen.items() if cells == (2, 3))
+    apply_labels(floor, [{"cell": 1, "action": "merge", "into": 3}], None, None)  # (1, 3) becomes a self-door, dropped
+    apply_labels(floor, [{"cell": 2, "action": "room", "type": "room", "room_type": "office", "name": "Office 2"},
+                         {"cell": 3, "action": "room", "type": "corridor", "room_type": "corridor", "name": "Corridor"}],
+                 [to_corridor_from_2], [3])
+    assert [door.cells for door in floor.doors if "outside" not in door.cells] == [(2, 3)]

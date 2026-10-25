@@ -155,6 +155,15 @@ export function setBuilding(building: string, values: Preferences) {
   })
 }
 
+/** The Guide menu's "Spoken replies": the same `voice` preference as the Preferences sheet's switch, written where
+ * it is set (this building's own value if it has one, else the general one); remembering off, nothing is stored. */
+export function setSpokenReplies(building: string, on: boolean) {
+  if (!store.remember) return
+  const own = store.buildings[building]
+  if (own && typeof own.voice === 'boolean') setBuilding(building, { ...own, voice: on })
+  else setGlobal({ ...store.global, voice: on })
+}
+
 /** global ← building, field by field; favourites left out (they are not routing input). */
 export function effective(data: PreferenceStore, building: string): Preferences {
   if (!data.remember) return {}

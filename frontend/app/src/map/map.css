@@ -193,9 +193,9 @@
 
 /* narrow screens: a bottom sheet, the list capped so the map stays the main thing */
 @media (max-width: 899px) {
-  .ml-panel { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 42vh; }
+  .ml-panel { top: auto; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); width: auto; max-height: 42dvh; }
   .ml-open .ml-panel { transform: translateY(12px); }
   .ml-panel header { padding: 14px 18px 8px; }
-  .ml .maplibregl-ctrl-bottom-right { bottom: calc(42vh + 16px); }
+  .ml .maplibregl-ctrl-bottom-right { bottom: calc(42dvh + 16px + env(safe-area-inset-bottom)); }
 }
 

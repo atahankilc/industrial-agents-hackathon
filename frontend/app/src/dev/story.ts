@@ -8,7 +8,7 @@ export type DevEvent = UiEvent & { line?: [number, number, number][] }
 export type StoryRoute = {
   line: [number, number, number][]
   legs: RouteLeg[]
-  /** the Guide's followable steps, for the next-move card (Guide replies only) */
+  /** the Guide's followable steps, for the route bar and step card (Guide replies only) */
   steps: GuideStep[]
   length_m: number | null
   profile: string | null
@@ -37,6 +37,9 @@ export type Story = {
   /** the step on the card, pinned on the map where it is made (set by the building screen whenever a route is shown) */
   move?: Move
   outdoor?: Outdoor | null
+  /** rooms the user might be in, their position not known (set by the building screen from a `maybe_here` event):
+   * dashed outlines, and a badge on each that stands them there */
+  maybe?: string[]
 }
 
 /** The step being followed, in metres along the drawn line: walked up to `done`, the step from `from` to `to`, and
@@ -54,10 +57,25 @@ export type Outdoor = { from: [number, number]; to: [number, number]; floor: num
 
 export const EMPTY_STORY: Story = { focus: [], assets: [], route: null, lost: [], key: 0 }
 
-/** A route or a highlight is a new answer (replaces the last); lost access adds to it; a change keeps it. */
+/** A route or a highlight is a new answer (replaces the last); lost access adds to it; a change keeps it. Highlights
+ * one after another in the same reply are one answer: a later one adds its rooms (the kitchens the Guide asks about
+ * and the canteen it found), unless all of them are shown already — then it narrows to them (show_on_map picking one
+ * of a search's results). */
 export function applyEvents(story: Story, events: DevEvent[]): Story {
   let next = story
+  let shown: { focus: string[]; assets: string[] } | null = null // this reply's highlights so far
   for (const event of events) {
+    if (event.type === 'highlight' && !event.style && shown) {
+      const before = shown
+      const narrows = event.space_ids.every((id) => before.focus.includes(id)) && (event.asset_ids ?? []).every((id) => before.assets.includes(id))
+      const focus: string[] = narrows ? event.space_ids : [...new Set([...before.focus, ...event.space_ids])]
+      const assets: string[] = narrows ? event.asset_ids ?? [] : [...new Set([...before.assets, ...(event.asset_ids ?? [])])]
+      shown = { focus, assets }
+      next = { ...next, focus, assets }
+      continue
+    }
+    if (event.type === 'highlight' && !event.style) shown = { focus: event.space_ids, assets: event.asset_ids ?? [] }
+    else if (event.type === 'route' || event.type === 'route_end' || event.type === 'elsewhere') shown = null
     if (event.type === 'route') {
       const path = event.space_path ?? []
       const last = path[path.length - 1]

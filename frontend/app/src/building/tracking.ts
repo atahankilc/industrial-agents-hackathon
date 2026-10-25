@@ -3,7 +3,7 @@
 // spread over the line in proportion to their metres, rides (stairs, lifts) take no length on it. So "metres walked
 // since the start" gives a point, the direction ahead, and the step you are in.
 
-import type { RouteLeg } from '../api'
+import type { GuideStep, RouteLeg } from '../api'
 
 export type RouteTrack = {
   /** metres walked (route-model metres) at which each step starts; the last entry is the total */
@@ -71,4 +71,19 @@ export function routeTrack(line: [number, number, number][], legs: RouteLeg[], s
   const toLine = (metres: number) => Math.max(0, Math.min(length, metres * scale))
 
   return { starts, total, at, stepAt, toLine }
+}
+
+/** Metres still to go: the whole route until the guide starts, then from the tracked position or the step being
+ * walked. The track counts walking only (rides take no length on it), so the route length's rest — its stairs and
+ * lifts — is spread over the floors ridden and taken off as they are passed: the count never jumps on Start. */
+export function metresLeft(steps: GuideStep[], index: number, lengthM: number | null, guiding: boolean, track?: RouteTrack | null, position?: { metres: number } | null): number | null {
+  if (!track || !(position || guiding)) return lengthM
+  const walked = position ? position.metres : track.starts[index] ?? 0
+  if (lengthM === null) return track.total - walked
+  const at = position ? track.stepAt(position.metres) : index
+  const floors = (step: GuideStep) => (step.kind === 'connector' ? step.floors ?? 1 : 0)
+  const ridden = steps.reduce((sum, step) => sum + floors(step), 0)
+  const done = steps.slice(0, at).reduce((sum, step) => sum + floors(step), 0)
+  const rides = Math.max(0, lengthM - track.total)
+  return Math.max(0, lengthM - walked - (ridden ? (rides * done) / ridden : 0))
 }

@@ -10,7 +10,169 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
-## 2026-10-25 — Map widths per class, one mic stream, admin-only building settings, no reduced motion (not committed)
+## 2026-10-25 — Phones: Guide voice and stuck turns, home-screen app (merged into dev)
+
+- **Did:** `voice/tts.ts`: unlock on `pointerup`/`touchend`/`click` too, a silent first utterance primes
+  speechSynthesis, browser utterances run one at a time with a start timeout (`START_MS` 4 s) and an end timeout
+  (`MS_PER_CHAR`), `navigator.audioSession` set to playback; on iOS the warm mic is closed before speaking
+  (`mic.ts` `dropMicrophone`) and `useVoice` starts no barge-in watcher; `scribe.ts` resumes its capture context on
+  those events. `backend/app.py`: NDJSON excluded from gzip, `ndjson_with_pings` (10 s) for `/chat/stream` and the
+  Builder stream; `api.ts` `watchedStream` gives up after 45 s without a byte. `index.html`: `viewport-fit=cover`,
+  `maximum-scale=1`, home-screen metas, `manifest.webmanifest`; `styles.css`: 16 px fields on touch (iOS zooms into
+  smaller ones and stays zoomed), no overscroll / tap flash; map sheet clear of the home bar, credits start closed.
+- **Learned:** the deployment has no `ELEVENLABS_API_KEY` (`/api/health` tts/stt false), so iPhones used the browser
+  voice, which iOS drops silently outside a gesture: the orb then stayed on "Working". Through gzip the deployment's
+  stream sent nothing for 40 s, then every line at once (curl without `--compressed` looked fine).
+- **Changed docs:** [ai-agents.md](../docs/architecture/ai-agents.md), [commands.md](../docs/guides/commands.md#deploy-vercel).
+- **Next:** add `ELEVENLABS_API_KEY` on Vercel and redeploy; try it on a real iPhone home-screen app.
+
+## 2026-10-25 12:00 — Floor changes and "where you are" on the plan (session 22)
+
+*Did:* the riser between floors is a cased tube drawn over the slabs (was an invisible 1px line); a stairs/lift step while guiding stacks its two floors; a new position from the Guide shows before the route (1.6 s); with the position unknown, `maybe_here` (Guide's rooms via new `suggest_my_location`, else entrances) → "Here? · room" badges, tap to stand there. *Learned:* vite reads `BACKEND_URL` only when exported in its own shell; without it, it proxies to the shared 8765 backend. *Next:* screenshot the stacked ride step.
+
+## 2026-10-25 — Possible start rooms in the figure's orange (not committed)
+
+- **Did:** "I'm in the kitchen" (several matches) now marks every match as where the user might be (`start_of` →
+  `maybe_here`, also for a route's start) instead of a plain search highlight; those rooms are drawn with a dashed
+  outline and "Here?" badge in the figure's orange (palette `me`), the destination stays blue; prompt line to use
+  set_my_location for such words. Ambiguous-destination error now gives the real match total.
+- **Next:** badges of rooms on different stacked floors overlap on a phone.
+
+## 2026-10-25 — Route asking and metres left: merged highlights, nearest options, cross-floor countdown (not committed)
+
+- **Did:** reviewed the Guide's route flow live (both known, start unknown, destination ambiguous, start ambiguous,
+  Start on a cross-floor route). Start already goes back to the first step's floor. Fixed: the trip pill's metres
+  left dropped on Start (55 → 30 m) because the walking track leaves out stairs/lifts (`tracking.ts` `metresLeft`,
+  also the camera walk); highlights within one reply now merge (a later subset narrows), so "which kitchen are you
+  in?" shows the kitchens (`dev/story.ts`); `destination_options` highlights its candidates and shortlists big
+  matches; the prompt sends a known start + ambiguous destination to `find_route` for the nearest 3 with metres.
+- **Learned:** route legs give stairs/lifts 0 m; `length_m` − walking total is their cost.
+- **Next:** draw "where you might be" apart from "where you're going" (a highlight role; session 22 works on the
+  location flow).
+
+## 2026-10-25 — Verifier fixes for 3113a99..a5f5407 (not committed)
+
+- **Did:** an exhaustive `commit-verifier` run over the three commits that went in without a final PASS (every claim
+  MET; 11 required fixes) and fixed all of them. Access mode: `ensure_access` rebuilds the Guide's system prompt
+  from the restricted copy again (`refresh_system` after the first turn had kept the unfiltered overview), and
+  `Guide.seen_overview` (persisted) makes `refresh_system` send a settings note once per change, not on every call.
+  "I'm there" at the exit of a route into a nearby building opens it (same path as `open_nearby_building`) instead
+  of saying "Tap Continue". `ARRIVED_SAID` takes "arrived" only first-person or as the first word. One "Spoken
+  replies": the Preferences sheet's `voice` field sets the Guide menu's switch, the menu writes it back
+  (`setSpokenReplies`). Stale comments (next-move card, `devApi.ts`), docs (visualization, ai-agents), D-021,
+  project-state and this log's order / "(not committed)" labels fixed.
+- **Also (session 70, same checkout):** Edit mode: bar fits (Done no longer cut off), opens flat on one floor,
+  non-admin ?edit=1 no longer stuck; new Access tool in Edit mode (AccessCard + useAccessRules, restricted rooms
+  hatched); shield button opens Building settings for the admin.
+- **Checks:** pytest (see worklog), `tsc -b --noEmit` exit 0, `vite build` OK, check_links OK. "I'm there" at the
+  exit and the spoken-replies link not tried in a browser.
+- **Changed docs:** visualization.md, ai-agents.md, decisions.md (D-021), project-state.md.
+
+## 2026-10-25 — Dead route buttons removed from NextMove
+
+- `NextMove.tsx` had its own Start / "I'm there" / Done / Continue buttons (`guiding`, `onStart`, `next`,
+  `onContinue`, `onFinish` props), but it is only rendered by `CameraWalk.tsx`, which never passed them: dead code.
+  Removed with its `.guide-actions` rules in `hud.css`; the live buttons are `RouteHud.tsx` `RouteBar`. Checked:
+  `tsc --noEmit` clean, `vite build` OK; nothing visible changes.
+
+## 2026-10-25 — Directions: overview + "say start", no first step
+
+- Atahan asked: after finding a route the Guide gave the first step and asked whether to start. Now (`agent/guide.py`
+  INSTRUCTIONS + VOICE_STYLE, [D-020](decisions.md#d-020) amended) a directions answer is an overview — found it,
+  echo line, about_m, floors, a landmark or two — ending in "Say start or press Start when you're ready." in the
+  user's language; "no steps" gets the whole route in a few sentences. Step-by-step after Start was already the
+  app's (`BuildingScreen.tsx` reads each step, "I'm there" moves on). Offline client's route reply follows it;
+  `route_to_building` description asks for an overview too. Test: `test_directions_are_an_overview_that_ends_in_the_start_line`.
+- Checked: `uv run pytest -q` 989 passed before the new test; live Opus (scratch script, train campus 000): English
+  and Turkish route replies are overviews ending in the Start line, "No steps please" gives the full way.
+
+## 2026-10-25 — Guide opens nearby buildings itself
+
+- Problem: asked to go between buildings, the Guide said it could not open another building — it had no tool for
+  it, and `route_to_building`'s result told it the user taps Continue.
+- New Guide tool `open_nearby_building(building)` (`agent/tools.py`, only with located neighbours) → UI event
+  `open_building`; `BuildingScreen.tsx` opens it once the reply has been said (at least `OPEN_DELAY_MS` 1.5 s, then
+  while the voice is `thinking`/`speaking`, at most `OPEN_MAX_MS` 15 s), going
+  through `continueTo` (arrival at the entrance + rest of the route) when the route on the map leads there.
+  Prompt + `route_to_building` description + campus `app` note point to it. Test:
+  `test_the_guide_opens_a_nearby_building_itself`. Checked: `uv run pytest -q` 989 passed, `tsc --noEmit` clean;
+  not tried in a browser or with a live LLM. Offline client has no phrasing for it.
+
+## 2026-10-25 — Route step card follows "I'm there"; Guide offers to walk you there
+
+- **Did:** `BuildingScreen.tsx`: `ARRIVED_SAID` catches "I'm there / vardım / geldim / made it …" inside a short
+  sentence (≤ 6 words) and moves the step card even when Start was never pressed (it starts the guide); at the last
+  step it ends the route with a chat note ("You have arrived at …") instead of only speaking. `/chat` now always gets
+  `route_step` while a route is on the map, so the Guide's `[route note]` is there for "I'm at the stairs". A tapped
+  question that draws a route keeps listening (for "start"). `NextMove.tsx`: "I'm here — done" button at the last
+  step. `agent/guide.py` prompt: directions end with one offer ("Say start and I'll walk you there step by step");
+  on an arrival the Guide calls `show_route_step` with the next step.
+- **Learned:** before, "I'm there" only worked after Start and in ≤ 3 words; otherwise it went to the Guide without a
+  route note, so the card never moved.
+- **Next:** try it with a live mic; no live LLM run of the new prompt yet.
+- **Then (same chunk), route arrows + step animations:** `dev/StoryLayer.tsx`: route band 12 px, chevrons larger
+  (36 px apart) and also on the rest of the way past the step being walked (40 %), the walked part and the step's
+  end ease to a new step (`STEP_EASE`), and the "you" puck glides along the route line to the new step
+  (`pointAlong`, `You.along`; jumps over 80 m snap). `NextMove.tsx` + `hud.css`: a new step slides in, its arrow
+  settles in, the step's segment fills from the left; all off under reduced motion. Checked with headless
+  screenshots (Hauptgebäude, dark, 1440×900), including a frame mid-transition; phone width and light mode not checked.
+- **Then, navigation variant B** (Atahan compared two mockups and picked B, which pins the step on the map):
+  `core/directions.maneuvers` joins straight-on doors (Hauptgebäude 0119 → Toilet 0137 goes from 8 steps to 6). The
+  card, the `[route note]` and the spoken steps all use it, and each step carries `legs` (`tracking.ts`
+  `routeTrack(..., spans)`). New `building/RouteHud.tsx`: `TripBar` is the top pill and replaces the NextMove card
+  outside the camera view; `RouteBar` sits over the dock through Guide's new `routeBar`/`quiet` props. The map gets
+  a `move` callout at the step and a "then …" tag at its end. The route shader is now thin: solid only on the current
+  step, dotted for walked and coming steps, with a running light instead of chevrons (`routeMaterial(colour, done,
+  comet, casing)`; StreetView's call is unchanged, but it now shows a plain line). The talk mode default is tap
+  (`useVoice` HOLD default false). Coordinated with -20, who added `focusInsets` so framed answers clear the rail.
+  Checked headless on test servers (:8766 / :5182), desktop 1440×900 and phone 390×844, dark theme only. Not checked:
+  light theme, a live mic, multi-floor routes (connector steps), Continue into the next building.
+
+- 2026-10-25 — Basement veil removed (user: the darkening over the basement made it hard to look at). `City` in
+  `frontend/app/src/plan/PlanView.tsx` no longer draws the ground-colour veil (opacity 0.7) over the biggest basement
+  outline; the `ground`/`underground` props and `VEIL_ALPHA` are gone. `docs/product/visualization.md` updated.
+  Checked: `tsc --noEmit` clean. Not checked in the browser.
+
+- 2026-10-25 — Route end (user: after cancelling or finishing a route the map kept it and the position stayed
+  old). New Guide tool `end_route(arrived?, place?)` → UI event `route_end` (`agent/tools.py`, prompt in
+  `agent/guide.py`); `BuildingSession.shown_route` ignores routes ended since, so `route_card`/`show_route_step` see
+  none. `DELETE /sessions/{id}/route` for routes the app ends. `BuildingScreen.endRoute` is the one path for Finish,
+  End directions, a short "stop"/"cancel the route"/"rotayı iptal et" (`STOP`) and the Guide's event: clears the
+  story, tracking, camera walk and step guide, and puts the figure at the destination (arrived), the Guide's room, or
+  where the walk got to (tracking position, else the last step reached), telling the session. Checked: pytest 880
+  passed (2 new tests), `tsc` and oxlint clean. Not checked in the browser or with a live LLM.
+- 2026-10-25 — Guide 400 "Invalid `signature` in `thinking` block … bound to a different conversation" (user, while
+  talking to the Guide). Cause: Opus 5.5 binds thinking blocks to the prefix (system, tools, earlier messages) and
+  the Guide edited it mid-conversation: preferences (`PUT /sessions/{id}/preferences`) and access switches
+  (`SessionStore.ensure_access`) rebuilt `guide.system`; a photo turn's message is replaced after the turn. Fix:
+  `Guide.refresh_system()` rebuilds the system prompt only before the first turn, afterwards queues
+  `system_note` (persisted) for the next user turn; Guide and Builder requests send `thinking.block_binding.
+  prefix_mismatch_behavior: "drop_block"` (beta `thinking-binding-controls-2026-08-01`) so any remaining edit (the
+  photo) drops outdated thinking instead of failing. Checked: pytest 881 passed (1 new test); one live request
+  with the new fields accepted (`input_transformations: []`). Not replayed against the exact failing conversation.
+
+- 2026-10-25 — Basements you are not on drawn darker (user: "bodrum katlar, o kata bakmıyorsak daha karanlık").
+  `FloorModel` in `frontend/app/src/plan/PlanView.tsx` gets `under` (level < 0 and not the current floor): material
+  colours (vertex-coloured meshes via `color`, slab, hairlines, edges) times `UNDER_TINT` 0.35; seen through the
+  current floor its opacity is `UNDER_FADED_OPACITY` 0.3 instead of `FADED_OPACITY` 0.12. Checked: `tsc -b` clean;
+  headless screenshots of Landwirtschaftsbau (osm-way50299720, B1+B2) at 1440×900, light and dark: all floors, G
+  (basements dark under it), B1 (B1 normal). Phone width not checked; on the dark theme the effect is subtle.
+- 2026-10-25 — Kind filter chips on the landing list (user: "filters … like campus or house or factory").
+  `backend/sessions.py` `building_kind` maps the manifest `source` (+ `proc-campus-`/`proc-factory-` in `path`) to
+  `kind` campus / factory / home (resplan, swiss_dwellings) / real (osm_indoor); saved Edit-mode buildings are
+  `saved` (backend/drafts.py). GET /buildings returns `kind`. `MapLanding.tsx`: chips All · Campus · Factory · Home ·
+  Real · Saved (only kinds present), one at a time, combined with the name search; they filter the list, not the map
+  pins. Counts: home 214, factory 26, campus 23, real 17. Checked: `tsc --noEmit` clean, backend tests (test_backend,
+  test_campus, test_draft_backends, test_access) 63 passed; the UI was not checked in a browser.
+- 2026-10-25 — Dev tools removed; the admin button is just Edit (user: "remove dev tools completely and just make
+  the button edit button for the admin role"). Deleted `frontend/app/src/dev/DevPanel.tsx` and `devApi.ts`
+  (`DevEvent` moved to `dev/story.ts`); `dev/dev.css` cut down to the plan badges as `dev/story.css`, imported by
+  `StoryLayer.tsx`. `BuildingScreen.tsx`: no `DEV_TOOLS`/`?dev`/backtick panel; the admin button (shown to
+  `mayChange`) toggles the Edit mode directly (`aria-pressed`), no menu. Building settings now open only through the
+  Guide (`open_building_settings`); the account hint says so. Backend `/dev/*` kept (tests use it). Checked:
+  `tsc -b` clean (after session -20's BuildingSearch.tsx type fix), `vite build` OK; not checked in a browser.
+
+## 2026-10-25 — Map widths per class, one mic stream, admin-only building settings, no reduced motion (3113a99)
 
 - **Did:** `map/style.ts`: road, rail, bridge and walkway widths are zoom-only (one layer per road class, one per
   walkway width) instead of a per-feature `match` inside the zoom curve. `voice/mic.ts`: one shared microphone
@@ -25,7 +187,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   removed city/alone bullet), `memory-bank/project-state.md` (no veil, partial-model fit).
 - **Next:** check the mic on a real iPhone; light theme of the road widths.
 
-## 2026-10-25 — Route overview over floors; step frames follow you (not committed)
+## 2026-10-25 — Route overview over floors; step frames follow you (3113a99)
 
 - **Did:** a route over several floors is first shown whole: only its floors, stacked (`PlanView` `only`), until
   Start or a floor pick ("All floors" brings every floor back); in a stack the route band draws over the floors
@@ -36,7 +198,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   floors stacked over the route and long steps framed up to their end. Checked with Playwright screenshots
   (StudiTUM, Library 0.001 → Library 2.205, 1440×900 and 390×844), all 6 steps walked.
 
-## 2026-10-25 — Guide history arrows; light theme check (not committed)
+## 2026-10-25 — Guide history arrows; light theme check (3113a99)
 
 - **Did:** `Guide.tsx`: "‹ 2/5 ›" beside the question steps through earlier exchanges one at a time (no list);
   the view is held for the current message count only, so a new message shows the latest again; a past
@@ -46,7 +208,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Learned:** light theme checked (idle, options, thinking, answer, history) at 1440×900; fine apart from that
   dimming.
 
-## 2026-10-25 — Guide: thinking line, quieter answer header, field in the dock's style, one width (not committed)
+## 2026-10-25 — Guide: thinking line, quieter answer header, field in the dock's style, one width (3113a99)
 
 - **Did:** `Guide.tsx`: while working, one line says what it does now (the running step's label, a light
   sweeping across it) with a dot per lookup (running one pulses, no-result ones hollow) and seconds from 3 s on —
@@ -59,7 +221,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   7.2em. Classes `work*` (a global `.thinking` in `styles.css` from the old chat clashed).
 - **Learned:** checked with 5 real questions (LLM calls) on wide and phone, dark only.
 
-## 2026-10-25 — Hold to talk (default) or tap, in the Guide's options (not committed)
+## 2026-10-25 — Hold to talk (default) or tap, in the Guide's options (3113a99)
 
 - **Did:** `useVoice`: `holdToTalk` / `setHoldToTalk` (default on, `ttyb-guide-hold`) and `hold()` = listen with no
   timers until `finish`; with hold on, no reply listens by itself (no hands-free loop, no barge-in watch, no
@@ -69,7 +231,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   let go to send". `CameraWalk.tsx` passes the same setting to its small ball.
 - **Learned:** not tried with a live mic (headless has no recognition); options popover checked by screenshot.
 
-## 2026-10-25 — Layout: Guide bottom-left on wide, actions bottom-right, phone layout (not committed)
+## 2026-10-25 — Layout: Guide bottom-left on wide, actions bottom-right, phone layout (3113a99)
 
 - **Did:** wide: the floating Guide column (440 px) sits bottom-left, left-aligned; the floor rail stays in the
   middle of the right edge (Atahan's correction, via session -70) and the plan's buttons (street view, compass,
@@ -81,7 +243,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Learned:** `Rig` reads `insets` through a ref, so changing them (the measured height) never refits by itself.
   Checked by screenshot at 1440×900 and 390×844, dark only; the admin button and light theme not seen.
 
-## 2026-10-25 — Guide without a panel: floating bubble + dock, main way in the middle (not committed)
+## 2026-10-25 — Guide without a panel: floating bubble + dock, main way in the middle (3113a99)
 
 - **Did:** `Guide.tsx` / `hud.css`: no card any more — the Guide floats at the bottom centre on every screen; the
   caption is a glass bubble, the chips and dock buttons have their own glass. Dock = three places: talking first
@@ -93,7 +255,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Learned:** Playwright can capture the open building through CDP `Page.captureScreenshot` (the normal
   `page.screenshot` times out); wide and phone checked, dark theme only.
 
-## 2026-10-25 — Guide card: the ball, a message field, voice/typing options, fewer chips (not committed)
+## 2026-10-25 — Guide card: the ball, a message field, voice/typing options, fewer chips (3113a99)
 
 - **Did:** `building/Core.tsx` is now a ball: a WebGL fragment shader (domain-warped noise, light shading, film
   grain) whose palette follows the state in the HUD colours — calm blue at rest, `--hud-live` green listening,
@@ -110,7 +272,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   screen only; the chips, the loading gate and the live states are not checked visually.
 - **Next:** try the states with a live mic; Atahan to judge the palette.
 
-## 2026-10-25 — One settings corner top right; map Open button border (not committed)
+## 2026-10-25 — One settings corner top right; map Open button border (3113a99)
 
 - **Did:** `access/AccessLayer.tsx` `Corner`: a settings button top right on every screen (always, not only in
   access mode) with Theme, and in access mode Preferences and the account (sign in / set a password / sign out); a
@@ -120,7 +282,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   `border: 0` (the browser's default button border drew the odd line round "Open").
 - **Checked:** `tsc -b` clean; headless Chrome screenshots (wide + phone): Open row, map menu, building menu.
 
-## 2026-10-25 08:55 — Opening a building without the freeze (not committed)
+## 2026-10-25 08:55 — Opening a building without the freeze (3113a99)
 
 - **Did:** `plan/geometry.ts` `prepareFloors` builds a plan's floors one per frame during the map's fly-in and
   hands them to the next `buildFloors` of the same plan / palette / look (taken once: the fills get recoloured in
@@ -238,14 +400,14 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   separator mask with straight thin lines (hatching ignored). Urban Colab photos are only 768×1024 px.
 - **Next:** draft store import bases, Creator tools + loop, `/imports/stream`, import screen, eval, demo runs.
 
-## 2026-10-25 — Round buttons, one size system (not committed)
+## 2026-10-25 — Round buttons, one size system (6fa882e)
 
 - **Did:** buttons across `building/hud.css`, `access/access.css` and `edit/edit.css` are round with three heights,
   32 / 36 / 44 px (`--btn-sm` / `--btn-md` / `--btn-lg`), filled with `--hud-fill` / `--hud-fill-2` variants, and share
   one set of press / hover / disabled rules. Floors: a popover on phones, the rail on wide screens.
 - **Checked:** `npx tsc -b` clean. Not checked visually in this commit pass.
 
-## 2026-10-25 — `find_nearest`: "nearest toilet" without asking (not committed)
+## 2026-10-25 — `find_nearest`: "nearest toilet" without asking (6fa882e)
 
 - **Did:** new Guide tool `find_nearest(start, query, floor_id?)` (`agent/tools.py`): rooms holding that item kind
   (else rooms of that kind/name), ranked by route length under the profile; routes to the nearest (one `route`
@@ -257,7 +419,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Checked:** smoke run on `proc-campus-train-000`, from Main lobby, query "toilet" → Toilet 0.14 at 17.99 m
   (about 20), next Toilet 1.16 about 35 m and Toilet 0.16 about 45 m; events `route`, `highlight`. No unit test yet.
 
-## 2026-10-25 — Step guide: map faces the step, animated route band (not committed)
+## 2026-10-25 — Step guide: map faces the step, animated route band (6fa882e)
 
 - **Did:** step moves (`BuildingScreen.onMove`) pass a heading (step start → end, `RouteTrack.at`) into `Focus`;
   `PlanView` Rig turns the camera to it (azimuth = atan2(-hx, hy)). Route band shader (`StoryLayer` Route) draws
@@ -268,7 +430,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   Heading from only the first few metres turned the map by a door kink; start → end keeps the goal straight ahead.
 - **Checked:** `tsc -b`, `vite build`, browser run (U-Trakt, N0177 → N0111, steps 1–4 screenshotted).
 
-## 2026-10-25 — Building centred on open; "you are here" figure placement reworked (not committed)
+## 2026-10-25 — Building centred on open; "you are here" figure placement reworked (6fa882e)
 
 - Wide screens framed the building as if the Guide were a full-height left column (480 px) → it sat right of centre.
   `PlanView` `frameInsets` (whole-building fits) now mirror the floor rail; `insets` still used for answer focus.
@@ -281,7 +443,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - Checks: `tsc -b`, `vite build`; headless Chromium (Playwright) runs of tap-place, dock drag, figure drag in/out,
   pan while placing and after: one figure each time.
 
-## 2026-10-25 — Voice less jumpy: longer end pause, voice gate, steadier barge-in (not committed)
+## 2026-10-25 — Voice less jumpy: longer end pause, voice gate, steadier barge-in (6fa882e)
 
 - **User report:** voice cuts the user off mid-sentence, the Guide's own reply keeps getting interrupted, and it
   "hears" things in silence.
@@ -296,7 +458,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Checks:** `npx tsc -b` clean; oxlint shows only the 3 pre-existing `react(immutability)` warnings.
   Not tried in the running app; `VOICE_LEVEL` may need tuning per mic.
 
-## 2026-10-25 — Step card and Guide in sync (not committed)
+## 2026-10-25 — Step card and Guide in sync (6fa882e)
 
 - **Did:** user report: in route mode the voice Guide talked about step 2 or 3 while the step card stayed put. The
   card only moved on short local commands ("next", "back"); longer turns went to the Guide, which neither knew the
@@ -310,7 +472,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Checked:** `uv run pytest` 815 passed, 2 skipped (new `tests/test_route_step.py`); `tsc -b` clean; `npm run
   build` ok. Not checked live with the LLM (restart uvicorn to pick it up).
 
-## 2026-10-25 — Route line: starts at the figure, no dip at overlapping-space doors (not committed)
+## 2026-10-25 — Route line: starts at the figure, no dip at overlapping-space doors (6fa882e)
 
 - **Did:** user report (CIT building `dev/osm-way27917482`, from Friedrich L. Bauer Hörsaal the line dipped into a
   Regieraum doorway and the route always started at the room's centre). `core/routeline.py`: `route_line(...,
@@ -327,7 +489,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   the figure point and has no point at `O0008`. Not checked in the running app (the local uvicorn on :8765 has no
   `--reload`; restart it).
 
-## 2026-10-25 — Map: whole building clickable, touching buildings told apart (not committed)
+## 2026-10-25 — Map: whole building clickable, touching buildings told apart (6fa882e)
 
 - **Did:** `map/style.ts`: `MODEL_TONES` + `modelTones` (greedy colouring: kit buildings whose outlines come within
   ~4 m get different shades), `modelColours(dark, tone)` with `hover` and `edge` colours. `map/MapLanding.tsx`: models
@@ -338,7 +500,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   shades + outlines, hover lights the whole Hauptgebäude block, a click at the far end of the Thierschbau wing opened
   `train/osm-way61408163`. Light mode not checked visually.
 
-## 2026-10-25 — Calmer barge-in, readable nearby-buildings card, bigger map click target (not committed)
+## 2026-10-25 — Calmer barge-in, readable nearby-buildings card, bigger map click target (a9cff16)
 
 - **Did:** Barge-in no longer fires on one stray word: `voice/bargeIn.ts` `interruption` now needs a stop word in a
   phrase of ≤3 words, or ≥3 own words that are at least half of the user's part; `useVoice.ts` ignores results in
@@ -355,7 +517,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   → talk). Not tested with a live microphone.
 - **Changed docs:** `docs/architecture/ai-agents.md` (barge-in rules).
 
-## 2026-10-25 — Voice gaps: tapped questions spoken, selection and "I'm in …" reach the Guide, faster turns (not committed)
+## 2026-10-25 — Voice gaps: tapped questions spoken, selection and "I'm in …" reach the Guide, faster turns (e8de230)
 
 - **Did:** Tapped questions (room card Directions, chips, nearby-building directions, camera "Where am I", Builder
   chips) are answered aloud: `send(text, via)` in `BuildingScreen.tsx`, voice channel with `heard: false` (no
@@ -376,7 +538,7 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
   failed piece. Auto-listening also catches room talk (it sent "No. How was-" from background speech).
 - **Next:** Atahan to try by voice; consider browser recognition for short step commands to save Scribe minutes.
 
-## 2026-10-25 — Edit mode inside the building view (not committed)
+## 2026-10-25 — Edit mode inside the building view (e8de230)
 
 - **Did:** Edit mode is no longer a separate full-screen editor (`EditMode.tsx`, `PlanEditor.tsx` deleted). "Edit this
   building" (… menu) keeps the building screen — map, model, top line, floor chip — and: the model shows the draft
@@ -1706,107 +1868,3 @@ Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / O
 - **Decisions:** D-001 accepted; D-002, D-003 proposed.
 - **Questions opened:** Q-001 … Q-012.
 - **Next:** see [project-state.md](project-state.md#next-priorities).
-
-## 2026-10-25 — Route step card follows "I'm there"; Guide offers to walk you there
-
-- **Did:** `BuildingScreen.tsx`: `ARRIVED_SAID` catches "I'm there / vardım / geldim / made it …" inside a short
-  sentence (≤ 6 words) and moves the step card even when Start was never pressed (it starts the guide); at the last
-  step it ends the route with a chat note ("You have arrived at …") instead of only speaking. `/chat` now always gets
-  `route_step` while a route is on the map, so the Guide's `[route note]` is there for "I'm at the stairs". A tapped
-  question that draws a route keeps listening (for "start"). `NextMove.tsx`: "I'm here — done" button at the last
-  step. `agent/guide.py` prompt: directions end with one offer ("Say start and I'll walk you there step by step");
-  on an arrival the Guide calls `show_route_step` with the next step.
-- **Learned:** before, "I'm there" only worked after Start and in ≤ 3 words; otherwise it went to the Guide without a
-  route note, so the card never moved.
-- **Next:** try it with a live mic; no live LLM run of the new prompt yet.
-- **Then (same chunk), route arrows + step animations:** `dev/StoryLayer.tsx`: route band 12 px, chevrons larger
-  (36 px apart) and also on the rest of the way past the step being walked (40 %), the walked part and the step's
-  end ease to a new step (`STEP_EASE`), and the "you" puck glides along the route line to the new step
-  (`pointAlong`, `You.along`; jumps over 80 m snap). `NextMove.tsx` + `hud.css`: a new step slides in, its arrow
-  settles in, the step's segment fills from the left; all off under reduced motion. Checked with headless
-  screenshots (Hauptgebäude, dark, 1440×900), including a frame mid-transition; phone width and light mode not checked.
-- **Then, navigation variant B** (Atahan compared two mockups and picked B, which pins the step on the map):
-  `core/directions.maneuvers` joins straight-on doors (Hauptgebäude 0119 → Toilet 0137 goes from 8 steps to 6). The
-  card, the `[route note]` and the spoken steps all use it, and each step carries `legs` (`tracking.ts`
-  `routeTrack(..., spans)`). New `building/RouteHud.tsx`: `TripBar` is the top pill and replaces the NextMove card
-  outside the camera view; `RouteBar` sits over the dock through Guide's new `routeBar`/`quiet` props. The map gets
-  a `move` callout at the step and a "then …" tag at its end. The route shader is now thin: solid only on the current
-  step, dotted for walked and coming steps, with a running light instead of chevrons (`routeMaterial(colour, done,
-  comet, casing)`; StreetView's call is unchanged, but it now shows a plain line). The talk mode default is tap
-  (`useVoice` HOLD default false). Coordinated with -20, who added `focusInsets` so framed answers clear the rail.
-  Checked headless on test servers (:8766 / :5182), desktop 1440×900 and phone 390×844, dark theme only. Not checked:
-  light theme, a live mic, multi-floor routes (connector steps), Continue into the next building.
-
-- 2026-10-25 — Basement veil removed (user: the darkening over the basement made it hard to look at). `City` in
-  `frontend/app/src/plan/PlanView.tsx` no longer draws the ground-colour veil (opacity 0.7) over the biggest basement
-  outline; the `ground`/`underground` props and `VEIL_ALPHA` are gone. `docs/product/visualization.md` updated.
-  Checked: `tsc --noEmit` clean. Not checked in the browser.
-
-- 2026-10-25 — Route end (user: after cancelling or finishing a route the map kept it and the position stayed
-  old). New Guide tool `end_route(arrived?, place?)` → UI event `route_end` (`agent/tools.py`, prompt in
-  `agent/guide.py`); `BuildingSession.shown_route` ignores routes ended since, so `route_card`/`show_route_step` see
-  none. `DELETE /sessions/{id}/route` for routes the app ends. `BuildingScreen.endRoute` is the one path for Finish,
-  End directions, a short "stop"/"cancel the route"/"rotayı iptal et" (`STOP`) and the Guide's event: clears the
-  story, tracking, camera walk and step guide, and puts the figure at the destination (arrived), the Guide's room, or
-  where the walk got to (tracking position, else the last step reached), telling the session. Checked: pytest 880
-  passed (2 new tests), `tsc` and oxlint clean. Not checked in the browser or with a live LLM.
-- 2026-10-25 — Guide 400 "Invalid `signature` in `thinking` block … bound to a different conversation" (user, while
-  talking to the Guide). Cause: Opus 5.5 binds thinking blocks to the prefix (system, tools, earlier messages) and
-  the Guide edited it mid-conversation: preferences (`PUT /sessions/{id}/preferences`) and access switches
-  (`SessionStore.ensure_access`) rebuilt `guide.system`; a photo turn's message is replaced after the turn. Fix:
-  `Guide.refresh_system()` rebuilds the system prompt only before the first turn, afterwards queues
-  `system_note` (persisted) for the next user turn; Guide and Builder requests send `thinking.block_binding.
-  prefix_mismatch_behavior: "drop_block"` (beta `thinking-binding-controls-2026-08-01`) so any remaining edit (the
-  photo) drops outdated thinking instead of failing. Checked: pytest 881 passed (1 new test); one live request
-  with the new fields accepted (`input_transformations: []`). Not replayed against the exact failing conversation.
-
-- 2026-10-25 — Basements you are not on drawn darker (user: "bodrum katlar, o kata bakmıyorsak daha karanlık").
-  `FloorModel` in `frontend/app/src/plan/PlanView.tsx` gets `under` (level < 0 and not the current floor): material
-  colours (vertex-coloured meshes via `color`, slab, hairlines, edges) times `UNDER_TINT` 0.35; seen through the
-  current floor its opacity is `UNDER_FADED_OPACITY` 0.3 instead of `FADED_OPACITY` 0.12. Checked: `tsc -b` clean;
-  headless screenshots of Landwirtschaftsbau (osm-way50299720, B1+B2) at 1440×900, light and dark: all floors, G
-  (basements dark under it), B1 (B1 normal). Phone width not checked; on the dark theme the effect is subtle.
-- 2026-10-25 — Kind filter chips on the landing list (user: "filters … like campus or house or factory").
-  `backend/sessions.py` `building_kind` maps the manifest `source` (+ `proc-campus-`/`proc-factory-` in `path`) to
-  `kind` campus / factory / home (resplan, swiss_dwellings) / real (osm_indoor); saved Edit-mode buildings are
-  `saved` (backend/drafts.py). GET /buildings returns `kind`. `MapLanding.tsx`: chips All · Campus · Factory · Home ·
-  Real · Saved (only kinds present), one at a time, combined with the name search; they filter the list, not the map
-  pins. Counts: home 214, factory 26, campus 23, real 17. Checked: `tsc --noEmit` clean, backend tests (test_backend,
-  test_campus, test_draft_backends, test_access) 63 passed; the UI was not checked in a browser.
-- 2026-10-25 — Dev tools removed; the admin button is just Edit (user: "remove dev tools completely and just make
-  the button edit button for the admin role"). Deleted `frontend/app/src/dev/DevPanel.tsx` and `devApi.ts`
-  (`DevEvent` moved to `dev/story.ts`); `dev/dev.css` cut down to the plan badges as `dev/story.css`, imported by
-  `StoryLayer.tsx`. `BuildingScreen.tsx`: no `DEV_TOOLS`/`?dev`/backtick panel; the admin button (shown to
-  `mayChange`) toggles the Edit mode directly (`aria-pressed`), no menu. Building settings now open only through the
-  Guide (`open_building_settings`); the account hint says so. Backend `/dev/*` kept (tests use it). Checked:
-  `tsc -b` clean (after session -20's BuildingSearch.tsx type fix), `vite build` OK; not checked in a browser.
-
-## 2026-10-25 — Guide opens nearby buildings itself
-
-- Problem: asked to go between buildings, the Guide said it could not open another building — it had no tool for
-  it, and `route_to_building`'s result told it the user taps Continue.
-- New Guide tool `open_nearby_building(building)` (`agent/tools.py`, only with located neighbours) → UI event
-  `open_building`; `BuildingScreen.tsx` opens it once the reply has been said (at least `OPEN_DELAY_MS` 1.5 s, then
-  while the voice is `thinking`/`speaking`, at most `OPEN_MAX_MS` 15 s), going
-  through `continueTo` (arrival at the entrance + rest of the route) when the route on the map leads there.
-  Prompt + `route_to_building` description + campus `app` note point to it. Test:
-  `test_the_guide_opens_a_nearby_building_itself`. Checked: `uv run pytest -q` 989 passed, `tsc --noEmit` clean;
-  not tried in a browser or with a live LLM. Offline client has no phrasing for it.
-
-## 2026-10-25 — Directions: overview + "say start", no first step
-
-- Atahan asked: after finding a route the Guide gave the first step and asked whether to start. Now (`agent/guide.py`
-  INSTRUCTIONS + VOICE_STYLE, [D-020](decisions.md#d-020) amended) a directions answer is an overview — found it,
-  echo line, about_m, floors, a landmark or two — ending in "Say start or press Start when you're ready." in the
-  user's language; "no steps" gets the whole route in a few sentences. Step-by-step after Start was already the
-  app's (`BuildingScreen.tsx` reads each step, "I'm there" moves on). Offline client's route reply follows it;
-  `route_to_building` description asks for an overview too. Test: `test_directions_are_an_overview_that_ends_in_the_start_line`.
-- Checked: `uv run pytest -q` 989 passed before the new test; live Opus (scratch script, train campus 000): English
-  and Turkish route replies are overviews ending in the Start line, "No steps please" gives the full way.
-
-## 2026-10-25 — Dead route buttons removed from NextMove
-
-- `NextMove.tsx` had its own Start / "I'm there" / Done / Continue buttons (`guiding`, `onStart`, `next`,
-  `onContinue`, `onFinish` props), but it is only rendered by `CameraWalk.tsx`, which never passed them: dead code.
-  Removed with its `.guide-actions` rules in `hud.css`; the live buttons are `RouteHud.tsx` `RouteBar`. Checked:
-  `tsc --noEmit` clean, `vite build` OK; nothing visible changes.

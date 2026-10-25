@@ -8,6 +8,7 @@ import pytest
 
 from agent.guide import ungrounded
 from agent.offline_llm import CANDIDATES
+from agent import places
 from agent.tools import BuildingSession
 from core.building_map import MapError
 
@@ -66,7 +67,19 @@ def test_route_to_an_asset_in_several_rooms_lists_each_with_its_length(session):
     lengths = [option["length_m"] for option in result["options"]]
     assert len(lengths) == 4 and lengths == sorted(lengths)
     assert all(f"{option['length_m']} m" in result["error"] for option in result["options"])
-    assert len(session.events) == events  # no route drawn while the destination is open
+    new = session.events[events:]
+    assert not any(event["type"] == "route" for event in new)  # no route drawn while the destination is open
+    # the map shows the options being asked between
+    assert [event["space_ids"] for event in new if event["type"] == "highlight"] == [[o["id"] for o in result["options"]]]
+
+
+def test_route_to_one_of_many_lists_only_the_nearest(session):
+    found = places.candidates(session.building, "office")
+    result = session.call("find_route", {"start": "Office 0.02", "destination": "office"})
+    if len(found) <= places.MAX_OPTIONS:
+        pytest.skip("this building has too few offices to need a shortlist")
+    assert 1 < len(result["options"]) < len(found)
+    assert f"is ambiguous: {len(found)} places match, these are the {len(result['options'])} nearest." in result["error"]
 
 
 def test_route_with_resolvable_names_still_works(session):

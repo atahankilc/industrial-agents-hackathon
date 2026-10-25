@@ -99,6 +99,15 @@ function captureContext(): Promise<AudioContext> {
   return context
 }
 
+// A tap's pointerdown starts the listen, but on a touch screen only its pointerup / touchend count as the gesture that
+// lets iOS run a new AudioContext: resume the capture graph then (a suspended one sends Scribe nothing).
+if (typeof window !== 'undefined') {
+  const wake = () => void context?.then((created) => {
+    if (created.state !== 'running') return created.resume()
+  }).catch(() => {})
+  for (const type of ['pointerup', 'touchend', 'click']) window.addEventListener(type, wake, { capture: true, passive: true })
+}
+
 async function openMic(onChunk: (pcm: ArrayBuffer) => void): Promise<Mic> {
   const stream = await acquireMicrophone()
   let shared: AudioContext

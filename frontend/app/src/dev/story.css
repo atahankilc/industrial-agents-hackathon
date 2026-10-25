@@ -17,6 +17,13 @@
 .story-marker.end span { background: var(--accent-fill); color: var(--accent-ink); }
 .story-marker.change button { pointer-events: auto; cursor: pointer; transform: translate(-50%, 10px); background: var(--ink); color: var(--surface); }
 .story-marker.change button:hover { filter: brightness(1.15); }
+/* where you might be: tap to stand there */
+.story-marker.maybe button {
+  pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  background: var(--surface); color: var(--hud-me, #F2602A); box-shadow: var(--shadow-float), inset 0 0 0 1.5px var(--hud-me, #F2602A);
+}
+/* in the figure's orange, apart from the answer's blue */
+.story-marker.maybe button:hover, .story-marker.maybe button:focus-visible { background: var(--hud-me, #F2602A); color: #FFFFFF; outline: none; }
 .story-marker i {
   position: absolute; width: 10px; height: 10px; border-radius: 50%; transform: translate(-50%, -50%);
   background: var(--accent); border: 2px solid var(--surface); box-shadow: var(--shadow-float);

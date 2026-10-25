@@ -1,16 +1,20 @@
-// Building settings → Objects (access mode, admin): the building's moving objects (backend/fleet.py) with where they
-// are and their mission; create one (attributes the data can use, design "Moving objects"), import the building's
-// forklifts, show each new device token once with the simulator command, dispatch to a space, cancel, delete.
+// Building settings → Objects (access mode, admin): the building's moving objects (backend/fleet.py), one card each
+// with where it is and its mission — Send to… (a searchable list of the spaces), cancel the mission, delete (asks
+// once more); "New object" opens the form (kind as one-tap choices, the measured width, how it may move, room
+// types it avoids — this building's own offered), "Import forklifts" turns the building's forklifts into objects.
+// A new object's device token shows once, with the simulator command. Same inset groups as the other tabs
+// (./BuildingSettings.tsx, styles in ./access.css).
 
-import { Check, Copy } from 'lucide-react'
+import { Bot, Box, Check, Copy, Forklift, KeyRound, MapPin, Navigation, Plus, ShoppingCart, Trash2, Truck, X, type LucideIcon } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { api, apiUrl, type DispatchResult, type FleetObject, type ObjectKind, type Plan } from '../api'
 import { GroupChips } from './Sheet'
 
 const KINDS: ObjectKind[] = ['forklift', 'robot', 'agv', 'cart', 'other']
 const KIND_LABEL: Record<ObjectKind, string> = { forklift: 'Forklift', robot: 'Robot', agv: 'AGV', cart: 'Cart', other: 'Other' }
+const KIND_ICON: Record<ObjectKind, LucideIcon> = { forklift: Forklift, robot: Bot, agv: Truck, cart: ShoppingCart, other: Box }
 const message = (reason: unknown) => (reason instanceof Error ? reason.message : String(reason))
-const PLACES_SHOWN = 30
+const PLACES_SHOWN = 12
 
 type Created = { id: string; name: string; token: string }
 
@@ -18,8 +22,10 @@ export function ObjectsSection({ buildingId, plan, objects, onChanged }: { build
   const [created, setCreated] = useState<Created[]>([])
   const [error, setError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
+  const [adding, setAdding] = useState(false)
   const hasForklifts = Boolean(plan?.assets.some((asset) => asset.type === 'forklift'))
   const spaceName = (id: string | null | undefined) => (id ? plan?.spaces.find((space) => space.id === id)?.name ?? id : null)
+  const roomTypes = useMemo(() => [...new Set((plan?.spaces ?? []).map((space) => space.room_type).filter(Boolean))].sort(), [plan])
 
   const remember = (items: FleetObject[]) => {
     setCreated((list) => [...items.filter((item) => item.token).map((item) => ({ id: item.id, name: item.name, token: item.token! })), ...list])
@@ -40,26 +46,43 @@ export function ObjectsSection({ buildingId, plan, objects, onChanged }: { build
   }
 
   return (
-    <section className="sheet-section">
-      <h3>Objects</h3>
-      <p className="sheet-hint">Forklifts, robots and other vehicles: each reports its position with its own token and takes missions.</p>
-      {objects.length === 0 && <p className="sheet-hint">No objects yet.</p>}
-      {objects.length > 0 && (
-        <ul className="rule-list">
-          {objects.map((item) => (
-            <ObjectRow key={item.id} item={item} plan={plan} spaceName={spaceName} onChanged={onChanged} />
-          ))}
-        </ul>
-      )}
+    <>
+      <h4>Moving objects{objects.length ? ` · ${objects.length}` : ''}</h4>
+      <div className="pref-group tone-route">
+        {objects.length === 0 && (
+          <div className="pref-row">
+            <span className="pref-label">
+              <i className="pref-icon" aria-hidden="true"><Forklift size={20} strokeWidth={1.9} /></i>
+              <span>No objects yet<small>Forklifts, robots and other vehicles: each reports its position with its own token and takes missions.</small></span>
+            </span>
+          </div>
+        )}
+        {objects.map((item) => (
+          <ObjectRow key={item.id} item={item} plan={plan} spaceName={spaceName} onChanged={onChanged} />
+        ))}
+      </div>
       {error && <p className="sheet-error" role="alert">{error}</p>}
-      {hasForklifts && (
-        <button type="button" className="sheet-quiet bordered" onClick={() => void importForklifts()} disabled={importing}>
-          {importing ? 'Importing…' : 'Import forklifts'}
-        </button>
+
+      {created.length > 0 && <Tokens created={created} onClose={() => setCreated([])} />}
+
+      {adding ? (
+        <NewObject buildingId={buildingId} roomTypes={roomTypes} onClose={() => setAdding(false)} onCreated={(item) => {
+          setAdding(false)
+          remember([item])
+        }} />
+      ) : (
+        <div className="settings-actions">
+          <button type="button" className="settings-button" onClick={() => setAdding(true)}>
+            <Plus size={16} strokeWidth={2.2} /> New object
+          </button>
+          {hasForklifts && (
+            <button type="button" className="settings-button quiet" onClick={() => void importForklifts()} disabled={importing}>
+              <Forklift size={16} strokeWidth={2} /> {importing ? 'Importing…' : 'Import forklifts'}
+            </button>
+          )}
+        </div>
       )}
-      {created.length > 0 && <Tokens created={created} />}
-      <NewObject buildingId={buildingId} onCreated={(item) => remember([item])} />
-    </section>
+    </>
   )
 }
 
@@ -74,8 +97,9 @@ function ObjectRow({ item, plan, spaceName, onChanged }: {
   const [result, setResult] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const mission = item.mission
+  const Icon = KIND_ICON[item.kind] ?? Box
   const where = item.position ? spaceName(item.position.space_id) ?? 'Outside the rooms' : 'No position yet'
-  const status = !mission ? 'No mission' : mission.status === 'active' ? `On the way to ${mission.to.name} · ${Math.round(mission.length_m)} m` : mission.status === 'done' ? `Arrived at ${mission.to.name}` : `Mission to ${mission.to.name} cancelled`
+  const status = !mission ? null : mission.status === 'active' ? `On the way to ${mission.to.name} · ${Math.round(mission.length_m)} m` : mission.status === 'done' ? `Arrived at ${mission.to.name}` : `Mission to ${mission.to.name} cancelled`
 
   const act = async (work: () => Promise<unknown>) => {
     setBusy(true)
@@ -97,35 +121,42 @@ function ObjectRow({ item, plan, spaceName, onChanged }: {
     })
 
   return (
-    <li>
-      <span className="rule-name">
-        {item.name}
-        <small>{[KIND_LABEL[item.kind] ?? item.kind, `${item.attributes.width_m} m wide`, where].join(' · ')}</small>
-        <small>{status}</small>
-      </span>
-      <div className="object-actions">
-        <button type="button" className="sheet-quiet bordered" onClick={() => setSending((open) => !open)} disabled={busy || !item.position}>
-          {sending ? 'Close' : 'Send to…'}
-        </button>
-        {mission?.status === 'active' && (
-          <button type="button" className="sheet-quiet bordered" onClick={() => void act(() => api.cancelMission(item.id))} disabled={busy}>
-            Cancel mission
+    <div className="pref-row settings-area object-row">
+      <span className="pref-label">
+        <i className="pref-icon" aria-hidden="true"><Icon size={20} strokeWidth={1.9} /></i>
+        <span>
+          {item.name}
+          <small>{KIND_LABEL[item.kind] ?? item.kind} · {item.attributes.width_m} m wide</small>
+        </span>
+        {deleting ? (
+          <span className="object-confirm">
+            <button type="button" className="object-chip danger" onClick={() => void act(() => api.deleteObject(item.id))} disabled={busy}>Delete</button>
+            <button type="button" className="object-chip" onClick={() => setDeleting(false)}>Keep</button>
+          </span>
+        ) : (
+          <button type="button" className="hud-icon settings-remove" onClick={() => setDeleting(true)} aria-label={`Delete ${item.name}`} title="Delete">
+            <Trash2 size={15} strokeWidth={2} />
           </button>
         )}
-        {deleting ? (
-          <>
-            <button type="button" className="sheet-quiet bordered danger" onClick={() => void act(() => api.deleteObject(item.id))} disabled={busy}>
-              Delete {item.name}
-            </button>
-            <button type="button" className="sheet-quiet" onClick={() => setDeleting(false)}>Keep</button>
-          </>
-        ) : (
-          <button type="button" className="sheet-quiet" onClick={() => setDeleting(true)}>Delete</button>
+      </span>
+      <div className="object-status">
+        <p className={item.position ? '' : 'none'}><MapPin size={13} strokeWidth={2} aria-hidden="true" />{where}</p>
+        {status && <p className={mission?.status === 'active' ? 'live' : ''}><Navigation size={13} strokeWidth={2} aria-hidden="true" />{status}</p>}
+      </div>
+      <div className="object-actions">
+        <button type="button" className="object-chip" onClick={() => setSending((open) => !open)} disabled={busy || !item.position}
+          title={item.position ? undefined : 'It has not reported a position yet'}>
+          {sending ? <><X size={13} strokeWidth={2.2} /> Close</> : <><Navigation size={13} strokeWidth={2.2} /> Send to…</>}
+        </button>
+        {mission?.status === 'active' && (
+          <button type="button" className="object-chip" onClick={() => void act(() => api.cancelMission(item.id))} disabled={busy}>
+            Cancel mission
+          </button>
         )}
       </div>
       {sending && plan && <PlacePicker plan={plan} onPick={(id) => void dispatch(id)} />}
       {result && <p className="sheet-error" role="alert">{result}</p>}
-    </li>
+    </div>
   )
 }
 
@@ -140,33 +171,36 @@ function PlacePicker({ plan, onPick }: { plan: Plan; onPick: (spaceId: string) =
     })
   }, [plan, query])
   return (
-    <div className="place-picker">
-      <label className="field">
-        <span>Destination</span>
-        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, ref or type" autoFocus />
+    <div className="settings-search place-picker">
+      <label className="settings-search-field">
+        <MapPin size={16} strokeWidth={2} aria-hidden="true" />
+        <input type="text" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Where to? A room, number or type" autoFocus aria-label="Destination" />
       </label>
       <ul>
         {matches.slice(0, PLACES_SHOWN).map((space) => (
           <li key={space.id}>
             <button type="button" onClick={() => onPick(space.id)}>
-              {space.name}
-              <small>{[space.ref, plan.floors[space.floor]?.name].filter(Boolean).join(' · ')}</small>
+              <MapPin size={16} strokeWidth={1.9} aria-hidden="true" />
+              <span>{space.name}<small>{[space.ref, plan.floors[space.floor]?.name].filter(Boolean).join(' · ')}</small></span>
             </button>
           </li>
         ))}
       </ul>
-      {matches.length > PLACES_SHOWN && <p className="sheet-hint">{matches.length - PLACES_SHOWN} more — narrow the search.</p>}
+      {matches.length > PLACES_SHOWN && <p className="sheet-hint">{matches.length - PLACES_SHOWN} more — type more of the name.</p>}
       {matches.length === 0 && <p className="sheet-hint">No space matches.</p>}
     </div>
   )
 }
 
 /** Device tokens, shown once, with the simulator command. */
-function Tokens({ created }: { created: Created[] }) {
+function Tokens({ created, onClose }: { created: Created[]; onClose: () => void }) {
   return (
-    <div className="tokens">
-      <h4>New device tokens</h4>
-      <p className="sheet-hint">Shown only now. Each object posts its position with its token; the simulator drives one along its missions.</p>
+    <div className="settings-invite tokens">
+      <div className="settings-invite-head">
+        <h4><KeyRound size={13} strokeWidth={2.2} aria-hidden="true" /> New device tokens</h4>
+        <button type="button" className="hud-icon" onClick={onClose} aria-label="Hide the tokens"><X size={15} strokeWidth={2} /></button>
+      </div>
+      <p className="sheet-hint">Shown only now — copy them. Each object posts its position with its token; the simulator drives one along its missions.</p>
       {created.map((item) => (
         <div key={item.id} className="token-item">
           <span className="rule-name">{item.name}</span>
@@ -197,7 +231,7 @@ function CopyLine({ label, value }: { label: string; value: string }) {
   )
 }
 
-function NewObject({ buildingId, onCreated }: { buildingId: string; onCreated: (item: FleetObject) => void }) {
+function NewObject({ buildingId, roomTypes, onCreated, onClose }: { buildingId: string; roomTypes: string[]; onCreated: (item: FleetObject) => void; onClose: () => void }) {
   const [name, setName] = useState('')
   const [kind, setKind] = useState<ObjectKind>('robot')
   const [width, setWidth] = useState('')
@@ -220,9 +254,6 @@ function NewObject({ buildingId, onCreated }: { buildingId: string; onCreated: (
         width_m: widthM, step_free_only: stepFreeOnly, can_use_lifts: lifts, can_use_stairs: stairs, avoid_room_types: avoid,
       })
       onCreated(item)
-      setName('')
-      setWidth('')
-      setAvoid([])
     } catch (reason) {
       setError(message(reason))
     } finally {
@@ -231,37 +262,51 @@ function NewObject({ buildingId, onCreated }: { buildingId: string; onCreated: (
   }
 
   return (
-    <form className="sheet-form invite" onSubmit={submit}>
-      <h4>New object</h4>
-      <label className="field">
-        <span>Name</span>
-        <input type="text" value={name} onChange={(event) => setName(event.target.value)} required autoComplete="off" />
-      </label>
-      <label className="field">
-        <span>Kind</span>
-        <select value={kind} onChange={(event) => setKind(event.target.value as ObjectKind)}>
-          {KINDS.map((item) => <option key={item} value={item}>{KIND_LABEL[item]}</option>)}
-        </select>
-      </label>
-      <label className="field">
-        <span>Width (m)</span>
-        <input type="number" inputMode="decimal" min={0.1} max={20} step={0.05} value={width} onChange={(event) => setWidth(event.target.value)} required placeholder="Measured width" />
-      </label>
-      <label className="toggle-row">
-        <span>Step-free only<small>Wheels: no steps or stairs.</small></span>
-        <input type="checkbox" role="switch" checked={stepFreeOnly} onChange={(event) => setStepFreeOnly(event.target.checked)} />
-      </label>
-      <label className="toggle-row">
-        <span>Can use lifts</span>
-        <input type="checkbox" role="switch" checked={lifts} onChange={(event) => setLifts(event.target.checked)} />
-      </label>
-      <label className="toggle-row">
-        <span>Can use stairs<small>Legged robots.</small></span>
-        <input type="checkbox" role="switch" checked={stairs} onChange={(event) => setStairs(event.target.checked)} />
-      </label>
+    <form className="sheet-form settings-invite new-object" onSubmit={submit}>
+      <div className="settings-invite-head">
+        <h4>New object</h4>
+        <button type="button" className="hud-icon" onClick={onClose} aria-label="Close the form"><X size={15} strokeWidth={2} /></button>
+      </div>
+      <div className="object-kinds" role="radiogroup" aria-label="Kind">
+        {KINDS.map((value) => {
+          const Icon = KIND_ICON[value]
+          return (
+            <button key={value} type="button" role="radio" aria-checked={kind === value} onClick={() => setKind(value)}>
+              <Icon size={18} strokeWidth={1.9} />
+              <span>{KIND_LABEL[value]}</span>
+            </button>
+          )
+        })}
+      </div>
+      <div className="object-fields">
+        <label className="field">
+          <span>Name</span>
+          <input type="text" value={name} onChange={(event) => setName(event.target.value)} required autoComplete="off" autoFocus placeholder={`e.g. ${KIND_LABEL[kind]} 1`} />
+        </label>
+        <label className="field unit">
+          <span>Width</span>
+          <input type="number" inputMode="decimal" min={0.1} max={20} step={0.05} value={width} onChange={(event) => setWidth(event.target.value)} required placeholder="0.8" />
+          <em>m</em>
+        </label>
+      </div>
+      <div className="object-moves">
+        <label className="toggle-row">
+          <span>Step-free only<small>Wheels: no steps or stairs.</small></span>
+          <input type="checkbox" role="switch" checked={stepFreeOnly} onChange={(event) => setStepFreeOnly(event.target.checked)} />
+        </label>
+        <label className="toggle-row">
+          <span>Can use lifts</span>
+          <input type="checkbox" role="switch" checked={lifts} onChange={(event) => setLifts(event.target.checked)} />
+        </label>
+        <label className="toggle-row">
+          <span>Can use stairs<small>Legged robots.</small></span>
+          <input type="checkbox" role="switch" checked={stairs} onChange={(event) => setStairs(event.target.checked)} />
+        </label>
+      </div>
       <div className="field">
-        <span>Rooms to avoid</span>
-        <GroupChips label="Room types the object avoids" placeholder="e.g. lab" groups={avoid} onChange={(rooms) => setAvoid([...new Set(rooms.map((room) => room.replace(/\s+/g, '_')))])} />
+        <span>Room types it avoids</span>
+        <GroupChips label="Room types the object avoids" placeholder="e.g. lab" groups={avoid} suggestions={roomTypes}
+          onChange={(rooms) => setAvoid([...new Set(rooms.map((room) => room.replace(/\s+/g, '_')))])} />
       </div>
       {error && <p className="sheet-error" role="alert">{error}</p>}
       <button type="submit" className="hud-primary" disabled={busy || !valid}>

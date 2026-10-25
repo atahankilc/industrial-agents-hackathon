@@ -262,7 +262,7 @@
 
 /* the admin button, bottom right over the plan's own round buttons (placed inline from the screen's insets): a solid
    accent so whoever may change the building finds it; it turns the Edit mode on and off */
-.admin-corner { position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: flex-end; }
+.admin-corner { position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 
 .admin-button {
   display: grid;

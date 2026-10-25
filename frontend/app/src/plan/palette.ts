@@ -30,6 +30,8 @@ export type PlanPalette = {
   halo: string
   selected: string
   selectedEdge: string
+  /** the user: the "you are here" figure's orange (hud.css --hud-me), also on the rooms they might be in */
+  me: string
   /** doorway threshold strips (no door leaves: the data has no swing) and building entrances */
   door: string
   entrance: string
@@ -106,6 +108,7 @@ export const LIGHT: PlanPalette = {
   halo: '#FFFFFF',
   selected: '#D7E8FF',
   selectedEdge: '#0A84FF',
+  me: '#F2602A',
   door: '#9CC3F0',
   entrance: '#0A84FF',
   restricted: '#6E6B66',
@@ -150,6 +153,7 @@ export const DARK: PlanPalette = {
   halo: '#1C1C1E',
   selected: '#123A66',
   selectedEdge: '#409CFF',
+  me: '#F2602A',
   door: '#4D78A8',
   entrance: '#409CFF',
   restricted: '#1B1B1E',

@@ -104,6 +104,20 @@ def auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+def test_restricting_after_the_first_turn_rebuilds_the_system_prompt(monkeypatch):
+    monkeypatch.setenv("GUIDE_LLM", "offline")
+    from backend.sessions import SessionStore
+    store = SessionStore()
+    conversation = store.create(BUILDING)
+    names = [conversation.session.building.spaces[space]["name"] for space in STORAGE]
+    conversation.guide.reply("where is the printer")
+    conversation = store.ensure_access(conversation, frozenset(STORAGE))
+    text = conversation.guide.system[1]["text"]
+    assert "restricted" in text and not [name for name in names if name in text]
+    conversation.guide.refresh_system()  # the rebuilt prompt is the baseline: no note follows
+    assert conversation.guide.system_note is None
+
+
 def test_access_off_config(monkeypatch):
     monkeypatch.setattr(app_module, "access", Access(store=MemoryAccess(), enabled=False))
     client = TestClient(app_module.app)

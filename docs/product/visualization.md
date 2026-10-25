@@ -119,7 +119,7 @@ place card) with a floating Guide conversation.
   about are tinted in the route blue (three soft pulses, then steady) with name badges; items get a ringed dot (names
   when ≤ 4). `search`, `locate`, `room_facts` and `show_on_map` all emit highlights (items too: `asset_ids`), and the
   camera frames them (`PlanView` `focus`, ≥ 14 m across) — all floors stacked if they spread over several. A route is
-  framed whole (stacked when it crosses floors); **Start** on the next-move card then frames one step at a time, reads
+  framed whole (stacked when it crosses floors); **Start** on the route bar (`RouteHud.tsx` `RouteBar`, or a spoken "start") then frames one step at a time, reads
   it aloud and waits for "I'm there" (button, typed or spoken "geldim" / "next"). Each walking step also turns the
   map so the step runs straight up the screen (start → end of the step, `Focus.heading`; a stairs/lift step keeps
   the turn), with you (green dot + cone) at its start and the next move's arrow in a ringed blue disc at its end.
@@ -148,11 +148,16 @@ place card) with a floating Guide conversation.
 - **Nearby buildings** (2026-10-25, [D-021](../../memory-bank/decisions.md#d-021)): a "found nearby" card lists matches
   in neighbouring buildings (Directions / Open); a route to one ends at the exit with a dashed line across outside to
   the other entrance and a Continue badge/button, which opens that building and draws the rest from its entrance.
+  The same happens on "I'm there" at the exit, or when the Guide opens the neighbour itself (`open_nearby_building`
+  → `open_building` UI event; `BuildingScreen` goes there through `continueTo` once the reply has been said).
 
 ## Answers on the plan
 
 `frontend/app/src/dev/`: the current answer drawn over the plan without changing the plan's colours. (The dev
-tools panel that also lived here was removed 2026-10-25; the admin button now only toggles the Edit mode.)
+tools panel that also lived here was removed 2026-10-25; the admin button now only toggles the Edit mode. In access mode the
+admin also gets a shield button above it that opens the Building settings — tabs Access / People / Objects — and the
+Edit mode an Access tool: tap a room to choose who may enter it, restricted rooms hatched; both save at once through
+`src/access/useAccessRules.ts`. The Edit mode frames one floor straight down.)
 Verified in Chrome on `train/proc-campus-train-000` and `dev/proc-factory-dev-003`.
 
 - **On the plan** (`StoryLayer.tsx`, from the map events of Guide replies via `story.ts`): the thin route line of
@@ -172,6 +177,10 @@ Verified in Chrome on `train/proc-campus-train-000` and `dev/proc-factory-dev-00
   `point`, the route event carries `start_point`), not at the room's anchor; and a door between two spaces whose
   outlines overlap there (an OSM lecture hall outline that takes in its lobby) is left out of the line with its
   landings, instead of a dip into the doorway and back.
+- Since 2026-10-25 (session 22): where a route changes floor, a riser as wide as the route joins the two floors,
+  drawn over the slabs; walking a stairs or lift step stacks just those two floors. A position the Guide sets shows
+  for 1.6 s before the route from it. With the position unknown, the rooms the user might be in (the Guide's guesses,
+  else the entrances) get dashed outlines and "Here? · room" badges after the answer; a tap stands them there.
 - An earlier visual-concepts experiment (streets, muted rooms, quiet furniture, semantic zoom) was dropped: it made
   the plan less colourful.
 - **Not verified:** a Guide reply driving the plan end to end (the offline Guide answered neither question tried);

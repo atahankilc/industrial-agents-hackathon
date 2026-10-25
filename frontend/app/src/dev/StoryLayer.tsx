@@ -251,24 +251,38 @@ function Route({ plan, runs, palette, shown, floor, stacked, lift, routeKey, ste
     if (progress.current < total || !still || easing) invalidate()
   })
 
-  // where the route changes floor and both floors are drawn apart: a dashed riser between them
+  // where the route changes floor and both floors are drawn apart: a riser between them, as wide as the route and
+  // cased like it, drawn over the floors so the slab in between never hides it
   const risers = useMemo(() => {
-    const positions: number[] = []
+    const group = new THREE.Group()
+    const up = new THREE.Vector3(0, 1, 0)
     for (let i = 0; i + 1 < runs.length; i++) {
       const a = runs[i]
       const b = runs[i + 1]
       if (!shown.includes(a.floor) || !shown.includes(b.floor) || lift(a.floor) === lift(b.floor)) continue
       const [ax, az] = toScene(plan, ...a.points[a.points.length - 1])
       const [bx, bz] = toScene(plan, ...b.points[0])
-      positions.push(ax, lift(a.floor) + ROUTE_Y, az, bx, lift(b.floor) + ROUTE_Y, bz)
+      const from = new THREE.Vector3(ax, lift(a.floor) + ROUTE_Y, az)
+      const to = new THREE.Vector3(bx, lift(b.floor) + ROUTE_Y, bz)
+      const length = from.distanceTo(to)
+      for (const [px, colour, order] of [[CASING_PX, palette.halo, 7], [ROUTE_PX, palette.selectedEdge, 8]] as const) {
+        const tube = new THREE.Mesh(
+          new THREE.CylinderGeometry(px / zoom / 2, px / zoom / 2, length, 12),
+          new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity: px === CASING_PX ? CASING_OPACITY : 1, depthTest: false, depthWrite: false }),
+        )
+        tube.position.copy(from).add(to).multiplyScalar(0.5)
+        tube.quaternion.setFromUnitVectors(up, to.clone().sub(from).normalize())
+        tube.renderOrder = order
+        group.add(tube)
+      }
     }
-    const geometry = new THREE.BufferGeometry()
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-    return new THREE.LineSegments(geometry, new THREE.LineDashedMaterial({ color: palette.selectedEdge, dashSize: 0.3, gapSize: 0.2 })).computeLineDistances()
-  }, [plan, runs, shown, lift, palette.selectedEdge])
+    return group
+  }, [plan, runs, shown, lift, zoom, palette.halo, palette.selectedEdge])
   useEffect(() => () => {
-    risers.geometry.dispose()
-    ;(risers.material as THREE.Material).dispose()
+    for (const tube of risers.children as THREE.Mesh[]) {
+      tube.geometry.dispose()
+      ;(tube.material as THREE.Material).dispose()
+    }
   }, [risers])
 
   return (
@@ -422,11 +436,13 @@ function ClosedHatch({ plan, palette, floors, lift }: { plan: Plan; palette: Pla
 
 export type Marker = {
   key: string
-  kind: 'start' | 'end' | 'change' | 'item' | 'you' | 'place' | 'next' | 'me' | 'goal' | 'move'
+  kind: 'start' | 'end' | 'change' | 'item' | 'you' | 'place' | 'next' | 'me' | 'goal' | 'move' | 'maybe'
   floor: number
   at: [number, number]
   label: string
   goto?: number
+  /** 'maybe': the room a tap stands you in */
+  space?: string
   /** 'you': a unit direction in the plan frame, drawn as the cone (projected, so it turns with the view) */
   ahead?: [number, number]
   stale?: boolean
@@ -470,7 +486,7 @@ export function storyMarkers(plan: Plan, story: Story): Marker[] {
   // the rooms an answer is about, by name (a route names its destination already; rooms holding named items too)
   if (!route) {
     const holding = new Set(named ? plan.assets.filter((asset) => items.has(asset.id)).map((asset) => asset.space) : [])
-    const wanted = new Set(story.focus.filter((id) => !holding.has(id)))
+    const wanted = new Set(story.focus.filter((id) => !holding.has(id) && !story.maybe?.includes(id)))
     for (const space of plan.spaces.filter((item) => wanted.has(item.id)).slice(0, MAX_PLACE_LABELS))
       markers.push({ key: `place-${space.id}`, kind: 'place', floor: space.floor, at: space.label, label: space.name })
   }
@@ -480,6 +496,10 @@ export function storyMarkers(plan: Plan, story: Story): Marker[] {
   // the step on the card, where it is made
   if (route && story.move) markers.push({ key: 'move', kind: 'move', floor: story.move.floor, at: story.move.at, label: story.move.step.text, turn: story.move.step })
   if (story.outdoor) markers.push({ key: 'next', kind: 'next', floor: story.outdoor.floor, at: story.outdoor.to, label: story.outdoor.label })
+  // where you might be (your position not known): tap the right one
+  const maybe = new Set(story.maybe ?? [])
+  for (const space of plan.spaces.filter((item) => maybe.has(item.id)))
+    markers.push({ key: `maybe-${space.id}`, kind: 'maybe', floor: space.floor, at: space.label, label: space.name, space: space.id })
   if (story.you) markers.push({ key: 'you', kind: 'you', floor: story.you.floor, at: story.you.at, ahead: story.you.ahead, stale: story.you.stale, along: story.you.along, label: 'You' })
   return markers
 }
@@ -492,9 +512,11 @@ export type MarkerActions = {
   onMeDrop?: (x: number, y: number) => void
   /** while the figure is dragged: where it would land there (its label), shown on the figure */
   onMePreview?: (x: number, y: number) => string | null
+  /** a "you might be here" badge tapped: stand in that room */
+  onMaybe?: (space: string) => void
 }
 
-export function StoryMarkers({ markers, elements, onGoto, onNext, onMeDrop, onMePreview }: { markers: Marker[]; elements: React.RefObject<Map<string, HTMLElement>> } & MarkerActions) {
+export function StoryMarkers({ markers, elements, onGoto, onNext, onMeDrop, onMePreview, onMaybe }: { markers: Marker[]; elements: React.RefObject<Map<string, HTMLElement>> } & MarkerActions) {
   return (
     <div className="story-markers">
       {markers.map((marker) => {
@@ -522,6 +544,16 @@ export function StoryMarkers({ markers, elements, onGoto, onNext, onMeDrop, onMe
                 onClick={() => onNext?.()}
               >
                 {marker.label}
+              </button>
+            ) : marker.kind === 'maybe' && marker.space ? (
+              <button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerUp={(event) => event.stopPropagation()}
+                onClick={() => onMaybe?.(marker.space!)}
+                aria-label={`I'm in ${marker.label}`}
+              >
+                <PersonGlyph size={14} /> Here? · {marker.label}
               </button>
             ) : marker.kind === 'me' ? (
               <MeFigure label={marker.label} onDrop={onMeDrop} onPreview={onMePreview} />
@@ -748,12 +780,15 @@ export function StoryLayer({ plan, story, palette, shown, floor, stacked, lift, 
   const floors = useMemo(() => shown, [key])
   const runs = useMemo(() => (story.route ? routeRuns(story.route.line) : []), [story.route])
   const here = useMemo(() => (stacked ? floors : [floor]), [stacked, floors, floor])
+  // a room you might be in is drawn as that (orange, dashed), not also as part of the answer (blue)
+  const focus = useMemo(() => (story.maybe?.length ? story.focus.filter((id) => !story.maybe!.includes(id)) : story.focus), [story.focus, story.maybe])
   return (
     <>
       <ClosedHatch plan={plan} palette={palette} floors={floors} lift={lift} />
       {story.lost.length > 0 && <Outlines plan={plan} ids={story.lost} colour={palette.labelSoft} floors={floors} lift={lift} dashed />}
-      {story.focus.length > 0 && !story.route && <FocusFill plan={plan} ids={story.focus} colour={palette.selectedEdge} floors={here} lift={lift} answerKey={story.key} />}
-      {story.focus.length > 0 && <Outlines plan={plan} ids={story.focus} colour={palette.selectedEdge} floors={here} lift={lift} />}
+      {!!story.maybe?.length && <Outlines plan={plan} ids={story.maybe} colour={palette.me} floors={here} lift={lift} dashed />}
+      {focus.length > 0 && !story.route && <FocusFill plan={plan} ids={focus} colour={palette.selectedEdge} floors={here} lift={lift} answerKey={story.key} />}
+      {focus.length > 0 && <Outlines plan={plan} ids={focus} colour={palette.selectedEdge} floors={here} lift={lift} />}
       {runs.length > 0 && <Route plan={plan} runs={runs} palette={palette} shown={floors} floor={floor} stacked={stacked} lift={lift} routeKey={story.key} step={story.step} />}
       {story.outdoor && floors.includes(story.outdoor.floor) && (
         <DashedWalk plan={plan} from={story.outdoor.from} to={story.outdoor.to} floor={story.outdoor.floor} colour={palette.selectedEdge} lift={lift} />

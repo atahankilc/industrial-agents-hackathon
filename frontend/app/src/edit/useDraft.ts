@@ -19,7 +19,7 @@ import type { ItemPreset, Selection, Tool } from './types'
 const draftKey = (base: string) => `draft:${base}`
 const MESSAGE_MS = 6000
 const ROTATE_STEP_DEG = 15
-export const TOOL_KEYS: Record<string, Tool> = { v: 'select', d: 'door', i: 'item' }
+export const TOOL_KEYS: Record<string, Tool> = { v: 'select', d: 'door', i: 'item', a: 'access' }
 
 // One open request per base building: a second mount while the first is still loading (React StrictMode runs
 // effects twice) must get the same draft, or two drafts are created and localStorage keeps the wrong one.
@@ -64,11 +64,14 @@ const exists = (building: BuildingJson, selection: Selection) =>
 const typing = (target: EventTarget | null) =>
   target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement
 
-export function useDraft(base: string, active: boolean) {
+/** `accessTool`: the Access tool is offered (access mode, the admin) — its key does nothing otherwise. */
+export function useDraft(base: string, active: boolean, accessTool = false) {
   const [state, setState] = useState<DraftState | null>(null)
   const [plan, setPlan] = useState<Plan | null>(null)
   const [selected, setSelected] = useState<Selection>(null)
   const [message, setMessage] = useState<string | null>(null)
+  // the copy could not be made or resumed (e.g. not the admin): stays until editing starts again, unlike `message`
+  const [failed, setFailed] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [revision, setRevision] = useState(0) // bumped on every op response, applied or refused
   const [proposal, setProposal] = useState<Proposal | null>(null) // the Builder's open proposal, drawn as a ghost
@@ -89,7 +92,8 @@ export function useDraft(base: string, active: boolean) {
   useEffect(() => {
     if (!active) return
     let cancelled = false
-    openDraft(base).then((next) => !cancelled && setState(next)).catch((error) => !cancelled && setMessage(reason(error)))
+    setFailed(null)
+    openDraft(base).then((next) => !cancelled && setState(next)).catch((error) => !cancelled && setFailed(reason(error)))
     return () => {
       cancelled = true
     }
@@ -179,7 +183,7 @@ export function useDraft(base: string, active: boolean) {
 
   /** The Door / Item tool's tap at `at` on a floor (PlanView onTap). False when there was nothing to put it on. */
   const placeAt = useCallback((floorId: string, at: XY, pixelsPerMetre: number) => {
-    if (!state || busy || tool === 'select') return false
+    if (!state || busy || (tool !== 'door' && tool !== 'item')) return false
     const ops = placeOps(state.building, floorId, at, tool, preset, REACH_PX / Math.max(pixelsPerMetre, 1e-6))
     if (!ops) {
       setMessage(tool === 'door' ? 'Tap closer to a wall to put a door in it.' : 'Tap inside a room to put the item there.')
@@ -326,8 +330,8 @@ export function useDraft(base: string, active: boolean) {
         return
       }
       if (event.metaKey || event.ctrlKey || event.altKey || typing(event.target)) return
-      if (TOOL_KEYS[key]) setTool(TOOL_KEYS[key])
-      else if ((key === 'delete' || key === 'backspace') && selected) {
+      if (TOOL_KEYS[key] && (TOOL_KEYS[key] !== 'access' || accessTool)) setTool(TOOL_KEYS[key])
+      else if ((key === 'delete' || key === 'backspace') && selected && tool !== 'access') {
         event.preventDefault()
         deleteSelected()
       } else if (key === 'r' && selected?.kind === 'asset' && !busy) turnSelected(event.shiftKey ? -ROTATE_STEP_DEG : ROTATE_STEP_DEG)
@@ -338,7 +342,7 @@ export function useDraft(base: string, active: boolean) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [active, undo, redo, deleteSelected, turnSelected, selected, tool, busy])
+  }, [active, undo, redo, deleteSelected, turnSelected, selected, tool, busy, accessTool])
 
   // leaving the Edit mode drops the transient bits; the draft itself is kept
   useEffect(() => {
@@ -349,7 +353,7 @@ export function useDraft(base: string, active: boolean) {
   }, [active])
 
   return {
-    state, plan, selected, setSelected, message, setMessage, busy, revision, proposal, tool, setTool,
+    state, plan, selected, setSelected, message, setMessage, failed, busy, revision, proposal, tool, setTool,
     preset, setPreset, onOps, undo, redo, canRedo: redoable.length > 0, placeAt, discard, deleteSelected, turnSelected, save,
     messages, setMessages, asking, ask, apply, cancel, suggestions, proposalFloorId,
   }

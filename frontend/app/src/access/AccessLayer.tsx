@@ -135,7 +135,7 @@ function Corner({ compact }: { compact: boolean }) {
           )}
           {/* signed out the Preferences are kept in this browser's local storage (./preferences.ts) */}
           {access.mode && !access.email && <p className="account-hint">Signed out, your preferences stay in this browser.</p>}
-          {access.admin && !compact && <p className="account-hint">Access, members and objects: open a building and ask the Guide for its Building settings.</p>}
+          {access.admin && !compact && <p className="account-hint">Access, members and objects: open a building and tap the shield button, or ask the Guide.</p>}
         </div>
       )}
     </div>

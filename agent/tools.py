@@ -37,6 +37,8 @@ from core.solvers.routing import with_new_door
 from core.solvers.walls import shared_wall_neighbours
 
 MAX_RESULTS = 15
+MAX_GUESSES = 3  # rooms the Guide may name as where the user might be (suggest_my_location)
+MAX_MAYBE_HERE = 8  # rooms the app marks as where the user might be (entrances of a big building: the first 8)
 # Kit README: some Swiss Dwellings floors are centred per floor rather than aligned (84 of 108 multi-floor Swiss
 # buildings have every floor's space-bbox centre within 2 m of the origin on each axis; 82 with a Euclidean 2 m
 # radius), so "directly above/below" is meaningless there.
@@ -225,7 +227,11 @@ class BuildingSession:
         "here" / "my location" is the space of the app's "you are here" figure."""
         if reference.strip().lower() in HERE:
             if self.user_location is None:
-                raise MapError("The user's position is not known; ask where they are.")
+                # every time (the app reads only this turn's events, and takes the last of them)
+                entrances = self.entrance_rooms()
+                self.maybe_here(entrances, "entrances")
+                marked = " (the app marks the entrances as places they might be)" if entrances and self.emitting else ""
+                raise MapError(f"The user's position is not known; ask where they are{marked}.")
             return self.user_location["space_id"]
         found = places.candidates(self.building, reference)
         if len(found) != 1:
@@ -260,21 +266,24 @@ class BuildingSession:
                                 "asset_ids": list(asset_ids)[:MAX_RESULTS * 2]})
 
     def destination_options(self, start: str, destination: str, via: list[str]) -> dict | None:
-        """A destination phrase that fits several spaces: the route length to each, shortest first (D-012)."""
+        """A destination phrase that fits several spaces: the route length to each, shortest first (D-012). Of many,
+        only the ones nearest in a straight line are routed to (core/route_query.shortlist), as find_nearest does."""
         found = places.candidates(self.building, destination)
-        if not 1 < len(found) <= places.MAX_OPTIONS:
+        if len(found) < 2 or (len(found) > places.MAX_OPTIONS and start == OUTSIDE):
             return None
+        routed = shortlist(self.building, start, found) if len(found) > places.MAX_OPTIONS else found
         options = []
-        for space_id in found:
+        for space_id in routed:
             route = navigation.find_route(self.building, start, space_id, step_free=self.profile.step_free,
                                           closed=self.profile_closures(), via=via, model=self.route_model,
                                           rules=self.route_rules(), penalties=self.profile.penalties()).to_dict()
             options.append({**self.space_summary(space_id),
                             "length_m": route["length_m"] if route.get("reachable") else None})
         options.sort(key=lambda option: (option["length_m"] is None, option["length_m"] or 0.0))
+        self.highlight([option["id"] for option in options])  # the rooms the Guide is about to ask between
         extras = {option["id"]: f"{option['length_m']} m" if option["length_m"] is not None else "unreachable"
                   for option in options}
-        return {"error": places.problem(self.building, destination, [o["id"] for o in options], extras),
+        return {"error": places.problem(self.building, destination, [o["id"] for o in options], extras, len(found)),
                 "options": options}
 
     # ---------- read-only tools ----------
@@ -347,7 +356,7 @@ class BuildingSession:
 
     def tool_find_route(self, start: str, destination: str, via: list[str] | None = None,
                         closed: list[str] | None = None) -> dict:
-        start, via = self.stop(start), [self.stop(item) for item in via or ()]
+        start, via = self.start_of(start), [self.stop(item) for item in via or ()]
         if destination != OUTSIDE and (options := self.destination_options(start, destination, via)):
             return options
         destination = self.stop(destination)
@@ -377,7 +386,7 @@ class BuildingSession:
         under the profile: routes to it (one route event, the map shows only that one) and lists the next ones.
         `closed`: closures for this question only (names or ids). Only the 12 candidates nearest in a straight line
         are routed to (core/route_query.shortlist), so big buildings with many matches stay fast."""
-        start = self.stop(start)
+        start = self.start_of(start)
         closures = [*self.profile_closures(), *(closed or [])]
         found = navigation.locate(self.building, query, floor_id).to_dict()
         spaces = list(dict.fromkeys(hit["space_id"] for hit in found.get("assets") or []))
@@ -772,14 +781,53 @@ class BuildingSession:
         self.highlight(rooms, items)
         return {"shown": rooms + items}
 
+    def start_of(self, reference: str) -> str:
+        """`stop` for where the user is: a phrase that fits several rooms ("I'm in the kitchen") marks them all as
+        where they might be (`maybe_here`, drawn apart from the answer), so they can tap theirs."""
+        try:
+            return self.stop(reference)
+        except MapError as error:
+            found = [] if reference.strip().lower() in HERE else places.candidates(self.building, reference)
+            if len(found) < 2:
+                raise
+            self.maybe_here(found, "guide")
+            raise MapError(f"{error} The app marks these rooms as where the user might be; they can also tap theirs.") from None
+
     def tool_set_my_location(self, place: str) -> dict:
         """The user said where they are: that space is "here" from now on, and the app puts its "you are here"
         figure there (event `location`) and zooms to it."""
-        space_id = self.resolve(place)
+        space_id = self.start_of(place)
         location = self.set_location(space_id)
         if self.emitting:
             self.events.append({"type": "location", "space_id": space_id})
         return {"location": location, "note": "The app now shows the user here; pass \"here\" as the start."}
+
+    def maybe_here(self, space_ids: list[str], source: str) -> None:
+        """Mark on the user's map where they might be (event `maybe_here`, `source` "guide" or "entrances"): the app
+        shows these rooms after the answer, and a tap on one puts the "you are here" figure there."""
+        if self.emitting and space_ids:
+            self.events.append({"type": "maybe_here", "space_ids": list(dict.fromkeys(space_ids))[:MAX_MAYBE_HERE],
+                                "source": source})
+
+    def entrance_rooms(self) -> list[str]:
+        """The rooms the building's entrances open into, once each."""
+        return list(dict.fromkeys(self.building.other_side(opening, OUTSIDE) for opening in self.building.openings.values()
+                                  if OUTSIDE in opening["space_ids"]))
+
+    def tool_suggest_my_location(self, rooms: list[str] | None = None) -> dict:
+        """The user's position is needed but not known: mark where they might be — the rooms the Guide names (from
+        their words or a photo), else the entrances — so they can tap the right one."""
+        guessed = list(dict.fromkeys(self.resolve(room) for room in rooms or []))[:MAX_GUESSES]
+        if guessed:
+            self.maybe_here(guessed, "guide")
+            return {"shown": [self.space_summary(space_id) for space_id in guessed],
+                    "note": "The app marks these rooms; ask which one they are in (they can also tap it)."}
+        entrances = self.entrance_rooms()
+        if not entrances:
+            return {"error": "This building has no entrances in the data; ask where they are."}
+        self.maybe_here(entrances, "entrances")
+        return {"shown": [self.space_summary(space_id) for space_id in entrances[:MAX_MAYBE_HERE]],
+                "note": "The app marks the entrances; ask where they are (they can also tap one)."}
 
     def shown_route(self) -> dict | None:
         """The last route event, while it is still on the app's map (no `route_end` after it)."""
@@ -791,7 +839,7 @@ class BuildingSession:
         return None
 
     def route_card(self) -> list[dict]:
-        """The steps of the app's next-move card for the last route shown (core/directions.guidance, as
+        """The steps of the app's route bar for the last route shown (core/directions.guidance, as
         backend/sessions.py sends them with the route event); [] when there is none."""
         route = self.shown_route()
         if route is None:
@@ -981,6 +1029,11 @@ TOOL_DEFINITIONS: list[dict] = [
     {"name": "set_my_location", "description": "The user says where they are now (\"I'm in the lobby\", \"I'm at "
      "Lab 2.17\"): it becomes \"here\" for later routes, and the app puts its you-are-here figure there and zooms to "
      "it.", "input_schema": {"type": "object", "properties": {"place": PLACE}, "required": ["place"]}},
+    {"name": "suggest_my_location", "description": "The user's position is needed (e.g. for a route) but not known: "
+     "the app marks where they might be after your answer, and they can tap the right one. Give up to 3 rooms they "
+     "could be in when their words or a photo point to some; with none, the app marks the entrances. Then ask "
+     "where they are.", "input_schema": {"type": "object", "properties": {
+         "rooms": {"type": "array", "items": PLACE, "maxItems": 3}}}},
     {"name": "show_route_step", "description": "Move the app's step card to a step of the route the user is "
      "following, numbered as in the [route note]: call it whenever your reply is about a different step than the "
      "one the user is at (they moved on, ask what's next, or ask about a later or earlier step).",

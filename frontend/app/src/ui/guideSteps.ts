@@ -32,6 +32,7 @@ export function stepLabel(step: ChatStep): string {
     case 'show_on_map': return 'Highlighting it on the map'
     case 'find_nearest': return `Finding the nearest ${clip(input.query)}`
     case 'set_my_location': return `Placing you at ${clip(input.place)}`
+    case 'suggest_my_location': return 'Marking where you might be'
     case 'show_route_step': return `Going to step ${clip(input.step)}`
     case 'search_nearby_buildings': return 'Looking at the buildings nearby'
     case 'route_to_building': return 'Finding the way to the next building'

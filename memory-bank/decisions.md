@@ -328,11 +328,12 @@ Template:
 - **Decision:** Buildings with a real position (backend/locations.json) get `search_nearby_buildings` and
   `route_to_building` (`agent/campus.py`, pins ≤ 600 m apart). A route picks the entrance pair with the shortest
   inside-here + straight-line outside + inside-there total; the route event carries `next_building` and the app's
-  Continue opens that building, where `POST /sessions/{id}/arrive` places the user at the entrance and draws the rest
+  Continue (or "I'm there" at the exit, or the Guide's `open_nearby_building` tool, amended 2026-10-25) opens that
+  building, where `POST /sessions/{id}/arrive` places the user at the entrance and draws the rest
   (routing profile copied from the previous session).
 - **Consequences:** No street graph: outdoor metres are a straight-line estimate (labelled so in the tool result).
   The other building's leg ignores this session's closures. Only the 17 located OSM buildings have neighbours.
-- **Evidence:** `tests/test_campus.py` (10 tests); Hauptgebäude → Mensa Arcisstraße: ~7 m inside, ~120 m outside,
+- **Evidence:** `tests/test_campus.py` (11 tests); Hauptgebäude → Mensa Arcisstraße: ~7 m inside, ~120 m outside,
   ~15 m inside.
 
 <a id="d-022"></a>

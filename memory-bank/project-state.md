@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-25** (route following variant B — `maneuvers` steps, `RouteHud` trip pill + dock line, thin route line with a step callout; floating Guide with the shader ball, hold/tap talk, history arrows; one settings corner; `open_building_settings` tool; learned preferences with Undo; street view + phone compass; opening without the freeze; Mensa fit inside its OSM way; basement veil removed — shipped on `dev`; before that: step guide faces the step + animated route band, step card and Guide in sync via `route_step` / `show_route_step`, `find_nearest` tool, route line from the figure, calmer voice, map building tones, round-button system — shipped on `dev`; before that: building screen "Quiet HUD" steps 1–5 with the pulls of `origin/dev` 26b908f + b352e83)
+[Memory bank](README.md) · Last updated: **2026-10-25** (verifier fixes for 3113a99..a5f5407: access-mode prompt rebuilt on a restricted switch, "I'm there" at the exit opens the next building, one "Spoken replies"; the Guide opens a nearby building itself (`open_nearby_building`) and directions answers are an overview ending in Start (D-020 amended) — shipped on `dev`; before that: route following variant B — `maneuvers` steps, `RouteHud` trip pill + dock line, thin route line with a step callout; floating Guide with the shader ball, hold/tap talk, history arrows; one settings corner; `open_building_settings` tool; learned preferences with Undo; street view + phone compass; opening without the freeze; Mensa fit inside its OSM way; basement veil removed — shipped on `dev`; before that: step guide faces the step + animated route band, step card and Guide in sync via `route_step` / `show_route_step`, `find_nearest` tool, route line from the figure, calmer voice, map building tones, round-button system — shipped on `dev`; before that: building screen "Quiet HUD" steps 1–5 with the pulls of `origin/dev` 26b908f + b352e83)
 
 ## Phase
 
@@ -27,6 +27,7 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## What exists
 
+- **Floor changes and position on the plan (session 22, 2026-10-25):** visible riser, stacked ride step, location shown before its route, `maybe_here` / `suggest_my_location` "Here? · room" badges ([visualization](../docs/product/visualization.md#answers-on-the-plan)).
 - Repo root is the build root ([D-004](decisions.md#d-004)): `core/` (building_map from the kit + question_parser),
   `benchmark/` (official scorer), `data/` (committed, [D-005](decisions.md#d-005)), `tests/`, `pyproject.toml` (uv,
   pytest dev dep). Kit remainder in `archive/initial-repo/`.
@@ -66,6 +67,11 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## What works (verified 2026-10-24)
 
+- **Phones (2026-10-25, branch `6-mobile`):** Guide voice no longer hangs when iOS blocks the browser voice, streams
+  are not gzipped and ping every 10 s, the app drops a silent stream after 45 s, home-screen app metas + manifest,
+  16 px fields on touch ([ai-agents.md](../docs/architecture/ai-agents.md)). **Blocker:** `ELEVENLABS_API_KEY` is
+  not set on Vercel (no ElevenLabs voice / Scribe there). Not yet tried on a real iPhone.
+
 - **Chat Guide + Sunday layers (2026-10-25, branch `4-sunday-agent`, after merging dev c3ab8f0):** `compute` tool
   (Python sandbox; its `route()` = `find_route`'s rules and profile), `find_nearest` with `closed` + shortlist,
   readable Claude API errors (`backend/service_errors.py`, app note + voice). New vs old dev Guide: capability set 5/5
@@ -102,10 +108,12 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `llm_cache/decisions.json` (`agent/llm_cache.py`). Probe `scripts/eval_sunday_probe.py`: **14/14** (old pipeline
   ~7/14; agent only for the 3 new kinds), and 14/14 identical when replayed with no API access. Test-set answers
   byte-identical. `origin/dev` merged into the branch (PR #2 into `dev`, pushed 2026-10-25).
-- **Guide on the plan, figure, step guide, nearby buildings (2026-10-25, D-020/D-021, not committed yet):** answers
+- **Guide on the plan, figure, step guide, nearby buildings (2026-10-25, D-020/D-021, on `dev`):** answers
   tint + label + frame their rooms and items; draggable "you are here" figure (the Guide routes from "here"); routes
   framed whole, then Start → step by step with "I'm there"; `search_nearby_buildings` / `route_to_building` for the 17
-  located buildings with Continue into the next building (`agent/campus.py`, `building/Elsewhere.tsx`).
+  located buildings; the next building opens from the route bar's Continue, from "I'm there" at the exit, or by the
+  Guide itself (`open_nearby_building`, `open_building` UI event) (`agent/campus.py`, `building/Elsewhere.tsx`).
+  Directions answers are an overview (about how far, floors, a landmark) ending in "Say start or press Start".
   `tests/test_campus.py`; headless Chrome check of figure + highlight (log 2026-10-25).
 
 - **Access mode (2026-10-25, D-015, `ACCESS_MODE=on`, off by default):** design
@@ -150,10 +158,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   **M2 done**; review (opus) fixes: a proposal is confirmable only by the very next message (another turn,
   Cancel — new `/proposals/{pid}/cancel` — or a hand edit closes it), only a bare "yes"/"ok" skips the model, text
   fields in ops are coerced to strings, a proposal made against a draft that changed meanwhile is not sent.
-  Edit mode restyled to the building screen's design (clay palette, cards, floor tabs). **2026-10-25 (not
-  committed):** Edit mode now lives inside the building view — the model shows the draft, handles sit on it
+  Edit mode restyled to the building screen's design (clay palette, cards, floor tabs). **2026-10-25
+  (e8de230):** Edit mode now lives inside the building view — the model shows the draft, handles sit on it
   (`edit/EditLayer.tsx` + PlanView `align`), the edit card replaces the Guide card (tools, Inspector, Builder, save)
-  ([log](log.md#2026-10-25--edit-mode-inside-the-building-view-not-committed)).
+  ([log](log.md#2026-10-25--edit-mode-inside-the-building-view-e8de230)).
 - **M3 (deployed store) built by us** (Utku took it back from Atahan 2026-10-24, not started;
   [m3 plan](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m3.md), decisions in the spec's "Milestone 3
   decisions"): drafts, saved buildings (shared with everyone) and the Builder's conversation in Supabase
@@ -184,12 +192,12 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   chat panel; light/dark. Backend enriched route /
   change events. (Point-cloud scene and `core/pointcloud.py` removed 2026-10-24.) Verified in Chrome with the offline Guide ([commands.md](../docs/guides/commands.md#frontend-app)).
 - **Building screen "Quiet HUD"** (2026-10-24/25, approved mockup round 2): voice-first Guide (`building/Core.tsx`,
-  `Guide.tsx`, `hud.css`), the Guide's work trail, the next-move card from `core/directions.guidance()` steps
-  (`NextMove.tsx`, route events carry `steps`), camera walk (`CameraWalk.tsx`), live tracking by dead reckoning
+  `Guide.tsx`, `hud.css`), the Guide's work trail, the route steps from `core/directions.guidance()` (route events
+  carry `steps`; on the plan the route bar in `RouteHud.tsx`, in the camera walk `NextMove.tsx`), camera walk (`CameraWalk.tsx`), live tracking by dead reckoning
   (`tracking.ts`, `useTracking.ts`; 0.7 m stride UNVERIFIED, `?walk=sim`). Checked with `tsc` + screenshots; not on a
   real phone, camera "Where am I?" needs the real Claude Guide. Next: the plan follows the dot; calibrate the stride.
 - **Dev panel removed** (2026-10-25): the app's dev tools panel is gone; the admin button is a single Edit
-  toggle (Building settings now open only through the Guide). Answers are still drawn over the plan
+  toggle (Building settings: the admin's shield button since 2026-10-25, or the Guide; Edit mode has an Access tool). Answers are still drawn over the plan
   (`frontend/app/src/dev/StoryLayer.tsx`, `story.ts`); backend `/dev/*` kept for tests
   ([visualization.md](../docs/product/visualization.md#answers-on-the-plan)).
 - **Guide voice = ElevenLabs** (2026-10-25, [D-016](decisions.md#d-016)): `POST /tts` (`backend/tts.py`, Flash v2.5,

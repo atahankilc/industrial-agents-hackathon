@@ -59,7 +59,10 @@ How to talk:
 - Ask only what changes the answer. When a place is vague ("the printer") or a name matches several spaces, \
 use search/locate first; if the user's words still don't settle it, ask one short question with at most 3 \
 options, each with its floor. This holds when items of the asked kind sit in several rooms and the user wants \
-to go to one: ask which before routing, even if one is nearer (you may give each option's distance). But when \
+to go to one: ask which before routing, even if one is nearer (you may give each option's distance). When the \
+start is known and the destination fits several rooms, call find_route with the user's words as the destination \
+instead of search: its options come with each one's length_m, nearest first; offer the nearest 3 by floor and \
+about-metres (and say how many more there are). But when \
 they ask for the nearest or closest one ("nearest toilet", "a kitchen near me"), call find_nearest and take them \
 there without asking; mention the next one only if it is about as close. Don't ask \
 for anything the question doesn't need, and don't end a complete answer with an offer ("Do you want…?").
@@ -69,7 +72,11 @@ once, with a preset where one fits, and confirm it in one line, naming any assum
 at least 0.8 m; tell me if yours is wider"); later routes use it without asking again. When the user says where \
 they are ("I'm in the lobby"), call set_my_location with that place: the app shows them there. After that, or \
 when a [location note] says where the user is (they put the app's "you are here" figure there), that is the \
-start of every route: pass "here" as the start and never ask where they are.
+start of every route: pass "here" as the start and never ask where they are. When a route needs their position \
+and you don't know it, first show the destination (show_on_map), then call suggest_my_location (with up to 3 rooms \
+their words or a photo point to, else none: the entrances) and ask where they are. When the words for where they \
+are fit several rooms ("I'm in the kitchen"), call set_my_location with those words, not search: the app marks \
+every match as where they might be, apart from the destination; then ask which one.
 - For directions: the app draws the whole route on the map and, once the user presses Start or says start, walks \
 them through it one step at a time, reading each step aloud and waiting until they say they've arrived. So a \
 directions answer is an overview, never a step: say you found the way, echo in one line what you understood \
@@ -400,6 +407,7 @@ class Guide:
         self.profile_note: str | None = None  # tells the model next turn what the safety net set
         self.location_note: str | None = None  # where the app's "you are here" figure stands, sent with the next turn
         self.system_note: str | None = None  # a system prompt change after the first turn, sent with the next turn
+        self.seen_overview = self.system[1]["text"]  # the overview the model last got (prompt or settings note)
         # Voice transcripts are normalised first (D-013), only when talking to the real API.
         self.rewriter: TranscriptRewriter | None = (
             TranscriptRewriter(session.building) if isinstance(self.client, anthropic.Anthropic)
@@ -498,11 +506,13 @@ class Guide:
     def refresh_system(self) -> None:
         """The session's overview or remembered preferences changed. Before the first turn the system prompt is
         rebuilt; after it the prompt stays as it is (editing it would invalidate the cached prefix and every earlier
-        thinking block) and the next turn carries the new overview as a note."""
+        thinking block) and the next turn carries the new overview as a note, once per change."""
         fresh = system_blocks(self.session)
         if not self.messages:
             self.system = fresh
-        elif fresh != self.system:
+            self.seen_overview = fresh[1]["text"]
+        elif fresh[1]["text"] != self.seen_overview:
+            self.seen_overview = fresh[1]["text"]
             self.system_note = ("[settings note, from the app] The building overview and the user's settings have "
                                 "changed. This replaces the overview in your instructions:\n" + fresh[1]["text"])
             self.corpus.append(self.system_note)

@@ -39,7 +39,8 @@
 }
 
 @media (min-width: 900px) {
-  .sheet { left: auto; right: 16px; top: 16px; bottom: auto; width: 400px; max-height: calc(100vh - 32px); border: 1px solid var(--hud-line); border-radius: 22px; }
+  /* under the settings corner (.account-corner, 16px in, one --btn-lg tall), so its button never covers the close */
+  .sheet { left: auto; right: 16px; top: calc(16px + var(--btn-lg) + 8px); bottom: auto; width: 400px; max-height: calc(100vh - 32px - var(--btn-lg) - 8px); border: 1px solid var(--hud-line); border-radius: 22px; }
   .sheet.wide { width: 460px; bottom: 16px; }
 }
 
@@ -398,32 +399,63 @@
 
 .rule-list li.row { flex-direction: row; align-items: center; justify-content: space-between; }
 
-/* ---- objects */
+/* ---- objects (./ObjectsSection.tsx): a card per object in the tab's inset group, the form in its own card */
 
+.object-status { display: flex; flex-direction: column; gap: 3px; margin-left: 36px; }
+.object-status p { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--hud-ink-2); font-size: 13px; }
+.object-status p svg { flex: none; color: var(--hud-ink-3); }
+.object-status p.none { color: var(--hud-ink-3); }
+.object-status p.live, .object-status p.live svg { color: var(--hud-live); }
 .object-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.rule-name small + small { margin-top: 0; }
-
-.place-picker { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
-.place-picker ul { display: flex; flex-direction: column; max-height: 220px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
-
-.place-picker li button {
-  display: block;
-  width: 100%;
-  padding: 8px 4px;
+.object-confirm { flex: none; display: flex; gap: 4px; }
+.settings .object-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: var(--btn-sm);
+  padding: 0 12px;
   border: 0;
-  border-top: 1px solid var(--hud-line);
-  background: transparent;
+  border-radius: 999px;
+  background: var(--hud-fill);
   color: var(--hud-ink);
-  font-size: 14px;
-  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
 }
+.settings .object-chip:disabled { opacity: 0.45; }
+.settings .object-chip.danger { background: color-mix(in srgb, var(--hud-warn) 16%, transparent); color: var(--hud-warn); }
+.settings .object-row .place-picker { margin: 4px 0 0 36px; }
+.place-picker ul { max-height: 240px; overflow-y: auto; }
 
-.place-picker li:first-child button { border-top: 0; }
-.place-picker li button small { display: block; font: 500 11px var(--font-mono); color: var(--hud-ink-3); }
+.tokens { display: flex; flex-direction: column; gap: 8px; }
+.settings .tokens h4 { display: inline-flex; align-items: center; gap: 6px; }
+.tokens .sheet-hint { margin: 0; }
+.token-item { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 0; border-top: 1px solid var(--hud-line); }
 
-.tokens { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-.tokens h4 { margin: 0; }
-.token-item { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px solid var(--hud-line); }
+.new-object { gap: 14px; }
+.object-kinds { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.object-kinds button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  height: 60px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: var(--hud-glass-2);
+  color: var(--hud-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.object-kinds button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.object-kinds button[aria-checked='true'] { border-color: var(--hud-route); background: color-mix(in srgb, var(--hud-route) 14%, transparent); color: var(--hud-ink); }
+.object-kinds button[aria-checked='true'] svg { color: var(--hud-route); }
+.object-fields { display: grid; grid-template-columns: 1fr 112px; gap: 10px; }
+.object-fields .field.unit em { bottom: 13px; font-style: normal; font-size: 14px; color: var(--hud-ink-3); }
+.object-moves { padding: 0 14px; border-radius: 14px; background: var(--hud-glass-2); }
+.object-moves .toggle-row + .toggle-row { border-top: 1px solid var(--hud-line); }
 
 /* ---- the notice */
 
@@ -559,3 +591,83 @@
   font: 500 11px var(--font-mono); color: var(--hud-ink-3);
 }
 .account-hint { margin: 4px 12px 8px; font-size: 12px; line-height: 1.4; opacity: 0.65; }
+
+/* ---- Building settings (./BuildingSettings.tsx): tabs, then inset groups like the Preferences */
+
+.settings h4 { margin: 22px 0 8px 14px; }
+.settings-building { margin: 2px 0 12px; color: var(--hud-ink-2); font-size: 13px; }
+.settings-tabs { margin: 0; position: sticky; top: 0; z-index: 1; }
+.settings-choice { margin: 0; background: var(--hud-fill); }
+.settings-choice button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.settings-choice button[aria-checked='true'] { background: var(--hud-solid); color: var(--hud-solid-ink); }
+.pref-group .settings-note { margin: 0; }
+.settings .pref-group .pref-row > .settings-choice, .settings .pref-group .pref-row > .settings-note { margin-left: 0; }
+
+.settings-area .pref-label > span { flex: 1; }
+.settings-email { overflow-wrap: anywhere; }
+.settings .settings-remove { flex: none; width: var(--btn-sm); height: var(--btn-sm); color: var(--hud-ink-2); }
+.settings .settings-remove:hover { color: var(--danger, var(--hud-warn)); }
+
+.settings-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+.settings .settings-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: var(--btn-lg);
+  padding: 0 18px 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--hud-solid);
+  color: var(--hud-solid-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.settings .settings-button.quiet { background: var(--hud-fill); color: var(--hud-ink); }
+.settings-status { margin: 12px 0 0 14px; color: var(--hud-ink-3); font-size: 12.5px; }
+.settings-status.failed { color: var(--hud-warn); }
+
+.settings-search { margin-top: 12px; padding: 8px; border-radius: 16px; background: var(--hud-fill); }
+.settings-search-field { display: flex; align-items: center; gap: 8px; height: var(--btn-lg); padding: 0 4px 0 14px; border-radius: 999px; background: var(--hud-glass-2); color: var(--hud-ink-2); }
+.settings-search-field input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: var(--hud-ink); font: inherit; font-size: 16px; outline: none; }
+.settings-search-field input::placeholder { color: var(--hud-ink-3); }
+.settings-search-head { margin: 12px 8px 4px; font: 500 10.5px var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--hud-ink-2); }
+.settings-search ul { margin: 0; padding: 0; list-style: none; }
+.settings-search li button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--hud-ink);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+}
+.settings-search li button svg { flex: none; color: var(--hud-ink-2); }
+.settings-search li button small { display: block; margin-top: 1px; color: var(--hud-ink-2); font-size: 12px; font-weight: 400; }
+.settings-search li button:hover { background: var(--hud-fill); }
+.settings-search .sheet-hint { margin: 10px 8px 4px; }
+
+.settings-invite { margin-top: 16px; padding: 14px; border-radius: 16px; background: var(--hud-fill); }
+.settings-invite-head { display: flex; align-items: center; justify-content: space-between; }
+.settings .settings-invite h4 { margin: 0; }
+
+/* groups already used here, one tap to add (./Sheet.tsx GroupChips `suggestions`) */
+.chips-with-offers { display: flex; flex-direction: column; gap: 8px; }
+.chip-offers { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-offer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px 0 7px;
+  border: 1px dashed var(--hud-line-2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--hud-ink-2);
+  font: 500 12px var(--font-mono);
+}
+.chip-offer:hover { border-style: solid; color: var(--hud-ink); }

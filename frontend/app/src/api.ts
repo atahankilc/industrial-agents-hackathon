@@ -169,6 +169,9 @@ export type EditModeEvent = { type: 'edit_mode'; request: string | null }
 export type SettingsEvent = { type: 'settings' }
 /** The user told the Guide where they are (agent/tools.py set_my_location): the "you are here" figure goes there. */
 export type LocationEvent = { type: 'location'; space_id: string }
+/** The user's position is needed but not known (agent/tools.py suggest_my_location, or a route from "here"): rooms
+ * they might be in — the Guide's guesses, else the entrances — marked after the answer; a tap stands them there. */
+export type MaybeHereEvent = { type: 'maybe_here'; space_ids: string[]; source: 'guide' | 'entrances' }
 /** The Guide talked about another step of the route being followed (agent/tools.py show_route_step): the step card
  * goes there. */
 export type RouteStepEvent = { type: 'route_step'; index: number }
@@ -180,7 +183,7 @@ export type RouteEndEvent = { type: 'route_end'; arrived: boolean; space_id?: st
  * to it (route_to_building's `next_building`) when one is on the map. */
 export type OpenBuildingEvent = { type: 'open_building'; building: string; name: string }
 
-export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent | ElsewhereEvent | EditModeEvent | SettingsEvent | LocationEvent | RouteStepEvent | RouteEndEvent | OpenBuildingEvent
+export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent | ElsewhereEvent | EditModeEvent | SettingsEvent | LocationEvent | MaybeHereEvent | RouteStepEvent | RouteEndEvent | OpenBuildingEvent
 
 export type ChatReply = {
   reply: string
@@ -303,7 +306,7 @@ function streamError(item: Record<string, unknown>): ServiceError {
   return new ServiceError(String(item.message ?? item.detail), String(item.code ?? 'internal'))
 }
 
-/** JSON headers plus the bearer token when signed in (also used by src/dev/devApi.ts). */
+/** JSON headers plus the bearer token when signed in. */
 export async function headers(extra?: HeadersInit): Promise<HeadersInit> {
   if (gate) await gate.catch(() => undefined)
   return { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), ...extra }
@@ -480,15 +483,66 @@ async function speech(text: string, lang: string, signal?: AbortSignal): Promise
   return response.arrayBuffer()
 }
 
+// The server sends a line at least every 10 s while a turn runs (a "ping" while the model thinks). A phone that locked
+// or lost its network mid-turn never gets an error, only silence: after this long without a byte the turn has failed.
+const STALL_MS = 45_000
+const LOST = 'The connection to the Guide was lost. Send it again.'
+
+/** Fetch an NDJSON stream whose reads give up after STALL_MS of silence (the request is aborted, then LOST). */
+async function watchedStream(path: string, init: RequestInit) {
+  const controller = new AbortController()
+  let timer = 0
+  const arm = () => {
+    clearTimeout(timer)
+    timer = window.setTimeout(() => controller.abort(), STALL_MS)
+  }
+  arm()
+  let response: Response
+  try {
+    response = await fetch(BASE + path, { ...init, signal: controller.signal })
+  } catch (error) {
+    clearTimeout(timer)
+    throw controller.signal.aborted ? new Error(LOST) : error
+  }
+  if (!response.ok || !response.body) {
+    clearTimeout(timer)
+    throw await failed(response, path)
+  }
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  return {
+    read: async () => {
+      arm()
+      try {
+        const chunk = await reader.read()
+        if (chunk.done) clearTimeout(timer)
+        return chunk
+      } catch (error) {
+        clearTimeout(timer)
+        throw controller.signal.aborted ? new Error(LOST) : error
+      }
+    },
+    close: () => {
+      clearTimeout(timer)
+      controller.abort()
+    },
+  }
+}
+
 /** One Guide turn over NDJSON: `onStep` fires while tools run, the promise resolves with the /chat payload. */
 async function chatStream(id: string, message: string, options: ChatOptions = {}): Promise<ChatReply> {
-  const response = await fetch(BASE + '/chat/stream', {
+  const reader = await watchedStream('/chat/stream', {
     method: 'POST',
     headers: await headers(),
     body: JSON.stringify({ session_id: id, message, channel: options.channel ?? 'text', heard: options.heard, selected: options.selected, photo: options.photo, route_step: options.routeStep }),
   })
-  if (!response.ok || !response.body) throw await failed(response, '/chat/stream')
-  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  try {
+    return await readChat(reader, options)
+  } finally {
+    reader.close()
+  }
+}
+
+async function readChat(reader: { read: () => Promise<ReadableStreamReadResult<string>> }, options: ChatOptions): Promise<ChatReply> {
   let buffer = ''
   for (;;) {
     const { value, done } = await reader.read()
@@ -509,13 +563,19 @@ async function chatStream(id: string, message: string, options: ChatOptions = {}
 
 /** One Builder turn (prompt edit) over NDJSON, parsed like `chatStream`. */
 async function builderStream(draftId: string, message: string, onStep?: (step: BuilderStep) => void): Promise<BuilderReply> {
-  const response = await fetch(`${BASE}/drafts/${draftId}/chat/stream`, {
+  const reader = await watchedStream(`/drafts/${draftId}/chat/stream`, {
     method: 'POST',
     headers: await headers(),
     body: JSON.stringify({ message }),
   })
-  if (!response.ok || !response.body) throw await failed(response, '/drafts/chat/stream')
-  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  try {
+    return await readBuilder(reader, onStep)
+  } finally {
+    reader.close()
+  }
+}
+
+async function readBuilder(reader: { read: () => Promise<ReadableStreamReadResult<string>> }, onStep?: (step: BuilderStep) => void): Promise<BuilderReply> {
   let buffer = ''
   for (;;) {
     const { value, done } = await reader.read()

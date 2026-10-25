@@ -1,0 +1,57 @@
+/* Building search (landing). Uses the app's theme tokens from styles.css, so it follows light/dark. */
+
+.bs { position: fixed; inset: 0; overflow: auto; background: var(--bg); }
+.bs-inner { max-width: 720px; margin: 0 auto; padding: 14vh 24px 64px; }
+
+.bs-map {
+  margin: 0 0 18px -10px; padding: 6px 10px; border: 0; border-radius: 999px; background: transparent;
+  color: var(--ink-2); font-size: 13px; cursor: pointer; transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.bs-map:hover, .bs-map:focus-visible { background: var(--fill); color: var(--ink); outline: none; }
+
+.bs-head h1 { margin: 0; font-size: 28px; font-weight: 500; letter-spacing: -0.02em; }
+.bs-head p { margin: 6px 0 0; color: var(--ink-3); font-size: 13px; }
+
+.bs-field {
+  display: flex; align-items: center; gap: 12px; margin-top: 28px; padding: 0 16px; height: 52px;
+  border: 1px solid var(--hair-strong); border-radius: var(--radius); background: var(--fill);
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.bs-field:focus-within { border-color: var(--ink-3); box-shadow: 0 0 0 4px var(--fill); }
+.bs-field svg { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--ink-3); stroke-width: 1.6; stroke-linecap: round; }
+.bs-field input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 16px; color: var(--ink); }
+.bs-field input::placeholder { color: var(--ink-3); }
+.bs-clear { border: 0; background: transparent; color: var(--ink-3); font-size: 20px; line-height: 1; cursor: pointer; padding: 4px; }
+.bs-clear:hover { color: var(--ink); }
+
+.bs-kinds { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.bs-kinds button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px;
+  border: 1px solid var(--hair); background: transparent; color: var(--ink-2); font-size: 12.5px; cursor: pointer;
+  transition: background-color 0.2s var(--ease), color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.bs-kinds button span { font: 11px var(--mono); color: var(--ink-3); }
+.bs-kinds button:hover { border-color: var(--hair-strong); color: var(--ink); }
+.bs-kinds button.on { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.bs-kinds button.on span { color: var(--bg); opacity: 0.7; }
+
+.bs-count { margin: 26px 0 6px; font-size: 12px; color: var(--ink-3); }
+.bs-results { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hair); }
+.bs-results button {
+  display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; column-gap: 16px; row-gap: 2px;
+  width: 100%; padding: 12px 10px; border: 0; border-bottom: 1px solid var(--hair); background: transparent;
+  text-align: left; cursor: pointer; border-radius: 0;
+}
+.bs-results button.on { background: var(--fill); }
+.bs-name { font-size: 15px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bs-kind { grid-row: 1 / 3; grid-column: 2; align-self: center; font-size: 12px; color: var(--ink-3); }
+.bs-id { font: 11.5px var(--mono); color: var(--ink-3); }
+.bs-empty { margin-top: 28px; color: var(--ink-3); }
+
+@media (max-width: 760px) {
+  .bs-inner { padding: 9vh 16px 48px; }
+  .bs-kind { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bs-field, .bs-kinds button, .bs-map { transition: none; }
+}

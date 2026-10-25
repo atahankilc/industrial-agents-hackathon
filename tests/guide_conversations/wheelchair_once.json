@@ -1,0 +1,24 @@
+{
+  "building": "data/dev/proc-campus-dev-001",
+  "turns": [
+    {
+      "user": "I'm in a wheelchair and I'm in the main lobby.",
+      "expect": {
+        "step_free": true,
+        "tools": [
+          "set_profile"
+        ],
+        "grounded": true
+      }
+    },
+    {
+      "user": "How do I get to Lab 2.20?",
+      "expect": {
+        "asked": false,
+        "step_free": true,
+        "route_to": "proc-campus-dev-001-F2-S020",
+        "grounded": true
+      }
+    }
+  ]
+}

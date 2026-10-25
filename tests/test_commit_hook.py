@@ -12,13 +12,15 @@ STAMP = ROOT / ".claude" / "worklog" / ".verified"
 COMMIT = "git " + "commit"
 
 
-def hook_exit(command: str) -> int:
-    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
-    return subprocess.run(["python3", str(HOOK)], input=payload, capture_output=True, text=True).returncode
+def hook_exit(command: str, cwd: Path | None = None) -> int:
+    payload = {"tool_name": "Bash", "tool_input": {"command": command}}
+    if cwd is not None:
+        payload["cwd"] = str(cwd)
+    return subprocess.run(["python3", str(HOOK)], input=json.dumps(payload), capture_output=True, text=True).returncode
 
 
-def staged_tree() -> str:
-    return subprocess.run(["git", "write-tree"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
+def staged_tree(root: Path = ROOT) -> str:
+    return subprocess.run(["git", "write-tree"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
 
 
 @pytest.fixture
@@ -55,3 +57,33 @@ def test_fresh_stamp_allows_commit(stamp):
 def test_stale_stamp_blocks_commit(stamp):
     stamp("0" * 40 + "\n")
     assert hook_exit(f"{COMMIT} -m stale") == 2
+
+
+@pytest.fixture
+def other_repo(tmp_path, stamp) -> Path:
+    """Another repository with something staged (like a git worktree: own index, own stamp); this repo's stamp is
+    stale, so only a hook that checks the commit's own repository lets its commits through."""
+    stamp("0" * 40 + "\n")
+    repo = tmp_path / "other repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    (repo / "file.txt").write_text("x", encoding="utf-8")
+    subprocess.run(["git", "add", "file.txt"], cwd=repo, check=True)
+    (repo / ".claude" / "worklog").mkdir(parents=True)
+    return repo
+
+
+def test_commit_in_another_repo_checks_that_repos_stamp(other_repo):
+    other_stamp = other_repo / ".claude" / "worklog" / ".verified"
+    other_stamp.write_text(staged_tree(other_repo) + "\n", encoding="utf-8")
+    assert hook_exit(f"{COMMIT} -m ok", cwd=other_repo) == 0
+    assert hook_exit(f"cd '{other_repo}' && {COMMIT} -m ok", cwd=ROOT) == 0
+    assert hook_exit(f'git -C "{other_repo}" commit -m ok', cwd=ROOT) == 0
+    assert hook_exit(f"{COMMIT} -m stale-here", cwd=ROOT) == 2  # this repo's stamp is still stale
+    other_stamp.write_text("0" * 40 + "\n", encoding="utf-8")
+    assert hook_exit(f"{COMMIT} -m stale-there", cwd=other_repo) == 2
+
+
+def test_commit_in_another_repo_without_stamp_is_blocked(other_repo):
+    assert hook_exit(f"{COMMIT} -m x", cwd=other_repo) == 2
+    assert hook_exit(f"{COMMIT} -m x", cwd=other_repo / "missing") == 2  # unknown dir: falls back to this repo

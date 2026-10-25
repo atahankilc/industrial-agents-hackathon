@@ -15,7 +15,7 @@ Full brief: [docs/challenge/brief.md](docs/challenge/brief.md).
 ├── pyproject.toml                  ← uv project (Python ≥3.12) for core + benchmark
 ├── core/                           ← OUR deterministic core (route model, geometry, parsing, solvers)
 ├── agent/                          ← OUR LLM layer (llm_parser, parsing modes; later Guide + Builder)
-├── frontend/prototypes/pointcloud/ ← three.js point-cloud viewer prototype (docs/product/visualization.md)
+├── frontend/app/                   ← React app: building search + plan view + Guide (docs/product/visualization.md)
 ├── benchmark/                      ← official scorer + evaluator from the kit — never edit score.py
 ├── data/                           ← kit dataset: train/ dev/ test/ + manifest.csv (committed, D-005)
 ├── docs/                           ← curated knowledge base — start at docs/README.md
@@ -66,7 +66,7 @@ We build at the repo root; `archive/` is reference only
 | Kit file layout and dataset stats | [docs/kit/repo-layout.md](docs/kit/repo-layout.md) |
 | System architecture (frontend, backend, DB, voice, CI) | [docs/architecture/overview.md](docs/architecture/overview.md) |
 | AI agents (Guide, benchmark pipeline, Builder) | [docs/architecture/ai-agents.md](docs/architecture/ai-agents.md) |
-| 3D point-cloud visualization (+ prototype) | [docs/product/visualization.md](docs/product/visualization.md) |
+| App visuals (vector plan view) | [docs/product/visualization.md](docs/product/visualization.md) |
 | Personas / routing profiles | [docs/product/personas.md](docs/product/personas.md), [docs/product/routing-profiles.md](docs/product/routing-profiles.md) |
 | ElevenLabs, cloud stack, question parsing research | [docs/research/](docs/README.md#research-dated-2026-10-24) |
 | Per-kind solver plan (benchmark) | [docs/architecture/solver-plan.md](docs/architecture/solver-plan.md) |

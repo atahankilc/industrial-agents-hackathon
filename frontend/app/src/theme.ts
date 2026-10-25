@@ -1,23 +1,30 @@
 // Light / dark / system theme. The choice is a per-viewer convenience in localStorage (guarded: storage can
-// throw in private windows); the resolved theme is mirrored on <html data-theme> for the CSS tokens.
+// throw in private windows); the resolved theme is mirrored on <html data-theme> for the CSS tokens. With no stored
+// choice it is dark: the building screen's HUD is designed dark first.
 
 import { useEffect, useState } from 'react'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 const KEY = 'ttyb-theme'
 const ORDER: ThemeMode[] = ['system', 'light', 'dark']
+// every mounted useTheme follows one choice (the map stays mounted under the building screen)
+const listeners = new Set<(mode: ThemeMode) => void>()
 
 function stored(): ThemeMode {
   try {
     const value = localStorage.getItem(KEY)
-    return value === 'light' || value === 'dark' ? value : 'system'
+    return value === 'light' || value === 'system' ? value : 'dark'
   } catch {
-    return 'system'
+    return 'dark'
   }
 }
 
 export function useTheme() {
   const [mode, setMode] = useState<ThemeMode>(stored)
+  useEffect(() => {
+    listeners.add(setMode)
+    return () => void listeners.delete(setMode)
+  }, [])
   const [systemDark, setSystemDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches)
 
   useEffect(() => {
@@ -37,6 +44,9 @@ export function useTheme() {
     }
   }, [dark, mode])
 
-  const cycle = () => setMode((current) => ORDER[(ORDER.indexOf(current) + 1) % ORDER.length])
+  const cycle = () => {
+    const next = ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length]
+    listeners.forEach((set) => set(next))
+  }
   return { mode, dark, cycle }
 }

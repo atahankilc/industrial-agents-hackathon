@@ -35,8 +35,16 @@ related: [../architecture/overview.md, ../product/personas.md]
 [personas.md](../product/personas.md)
 
 Voice counts towards the **Interaction** score (25 pts), per [brief.md](../challenge/brief.md#judging). The
-team has an ElevenLabs subscription; the **tier is unknown**, and so are its limits on minutes and
-concurrency (UNVERIFIED).
+team has an ElevenLabs subscription: **Creator** tier, 131,000 characters per month (`GET /v1/user/subscription`,
+2026-10-25); agent minutes and concurrency are still UNVERIFIED.
+
+**Built so far (2026-10-25) — Architecture B, not the Agent:** TTS via `POST /tts` → Flash v2.5, voice "River"
+([D-016](../../memory-bank/decisions.md#d-016)); Scribe Realtime from the browser with a single-use token and the
+building's keyterms ([D-019](../../memory-bank/decisions.md#d-019)); our own turn-taking and barge-in
+([D-018](../../memory-bank/decisions.md#d-018)); browser speech as fallback for both. Details:
+[ai-agents.md](../architecture/ai-agents.md#voice-path). The Custom LLM endpoint exists but no agent uses it.
+Checked live for Scribe Realtime: `keyterms` are repeated query parameters, max 50 terms of max 20 characters
+(longer → `invalid_request`), so the realtime limits in the table below hold.
 
 ## TL;DR recommendation
 

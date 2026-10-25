@@ -25,7 +25,8 @@ route, every time. The LLM only **selects and fills** a profile from the convers
 routes. Profiles are layered on the benchmark route model:
 
 ```
-building.json ──► base graph (exact benchmark model: anchors, door nodes, 12 m/floor stairs, 15+6 m lift)
+building.json ──► base graph (exact benchmark model, kit 1.1.0: door to door 15 cm off walls, 30 cm door landings,
+                  stairs 2 m per metre climbed, lift 15 m + 1 m per metre, outside only as an endpoint)
                      │
                      ├─ 1. hard filters   → remove edges/nodes   (changes WHAT is reachable)
                      └─ 2. soft penalties → add cost to edges    (changes WHICH route wins)
@@ -35,7 +36,7 @@ building.json ──► base graph (exact benchmark model: anchors, door nodes, 
 
 **Two weights per edge:** `weight` (true metres, base model) and `cost` (weight + penalties). Routing
 minimises `cost`; the answer always reports metres from `weight`. With every penalty at 0, `cost == weight`
-→ the **DEFAULT profile is the benchmark model exactly** (must keep the 369/369 oracle result on dev).
+→ the **DEFAULT profile is the benchmark model exactly** (must keep the warm-up routes exact: 1,338/1,338 train+dev, `tests/test_routes.py`; [route-model.md](../kit/route-model.md), [D-014](../../memory-bank/decisions.md#d-014)).
 
 Benchmark solvers must call the router with `DEFAULT` (or the exact filters a question states, e.g.
 `wide_delivery_count` = step-free + `min_door_width_m`). Soft penalties are **never** used for scored answers.
@@ -98,12 +99,16 @@ honour today with the existing filters (`step_free`, `min_door_width_m`, `avoid_
 | `pram` | step_free, min_door_width_m 0.8 | min_door_width_m | `trolley(w)` row above: "pram 0.8" |
 | `trolley` | step_free; result `needs: ["min_door_width_m"]` unless the width is given | – | user-given (`w`) |
 | `no_lifts` | avoid_lifts | – | `no_lifts` row above |
+| `forklift` | step_free, min_door_width_m 3.0, forklift (no stairs, walkway-like spaces removed) | – | organiser rule, [Q-014](../../memory-bank/open-questions.md#q-014) |
 | `default` | resets every field ([P26](personas.md#p26--changing-constraints-user)) | – | – |
 
 A preset changes only its own fields (so `no_lifts` then `wheelchair` composes); explicit fields in the same call
 override it and are no longer marked assumed. `avoid_stairs` is not a separate field: every stairs connector in
 the data is `step_free: false`, so `step_free` already excludes stairs (it also blocks the 30 stepped entrances).
-Not presets yet: `forklift`, `crutches`, `low_stamina`, `quiet`, `low_vision`, `evacuation`, `simple` (they need
+Every Guide route also obeys the organisers' route rules (`BuildingSession.route_rules`, `core/route_models.py`):
+production bays are destinations only and there is no shortcut outside the building
+([route-model.md](../kit/route-model.md#sunday-route-model-and-route-rules-q-014)).
+Not presets yet: `crutches`, `low_stamina`, `quiet`, `low_vision`, `evacuation`, `simple` (they need
 `avoid_room_types` or soft penalties), and a mobility-scooter preset — **UNVERIFIED: no scooter door width is
 given in our sources**, so a scooter cue sets step-free only and the Guide should ask the width
 ([P21](personas.md#p21--mobility-scooter-user)).
@@ -132,7 +137,7 @@ reply ("step-free, quiet route").
 <a id="todo-preference-extraction"></a>
 ### TODO — preference extraction (gap check 2026-10-24)
 
-Today (`agent/tools.py`): `RoutingProfile` has `step_free`, `min_door_width_m`, `avoid_lifts` (+ `preset`, `assumed`);
+Today (`agent/tools.py`): `RoutingProfile` has `step_free`, `min_door_width_m`, `avoid_lifts`, `forklift` (+ `preset`, `assumed`);
 it lives in the in-memory session; the model calls `set_profile` (with a preset where one fits), and a
 deterministic safety net catches the cues it misses. Missing:
 
@@ -218,7 +223,7 @@ Mapping onto `BuildingMap.graph(step_free)` (`core/building_map.py:179-212`):
   or `+ lift_extra_wait_m`.
 - Node filter: drop `avoid_room_types` / `avoid_space_ids` (except endpoints) alongside `closed`.
 - `route()` runs Dijkstra on `"cost"`, then sums `"weight"` along the chosen path for `length_m`.
-- Regression test: `graph(DEFAULT)` routes == current routes on all dev warm-up questions (120/120 exact today).
+- Regression test: `graph(DEFAULT)` routes == current routes on all dev warm-up questions (1,338/1,338 train+dev exact since kit 1.1.0, 2026-10-24).
 
 ## Dataset reality check
 
@@ -243,6 +248,8 @@ Not in the data (say so honestly): crowding, live noise, lift cabin sizes, emerg
 aisles inside halls, door opening direction or automatic doors.
 
 ## Related
+
+- [Access roles design](../superpowers/specs/2026-10-24-access-roles-design.md) — roles (who may enter which rooms, physical limits) set by the facility manager; extends these profiles (draft, not built)
 
 - [personas.md](personas.md) · [route-model.md](../kit/route-model.md) ·
   [solver-plan.md](../architecture/solver-plan.md) · [overview.md](../architecture/overview.md)

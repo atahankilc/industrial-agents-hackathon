@@ -8,3 +8,18 @@ agent_output/
 .claude/settings.local.json
 .claude/worklog/.verified
 .claude/worklog/VERIFICATION.md
+data/user/
+.superpowers/
+
+# local research notes (not committed)
+.notes/
+
+# JS dependencies and builds in any subproject
+node_modules/
+dist/
+
+# old scene/visualization code, kept locally as reference (not committed)
+.viz-archive/
+
+# OSM API responses cached by scripts/fit_locations.py
+.cache/

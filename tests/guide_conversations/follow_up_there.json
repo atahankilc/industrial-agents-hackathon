@@ -1,0 +1,22 @@
+{
+  "building": "data/dev/proc-campus-dev-001",
+  "turns": [
+    {
+      "user": "Where is Lab 2.20?",
+      "expect": {
+        "space_ids_include": [
+          "proc-campus-dev-001-F2-S020"
+        ],
+        "grounded": true
+      }
+    },
+    {
+      "user": "I'm in the main lobby. How do I get there?",
+      "expect": {
+        "route_to": "proc-campus-dev-001-F2-S020",
+        "grounded": true,
+        "asked": false
+      }
+    }
+  ]
+}

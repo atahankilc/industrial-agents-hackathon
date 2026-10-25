@@ -3,7 +3,8 @@ id: challenge-brief
 summary: What the organisers ask us to build, the five levels, add-ins, personas, judging weights and rules.
 sources:
   - "Hackathon Challenge - Talk to Your Building.pdf (3 pages, Synera)"
-  - archive/initial-repo/README.md §1, §7
+  - archive/initial-repo/README-cb51a6f.md §1 (story, judging, submission process; dropped from 1.1.0, Q-017)
+  - archive/initial-repo/README.md §1, §7 (kit 1.1.0)
 related: [scoring.md, ../kit/questions.md, ../architecture/overview.md]
 ---
 
@@ -85,7 +86,7 @@ Order of importance: *does it work → is it a pleasure to use → what did you 
 | Does it work | **55** | Sunday benchmark + automatic checks on unseen buildings/questions (levels 1–4): correct answers, valid routes, route length vs best, buildings built correctly from plans. Test-set submission is part of this. Details: [scoring.md](scoring.md) |
 | Interaction | **25** | Short scripted conversation with tricky users, rubric: asks only what it needs, shows what it understood, directions a person can follow. **Voice counts.** |
 | Creativity | **10** | Level 5 and add-ins |
-| Submission demo | **10** | Demo video + technical explanation: clear, convincing, the real product |
+| Submission demo | **10** | Demo video + technical explanation: clear, convincing, the real product. ⚠ Kit 1.1.0 README says "Pitch and demo: a 3–5 minute live demo that works without a restart" — [Q-017](../../memory-bank/open-questions.md#q-017) |
 
 Credits for Claude, Lovable and ElevenLabs come via the organisers (voice-in/voice-out counts towards Interaction).
 

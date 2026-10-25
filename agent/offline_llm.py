@@ -24,11 +24,16 @@ WHEELCHAIR = re.compile(r"\b(?:use|in|on) (?:a |my )?wheelchair\b", re.IGNORECAS
 BROKEN = re.compile(r"(?:the )?(?P<target>[\w .-]+?) (?:is|are) (?:broken|closed|out of order|out of service|"
                     r"blocked|not working)", re.IGNORECASE)
 ROUTE = re.compile(r"from (?:the )?(?P<start>.+?) to (?:the )?(?P<destination>.+?)\s*[?.!]*$", re.IGNORECASE)
-GO_TO = re.compile(r"(?:get|go|walk|way|directions|route) to (?:the )?(?P<destination>.+?)\s*[?.!]*$", re.IGNORECASE)
+GO_TO = re.compile(r"(?:get|go|walk|way|directions|route|take me|bring me) to (?:the )?(?P<destination>.+?)\s*[?.!]*$", re.IGNORECASE)
 WHERE = re.compile(r"(?:where (?:is|are|can i find)|find|locate) (?:the |a |an |my )?(?P<query>.+?)\s*[?.!]*$",
                    re.IGNORECASE)
+I_AM_IN = re.compile(r"\bi(?:'?m| am) (?:now )?(?:in|at) (?:the )?(?P<place>.+?)"
+                     r"(?=\s*(?:[,!?]|\.(?!\d)|$| and | so ))", re.IGNORECASE)  # "3.07" is no full stop
 CANDIDATES = re.compile(r"[\w-]+ \(([^)]+)\)")
 
+EDIT = re.compile(r"\b(edit|rename|redesign|re-?purpose|move (?:the |a )?wall|resize|make .+ (?:wider|bigger|smaller)|"
+                  r"(?:add|put|place|remove|delete) (?:a |an |the )?(?:desk|chair|shelf|plant|item))",
+                  re.IGNORECASE)
 HELP = ("I'm running offline without a language model, so I understand simple phrasings: \"where is the "
         "printer\", \"from Main lobby to Meeting room 3.07\", \"I use a wheelchair\", \"Lift 1 is broken\", then "
         "\"yes\" to apply a change.")
@@ -66,6 +71,9 @@ class OfflineClient:
         last = messages[-1]["content"]
         if isinstance(last, str):
             return self.on_user(last, messages)
+        if any(block_field(block, "type") == "image" for block in last):  # a photo turn: answer its text
+            text = " ".join(block_field(block, "text") for block in last if block_field(block, "type") == "text")
+            return self.on_user(text.split("\n\n", 1)[-1], messages)
         return self.on_results(messages)
 
     # ---------- a new user message → tools ----------
@@ -88,9 +96,15 @@ class OfflineClient:
             uses.append(tool_use("set_profile", {"step_free": True}))
         if broken := BROKEN.search(text):
             uses.append(tool_use("propose_change", {"action": "close", "targets": [broken["target"].strip()]}))
+        elif EDIT.search(text):
+            uses.append(tool_use("open_edit_mode", {"request": text.strip()}))
         elif route := ROUTE.search(text):
             uses.append(tool_use("find_route", {"start": route["start"], "destination": route["destination"]}))
-        elif (go := GO_TO.search(text)) and (start := self.last_route(messages, "start")):
+        elif here := I_AM_IN.search(text):
+            uses.append(tool_use("set_my_location", {"place": here["place"].strip()}))
+            if go := GO_TO.search(text):
+                uses.append(tool_use("find_route", {"start": "here", "destination": go["destination"]}))
+        elif (go := GO_TO.search(text)) and (start := self.start_place(text, messages)):
             uses.append(tool_use("find_route", {"start": start, "destination": go["destination"]}))
         elif where := WHERE.search(text):
             uses.append(tool_use("locate", {"query": where["query"]}))
@@ -128,7 +142,7 @@ class OfflineClient:
                 return f"There's no route right now ({result.get('reason')})."
             steps = result["steps"]
             numbered = "\n".join(f"{index}. {step}" for index, step in enumerate(steps[1:], 1))
-            return f"{steps[0]} About {round(result['length_m'])} m, {result['profile']}:\n{numbered}"
+            return f"{steps[0]} About {result.get('about_m', round(result['length_m']))} m, {result['profile']}:\n{numbered}"
         if name == "propose_change":
             effect = result.get("effect", {})
             line = f"I understood: {result['summary']}."
@@ -137,6 +151,10 @@ class OfflineClient:
                          else "no longer reachable")
                 line += f" Your route {effect['last_route']}: {round(effect['before_m'])} m → {after}."
             return line + " Shall I apply it?"
+        if name == "set_my_location":
+            return f"Got it, you're in {result['location']['name']} on the {result['location']['floor']}."
+        if name == "open_edit_mode":
+            return "Switching to the Edit mode — the Builder takes it from here, on a copy of the building."
         if name == "compare_routes":
             line = f"{result['longer_routes_count']} routes from {result['from']} got longer"
             if result["longer_routes_count"]:
@@ -154,6 +172,13 @@ class OfflineClient:
         return json.dumps(result, ensure_ascii=False)[:400]
 
     # ---------- what the history already says ----------
+
+    def start_place(self, text: str, messages: list[dict]) -> str | None:
+        """Where a "take me to …" starts: "here" once the user's position is known, else the last route's start."""
+        if "[location note, from the app] The user is in" in text or any(
+                name == "set_my_location" and "error" not in result for name, _, result in self.tool_history(messages)):
+            return "here"
+        return self.last_route(messages, "start")
 
     @staticmethod
     def tool_history(messages: list[dict]) -> list[tuple[str, dict, dict]]:

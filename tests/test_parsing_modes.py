@@ -133,3 +133,47 @@ def test_refusal_or_unsupported_raises(reply):
     directory, question = first_question("largest_room")
     with pytest.raises(ParseError):
         LlmQuestionParser(FakeClient(reply, reply)).parse(question["question"], building(directory))
+
+
+def warm_up_slots(parsed, building_map) -> dict:
+    """The slots a perfect LLM would return for a warm-up question, built from the regex parse."""
+    params = parsed.params
+    slots = dict.fromkeys(
+        ["start", "first", "second", "destination", "stops", "floor", "room_type", "asset_type", "min_width_m",
+         "item", "closed", "direction", "may_use_stairs"]
+    )
+    slots["kind"] = parsed.kind
+
+    def space_slot(space_id: str) -> dict:
+        space = building_map.spaces[space_id]
+        return {"name": space["name"], "floor": building_map.floors[space["floor_id"]]["name"]}
+
+    stops = params.get("stops")
+    for slot in ("start", "destination"):
+        if slot in params:
+            slots[slot] = space_slot(params[slot])
+    if stops:
+        slots["stops"] = [space_slot(stop) for stop in stops[1:-1]]
+    if "floor_id" in params:
+        slots["floor"] = building_map.floors[params["floor_id"]]["name"]
+    if "closed" in params:
+        slots["closed"] = building_map.connectors[params["closed"]]["name"]
+    slots["asset_type"] = params.get("asset_type")
+    return slots
+
+
+def test_llm_slot_path_handles_every_warm_up_kind():
+    from core.question_parser import parse_question
+    from tests.test_warm_up import warm_up_questions
+
+    seen = set()
+    for directory, question in warm_up_questions():
+        building_map = building(directory)
+        regex = parse_question(question["question"], building_map)
+        if question["kind"] in seen or regex.ambiguous:
+            continue
+        seen.add(question["kind"])
+        client = FakeClient(response(json.dumps(warm_up_slots(regex, building_map))))
+        parsed = LlmQuestionParser(client).parse(question["question"], building_map)
+        assert (parsed.kind, parsed.params) == (regex.kind, regex.params), question["id"]
+    assert len(seen) == 6

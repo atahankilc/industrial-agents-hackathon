@@ -88,8 +88,8 @@ Floor names follow "Ground floor", "Floor 1", "Basement 1" — questions refer t
 `additive_zone`, `assembly_zone`, `warehouse_zone`, `logistics_zone`, `quality_lab`, `generic_room`
 (OSM room without type tag). `shop` is listed in the README but did not occur in the 2026-10-24 scan.
 
-`type` (coarse) vs `room_type` (fine) are different fields. Which one defines "room" in count questions is
-**not specified** → [Q-003](../../memory-bank/open-questions.md#q-003).
+`type` (coarse) vs `room_type` (fine) are different fields. The kit does not say which one defines "room" in
+count questions; the answers match `type` (see [Q-003](../../memory-bank/open-questions.md#q-003), resolved).
 
 ## `equipment.csv`
 

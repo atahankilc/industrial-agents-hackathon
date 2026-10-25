@@ -12,7 +12,12 @@ opening/connector traversed by every graph edge — each opening appears twice (
 a connector once per floor hop.
 
 Unknown or ambiguous place names raise `MapError` (a usage error the agent should repair by searching); a valid
-request with no path returns `reachable=False` with a reason."""
+request with no path returns `reachable=False` with a reason.
+
+One route model, the kit 1.1.0 one the expected answers and the judges use (core/route_models.py; `model` is kept
+for callers, "geodesic" is an alias). `rules` per call: production bays destination-only, forklift (Q-014/Q-015).
+"outside" may be a start or end but is never walked through. Without rules the graph is `BuildingMap.graph` plus
+the `outside` endpoint node."""
 
 import copy
 import itertools
@@ -20,7 +25,10 @@ from dataclasses import asdict, dataclass, field
 
 import networkx as nx
 
-from core.building_map import DOOR_PREFIX, OUTSIDE, BuildingMap, MapError
+from core import route_models
+from core.building_map import DOOR_PREFIX, OUTSIDE, BuildingMap, MapError, expand, path_parts
+from core.preferences import Penalties
+from core.route_models import KIT, NO_RULES, RouteRules
 
 MAX_LOCATE_RESULTS = 10
 
@@ -175,6 +183,8 @@ class RouteAnswer(Serialisable):
     closed: list[str] = field(default_factory=list)
     via: list[str] = field(default_factory=list)
     reason: str | None = None
+    model: str | None = None  # None = kit route model
+    rules: list[str] | None = None  # active route rules, None = none
 
 
 @dataclass
@@ -186,6 +196,8 @@ class TourAnswer(Serialisable):
     step_free: bool = False
     closed: list[str] = field(default_factory=list)
     reason: str | None = None
+    model: str | None = None
+    rules: list[str] | None = None
 
 
 def routing_view(building: BuildingMap, closed: tuple[str, ...] | list[str]) -> BuildingMap:
@@ -199,11 +211,6 @@ def routing_view(building: BuildingMap, closed: tuple[str, ...] | list[str]) -> 
 
 def resolve_stop(view: BuildingMap, reference: str) -> str:
     return OUTSIDE if reference == OUTSIDE else view.resolve_space(reference)
-
-
-def edge_element(graph: nx.MultiGraph, first: str, second: str) -> str:
-    """The element of the cheapest edge between two nodes (same rule as BuildingMap.directions)."""
-    return min(graph[first][second].values(), key=lambda edge: edge["weight"])["via"]
 
 
 def directions(view: BuildingMap, graph: nx.MultiGraph, nodes: list[str]) -> list[str]:
@@ -229,10 +236,17 @@ def leg(
     destination: str,
     step_free: bool,
     include_steps: bool,
+    model: str = KIT,
+    rules: RouteRules = NO_RULES,
+    penalties: Penalties | None = None,
 ) -> RouteAnswer:
     closed = sorted(view.closed)
+    labels = {"model": None if model == KIT else model, "rules": rules.describe() or None}
+    walk = route_models.leg_graph(graph, route_models.endpoint_only(view, rules), start, destination)
+    if penalties is not None and penalties.active():  # app preferences only (core/preferences.py)
+        walk = penalties.path_only(view, walk, start, destination)
     try:
-        length, nodes = nx.single_source_dijkstra(graph, start, destination, weight="weight")
+        length, nodes = nx.single_source_dijkstra(walk, start, destination, weight="weight")
     except (nx.NetworkXNoPath, nx.NodeNotFound):
         blocked = [stop for stop in (start, destination) if stop in view.closed]
         reason = (
@@ -240,6 +254,10 @@ def leg(
             if blocked
             else f"no {'step-free ' if step_free else ''}path with the current closures"
         )
+        if not blocked and labels["rules"]:
+            reason = f"no route under these rules ({'; '.join(labels['rules'])}): " + reason
+        if not blocked and penalties is not None and penalties.avoid_room_types:
+            reason += f" while avoiding {', '.join(sorted(penalties.avoid_room_types))}"
         return RouteAnswer(
             reachable=False,
             from_space_id=start,
@@ -247,17 +265,21 @@ def leg(
             step_free=step_free,
             closed=closed,
             reason=reason,
+            **labels,
         )
+    space_path, element_path = path_parts(walk, nodes)
+    nodes, walked = expand(walk, nodes)
     return RouteAnswer(
         reachable=True,
         from_space_id=start,
         to_space_id=destination,
         length_m=round(length, 2),
-        space_path=[node for node in nodes if not node.startswith(DOOR_PREFIX)],
-        element_path=[edge_element(graph, first, second) for first, second in itertools.pairwise(nodes)],
-        steps=directions(view, graph, nodes) if include_steps else None,
+        space_path=space_path,
+        element_path=element_path,
+        steps=directions(view, walked, nodes) if include_steps else None,
         step_free=step_free,
         closed=closed,
+        **labels,
     )
 
 
@@ -270,15 +292,22 @@ def find_route(
     closed: tuple[str, ...] | list[str] = (),
     via: tuple[str, ...] | list[str] = (),
     include_steps: bool = True,
+    model: str = KIT,
+    rules: RouteRules = NO_RULES,
+    penalties: Penalties | None = None,
 ) -> RouteAnswer:
     """Shortest route (route-model metres). Places are ids, refs, exact names, asset ids/names, or "outside".
 
     `closed`: connectors/openings/spaces (ids or names) to avoid, on top of `building.closed`. `via`: ordered
-    intermediate stops; the result then concatenates the legs (use `tour` to keep them separate)."""
+    intermediate stops; the result then concatenates the legs (use `tour` to keep them separate). `model`/`rules`:
+    core/route_models.py."""
     view = routing_view(building, closed)
     stops = [resolve_stop(view, reference) for reference in (start, *via, destination)]
-    graph = view.graph(step_free)
-    legs = [leg(view, graph, first, second, step_free, include_steps) for first, second in itertools.pairwise(stops)]
+    graph = route_models.route_graph(view, step_free, model, rules)
+    legs = [
+        leg(view, graph, first, second, step_free, include_steps, model, rules, penalties)
+        for first, second in itertools.pairwise(stops)
+    ]
     if len(legs) == 1:
         return legs[0]
     failed = next((item for item in legs if not item.reachable), None)
@@ -304,6 +333,8 @@ def find_route(
         step_free=step_free,
         closed=sorted(view.closed),
         via=stops[1:-1],
+        model=legs[0].model,
+        rules=legs[0].rules,
     )
 
 
@@ -314,15 +345,19 @@ def tour(
     step_free: bool = False,
     closed: tuple[str, ...] | list[str] = (),
     include_steps: bool = False,
+    model: str = KIT,
+    rules: RouteRules = NO_RULES,
+    penalties: Penalties | None = None,
 ) -> TourAnswer:
     """Visit `stops` in the given order; one shortest leg per consecutive pair. Total = sum of the legs."""
     if len(stops) < 2:
         raise MapError("A tour needs at least two stops.")
     view = routing_view(building, closed)
     resolved = [resolve_stop(view, reference) for reference in stops]
-    graph = view.graph(step_free)
+    graph = route_models.route_graph(view, step_free, model, rules)
     legs = [
-        leg(view, graph, first, second, step_free, include_steps) for first, second in itertools.pairwise(resolved)
+        leg(view, graph, first, second, step_free, include_steps, model, rules, penalties)
+        for first, second in itertools.pairwise(resolved)
     ]
     failed = next((item for item in legs if not item.reachable), None)
     return TourAnswer(
@@ -333,6 +368,8 @@ def tour(
         step_free=step_free,
         closed=sorted(view.closed),
         reason=None if failed is None else f"leg {failed.from_space_id} → {failed.to_space_id}: {failed.reason}",
+        model=None if model == KIT else model,
+        rules=rules.describe() or None,
     )
 
 
@@ -344,30 +381,38 @@ def path_length(
     step_free: bool = False,
     closed: tuple[str, ...] | list[str] = (),
 ) -> float | None:
-    """Route-model cost of a given (space_path, element_path); None if it is not a valid walk on the graph.
+    """Route-model cost of a given (space_path, element_path) in the kit 1.1.0 answer format (each opening once,
+    each stair flight / lift ride once); None if it is not a valid walk on the graph.
 
     Used to confirm that a different path of the same length as ours (a tie) is genuinely valid."""
     view = routing_view(building, closed)
     graph = view.graph(step_free)
-    nodes = [space_path[0]]
-    spaces = iter(space_path[1:])
-    index = 0
-    while index < len(element_path):
-        element = element_path[index]
+    hops: list[tuple[str, str, str | None]] = []  # (from node, to node, stair/lift id or None for a walk)
+    node, index = space_path[0], 0  # current node; position in space_path of the space we are in
+    for element in element_path:
+        if index + 1 >= len(space_path):
+            return None
+        here, there = space_path[index], space_path[index + 1]
         if element in view.openings:
-            if element_path[index + 1 : index + 2] != [element]:
+            if set(view.openings[element]["space_ids"]) != {here, there}:
                 return None
-            nodes += [DOOR_PREFIX + element, next(spaces, "")]
-            index += 2
+            hops.append((node, DOOR_PREFIX + element, None))
+            node = DOOR_PREFIX + element
         else:
-            nodes.append(next(spaces, ""))
-            index += 1
-    if "" in nodes or next(spaces, None) is not None:
+            if node != here:
+                hops.append((node, here, None))
+            hops.append((here, there, element))
+            node = there
+        index += 1
+    if index != len(space_path) - 1:
         return None
+    if node != space_path[-1]:
+        hops.append((node, space_path[-1], None))
     total = 0.0
-    for (first, second), element in zip(itertools.pairwise(nodes), element_path, strict=True):
+    for first, second, connector in hops:
         weights = [
-            edge["weight"] for edge in graph.get_edge_data(first, second, default={}).values() if edge["via"] == element
+            edge["weight"] for edge in graph.get_edge_data(first, second, default={}).values()
+            if edge.get("via") == connector
         ]
         if not weights:
             return None

@@ -62,6 +62,9 @@ def dump(session: BuildingSession, guide: Guide) -> dict:
             "pending": [asdict(change) for change in session.pending.values()],
             "events": session.events,
             "last_route": session.last_route,
+            "guide_preferences": session.guide_preferences,  # access mode (empty otherwise)
+            "auto_capture": session.auto_capture,
+            "user_location": session.user_location,
         },
         "guide": {
             "system": guide.system,
@@ -71,6 +74,7 @@ def dump(session: BuildingSession, guide: Guide) -> dict:
             "proposed_in_turn": guide.proposed_in_turn,
             "usage": asdict(guide.usage),
             "profile_note": guide.profile_note,
+            "location_note": guide.location_note,
         },
     }
     return json.loads(json.dumps(state, ensure_ascii=False))  # tuples → lists, fails early on anything non-JSON
@@ -91,6 +95,9 @@ def restore(state: dict, session: BuildingSession, client: object) -> tuple[Buil
     session.pending = {item["id"]: Change(**item) for item in saved["pending"]}
     session.events = saved["events"]
     session.last_route = saved["last_route"]
+    session.guide_preferences = saved.get("guide_preferences", {})
+    session.auto_capture = saved.get("auto_capture", True)
+    session.user_location = saved.get("user_location")
     numbers = [int(change.id[1:]) for change in [*session.applied, *session.pending.values()]
                if change.id[1:].isdigit()]
     session._ids = itertools.count(max(numbers, default=0) + 1)
@@ -104,6 +111,7 @@ def restore(state: dict, session: BuildingSession, client: object) -> tuple[Buil
     guide.proposed_in_turn = saved["proposed_in_turn"]
     guide.usage = Usage(**saved["usage"])
     guide.profile_note = saved["profile_note"]
+    guide.location_note = saved.get("location_note")
     return session, guide
 
 
@@ -141,8 +149,9 @@ class MemoryConversations:
             return version + 1
 
 
-class PostgresConversations:
-    """The `conversations` table over one reused connection (reopened if it drops)."""
+class PostgresConnection:
+    """One reused connection to SUPABASE_DB_URL (reopened if it drops); shared by the stores in this module and
+    backend/drafts.py."""
 
     def __init__(self, dsn: str) -> None:
         self.dsn = dsn
@@ -164,6 +173,10 @@ class PostgresConversations:
                     if attempt:
                         raise
         raise AssertionError("unreachable")
+
+
+class PostgresConversations(PostgresConnection):
+    """The `conversations` table."""
 
     def version(self, conversation_id: str) -> int | None:
         rows = self.execute("select version from conversations where id = %s", (conversation_id,))
@@ -189,8 +202,14 @@ class PostgresConversations:
         return rows[0][0]
 
 
-def from_env() -> PostgresConversations | None:
+def db_url() -> str | None:
+    """SUPABASE_DB_URL unless GUIDE_PERSIST=off: the database the deployed backend keeps its state in."""
     url = os.environ.get("SUPABASE_DB_URL")
     if not url or os.environ.get("GUIDE_PERSIST", "on") == "off":
         return None
-    return PostgresConversations(url)
+    return url
+
+
+def from_env() -> PostgresConversations | None:
+    url = db_url()
+    return PostgresConversations(url) if url else None

@@ -1,0 +1,12 @@
+{
+  "building": "data/dev/proc-campus-dev-001",
+  "turns": [
+    {
+      "user": "How do I get from the main lobby to room 9.99?",
+      "expect": {
+        "no_route": true,
+        "grounded": true
+      }
+    }
+  ]
+}

@@ -1,13 +1,13 @@
 ---
 id: project-state
 summary: Current phase, what exists, what works, next priorities, blockers. Read first every session.
-updated: 2026-10-24
+updated: 2026-10-25
 related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-plan.md]
 ---
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-24** (Guide session: conversation loop + backend skeleton, offline)
+[Memory bank](README.md) · Last updated: **2026-10-25** (building screen "Quiet HUD" steps 1–5 committed on `dev` together with the pulls of `origin/dev` 26b908f + b352e83: kit 1.1.0 route model, Builder Edit mode)
 
 ## Phase
 
@@ -19,11 +19,11 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 |---|---|---|
 | 0 Foundation | docs, memory bank, CLAUDE.md | ✅ 2026-10-24 |
 | 1 Core + solvers | per-kind solvers verified on train+dev `inputs` | ✅ 2026-10-24 — 655/655 |
-| 2 Benchmark runner | question text → solver → `Answer:` reply; dev score via `benchmark.evaluate`; test CSV | ✅ 2026-10-24 — dev 138/138, `agent.run_benchmark`, [BENCHMARK.md](../BENCHMARK.md) |
+| 2 Benchmark runner | question text → solver → `Answer:` reply; dev score via `benchmark.evaluate`; test CSV | ✅ 2026-10-24 — dev 138/138, `agent.run_benchmark`, [BENCHMARK.md](../SUBMISSION/BENCHMARK.md) |
 | 3 Agent + interaction | conversational agent with clarifications, directions, closures, edits | scripted tricky-user conversation works — ✅ 2026-10-24 offline (`tests/test_guide.py`) + live (`scripts/live_guide.py`) |
 | 4 App/UI + voice | 2D view with route, then stacked floors; voice | demoable |
 | 5 Build + extend | plan → building (L4), one add-in (L5) | demoable |
-| 6 Submission | `BENCHMARK.md`, Sunday run, video, tech explanation | submitted before code freeze |
+| 6 Submission | `SUBMISSION/` (`BENCHMARK.md` + `answers.json`, v1), Sunday run, video, tech explanation | submitted before code freeze — `SUBMISSION/` ✅ 2026-10-25 with test-set answers; Sunday run pending |
 
 ## What exists
 
@@ -31,8 +31,19 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `benchmark/` (official scorer), `data/` (committed, [D-005](decisions.md#d-005)), `tests/`, `pyproject.toml` (uv,
   pytest dev dep). Kit remainder in `archive/initial-repo/`.
 - Knowledge base: [docs/](../docs/README.md) incl. architecture, agents, personas, routing profiles, research.
-- Point-cloud 3D prototype: `frontend/prototypes/pointcloud/` (exporter + three.js viewer), see
-  [visualization.md](../docs/product/visualization.md).
+- App visuals: landing = map of the 17 buildings with a real position (`frontend/app/src/map/`, positions in
+  `backend/locations.json`) + list view for all 280 (`src/search/`); building = vector plan view
+  (`frontend/app/src/plan/`, `core/floorplan.py`); the point-cloud prototype and
+  scene moved to the gitignored `.viz-archive/`, see [visualization.md](../docs/product/visualization.md).
+- Map → building (2026-10-25): the map stays under the building screen, flies in, then follows the model's camera
+  (`src/map/bridge.ts`); plan preloaded on the tap (`src/building/opening.ts`), model rises in; menu toggle "in the
+  city" (default, neighbour pins tappable) / "alone"; buildings with a model drawn as blue blocks on the map; new
+  light map palette ([visualization.md](../docs/product/visualization.md#current-vector-plan-view-2026-10-24)).
+  Since: buildings refitted onto their OSM ways (`scripts/fit_locations.py`, 12 shifted, 5 partial models kept),
+  open with all floors, transition plays with "reduce motion" on, map field of view 1° + model tilt ≤ 60° over the map
+  (≤ 10 px apart). City view refinements: open building's map blocks drawn as a wireframe in the model's scene,
+  no z-fighting under the blue blocks, an x-ray cut-away of blocks in front (`src/map/neighbours.ts`), roads at estimated real widths, a ground line plus an underground veil
+  over basements, and Back flies the map to where it was when the building was opened.
 - Licensing: `LICENSE` (MIT, our code only), `NOTICE.md` (third-party paths + terms), `data/README.md`
   (per-source data licences) — [D-009](decisions.md#d-009) accepted.
 - Verified-commit workflow in `.claude/` (verifier + fixer agents, `/ship` skill, commit-gate hook, worklog) —
@@ -41,6 +52,75 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `3300e6c` pushed to `origin/main`.
 
 ## What works (verified 2026-10-24)
+
+- **Sunday agentic layers (2026-10-25, branch `4-sunday-agent`, [D-022](decisions.md#d-022) proposed):** P0 committed
+  (`b1805d4`: crash-safe runner, hybrid Sunday command, top-level ids in `answers.json`). P1: LLM route spec →
+  `core/route_query.py` (closures of any element, item / room-type endpoints with the nearest taken, stops,
+  step-free + forklift + min width combined), `asks_for` check, kind `other` → solver agent
+  (`agent/solver_agent.py`, Python sandbox, 2 runs + tie-break, effort `medium`), decision cache
+  `llm_cache/decisions.json` (`agent/llm_cache.py`). Probe `scripts/eval_sunday_probe.py`: **14/14** (old pipeline
+  ~7/14; agent only for the 3 new kinds), and 14/14 identical when replayed with no API access. Test-set answers
+  byte-identical. `origin/dev` merged into the branch (PR #2 into `dev`, pushed 2026-10-25).
+- **Guide on the plan, figure, step guide, nearby buildings (2026-10-25, D-020/D-021, not committed yet):** answers
+  tint + label + frame their rooms and items; draggable "you are here" figure (the Guide routes from "here"); routes
+  framed whole, then Start → step by step with "I'm there"; `search_nearby_buildings` / `route_to_building` for the 17
+  located buildings with Continue into the next building (`agent/campus.py`, `building/Elsewhere.tsx`).
+  `tests/test_campus.py`; headless Chrome check of figure + highlight (log 2026-10-25).
+
+- **Access mode (2026-10-25, D-015, `ACCESS_MODE=on`, off by default):** design
+  [access-profiles-design](../docs/superpowers/specs/2026-10-25-access-profiles-design.md), plan
+  [access-profiles](../docs/superpowers/plans/2026-10-25-access-profiles.md). Backend all four phases built and
+  tested offline (`tests/test_access.py`, `tests/test_fleet.py`; full suite 770 passed, 2 skipped; dev benchmark 138/138):
+  accounts (Supabase Auth, admin = `ADMIN_EMAIL`, invite links), restricted spaces (filtered building copy,
+  `solve` included, plan `restricted`), remembered preferences (soft penalties, `set_preference`, `preference`
+  events), moving objects (`/objects`, device tokens, missions, `scripts/sim_object.py`, Guide `send_object`).
+  Frontend done (`frontend/app/src/access/`, `plan/ObjectsLayer.tsx`): sign-in, darkened spaces, Preferences,
+  Building settings (My preferences / Access / Members / Objects), live object markers — checked headless with a
+  fake sign-in. Migration `20261025200000_access.sql` applied 2026-10-25 (Postgres stores round-trip verified live).
+  **Not yet:** admin account (`ADMIN_EMAIL`), a real Supabase sign-in, invite redirect URLs in Supabase, `/events`
+  polling (voice turns' preferences are not captured).
+
+- **Builder Edit mode (branch `2-builder-edit`, in progress):** design
+  [builder-edit-mode-design](../docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md) (proposed, approved by
+  Utku 2026-10-24), plan [M1](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m1.md). Done: Task 1
+  `core/edits.py` — ops add/delete/set space, add/move/set/delete opening, add/move/set/delete asset, replay via
+  `apply_steps` (`tests/test_edits.py`). Task 2: `move_vertex` / `set_polygon` keep shared walls (overlapped
+  neighbours shrink, refused if one would vanish; doors re-projected; thick Swiss walls handled). Task 3:
+  `core/validate.py` — `validate(building, base)`, issues already in the base are warnings
+  (`scripts/validate_dataset.py`, `tests/test_validate.py` over all 280 buildings). Task 4: `backend/drafts.py`
+  (`DraftStore`, local `data/user/`, gitignored) + `/drafts` endpoints (create, get, points, ops, undo, save →
+  `user/<slug>` in `/buildings`, Guide routes in it; `tests/test_drafts.py`). Tasks 5–7: frontend Edit mode
+  (`frontend/app/src/edit/`: View/Edit switch, SVG plan editor, 3D inset, issues, undo, save → View + Guide);
+  verified in headless Chrome (offline Guide): corner / door / asset drags, rotate, 4× undo, save → route 99 m in
+  `user/forschungsbau-edited`. **M1 done**; final review (opus) fixes: shared corner into a corridor, neighbours
+  grow when a room shrinks, per-draft lock + client gating. M2 plan written
+  ([m2](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m2.md)). `origin/dev` merged (`ebcdb3d`, Atahan's new
+  UI); Edit mode re-homed: "Edit this building" in `BuildingScreen`'s "…" menu (2026-10-25, was a round button) → `EditMode` full screen, 3D inset = `PlanView`
+  of `GET /drafts/{id}/plan`, Save opens `user/<slug>` via `Root`; verified in headless Chrome.
+- **Builder M2 (prompt edits), in progress:** Task 1 `move_edge` op + `edge_sides` (walls with compass sides),
+  malformed op arguments → EditError (422); Task 2 `agent/builder_tools.py` (overview, find, space_info,
+  floor_plan, propose_edit — dry run + effect + new problems, never applies). Task 3 `agent/builder.py` (tool
+  loop, "yes" applies the one open proposal without a model call, Apply-button / hand-edit notes, grounding repair,
+  stop after 2 failed proposals) + `agent/builder_offline.py` (rename / resize / door rules); Task 4
+  `/drafts/{id}/chat/stream` + `/drafts/{id}/proposals/{pid}/apply` (stale → 409). Task 5 frontend
+  (`edit/BuilderChat.tsx`, ghost overlay in `PlanEditor`, Apply / Cancel, examples from the building's rooms);
+  headless Chrome offline + live Opus check (`scripts/live_builder.py`, ~$0.08 for 3 prompts + $0.03 follow-up).
+  **M2 done**; review (opus) fixes: a proposal is confirmable only by the very next message (another turn,
+  Cancel — new `/proposals/{pid}/cancel` — or a hand edit closes it), only a bare "yes"/"ok" skips the model, text
+  fields in ops are coerced to strings, a proposal made against a draft that changed meanwhile is not sent.
+  Edit mode restyled to the building screen's design (clay palette, cards, floor tabs). **2026-10-25 (not
+  committed):** Edit mode now lives inside the building view — the model shows the draft, handles sit on it
+  (`edit/EditLayer.tsx` + PlanView `align`), the edit card replaces the Guide card (tools, Inspector, Builder, save)
+  ([log](log.md#2026-10-25--edit-mode-inside-the-building-view-not-committed)).
+- **M3 (deployed store) built by us** (Utku took it back from Atahan 2026-10-24, not started;
+  [m3 plan](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m3.md), decisions in the spec's "Milestone 3
+  decisions"): drafts, saved buildings (shared with everyone) and the Builder's conversation in Supabase
+  (`builder_drafts`, `saved_buildings`, migration applied), version-checked (409), DB down → `/drafts` 503. Verified:
+  pytest 746 passed, live Supabase tests, two local instances on Supabase end to end. **Next: Task 6 — deploy and the
+  public smoke test** (commands.md Deploy section): the branch preview builds, but Vercel Authentication protects it
+  — waiting for a Protection Bypass secret from Atahan (`VERCEL_AUTOMATION_BYPASS_SECRET` in `.env`).
+- **Order (Utku, 2026-10-24):** `2-builder-edit` merged with `origin/dev` (kit 1.1.0 route model) → to `dev`;
+  Builder project 2 (build from plan images) only after that merge; frontend polish is Atahan's.
 
 - **Solvers** `core/solvers/` (geometry, walls, reachability, routing): **655/655** train+dev on gold inputs
   (`scripts/validate_solvers.py`); rules + rejected variants in [solver-plan.md](../docs/architecture/solver-plan.md).
@@ -59,8 +139,31 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   ([commands.md](../docs/guides/commands.md#backend-guide-api)).
 - **Frontend app** `frontend/app/` (Vite + React + r3f): monochrome point cloud ([D-011](decisions.md#d-011)) with
   emergence + scan, route flow, highlight / closure / lost-access states, floor solo + separation, camera fly-to,
-  chat panel; light/dark. Backend serves `GET /sessions/{id}/points` (`core/pointcloud.py`) and enriches route /
-  change events. Verified in Chrome with the offline Guide ([commands.md](../docs/guides/commands.md#frontend-app)).
+  chat panel; light/dark. Backend enriched route /
+  change events. (Point-cloud scene and `core/pointcloud.py` removed 2026-10-24.) Verified in Chrome with the offline Guide ([commands.md](../docs/guides/commands.md#frontend-app)).
+- **Building screen "Quiet HUD"** (2026-10-24/25, approved mockup round 2): voice-first Guide (`building/Core.tsx`,
+  `Guide.tsx`, `hud.css`), the Guide's work trail, the next-move card from `core/directions.guidance()` steps
+  (`NextMove.tsx`, route events carry `steps`), camera walk (`CameraWalk.tsx`), live tracking by dead reckoning
+  (`tracking.ts`, `useTracking.ts`; 0.7 m stride UNVERIFIED, `?walk=sim`). Checked with `tsc` + screenshots; not on a
+  real phone, camera "Where am I?" needs the real Claude Guide. Next: the plan follows the dot; calibrate the stride.
+- **Dev panel** (2026-10-24): in the app (`frontend/app/src/dev/`, backend `/dev/*`) — try every
+  Guide capability by hand (find, directions, profiles, closures with impact, display switches, log), answers
+  drawn over the plan; route events carry a plan `line` ([visualization.md](../docs/product/visualization.md#dev-panel)).
+- **Guide voice = ElevenLabs** (2026-10-25, [D-016](decisions.md#d-016)): `POST /tts` (`backend/tts.py`, Flash v2.5,
+  voice "River") played by `frontend/app/src/voice/tts.ts`, browser voice as fallback. Voice replies are spoken while the Guide works ([D-017](decisions.md#d-017)): grounded sentences
+  stream as `say` lines from `/chat/stream`, a fact-free "let me check" sentence comes first (first sound ~2.3 s).
+  Spoken questions start a hands-free conversation with barge-in from the reply's first sound (preamble included);
+  an utterance spoken while a Guide turn is pending is sent once that turn is done (`BuildingScreen.tsx` `queued`);
+  utterances end on a 1.0 s pause
+  ([D-018](decisions.md#d-018), amended 2026-10-25; not yet tried with a real mic). The user's words go to ElevenLabs Scribe Realtime
+  with the building's keyterms (`POST /stt/token`, `voice/scribe.ts`, browser recognition as fallback,
+  [D-019](decisions.md#d-019)). Open: drop the ~1 s rewriter for Scribe transcripts? ([Q-020](open-questions.md#q-020)).
+- **AI layer of the app** (2026-10-24): `POST /chat/stream` live tool steps, route/change cards, follow-up chips,
+  voice mode with the orb (browser speech, `frontend/app/src/voice/useVoice.ts`), camera walk mode with turn-by-turn
+  legs (`core/directions.py`) and "Where am I?" photo turns (`Guide.reply(photo=…)`, one turn only). Verified
+  headless in Chrome (offline Guide, fake camera) and one live Opus photo turn; WebGL orb + voice stage with
+  explicit recognition errors. Real-mic recognition and phone camera not yet confirmed (automation can't feed
+  Chrome's speech service).
 - **Profiles:** `set_profile` presets (wheelchair, pram, trolley, no_lifts, default) + deterministic cue safety net
   in the Guide (`tests/test_profiles.py`); live Sonnet run uses the preset itself.
 - **Voice replies:** `Guide.reply(…, channel="voice")` (used by `/v1/chat/completions`): spoken-style system
@@ -70,9 +173,44 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   ~$0.15) and Sonnet 5.5 low (~3.3–3.9 s/turn, ~$0.06), 0 ungrounded replies — table in
   [ai-agents.md](../docs/architecture/ai-agents.md#implementation--agentguidepy-2026-10-24).
 
-- `uv sync` at root; starter oracle on dev **369/369**; `core.building_map` reproduces 120/120 dev warm-up routes < 1 cm.
+- `uv sync` at root; starter oracle on dev **369/369** (kit 1.0.0); since kit 1.1.0 `core.building_map` reproduces 1,338/1,338 train+dev warm-up routes < 1 cm (D-014).
 - `core/question_parser.py`: 655/655 train+dev params match `inputs`; 145/145 test questions parse (`uv run pytest`).
-- `agent/parsing.py` modes + `agent/llm_parser.py`: offline tests pass (21 total); live LLM accuracy not yet measured (no API key).
+- `agent/parsing.py` modes + `agent/llm_parser.py`: offline tests pass; live (2026-10-24, `scripts/eval_llm_parser.py --per-kind 3`, 24 dev
+  questions): original text regex/llm/hybrid 24/24 each; `--paraphrase` regex **0/24**, llm 24/24, hybrid 24/24.
+  Parser-only cost ≈ $0.42 (cold cache) and ≈ $0.19 (warm) per 24-question run. `.env` now has `ANTHROPIC_API_KEY`.
+- **Second stack (v1)** from branch `1-agentic-yarag`, merged beside the canonical one on 2026-10-24 under `_v1`
+  names (the backend, UI and `agent.run_benchmark` use the canonical stack above):
+  - `core/solvers_v1.py` (`solve(bmap, kind, params)` → dict): every benchmark kind + warm-up kinds; 655/655
+    train+dev on gold `inputs` (`uv run pytest tests/test_solvers.py -q -s`).
+  - `agent/answer.py` (`benchmark.evaluate --agent agent.answer:answer`): dev **138/138**, train 515/517
+    (`tests/test_answer.py`); `agent/run_benchmark_v1.py`: .csv or .json (reply, ids, solver result, `route`
+    with per-leg `space_path`/`element_path`) out; produced `submissions/team_jaRAG.csv` (145 rows).
+  - `BuildingMap.route()` per-leg paths exact on all 1,338 train+dev warm-up routes (`tests/test_routes.py`);
+    warm-up kinds from text 2,120/2,130 (`tests/test_warm_up.py`; 10 misses = duplicate names, [D-012](decisions.md#d-012)).
+  - v1 Guide `agent/guide_v1/` (plan: [guide-agent](../docs/superpowers/plans/2026-10-24-guide-agent.md)): 6 tools
+    (locate, find_places, place_info, building_fact, route, update_session), candidate fan-out for ambiguous names,
+    grounding check with one repair then a code fallback; REPL `uv run --env-file .env python -m agent.guide_v1
+    <building_dir> [--show-tools]`. 9 scripted conversations (`tests/guide_conversations/`, `scripts/eval_guide.py`):
+    16/16 turns PASS live (single run, ~$0.32).
+  - 2026-10-24: `scripts/eval_guide.py` + `tests/test_guide_conversations.py` ported to the canonical Guide
+    (`agent/guide.py`; `route_to` checked with `core.navigation.find_route` under the session's state after the
+    turn). Conversations updated to its tools (`set_profile`; closures as `propose_change` → "Yes" → `apply_change`).
+    First live run 14/18; after the fixes (log 2026-10-24) Opus 5.5 medium **17/18** (89 s, ~$0.22), the one miss
+    was the checker's `asked` rule, fixed and re-run 3/3 (~$0.03).
+  - 2026-10-24: **Interaction eval** `scripts/interaction_eval.py` — Claude plays a tricky user from
+    `tests/interaction_scenarios/*.json` (6: first day/coffee, wheelchair two trips, facility manager + lift, voice
+    technician in the factory, typo + change of mind, Turkish trolley), an LLM judge scores the brief's rubric 1–5.
+    All Opus 5.5: asks 4.17 · shows 4.17 · **directions 3.33** · remembers 4.83 · goal 5/6, ~$0.62 per run (log).
+  - 2026-10-24: **Guidance steps** `core/directions.py` `guidance_steps` / `about_m` / `landmark`: the Guide's
+    `find_route` / `tour` steps now carry turns (taken at the door you came through), a landmark item within 4 m of
+    each door, rounded metres, one line per ride, no ids; `about_m` = rounded total (`length_m` stays exact).
+    Interaction eval: directions **3.33 → 4.17**, asks 4.67, shows 4.83, remembers 5.00, goal 5/6; eval_guide 18/18.
+  - Ported into the canonical Guide (2026-10-24): place resolution + described candidates + typo suggestions +
+    route fan-out over an ambiguous destination (`agent/places.py`, `BuildingSession.resolve`), and grounding
+    (unit-glued numbers, list lengths, clock times, half-up rounding) in `agent/guide.py`; `tests/test_places.py`.
+    Not ported: the v1 code fallback reply (main's tools have no uniform `summary`).
+  - Voice transcript rewriter ([D-013](decisions.md#d-013)) built 2026-10-24: `agent/rewriter.py` (Haiku 5.5),
+    hooked into `Guide.reply(..., channel="voice")`; `tests/test_rewriter.py`.
 - `benchmark/score.py` parsing behaviour checked ([scoring.md](../docs/challenge/scoring.md#formatting-pitfalls-cost-real-points)).
 
 ## Pending decisions (Atahan)
@@ -80,52 +218,82 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 - none (D-006 zero-cost stack accepted 2026-10-24).
 - [Q-002](open-questions.md#q-002) times — Atahan will provide.
 
-## ▶ Start here (handoff for the next session, 2026-10-24 ~15:30)
+## ▶ Start here (handoff for the next session, 2026-10-24 evening)
 
-**Git (`dev`, not pushed — ask Atahan before pushing; never commit on `main`):** latest commits
-`188abd3` conversation persistence · `dc058f8` Sunday hardening · `46321b5` voice-ready replies · `89070ba` frontend app + point-cloud API + profile
-presets · `ed5f6c1` live Guide check · `a4e3efb` Guide loop + backend. All via `/ship` (verifier PASS).
+**Git (`dev`, not pushed — ask Atahan before pushing; never commit on `main`):** latest commits — the Q-014 route
+model commit (this session) · `ec1b33e` Vercel deploy config (+ the Q-014 handoff) · `188abd3` conversation
+persistence · `dc058f8` Sunday hardening · `46321b5` voice-ready replies. All via `/ship` (verifier PASS).
 
-**Deployment work (no longer uncommitted):** the conversation persistence on Supabase (`backend/persistence.py`,
-`supabase/`, `tests/test_persistence.py`, …) was committed as `188abd3`. The Vercel deploy config (`vercel.json`,
-`StripPrefix` / `CORS_ORIGINS` in `backend/app.py`, `tests/test_deploy.py`, the commands.md deploy section) lands in
-the commit after it, and this handoff (Q-014 in `open-questions.md`, the warning in `docs/kit/route-model.md`, this
-section and its `log.md` entry) ships together with that deploy commit.
+**Deployment work:** committed (`188abd3` Supabase persistence, `ec1b33e` Vercel config: `vercel.json`,
+`StripPrefix` / `CORS_ORIGINS` in `backend/app.py`, `tests/test_deploy.py`, commands.md deploy section). **The app
+is deployed** (Atahan, 2026-10-24; public URL not recorded here, no smoke test by Claude yet).
 
 **What works:** benchmark dev 138/138, train 515/517 (2 irreducible Q-006); parser hybrid 31/31 on paraphrases;
-Guide live on Opus 5.5 / Sonnet 5.5 (grounding check, confirm-before-apply, profile presets + cue safety net, voice
-channel); FastAPI backend (`/chat`, `/events`, `/sessions/{id}/points`, OpenAI-compatible streaming
-`/v1/chat/completions` speaking); React app `frontend/app/` (monochrome point cloud, D-011). `uv run pytest` 147
-passed (+ Atahan's persistence tests). API spend ≈ $1.4 of $150.
+Guide live on Opus 5.5 / Sonnet 5.5; FastAPI backend; React app `frontend/app/` (D-011). **New (kit 1.1.0, D-014):** one route model —
+the organisers' door-to-door graph, ported verbatim; route rules (production bays destination-only, forklift
+preset) per call ([route-model.md](../docs/kit/route-model.md#sunday-route-model-and-route-rules-q-014)). Guide routes always obey
+the rules. `uv run pytest` 182 passed, 1 skipped (dev); 301 passed, 1 skipped after merging into `1-agentic-yarag`. API spend ≈ $1.4 of $150.
 
 **Running locally (may still be up):** backend `uvicorn backend.app:app --port 8765` (real Claude), Vite on
 `:5181` (port 5173 is another local project). Restart commands: [commands.md](../docs/guides/commands.md#frontend-app).
 
-**▶ Do next, in order:**
-1. **[Q-014](open-questions.md#q-014) — new Sunday route scoring rule (HIGH).** Send Atahan the 5 organiser
-   questions (draft in Q-014), then build the second route model + production-bay / forklift / no-outside rules and
-   measure sequence differences on train/dev. Stays in `core/` + `agent/` (not his deploy files).
-2. Help finish the deploy if Atahan asks (Vercel: Vite frontend + FastAPI, `/api` rewrite or `VITE_API_BASE`).
-3. ElevenLabs Custom LLM wiring once there is a public URL (ask before creating anything in any account).
-4. Frontend: phone-layout check, demo GIF (needs the Chrome extension; it was disconnected), bundle split.
-5. Open for Atahan: model per channel (Q-012; proposal Opus 5.5 medium for text, Sonnet 5.5 low for voice), team
-   name for the test CSV, push `dev`.
+**Frontend (new UI, committed 2026-10-24):** landing = building search (`src/search/`), `Root.tsx` → `BuildingScreen`
+(`src/building/`) over a vector plan view (`src/plan/*`, data from `core/floorplan.py` via
+`GET /sessions/{id}/plan`; `center` from the plan bounds). Direction "Drawing Set": `PRODUCT.md`,
+`.impeccable/surfaces/frontend-app.md`. Point cloud removed entirely (2026-10-24): code in gitignored `.viz-archive/`, and
+`core/pointcloud.py`, `/points`, route `vertices`, old `App.tsx` + `src/scene/` deleted (old events → scene logic is
+in git history, e.g. 92f063a:frontend/app/src/App.tsx). /plan no longer samples ~180 k points first (was 0.1–1.3 s
+per building open). Doors (2026-10-24) are flat threshold strips (blue, entrances accent, closed red), no leaves: the kit
+has no swing info. Next: Guide events on the plan
+(focus + dim, route line, closures, lost access), then 3D, voice, camera, maintainer edit.
+
+**▶ Do next, in order (Atahan's call 2026-10-24: frontend polish next session; Q-014 and Q-001 parked):**
+1. **Frontend polish** (`frontend/app/`): phone-layout check, demo GIF (needs the Chrome extension), bundle split,
+   closure ripple for edits, narrow doors for the active profile, draw in-space walk polylines
+   (the visibility-graph walk of `core/building_map.walking_lengths`; `core/geodesic.py` was removed, D-014)
+   instead of straight door-to-door lines.
+2. Parked until Atahan picks them up: [Q-014](open-questions.md#q-014) (3), (4) — aisle/walkway/bay markers,
+   whether Sunday route questions use `rules=SUNDAY_RULES` (the kit 1.1.0 answers use none); Sunday output format ([Q-001](open-questions.md#q-001)) incl. the "no route under these rules" wording.
+3. Small gaps: `numpy` used by `core/building_map.py` but not declared in `pyproject.toml` (transitive via shapely;
+   Atahan's file); `BuildingSession.route_model` is not saved by `backend/persistence.py` (irrelevant while the app
+   stays on the kit model); live smoke test of the deployed app (needs the URL).
+4. ElevenLabs Custom LLM on the deployed `/v1/chat/completions` — ask before creating anything in any account.
+5. Open for Atahan: model per channel (Q-012), team name for the test CSV, push `dev`.
 
 **Ways of working:** session protocol in CLAUDE.md; keep `.claude/worklog/PENDING.md` current; commit only via
 `/ship`, staging/stamp/commit as separate commands; subagents get disjoint files.
 
 ## Next priorities
 
-1. Voice: ElevenLabs Custom LLM on `/v1/chat/completions` (replies are voice-ready) — needs the public deploy
-   (Atahan working on it); ask before creating anything in any account. Decide model per channel (Q-012).
-2. Frontend polish: phone layout check, closure ripple for edits, narrow doors for the active profile, run against
+00. **Submission (2026-10-25):** `SUBMISSION/BENCHMARK.md` + `SUBMISSION/answers.json` (v1, test set) exist. When the
+   Sunday building is released: `uv run python -m agent.run_benchmark_v1 <building_dir> <questions>
+   SUBMISSION/answers.json` (hybrid, `.env` read automatically — **not** `PARSER_MODE=regex`, which answered 1 of 14
+   reworded questions), check errors (the summary line shows the parser mix; agent answers carry
+   `parser_failure`), then commit `SUBMISSION/answers.json` **together with `llm_cache/decisions.json`** (re-runs
+   without a key replay it) and ship. Keep `SUBMISSION/` to exactly those two files.
+
+‼ **Submission (organisers' Discord note, 2026-10-25 00:10, ~14 h to the deadline) — before anything else:**
+- [x] `SUBMISSION/` with exactly `BENCHMARK.md` + `answers.json` (8537ca0, v1 pipeline, 145 test answers, ids match
+  `data/test/questions.csv`, 0 errors). Still to confirm against the Discord image: scope and schema
+  ([Q-019](open-questions.md#q-019)). Old `submissions/` (lowercase) removed 2026-10-25.
+- [ ] Hack and More form: repo link, **strictly 2-minute** demo video (YouTube/Luma; start early), short technical
+  explanation.
+- [ ] Ask organisers about Level 4 input/scoring ([Q-018](open-questions.md#q-018)); Builder is not a priority.
+
+0. ✅ **Kit 1.1.0 route model ported** (2026-10-24, [D-014](decisions.md#d-014)): `core/building_map.py` = the
+   1.1.0 starter graph; warm-up routes 1,338/1,338 exact, solvers 655/655, dev benchmark 138/138, test submission
+   regenerated (20 errand + 1 what_if_door answers changed). Open: push `dev` (2 local commits), merge into
+   `1-agentic-yarag` / `2-builder-edit`; slow first build on huge OSM corridors (~25 s, cached afterwards).
+
+1. Frontend polish (next session): phone layout check, closure ripple for edits, narrow doors for the active profile, run against
    the real Guide (key set) and record a demo GIF/video.
-3. Deploy: Supabase ✅ (project created, `conversations` table applied, sessions persisted via
+2. Voice: ElevenLabs Custom LLM on the deployed `/v1/chat/completions` (replies are voice-ready); ask before
+   creating anything in any account. Decide model per channel (Q-012).
+3. Deploy ✅ (deployed by Atahan 2026-10-24): Supabase ✅ (project created, `conversations` table applied, sessions persisted via
    `backend/persistence.py`, live round trip incl. real Claude verified 2026-10-24). Vercel config ✅ (`vercel.json`
    with services `web` + `api`, `/api` rewrite, `excludeFiles`, `maxDuration` 300; `StripPrefix` and `CORS_ORIGINS`
-   in `backend/app.py`; `tests/test_deploy.py`; `uv run pytest` 162 passed, 1 skipped). Next: Atahan imports the repo
-   into Vercel and sets the env vars (`ANTHROPIC_API_KEY`, `SUPABASE_DB_URL`), then smoke-test; the first-deploy
-   UNVERIFIED items are listed in [commands.md](../docs/guides/commands.md#deploy-vercel).
+   in `backend/app.py`; `tests/test_deploy.py`). Remaining: smoke-test the live URL; the first-deploy UNVERIFIED
+   items are listed in [commands.md](../docs/guides/commands.md#deploy-vercel).
 4. Preference extraction, remaining TODO: group composition (P20), profile lifetime/reset scope, persistence,
    soft penalties → [TODO](../docs/product/routing-profiles.md#todo-preference-extraction).
 5. Sunday hardening: wording robustness ✅ (hybrid 31/31 on paraphrases), Swiss `straight_line_3d` ✅ (generator

@@ -1,0 +1,15 @@
+{
+  "building": "data/dev/proc-factory-dev-004",
+  "turns": [
+    {
+      "user": "Where is the 3D printer?",
+      "expect": {
+        "asked": false,
+        "space_ids_include": [
+          "proc-factory-dev-004-F0-S004"
+        ],
+        "grounded": true
+      }
+    }
+  ]
+}

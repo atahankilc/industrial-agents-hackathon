@@ -5,7 +5,9 @@
   client.messages.create(..., tools=TOOL_DEFINITIONS)   # then route every tool_use block to session.call
 
 Every fact the agent states comes from these tools (D-003). The session holds what a conversation accumulates:
-the user's routing profile (step-free, minimum door width, no lifts — docs/product/routing-profiles.md), applied
+the user's routing profile (step-free, minimum door width, no lifts, forklift — docs/product/routing-profiles.md),
+the route rules every route obeys (production bays destination-only, no shortcut outside — core/route_models.py,
+Q-014) and the route model (the kit 1.1.0 one, door to door — the only one; `route_model` kept for callers), applied
 building changes (closures, new doors), pending changes awaiting the user's confirmation, and UI events
 (highlight rooms, draw a route). Changes go through propose → confirm → apply so the agent can show what it
 understood before it edits the plan (docs/architecture/ai-agents.md#shared-tool-layer).
@@ -18,13 +20,15 @@ import itertools
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-import networkx as nx
-
-from core import navigation
-from core.building_map import LIFT, BuildingMap, MapError
+from agent import places
+from core.directions import about_m, guidance_steps
+from core import navigation, route_models
+from core.building_map import LIFT, OUTSIDE, BuildingMap, MapError
+from core.preferences import Penalties
+from core.route_models import FORKLIFT_MIN_WIDTH_M, KIT, RouteRules
 from core.solvers import SOLVERS, solve
 from core.solvers.geometry import adjacent_floor, centre_3d, polygon
-from core.solvers.reachability import is_room, reachable_spaces, rooms_on_floor
+from core.solvers.reachability import is_room, rooms_on_floor
 from core.solvers.routing import with_new_door
 from core.solvers.walls import shared_wall_neighbours
 
@@ -46,8 +50,21 @@ PRESETS: dict[str, dict] = {
     "pram": {"values": {"step_free": True, "min_door_width_m": 0.8}, "assumed": ["min_door_width_m"]},
     "trolley": {"values": {"step_free": True}, "needs": ["min_door_width_m"]},
     "no_lifts": {"values": {"avoid_lifts": True}},
+    # Organiser rule (Q-014): forklift aisles and openings >= 3 m only, pedestrian walkways don't count.
+    "forklift": {"values": {"step_free": True, "min_door_width_m": FORKLIFT_MIN_WIDTH_M, "forklift": True}},
 }
-PROFILE_FIELDS = ("step_free", "min_door_width_m", "avoid_lifts")
+PROFILE_FIELDS = ("step_free", "min_door_width_m", "avoid_lifts", "forklift")
+# Route preferences (app access mode only, docs/superpowers/specs/2026-10-25-access-profiles-design.md): soft
+# penalties in metres-equivalent from the persona table in docs/product/routing-profiles.md, and avoided room types.
+PREFERENCE_FIELDS = ("avoid_room_types", "prefer_lifts", "fewer_doors", "quiet", "avoid_halls", "simple_routes")
+PENALTIES_M = {  # field → Penalties values; several preferences combine by the larger value
+    "prefer_lifts": {"stairs_per_flight_m": 20.0},  # low_stamina: stairs 20 m/floor
+    "fewer_doors": {"door_m": 3.0},  # crutches: door 3 m
+    "quiet": {"noisy_m": 40.0, "hall_m": 10.0},  # quiet: noisy 40 m, hall 10 m
+    "avoid_halls": {"hall_m": 30.0},  # low_vision: hall 30 m
+    "simple_routes": {"space_change_m": 3.0},  # simple: space change 3 m
+}
+GUIDE_PREFERENCES = ("language", "reply_style", "voice")  # how the Guide talks; no effect on routes
 
 
 @dataclass
@@ -55,8 +72,24 @@ class RoutingProfile:
     step_free: bool = False
     min_door_width_m: float | None = None
     avoid_lifts: bool = False
+    forklift: bool = False  # no stairs, openings >= 3 m, no walkway-like spaces (route_models.RouteRules)
     preset: str = "default"  # the last preset applied; explicit fields may refine it
     assumed: list[str] = field(default_factory=list)  # fields set from a preset default, not from the user
+    avoid_room_types: list[str] = field(default_factory=list)  # PREFERENCE_FIELDS: app preferences only
+    prefer_lifts: bool = False
+    fewer_doors: bool = False
+    quiet: bool = False
+    avoid_halls: bool = False
+    simple_routes: bool = False
+
+    def penalties(self) -> Penalties | None:
+        values: dict[str, float] = {}
+        for name, spec in PENALTIES_M.items():
+            if getattr(self, name):
+                for key, metres in spec.items():
+                    values[key] = max(values.get(key, 0.0), metres)
+        penalties = Penalties(**values, avoid_room_types=frozenset(self.avoid_room_types))
+        return penalties if penalties.active() else None
 
     def describe(self) -> str:
         parts = ["step-free" if self.step_free else "stairs allowed"]
@@ -65,6 +98,13 @@ class RoutingProfile:
             parts.append(f"doors at least {self.min_door_width_m} m wide{assumed}")
         if self.avoid_lifts:
             parts.append("no lifts")
+        if self.forklift:
+            parts.append("forklift (no stairs, no walkways)")
+        if self.avoid_room_types:
+            parts.append("avoiding " + ", ".join(room.replace("_", " ") for room in self.avoid_room_types))
+        labels = {"prefer_lifts": "prefers lifts", "fewer_doors": "fewer doors", "quiet": "quiet route",
+                  "avoid_halls": "avoids open halls", "simple_routes": "simple routes"}
+        parts += [label for name, label in labels.items() if getattr(self, name)]
         return ", ".join(parts)
 
 
@@ -88,7 +128,22 @@ class BuildingSession:
         self.events: list[dict] = []
         self.emitting = True  # off while predicting, so hypothetical routes never reach the UI
         self.last_route: dict | None = None
+        self.route_model = KIT  # kit 1.1.0 route model ("geodesic" is an alias since 1.1.0)
         self._ids = itertools.count(1)
+        # Access mode only (backend/access.py): names of spaces/assets this viewer may not see; the building above
+        # is already a copy without them (core/access.py). Empty everywhere else, so nothing changes.
+        self.restricted_names: set[str] = set()
+        # Access mode only: remembered preferences. Off = the tool list and every route exactly as before.
+        self.preferences_enabled = False
+        self.auto_capture = True  # the user lets the Guide remember what they say (settings switch)
+        self.guide_preferences: dict = {}  # GUIDE_PREFERENCES values (language, reply_style, voice)
+        # Access mode, admin only: (object name or id, destination) → dispatch result (backend/fleet.py).
+        self.object_dispatch = None
+        # Where the user is, from the app's "you are here" figure: {"space_id", "name", "floor"} or None. "here"
+        # as a place means this space (HERE), so the Guide never has to ask.
+        self.user_location: dict | None = None
+        # Buildings nearby (agent/campus.py), set by the backend for buildings with a real position; None = none.
+        self.campus = None
 
     @classmethod
     def load(cls, directory: Path) -> "BuildingSession":
@@ -101,11 +156,32 @@ class BuildingSession:
         if handler is None:
             return {"error": f"Unknown tool '{name}'"}
         try:
-            return handler(**arguments)
+            result = handler(**arguments)
         except KeyError as error:
-            return {"error": str(error.args[0]) if error.args else "Unknown id"}
+            result = {"error": str(error.args[0]) if error.args else "Unknown id"}
         except (MapError, ValueError, TypeError) as error:
-            return {"error": str(error)}
+            result = {"error": str(error)}
+        if self.restricted_names and ("error" in result or result.get("total") == 0):
+            named = self.restricted_hit(arguments)
+            if named:
+                return {"error": "restricted", "restricted": named,
+                        "message": f"'{named}' is in a restricted area this user may not enter or see. Say so "
+                                   "without any detail about it and offer a public place instead."}
+        return result
+
+    def restricted_hit(self, arguments: dict) -> str | None:
+        """The first argument phrase that names a restricted space or asset (whole name, or a word run of ≥ 3
+        letters inside one)."""
+        phrases = []
+        for value in arguments.values():
+            phrases += value if isinstance(value, list) else [value]
+        for phrase in phrases:
+            if not isinstance(phrase, str) or len(phrase.strip()) < 3:
+                continue
+            lowered = phrase.strip().lower()
+            if any(lowered == name or lowered in name or name in lowered for name in self.restricted_names):
+                return phrase
+        return None
 
     # ---------- profile → routing constraints ----------
 
@@ -123,6 +199,10 @@ class BuildingSession:
             closed += [c["id"] for c in building.connectors.values() if c["kind"] == LIFT]
         return closed
 
+    def route_rules(self) -> RouteRules:
+        """Rules every Guide route obeys; the forklift rule follows the profile."""
+        return RouteRules(bays_destination_only=True, no_outside=True, forklift=self.profile.forklift)
+
     def space_summary(self, space_id: str) -> dict:
         space = self.building.spaces[space_id]
         return {
@@ -133,8 +213,55 @@ class BuildingSession:
             "floor": self.building.floor_name(space["floor_id"]),
         }
 
+    def stop(self, reference: str) -> str:
+        return OUTSIDE if reference == OUTSIDE else self.resolve(reference)
+
     def resolve(self, reference: str) -> str:
-        return self.building.resolve_space(reference)
+        """One space id for a phrase, else MapError listing the candidates or near-miss names (agent/places.py).
+        "here" / "my location" is the space of the app's "you are here" figure."""
+        if reference.strip().lower() in HERE:
+            if self.user_location is None:
+                raise MapError("The user's position is not known; ask where they are.")
+            return self.user_location["space_id"]
+        found = places.candidates(self.building, reference)
+        if len(found) != 1:
+            raise MapError(places.problem(self.building, reference, found))
+        return found[0]
+
+    def set_location(self, space_id: str | None) -> dict | None:
+        """The app's "you are here" figure was put down in `space_id` (None = taken away)."""
+        if space_id is None:
+            self.user_location = None
+            return None
+        space = self.building.spaces[space_id]
+        self.user_location = {"space_id": space_id, "name": space["name"], "ref": space.get("ref"),
+                              "floor": self.building.floor_name(space["floor_id"])}
+        return self.user_location
+
+    def highlight(self, space_ids: list[str], asset_ids: list[str] = ()) -> None:
+        """Show these rooms (and items in them) on the user's map, as the answer."""
+        if self.emitting and (space_ids or asset_ids):
+            spaces = list(dict.fromkeys([*space_ids, *(self.building.assets[a]["space_id"] for a in asset_ids)]))
+            self.events.append({"type": "highlight", "space_ids": spaces[:MAX_RESULTS * 2],
+                                "asset_ids": list(asset_ids)[:MAX_RESULTS * 2]})
+
+    def destination_options(self, start: str, destination: str, via: list[str]) -> dict | None:
+        """A destination phrase that fits several spaces: the route length to each, shortest first (D-012)."""
+        found = places.candidates(self.building, destination)
+        if not 1 < len(found) <= places.MAX_OPTIONS:
+            return None
+        options = []
+        for space_id in found:
+            route = navigation.find_route(self.building, start, space_id, step_free=self.profile.step_free,
+                                          closed=self.profile_closures(), via=via, model=self.route_model,
+                                          rules=self.route_rules(), penalties=self.profile.penalties()).to_dict()
+            options.append({**self.space_summary(space_id),
+                            "length_m": route["length_m"] if route.get("reachable") else None})
+        options.sort(key=lambda option: (option["length_m"] is None, option["length_m"] or 0.0))
+        extras = {option["id"]: f"{option['length_m']} m" if option["length_m"] is not None else "unreachable"
+                  for option in options}
+        return {"error": places.problem(self.building, destination, [o["id"] for o in options], extras),
+                "options": options}
 
     # ---------- read-only tools ----------
 
@@ -146,10 +273,19 @@ class BuildingSession:
 
     def tool_search(self, query: str, floor_level: int | None = None) -> dict:
         results = self.building.search(query, floor_level)
-        return {"total": len(results), "results": results[:MAX_RESULTS]}
+        shown = results[:MAX_RESULTS]
+        self.highlight([r["id"] for r in shown if r["kind"] == "space"], [r["id"] for r in shown if r["kind"] == "asset"])
+        result = {"total": len(results), "results": shown}
+        if not results and self.campus is not None and self.campus.neighbours():
+            result["hint"] = "Nothing here; search_nearby_buildings looks in the buildings next to this one."
+        return result
 
     def tool_locate(self, query: str, floor_id: str | None = None) -> dict:
-        return navigation.locate(self.building, query, floor_id).to_dict()
+        result = navigation.locate(self.building, query, floor_id).to_dict()
+        self.highlight([], [hit["asset_id"] for hit in result.get("assets") or []])
+        if not result.get("total") and self.campus is not None and self.campus.neighbours():
+            result["hint"] = "Nothing here; search_nearby_buildings looks in the buildings next to this one."
+        return result
 
     def tool_count_assets(self, asset_type: str, floor_id: str | None = None) -> dict:
         resolved = navigation.resolve_asset_type(self.building, asset_type)
@@ -179,7 +315,7 @@ class BuildingSession:
             for opening in self.building.openings.values()
             if space_id in opening["space_ids"]
         ]
-        self.events.append({"type": "highlight", "space_ids": [space_id]})
+        self.highlight([space_id])
         return {
             **self.space_summary(space_id),
             "area_m2": round(polygon(record).area, 2),
@@ -196,6 +332,10 @@ class BuildingSession:
         }
 
     def tool_find_route(self, start: str, destination: str, via: list[str] | None = None) -> dict:
+        start, via = self.stop(start), [self.stop(item) for item in via or ()]
+        if destination != OUTSIDE and (options := self.destination_options(start, destination, via)):
+            return options
+        destination = self.stop(destination)
         route = navigation.find_route(
             self.building,
             start,
@@ -203,8 +343,12 @@ class BuildingSession:
             step_free=self.profile.step_free,
             closed=self.profile_closures(),
             via=via or (),
+            model=self.route_model,
+            rules=self.route_rules(),
+            penalties=self.profile.penalties(),
         ).to_dict()
         route["profile"] = self.profile.describe()
+        self.guide_steps(route)
         if route.get("reachable") and self.emitting:
             self.last_route = {"start": start, "destination": destination, "via": via or []}
             self.events.append({"type": "route", "space_path": route["space_path"],
@@ -213,20 +357,28 @@ class BuildingSession:
         return route
 
     def tool_tour(self, stops: list[str]) -> dict:
-        return navigation.tour(
-            self.building, stops, step_free=self.profile.step_free, closed=self.profile_closures()
+        tour = navigation.tour(
+            self.building, [self.stop(item) for item in stops], step_free=self.profile.step_free,
+            closed=self.profile_closures(), model=self.route_model, rules=self.route_rules(),
+            penalties=self.profile.penalties(),
         ).to_dict()
+        if tour.get("reachable"):
+            tour["about_m"] = about_m(tour["length_m"])
+            for leg in tour.get("legs") or []:
+                self.guide_steps(leg)
+        return tour
+
+    def guide_steps(self, route: dict) -> None:
+        """Followable steps (turns, landmarks, rounded metres, no ids) instead of the kit's step text, plus the
+        rounded total a person would say (`about_m`; `length_m` stays exact)."""
+        if route.get("reachable") and route.get("space_path"):
+            route["steps"] = guidance_steps(self.building, route["space_path"], route["element_path"])
+            route["about_m"] = about_m(route["length_m"])
 
     def tool_reachable_rooms(self, start: str, floor_id: str | None = None) -> dict:
         """Rooms reachable from `start` under the current profile and changes."""
         start_id = self.resolve(start)
-        reached = reachable_spaces(
-            self.building,
-            start_id,
-            step_free=self.profile.step_free,
-            min_width=self.profile.min_door_width_m,
-            closed=self.profile_closures(),
-        )
+        reached = set(self.space_distances(self.building, start_id))
         rooms = rooms_on_floor(self.building, reached, floor_id) if floor_id else sorted(
             space_id for space_id in reached if is_room(self.building.spaces[space_id]))
         return {"count": len(rooms), "rooms": rooms[:MAX_RESULTS * 4], "profile": self.profile.describe()}
@@ -241,7 +393,9 @@ class BuildingSession:
 
     def tool_set_profile(
         self, preset: str | None = None, step_free: bool | None = None, min_door_width_m: float | None = None,
-        avoid_lifts: bool | None = None,
+        avoid_lifts: bool | None = None, forklift: bool | None = None, avoid_room_types: list[str] | None = None,
+        prefer_lifts: bool | None = None, fewer_doors: bool | None = None, quiet: bool | None = None,
+        avoid_halls: bool | None = None, simple_routes: bool | None = None, scope: str | None = None,
     ) -> dict:
         """Apply a persona preset (its fields only; others are kept), then explicit fields, which override it.
         preset "default" resets everything. The result says what changed and which values are assumed."""
@@ -249,7 +403,8 @@ class BuildingSession:
             raise ValueError(f"Unknown preset '{preset}'; use one of {', '.join(PRESETS)}")
         if min_door_width_m is not None and min_door_width_m < 0:
             raise ValueError("min_door_width_m must be ≥ 0 (0 clears it)")
-        before = {name: getattr(self.profile, name) for name in PROFILE_FIELDS}
+        fields = PROFILE_FIELDS + PREFERENCE_FIELDS
+        before = {name: copy.copy(getattr(self.profile, name)) for name in fields}
         needs: list[str] = []
         if preset == "default":
             self.profile = RoutingProfile()
@@ -262,14 +417,24 @@ class BuildingSession:
             self.profile.assumed += [name for name in spec.get("assumed", []) if name not in self.profile.assumed]
             self.profile.preset = preset
             needs = [name for name in spec.get("needs", []) if min_door_width_m is None]
-        explicit = {"step_free": step_free, "min_door_width_m": min_door_width_m, "avoid_lifts": avoid_lifts}
+        explicit = {"step_free": step_free, "min_door_width_m": min_door_width_m, "avoid_lifts": avoid_lifts,
+                    "forklift": forklift}
+        if preset == "default":  # clears mobility constraints only; route preferences are changed by name
+            for name in PREFERENCE_FIELDS:
+                setattr(self.profile, name, before[name])
+        explicit.update({"avoid_room_types": avoid_room_types, "prefer_lifts": prefer_lifts,
+                         "fewer_doors": fewer_doors, "quiet": quiet, "avoid_halls": avoid_halls,
+                         "simple_routes": simple_routes})
+        if avoid_room_types is not None:
+            explicit["avoid_room_types"] = sorted({str(room).strip().lower().replace(" ", "_")
+                                                   for room in avoid_room_types if str(room).strip()})
         for name, value in explicit.items():
             if value is None:
                 continue
             setattr(self.profile, name, (value or None) if name == "min_door_width_m" else value)
             if name in self.profile.assumed:
                 self.profile.assumed.remove(name)
-        changed = {name: getattr(self.profile, name) for name in PROFILE_FIELDS
+        changed = {name: getattr(self.profile, name) for name in fields
                    if getattr(self.profile, name) != before[name]}
         result = {"profile": asdict(self.profile), "summary": self.profile.describe(), "changed": changed,
                   "assumed": list(self.profile.assumed)}
@@ -277,7 +442,71 @@ class BuildingSession:
             result["preset"] = preset
         if needs:
             result["needs"] = needs  # ask the user, e.g. how wide the trolley is
+        self.remember_preference(changed, scope, result)
         return result
+
+    def remember_preference(self, changed: dict, scope: str | None, result: dict) -> None:
+        """Access mode: tell the app to store what changed (global, or for this building only)."""
+        if not (self.preferences_enabled and self.auto_capture and changed):
+            return
+        scope = "building" if scope == "building" else "global"
+        self.events.append({"type": "preference", "scope": scope, "values": changed})
+        result["remembered"] = scope
+
+    def tool_set_preference(self, language: str | None = None, reply_style: str | None = None,
+                            voice: bool | None = None, favourite: str | None = None,
+                            scope: str | None = None) -> dict:
+        """How the Guide talks to this user, and saved places (favourites are always per building)."""
+        if not self.preferences_enabled:
+            return {"error": "Preferences are not available here."}
+        if reply_style is not None and reply_style not in ("brief", "detailed"):
+            raise ValueError("reply_style must be 'brief' or 'detailed'")
+        changed = {name: value for name, value in
+                   {"language": language, "reply_style": reply_style, "voice": voice}.items()
+                   if value is not None and self.guide_preferences.get(name) != value}
+        self.guide_preferences.update(changed)
+        result: dict = {"preferences": dict(self.guide_preferences), "changed": changed}
+        if favourite is not None:
+            space_id = self.resolve(favourite)
+            result["favourite"] = self.space_summary(space_id)
+            if self.auto_capture:
+                self.events.append({"type": "preference", "scope": "building", "values": {"favourite": space_id}})
+                result["remembered"] = "building"
+        self.remember_preference(changed, scope, result)
+        return result
+
+    def apply_preferences(self, values: dict) -> None:
+        """Effective preferences from the app (global ← this building) at session start or after a settings change;
+        no events, nothing re-remembered."""
+        for name in ("step_free", "avoid_lifts", *PREFERENCE_FIELDS[1:]):
+            if name in values:
+                setattr(self.profile, name, bool(values[name]))
+        if "avoid_room_types" in values:
+            rooms = values["avoid_room_types"] or []
+            if not isinstance(rooms, list):
+                raise ValueError("avoid_room_types must be a list")
+            self.profile.avoid_room_types = sorted({str(room) for room in rooms})
+        if "min_door_width_m" in values:
+            width = values["min_door_width_m"]
+            self.profile.min_door_width_m = float(width) if width else None
+            if "min_door_width_m" in self.profile.assumed:
+                self.profile.assumed.remove("min_door_width_m")
+        self.guide_preferences = {name: values[name] for name in GUIDE_PREFERENCES if values.get(name) is not None}
+
+    def tool_definitions(self) -> list[dict]:
+        """TOOL_DEFINITIONS, with the preference fields and set_preference only when preferences are on,
+        send_object for the building admin, and the campus tools for a building with neighbours."""
+        campus = CAMPUS_TOOLS if self.campus is not None and self.campus.neighbours() else []
+        if not self.preferences_enabled:
+            return TOOL_DEFINITIONS + campus if campus else TOOL_DEFINITIONS
+        tools = [PREFERENCE_SET_PROFILE if tool["name"] == "set_profile" else tool
+                 for tool in TOOL_DEFINITIONS] + [SET_PREFERENCE]
+        return (tools + [SEND_OBJECT] if self.object_dispatch is not None else tools) + campus
+
+    def tool_send_object(self, object: str, destination: str) -> dict:
+        if self.object_dispatch is None:
+            return {"error": "Only the building admin can send robots or vehicles."}
+        return self.object_dispatch(object, destination)
 
     # ---------- changes: propose → confirm → apply ----------
 
@@ -400,16 +629,21 @@ class BuildingSession:
                 grouped[floor["name"]] = {"count": len(names), "rooms": names}
         return grouped
 
-    def room_distances(self, building: BuildingMap, start_id: str) -> dict[str, float]:
-        """Route-model metres from `start_id` to every reachable room under the profile in `building`."""
+    def space_distances(self, building: BuildingMap, start_id: str) -> dict[str, float]:
+        """Route-model metres from `start_id` to every reachable space under the profile and rules in `building`."""
         view = navigation.routing_view(building, self.profile_closures(building))
-        graph = view.graph(self.profile.step_free)
+        rules = self.route_rules()
+        graph = route_models.route_graph(view, self.profile.step_free, self.route_model, rules)
         if start_id not in graph:
             return {}
-        lengths = nx.single_source_dijkstra_path_length(graph, start_id, weight="weight")
+        lengths = route_models.single_source(graph, route_models.endpoint_only(view, rules), start_id)
+        return {node: length for node, length in lengths.items() if node in building.spaces}
+
+    def room_distances(self, building: BuildingMap, start_id: str) -> dict[str, float]:
+        """Route-model metres from `start_id` to every reachable room under the profile in `building`."""
         return {
-            node: length for node, length in lengths.items()
-            if node in building.spaces and is_room(building.spaces[node])
+            node: length for node, length in self.space_distances(building, start_id).items()
+            if is_room(building.spaces[node])
         }
 
     def predict_between(self, before: BuildingMap, after: BuildingMap) -> dict:
@@ -445,16 +679,68 @@ class BuildingSession:
 
     # ---------- UI ----------
 
-    def tool_show_on_map(self, space_ids: list[str]) -> dict:
-        resolved = [self.resolve(item) for item in space_ids]
-        self.events.append({"type": "highlight", "space_ids": resolved})
-        return {"shown": resolved}
+    def tool_show_on_map(self, space_ids: list[str] | None = None, asset_ids: list[str] | None = None) -> dict:
+        """Rooms, and items (an asset id or exact name; also accepted among space_ids), shown as the answer."""
+        rooms, items = [], []
+        for item in [*(space_ids or ()), *(asset_ids or ())]:
+            asset = self.asset_ref(item)
+            if asset is not None:
+                items.append(asset)
+            else:
+                rooms.append(self.resolve(item))
+        self.highlight(rooms, items)
+        return {"shown": rooms + items}
+
+    def tool_set_my_location(self, place: str) -> dict:
+        """The user said where they are: that space is "here" from now on, and the app puts its "you are here"
+        figure there (event `location`) and zooms to it."""
+        space_id = self.resolve(place)
+        location = self.set_location(space_id)
+        if self.emitting:
+            self.events.append({"type": "location", "space_id": space_id})
+        return {"location": location, "note": "The app now shows the user here; pass \"here\" as the start."}
+
+    def tool_open_edit_mode(self, request: str | None = None) -> dict:
+        """Switch the app to its Edit mode (frontend/app/src/edit/), where the Builder (agent/builder.py) takes the
+        request on a draft copy; this session's building is not changed."""
+        wanted = (request or "").strip() or None
+        if self.emitting:
+            self.events.append({"type": "edit_mode", "request": wanted})
+        return {"opened": True, "request": wanted,
+                "note": "The app now shows the Edit mode; its Builder takes the request from here, on a copy."}
+
+    def asset_ref(self, reference: str) -> str | None:
+        if reference in self.building.assets:
+            return reference
+        wanted = reference.strip().lower()
+        named = [a["id"] for a in self.building.assets.values() if a["name"].lower() == wanted]
+        return named[0] if len(named) == 1 else None
+
+    # ---------- buildings nearby (agent/campus.py) ----------
+
+    def tool_search_nearby_buildings(self, query: str) -> dict:
+        if self.campus is None:
+            return {"error": "This building has no known neighbours."}
+        result = self.campus.search(query)
+        if self.emitting and result["buildings"]:
+            self.events.append({"type": "elsewhere", "query": query, "buildings": [
+                {"building": item["building_id"], "name": item["name"], "distance_m": item["distance_m"],
+                 "total": item["total"], "first": item["results"][0]["name"] if item["results"] else None}
+                for item in result["buildings"]]})
+        return result
+
+    def tool_route_to_building(self, start: str, building: str, destination: str) -> dict:
+        if self.campus is None:
+            return {"error": "This building has no known neighbours."}
+        return self.campus.route(self, start, building, destination)
 
 
 # What propose_change adds from compare_routes, so a proposal already says who loses access and how much longer.
 IMPACT_KEYS = ("from", "reachable_rooms_before", "reachable_rooms_after", "lost_access_count",
                "lost_access_by_floor", "longer_routes_count", "max_extra_m")
-PLACE = {"type": "string", "description": "Space id, room ref, exact room name, or asset name/id"}
+PLACE = {"type": "string", "description": "Space id, room ref, exact room name, or asset name/id; \"here\" = "
+         "where the user is (when the app knows it)"}
+HERE = {"here", "me", "my location", "my position", "current location", "where i am", "where i am now"}
 TOOL_DEFINITIONS: list[dict] = [
     {"name": "building_overview", "description": "Floors, stairs/lifts, entrances, the user's routing profile and "
      "applied changes. Call once at the start.", "input_schema": {"type": "object", "properties": {}}},
@@ -471,7 +757,8 @@ TOOL_DEFINITIONS: list[dict] = [
      "(omitted where floors aren't aligned), items in a room.",
      "input_schema": {"type": "object", "properties": {"space": PLACE}, "required": ["space"]}},
     {"name": "find_route", "description": "Shortest walk under the user's profile and current closures: metres, "
-     "rooms passed, followable steps.", "input_schema": {"type": "object", "properties": {
+     "rooms passed, followable steps (turns, landmarks, rounded metres) and about_m (the rounded total). Routes never pass through production bays (destinations only) or outside "
+     "the building; reachable=false + reason means no route under these rules — tell the user so.", "input_schema": {"type": "object", "properties": {
          "start": PLACE, "destination": PLACE, "via": {"type": "array", "items": PLACE}},
          "required": ["start", "destination"]}},
     {"name": "tour", "description": "Visit several places in the given order.", "input_schema": {
@@ -488,11 +775,13 @@ TOOL_DEFINITIONS: list[dict] = [
          "required": ["kind", "params"]}},
     {"name": "set_profile", "description": "Remember the user's mobility constraints for every later route. "
      "preset: wheelchair or pram = step-free + doors ≥ 0.8 m (assumed); trolley = step-free, also give "
-     "min_door_width_m (ask if unknown); no_lifts; default = clear all constraints. A preset changes only its own "
+     "min_door_width_m (ask if unknown); no_lifts; forklift = openings ≥ 3 m, no stairs, no pedestrian walkways; "
+     "default = clear all constraints. A preset changes only its own "
      "fields; explicit fields override it. The result lists assumed values: name them to the user.",
      "input_schema": {"type": "object", "properties": {
          "preset": {"type": "string", "enum": list(PRESETS)}, "step_free": {"type": "boolean"},
-         "min_door_width_m": {"type": "number"}, "avoid_lifts": {"type": "boolean"}}}},
+         "min_door_width_m": {"type": "number"}, "avoid_lifts": {"type": "boolean"},
+         "forklift": {"type": "boolean"}}}},
     {"name": "propose_change", "description": "Prepare (not apply) a building change and predict its effect: the "
      "last route before/after and, from that route's start, rooms that lose access and routes that get longer. "
      "Show the summary to the user and apply only after they confirm.", "input_schema": {
@@ -505,7 +794,63 @@ TOOL_DEFINITIONS: list[dict] = [
      "(default: the last route's start, else the main entrance) under the user's profile: rooms that lost access, "
      "routes that got longer and by how many metres.", "input_schema": {"type": "object", "properties": {
          "change_id": {"type": "string"}, "start": PLACE}, "required": ["change_id"]}},
-    {"name": "show_on_map", "description": "Highlight spaces in the user's map view.", "input_schema": {
-        "type": "object", "properties": {"space_ids": {"type": "array", "items": PLACE}},
-        "required": ["space_ids"]}},
+    {"name": "show_on_map", "description": "Highlight rooms and items in the user's map view: the map zooms to "
+     "them. search, locate and room_facts already show what they found; call this to show the one(s) you mean.",
+     "input_schema": {"type": "object", "properties": {"space_ids": {"type": "array", "items": PLACE},
+                                                       "asset_ids": {"type": "array", "items": PLACE}}}},
+    {"name": "set_my_location", "description": "The user says where they are now (\"I'm in the lobby\", \"I'm at "
+     "Lab 2.17\"): it becomes \"here\" for later routes, and the app puts its you-are-here figure there and zooms to "
+     "it.", "input_schema": {"type": "object", "properties": {"place": PLACE}, "required": ["place"]}},
+    {"name": "open_edit_mode", "description": "Switch the app to its Edit mode, where the Builder changes the "
+     "building itself on a copy: rename or re-purpose rooms, move or reshape walls, move or widen doors, add, "
+     "move or remove items, save as a new building. Pass the user's request in their words (or nothing when they "
+     "just want to edit). Not for closing, reopening or adding a door for routing: that is propose_change.",
+     "input_schema": {"type": "object", "properties": {"request": {"type": "string"}}}},
 ]
+# Only for buildings with neighbours (BuildingSession.campus).
+CAMPUS_TOOLS = [
+    {"name": "search_nearby_buildings", "description": "Search the buildings next to this one (nearest first, with "
+     "distances). Use it when something is not in this building before saying it isn't there.",
+     "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}},
+    {"name": "route_to_building", "description": "Route from a place here to a place in a nearby building: inside "
+     "here to the best exit, outside (straight line, rounded), inside there. The app shows the first part and a "
+     "Continue button; give the totals and the first steps.", "input_schema": {"type": "object", "properties": {
+         "start": PLACE, "building": {"type": "string", "description": "nearby building id or name"},
+         "destination": {"type": "string", "description": "place in that building"}},
+         "required": ["start", "building", "destination"]}},
+]
+
+# Access mode only (BuildingSession.preferences_enabled): set_profile with route preferences, and set_preference.
+_SET_PROFILE = next(tool for tool in TOOL_DEFINITIONS if tool["name"] == "set_profile")
+SCOPE = {"type": "string", "enum": ["global", "building"], "description": "global (default) = everywhere; "
+         "building = only in this building, when the user says so (\"here\", \"in this building\")"}
+PREFERENCE_SET_PROFILE = {
+    "name": "set_profile",
+    "description": _SET_PROFILE["description"] + " Route preferences (soft, routes may get a little longer, "
+    "say by how much): prefer_lifts, fewer_doors, quiet (avoids noisy rooms like canteens, lobbies, production "
+    "halls), avoid_halls (open halls), simple_routes (fewer rooms passed); avoid_room_types = room types never "
+    "crossed (start and destination excepted). The app remembers what the user tells you (result `remembered`): "
+    "say so in a few words. preset default clears mobility constraints only.",
+    "input_schema": {"type": "object", "properties": {
+        **_SET_PROFILE["input_schema"]["properties"],
+        "avoid_room_types": {"type": "array", "items": {"type": "string"}}, "prefer_lifts": {"type": "boolean"},
+        "fewer_doors": {"type": "boolean"}, "quiet": {"type": "boolean"}, "avoid_halls": {"type": "boolean"},
+        "simple_routes": {"type": "boolean"}, "scope": SCOPE}},
+}
+SET_PREFERENCE = {
+    "name": "set_preference",
+    "description": "Remember how the user wants you to talk (language as an English name, e.g. Turkish; "
+    "reply_style brief or detailed; voice true/false) or a favourite place in this building. Call it when the "
+    "user states such a wish; the app remembers it (result `remembered`).",
+    "input_schema": {"type": "object", "properties": {
+        "language": {"type": "string"}, "reply_style": {"type": "string", "enum": ["brief", "detailed"]},
+        "voice": {"type": "boolean"}, "favourite": {"type": "string"}, "scope": SCOPE}},
+}
+SEND_OBJECT = {
+    "name": "send_object",
+    "description": "Admin only: send a moving object (robot, forklift, AGV — by name) to a place. The route fits the "
+    "object's attributes (width, stairs, lifts); the object receives it as machine steps and the map shows it "
+    "moving. reachable=false + reason: tell the admin why. An unknown name lists the building's objects.",
+    "input_schema": {"type": "object", "properties": {"object": {"type": "string"}, "destination": PLACE},
+                     "required": ["object", "destination"]},
+}

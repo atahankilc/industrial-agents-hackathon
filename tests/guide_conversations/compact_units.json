@@ -1,0 +1,12 @@
+{
+  "building": "data/dev/proc-campus-dev-001",
+  "turns": [
+    {
+      "user": "I'm in the main lobby. How far do I have to walk to Lab 2.20? Just the walking distance in metres, compact, written like 120m.",
+      "expect": {
+        "route_to": "proc-campus-dev-001-F2-S020",
+        "grounded": true
+      }
+    }
+  ]
+}

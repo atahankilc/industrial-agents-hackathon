@@ -2,7 +2,7 @@
 id: arch-agents
 summary: PROPOSED design of every AI agent in the system — Building Guide (chat + voice), benchmark pipeline, Builder (plan → building), and how they share one deterministic tool layer.
 status: proposed
-sources: [../research/elevenlabs.md, ../kit/starter-agent.md, ../challenge/brief.md, ../challenge/scoring.md, ../../agent/tools.py, ../../agent/guide.py, ../../agent/offline_llm.py]
+sources: [../research/elevenlabs.md, ../kit/starter-agent.md, ../challenge/brief.md, ../challenge/scoring.md, ../../agent/tools.py, ../../agent/guide.py, ../../agent/offline_llm.py, ../../agent/llm_parser.py, ../../agent/solver_agent.py, ../../agent/llm_cache.py, ../../core/route_query.py]
 related: [overview.md, solver-plan.md, ../product/routing-profiles.md, ../product/personas.md, ../research/question-parsing.md]
 ---
 
@@ -17,7 +17,7 @@ distance, count or route that did not come from a tool result ([D-003](../../mem
 
 | Agent | Job | Model (start) | Channel | Points |
 |---|---|---|---|---|
-| **Building Guide** | conversation: find, route, react, edit; clarifies; remembers user profile | Sonnet 5.5 (Opus 5.5 for hard turns) | text chat + voice (via ElevenLabs) | Interaction 25, L1–L3 |
+| **Building Guide** | conversation: find, route, react, edit; clarifies; remembers user profile. **v1 implemented** (terminal, `agent/guide_v1/`: 6 tools, grounding check, session; live scripted run 16/16 turns, 9 conversations, [spec](../superpowers/specs/2026-10-24-guide-agent-design.md), [plan](../superpowers/plans/2026-10-24-guide-agent.md)); the v1 Guide has no edit tools, UI or voice — those are in the canonical `agent/guide.py` (below) | Opus 5.5 default (`GUIDE_MODEL`), medium effort | terminal REPL; text chat + voice (via ElevenLabs) planned | Interaction 25, L1–L3 |
 | **Benchmark pipeline** | question text → parse → solver → `Answer:` line; no free-form LLM | none; Haiku/Sonnet only as parse fallback | CLI `run_benchmark`, `benchmark.evaluate --agent` | Does it work 55 |
 | **Builder** | floor-plan image → draft `building.json` → validate → user confirms | Opus 5.5 (vision) | UI upload + chat | L4 |
 | (dev) **Claude Code subagents** | build the product: research, solvers, tests | — | this repo | — |
@@ -39,12 +39,22 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 | `set_profile(...)` | the active [routing profile](../product/routing-profiles.md) for this user | user state only |
 | `propose_change(kind, …)` | a **pending** change (close lift, add door, move asset) + its predicted effect | no — needs confirm |
 | `apply_change(change_id)` | committed edit event, broadcast to all clients | **yes** |
-| `show_on_map(ids, route?)` | UI event (highlight / fly to / switch floor) | no |
+| `show_on_map(space_ids?, asset_ids?)` | UI event (highlight rooms and items / fly to / switch floor) | no |
+| `set_my_location(place)` | the user's position ("here" from now on) + UI event `location` (the "you are here" figure) | user state only |
+| `open_edit_mode(request?)` | UI event `edit_mode`: the app opens its Edit mode, the Builder takes the request | no |
+| `search_nearby_buildings(query)` / `route_to_building(start, building, destination)` | matches / a route in the buildings next to this one (only offered when the building has located neighbours) | no |
 
 **Implemented (2026-10-24):** `agent/tools.py` — `BuildingSession` (private building copy, routing profile,
 pending/applied changes, UI events) + `TOOL_DEFINITIONS` (Anthropic tool schemas) for building_overview, search,
 locate, count_assets, room_facts, find_route, tour, reachable_rooms, solve (every benchmark kind), set_profile,
-propose_change, apply_change, compare_routes, show_on_map. Errors come back as `{"error": …}` so the model can
+propose_change, apply_change, compare_routes, show_on_map (`space_ids` and `asset_ids`), set_my_location,
+open_edit_mode. Since 2026-10-25: `set_my_location(place)` makes that space the user's position and emits a
+`location` event (the app moves its "you are here" figure there); every place argument then also accepts "here"
+(`HERE` in `agent/tools.py`: "here", "me", "my location", …; unknown position → an error telling the model to ask).
+`open_edit_mode(request?)` emits an `edit_mode` event and the app switches to its Edit mode, where the Builder
+takes the request. `search_nearby_buildings(query)` and `route_to_building(start, building, destination)`
+(`agent/campus.py`, [D-021](../../memory-bank/decisions.md#d-021)) are added to the tool list only when the building
+has located neighbours (`BuildingSession.campus`). Errors come back as `{"error": …}` so the model can
 search or ask. Profile → constraints: `min_door_width_m` and `avoid_lifts` act as closures of narrow openings /
 lifts. Built on `core/navigation.py` (locate, count, find_route, tour; gold path format) and `core/solvers/`.
 Tests: `tests/test_agent_tools.py`.
@@ -65,12 +75,18 @@ events — so one call answers "what happens if…", and the model never counts 
 ## Building Guide — behaviour contract
 
 - **Ask only what changes the answer.** If a search returns several candidates and the words don't settle it,
-  ask one short question listing ≤ 3 options (with floor). Never ask where the user is if the question doesn't
+  run the solver for each; if the answers agree, just answer. If they differ, ask one short question listing
+  ≤ 3 options by what tells them apart — ref first, else floor, size, a neighbour or position (duplicate names
+  usually share the floor) — or highlight them on the plan ([D-012](../../memory-bank/decisions.md#d-012)). Never ask where the user is if the question doesn't
   need it; once known, remember it for the session.
 - **Profile once, remember always.** Infer constraints (wheelchair, trolley width, no lifts, quiet) from the
   conversation, confirm once in one line, store in the session/user profile → used by every later route
   without asking twice ([routing-profiles.md](../product/routing-profiles.md)).
-- **Echo understanding in one line** (from → to, constraints, closures), then numbered steps.
+- **Echo understanding in one line** (from → to, constraints, closures), then the total, the floors crossed and the
+  first step only: the app shows the whole route and guides step by step
+  ([D-020](../../memory-bank/decisions.md#d-020)). With the app's "you are here" figure placed, "here" is the start
+  and the Guide never asks where the user is. Not in this building → `search_nearby_buildings` /
+  `route_to_building` for located buildings ([D-021](../../memory-bank/decisions.md#d-021), `agent/campus.py`).
 - **Directions a person can follow:** landmarks from assets/room names ("past the printers", "through the
   double door into Hall 0.02"), floor changes explicit, metres rounded. Voice gets shorter steps than text.
 - **Robust to tricky users:** vague ("the printer"), wrong ("room 9.99" → nearest matches), mid-course
@@ -90,7 +106,8 @@ every `tool_use` block goes to `BuildingSession.call`, all results return in one
 | History | append-only (assistant `response.content` stored unchanged), so the cached prefix and thinking blocks stay valid |
 | Confirm before edit | `apply_change` for a change proposed in the **same user turn** is refused with an error telling the model to show the summary and wait — enforced in code, not only in the prompt |
 | Profile safety net | a deterministic cue detector reads every user message (wheelchair, pram, no lifts, trolley width, reset…); if the model's turn left the cue unhonoured the Guide calls `set_profile` itself, appends a one-line confirmation and, if the turn already routed, asks once for a redo. `set_profile` takes persona presets ([routing-profiles.md](../product/routing-profiles.md#implemented-presets)); tests `tests/test_profiles.py` |
-| D-003 grounding | after each turn, every number and id in the reply must appear in a tool result, the overview or the user's own messages (a number counts if a known number rounds to it at the same precision; numbered-list markers ignored). Fails → one repair round ("[grounding check] … appear in no tool result"); anything still ungrounded is returned in `GuideTurn.ungrounded` |
+| D-003 grounding | after each turn, every number and id in the reply must appear in a tool result, the overview or the user's own messages (a number counts if a known number rounds half-up to it at the same precision, or if it is the length of a list in a tool result; numbers glued to a unit like "120m" are checked; numbered-list markers and clock times ignored — ported from the v1 Guide 2026-10-24). Fails → one repair round ("[grounding check] … appear in no tool result"); anything still ungrounded is returned in `GuideTurn.ungrounded` |
+| Place names | `BuildingSession.resolve` → `agent/places.py` (ported from the v1 Guide): id, asset id, exact ref/name after dropping "the / a / room", asset name, exact asset type ("the 3D printer" → the room holding it), then word search. One candidate → its id; several → `MapError` listing each as `id (name, ref, type, floor)` and telling the model to ask what tells them apart ([D-012](../../memory-bank/decisions.md#d-012)); none → near-miss names ("Did you mean …"). `find_route` / `tour` resolve their stops this way; a destination that fits 2–8 spaces returns every option with its route length, shortest first, and draws no route. Tests `tests/test_places.py` |
 | No key | `make_client()` → `agent/offline_llm.py` `OfflineClient`: keyword rules choose tools, replies are composed only from tool results (demo + backend tests). `GUIDE_LLM=offline|anthropic` forces either |
 
 Tests: `tests/test_guide.py` — a scripted fake client plays the tricky user (vague printer → ≤ 3 options;
@@ -120,6 +137,72 @@ wraps the same Building Guide (one brain for text and voice) — skeleton in `ba
 [commands.md](../guides/commands.md#backend-guide-api)). Map actions reach the browser as ElevenLabs
 **client tools** and/or our own realtime channel. Fallback: Scribe Realtime → Guide → TTS WebSocket.
 Per-building **keyterms** (room names, machine names) go to Scribe for accurate recognition.
+A **transcript rewriter** normalises each STT transcript to the building's vocabulary before the Guide sees it
+(original transcript passed along too); typed chat has no rewriter ([D-013](../../memory-bank/decisions.md#d-013)).
+Implemented in `agent/rewriter.py`: one `claude-haiku-5-5` call (effort low, JSON schema `{rewritten}`) with the
+building vocabulary as cached system prompt; `Guide.reply(..., channel="voice")` sends the model
+`<rewritten>\n\n[speech transcript as heard: <original>]`, adds both to the grounding corpus and returns
+`GuideTurn.rewritten`. Only with the real API client; `GUIDE_REWRITER=off` disables it, `GUIDE_REWRITER_MODEL`
+overrides the model. Any doubt (API error, refusal, empty, a number in neither the transcript nor the building)
+keeps the transcript as heard. Live (train campus 000): "lab two seventeen" → "Lab 2.17", "office zero oh two"
+→ "Office 0.02", "the kitchen" and "the second floor" unchanged; ~1–2 s per call. Tests `tests/test_rewriter.py`.
+
+**What the app runs today (2026-10-25):** the ElevenLabs Agent above is not wired up. The app listens with
+ElevenLabs Scribe Realtime (`voice/scribe.ts`, token from `POST /stt/token`) when `/health` says `"stt": true`, with the
+browser's SpeechRecognition as the fallback (`frontend/app/src/voice/useVoice.ts`), and speaks with **ElevenLabs TTS through our
+backend**: `voice/tts.ts` splits the reply into sentences (short first piece, then ≤ 220-char groups), fetches each
+from `POST /tts` (`backend/tts.py`: Flash v2.5, voice "River", key server-side) while the previous one plays, and
+drives the orb from the audio's real level. No key, a failed request or locked audio → the browser's
+speechSynthesis (a piece that fails is retried once; failing again pauses ElevenLabs for 15 s, `COOL_OFF_MS`). [D-016](../../memory-bank/decisions.md#d-016).
+Live (Chrome, 3-sentence test reply): first sound 371 ms after speaking starts. Tests `tests/test_tts.py`.
+
+**Speaking while the Guide works (2026-10-25, [D-017](../../memory-bank/decisions.md#d-017)):** on voice turns with a
+listener (`Guide.on_say`, set by `/chat/stream`) the Guide streams its requests (`messages.stream`, real client only;
+offline/test clients feed whole text blocks) into `agent/speech.py` `SpokenStream`: each complete sentence that
+passes `ungrounded()` against the corpus so far goes out at once as a `say` line; the first ungrounded sentence, a
+grounding repair or a profile redo holds live speech (a message with an unsatisfied profile cue is held from the
+start), and at the end `finish(turn.text)` says what of the final reply was not said yet. `VOICE_STYLE` asks for
+one short fact-free sentence before the first tool call ("Let me look up the way to the kitchen."), which is spoken
+while the tools run. The app opens a voice queue on the first `say` (`voice/tts.ts` `openSpeech`; text that arrives
+while a piece plays is fetched at once). Live (Opus 5.5 medium, train campus 000): first sound at 2.35 s in a turn
+whose answer came at 10.4 s (6 tool calls); before, nothing was heard until the reply. The answer after the tools
+arrived from the API in one burst in every traced turn, so its sentences gain little from streaming yet.
+Tests `tests/test_speech.py`, `tests/test_backend.py::test_chat_stream_voice_says_sentences_before_the_reply`.
+
+**Conversation, pauses and barge-in (2026-10-25, [D-018](../../memory-bank/decisions.md#d-018)), all in
+`frontend/app/src/voice/useVoice.ts`:** recognition runs `continuous` and the utterance ends after 1.0 s without new
+words (`END_PAUSE_MS`, was 1.3 s before the latency pass; 8 s with none at all after a tap), so a short pause mid-question no longer sends half of it. A spoken question
+starts a conversation: from the reply's first sound (`onStart`, which can be the fact-free preamble while the turn
+is still pending) a second recogniser listens while the Guide speaks (restarted after 250 ms if the browser ends it
+early; aborted on speech end, `stop()`, when listening starts, or once it has fired);
+`voice/bargeIn.ts` drops what is the Guide's own echo (its words, three-letter stems, numbers, single letters), and
+`interruption` decides on the user's part (`userPart`): a stop word in a phrase of at most three words → "stop";
+three or more own words that are at least half of what was heard → "talk"; else nothing (was: one own word of three
+letters already counted, which cut the Guide off on misheard echo and room noise — tightened 2026-10-25). Results in
+the first 1 s of the voice are ignored (`BARGE_GRACE_MS`), and "talk" must hold on two results in a row or a final
+one. "Talk" cuts the voice and becomes the next question (their words carried over, sent after 2 s unless
+more follow); "stop" (stop words: "stop", "wait", "stopp", "dur", …) just stops it. When the reply ends, the Guide
+listens again by itself (after 200 ms) and ends the conversation quietly after 6 s of silence. Typed questions and walk-mode step
+readings don't start a conversation. An utterance spoken while a Guide turn is still pending (for example a
+barge-in over the preamble) is queued and sent once that turn is done (`building/BuildingScreen.tsx` `queued`); the
+rest of the interrupted reply is not spoken. Verified in Chrome with a scripted SpeechRecognition (real UI, offline Guide, real ElevenLabs): pause
+kept, echo ignored, interruption sent as "actually where is the nearest toilet", "stop" stopped, auto-listen
+ended after 6 s without an error. Not verified with a real microphone and speakers (echo levels, Bluetooth).
+
+**Scribe Realtime for the user's words (2026-10-25, [D-019](../../memory-bank/decisions.md#d-019)):** with
+`/health` `"stt": true` the recogniser is `voice/scribe.ts` `ScribeRecognition`, which has the SpeechRecognition
+shape: `POST /stt/token` (`backend/stt.py`) gives a single-use token plus the building's keyterms (one fetched
+ahead), the mic is captured first (an AudioWorklet averages it down to 16 kHz int16, 100 ms chunks, buffered until the
+socket opens) and streamed to `wss://api.elevenlabs.io/v1/speech-to-text/realtime` with `commit_strategy=manual`;
+changed partials are the interim result, committed segments the finals, and `stop()` commits and waits 0.8 s (`COMMIT_WAIT_MS`) for the
+last segment. The mic is opened through `voice/mic.ts` (skips virtual inputs, remembers the real one) and kept
+warm for 8 s after a listen (`MIC_WARM_MS`), so the next listen starts at once; a Scribe failure still means browser
+recognition for 60 s. Verified live: `keyterms` are repeated query parameters, more than 50 or longer than 20 characters are
+refused (`invalid_request`); Scribe re-sends an unchanged partial about every second through silence. End to end in
+Chrome (ElevenLabs-spoken "Where is the CNC mill?" as the mic, factory dev-003): first partial 0.3 s after the audio
+ended, committed and sent ~1.9 s after it, answered aloud, barge-in watcher on its own Scribe session; with the token
+request failing, browser recognition took over with no error. The transcript rewriter (D-013) still runs:
+[Q-020](../../memory-bank/open-questions.md#q-020).
 
 **Implemented (2026-10-24):** `Guide.reply(text, channel="voice")` — used by `/v1/chat/completions` — adds the
 `VOICE_STYLE` instruction (plain spoken sentences, ≤ ~3 sentences, first 2–3 steps then offer to continue) as a
@@ -140,7 +223,7 @@ question text ─► template parser ──ok──► solver(kind, params) ─�
 ```
 
 Implemented: `agent/benchmark_agent.py` (`answer()` for `benchmark.evaluate --agent`) and `agent/run_benchmark.py`
-(Sunday/test CLI, [BENCHMARK.md](../../BENCHMARK.md)). Dev 138/138 end to end. Warm-up kinds (locate, count,
+(second test CLI; the submission uses `agent/run_benchmark_v1.py`, [BENCHMARK.md](../../SUBMISSION/BENCHMARK.md)). Dev 138/138 end to end. Warm-up kinds (locate, count,
 route, step-free, closure, tour) parse via `core/basic_parser.py` → `core/navigation.py`: 2120/2130 train+dev
 from text, 100% with gold ids (`scripts/validate_warmup.py`).
 
@@ -166,6 +249,43 @@ fallback, not the default. Both paths share one `Resolver`: the LLM returns raw 
 building's vocabulary (never ids or numbers), code resolves it, and a resolution error is sent back once for
 correction. Measure live with `scripts/eval_llm_parser.py [--paraphrase]`.
 
+### Sunday layers: route specs, solver agent, decision cache (2026-10-25)
+
+The submission pipeline (`agent/answer.py` → `agent/run_benchmark_v1.py`) now has three layers after the
+templates, so unseen wording, combined constraints and new kinds get an answer instead of a near-miss kind:
+
+```
+question ─► regex templates ──ok──────────────────────────────► v1 solver ─► reply + "Answer: …"
+              │ fail                                                ▲
+              ▼                                                     │
+            LLM slots (agent/llm_parser.py, asks_for + kind) ──────┤  warm-up kinds when the spec is simple
+              │ route spec with combined constraints ─► core/route_query.py (canonical core.navigation)
+              │ kind `other`, asks_for ≠ kind, never resolves, solver error
+              ▼
+            solver agent (agent/solver_agent.py): python sandbox over the building + submit_answer,
+            2 runs (+1 tie-break), majority; the Answer: line is written by code
+every model decision ─► decision cache (agent/llm_cache.py, llm_cache/decisions.json) ─► replayed on re-runs
+```
+
+- **Route spec** (`route` kind in the LLM schema): start, destination, ordered stops; each place a room name, a
+  room type ("the nearest toilet") or an item ("a forklift charging station" → the room of the nearest one);
+  constraints combine freely: `step_free`, `forklift`, `min_width_m`, `closures` (lifts, stairs, rooms, corridors,
+  doors). A spec that is exactly a warm-up kind keeps that kind and its v1 solver (answers unchanged); anything
+  richer is `route_query` on `core.navigation`, which reproduces every warm-up route answer
+  (`tests/test_navigation.py`).
+- **`asks_for`**: what the question wants back (room, item_location, area_m2, count, distance_m, route, other). A
+  kind that cannot answer it, or kind `other`, raises `NeedsAgent`.
+- **Solver agent**: Opus 5.5 at effort `medium` (`SOLVER_AGENT_EFFORT`); tools `python` (restricted builtins, module whitelist, 30 s limit, a
+  deep copy of the building per run; helpers `route`, `place`, `spaces`, `area`, `solve` over the canonical core)
+  and `submit_answer` (number / space / no_route / text, validated). Two independent runs, a third when they
+  disagree, majority wins (`SOLVER_AGENT_RUNS`, `SOLVER_AGENT=off`).
+- **Decision cache**: the parser's slots and the agent's submission (with the code it ran), keyed by the building's
+  content hash, the question text and a schema version. Re-running the command — also without an API key, as the
+  organisers may — replays them and reproduces `answers.json`; numbers are recomputed by code from replayed slots.
+  `LLM_CACHE=off` asks the model again; `parser` in `answers.json` says `llm-cache` / `agent-cache` on replay.
+- **Probe**: `scripts/eval_sunday_probe.py` runs `tests/sunday_probe/*.json` (reworded questions, new constraints,
+  new kinds; expected answers computed by direct code) through this path and scores them.
+
 ## Deterministic vs adaptive — the split
 
 The brief asks for a "mostly deterministic" core. Our rule for which side does what:
@@ -184,6 +304,25 @@ tool wins.
 
 ## Builder (Level 4)
 
+Edit mode design (step 1 of the Builder): [builder-edit-mode-design](../superpowers/specs/2026-10-24-builder-edit-mode-design.md).
+**Milestone 1 implemented (2026-10-24, branch `2-builder-edit`):** Edit button on the building screen (Atahan's
+new UI, merged from `dev`); drag corners (shared walls stay shared), doors along walls and assets on a 2D plan with
+the 3D `PlanView` of the draft as a live inset; undo; validator issues
+in red (pre-existing issues of the original are warnings); save as `user/<slug>`, then the Guide routes in it.
+Code: `core/edits.py`, `core/validate.py`, `backend/drafts.py` + `/drafts`, `frontend/app/src/edit/`. **Milestone 2 implemented (2026-10-24):** prompt edits — the Builder agent (`agent/builder.py`,
+`agent/builder_tools.py`, offline `agent/builder_offline.py`; `BUILDER_MODEL` default `claude-opus-5-5`) proposes
+op lists with `propose_edit` (dry run, area effect, new problems), never applies; the Edit mode's chat shows the
+proposal as a ghost on the plan with Apply / Cancel, a plain "yes" also applies; hand edits drop an open proposal
+(stale ones are refused server-side). Live (Opus 5.5 medium, `scripts/live_builder.py`): move a machine 7.6 s, add a
+door 13.1 s, an ambiguous "widen the lab into the next room" asked which side (5.4 s), then proposed `move_edge` and
+flagged the sink left outside (6.9 s); 0 ungrounded; ~$0.02–0.04 per turn. A proposal is open for one exchange
+only (the next message or Apply); another turn, Cancel or a hand edit closes it, and only a bare "yes"/"ok" applies
+without the model. **Milestone 3 built (2026-10-24, deploy pending):** with `SUPABASE_DB_URL` drafts, saved buildings
+and the Builder's conversation live in Postgres (`builder_drafts`, `saved_buildings`), so any serverless instance
+serves any request — a proposal made on one instance can be applied on another; each person edits their own draft,
+concurrent writes are version-checked (409); saved buildings are shared with everyone
+([milestone 3 plan](../superpowers/plans/2026-10-24-builder-edit-mode-m3.md)). Not yet: plan images (project 2).
+
 1. Upload plan image (PNG/PDF page) or describe changes by conversation.
 2. Claude vision drafts `floors`/`spaces`/`openings` in our schema (scale from a known dimension the user gives
    or a scale bar).
@@ -200,4 +339,4 @@ parser + solvers are deterministic; spend goes to Guide conversations, Builder v
 Cache the building overview in the system prompt; keep tool results compact.
 
 ## Related
-- [overview.md](overview.md) · [solver-plan.md](solver-plan.md) · [routing-profiles.md](../product/routing-profiles.md)
+- [overview.md](overview.md) · [solver-plan.md](solver-plan.md) · [routing-profiles.md](../product/routing-profiles.md) · [Phase 3 Guide design](../superpowers/specs/2026-10-24-guide-agent-design.md)

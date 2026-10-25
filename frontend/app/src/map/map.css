@@ -1,0 +1,88 @@
+/* Map landing. Uses the app's theme tokens from styles.css, so it follows light/dark like the search page. */
+
+.ml { position: fixed; inset: 0; background: var(--bg); }
+.ml-map { position: absolute; inset: 0; }
+
+.ml-panel {
+  position: absolute; top: 16px; left: 16px; bottom: 16px; width: 324px;
+  display: flex; flex-direction: column; min-height: 0;
+  border: 1px solid var(--hair); border-radius: var(--radius); background: var(--panel);
+  backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+.ml-panel header { padding: 18px 18px 10px; }
+.ml-panel h1 { margin: 0; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
+.ml-panel header p { margin: 2px 0 0; font-size: 13px; color: var(--ink-3); }
+
+.ml-list { flex: 1; min-height: 0; overflow: auto; list-style: none; margin: 0; padding: 0 8px; border-top: 1px solid var(--hair); }
+.ml-list button {
+  display: grid; width: 100%; padding: 10px 10px; border: 0; border-bottom: 1px solid var(--hair);
+  background: transparent; text-align: left; cursor: pointer; border-radius: 0;
+  transition: background-color 0.15s var(--ease);
+}
+.ml-list li:last-child button { border-bottom: 0; }
+.ml-list button:hover, .ml-list button:focus-visible { background: var(--fill); outline: none; }
+.ml-name { font-size: 14.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-address { font-size: 12px; color: var(--ink-3); }
+
+.ml-more {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex: none;
+  margin: 0; padding: 14px 18px; border: 0; border-top: 1px solid var(--hair);
+  background: transparent; color: var(--ink); font-size: 13.5px; text-align: left; cursor: pointer;
+  transition: background-color 0.15s var(--ease);
+}
+.ml-more span:last-child { color: var(--ink-2); white-space: nowrap; }
+.ml-more:hover:not(:disabled), .ml-more:focus-visible { background: var(--fill); outline: none; }
+.ml-more:disabled { color: var(--ink-3); cursor: default; }
+
+/* the location card: top right, clear of the list panel; a top banner on narrow screens */
+/* location ask: a centred modal over a dimmed map, the one thing to answer before browsing */
+.ml-locate-scrim {
+  position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px;
+  background: rgba(0, 0, 0, 0.32); animation: ml-scrim-in 0.25s var(--ease);
+}
+.ml-locate {
+  width: min(380px, 100%); padding: 28px 24px 20px; text-align: center;
+  border: 1px solid var(--hair); border-radius: calc(var(--radius) * 1.5); background: var(--panel);
+  backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1), 0 24px 64px rgba(0, 0, 0, 0.28);
+  animation: ml-locate-in 0.3s var(--ease);
+}
+.ml-locate-icon {
+  display: inline-grid; place-items: center; width: 52px; height: 52px; margin-bottom: 14px;
+  border-radius: 999px; background: var(--ink); color: var(--bg);
+}
+.ml-locate p { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); }
+.ml-locate .ml-locate-sub { margin-top: 8px; font-size: 14px; font-weight: 400; color: var(--ink-2); line-height: 1.45; }
+.ml-locate-actions { display: grid; gap: 8px; margin-top: 22px; }
+.ml-locate-actions button {
+  padding: 11px 16px; border: 1px solid transparent; border-radius: 999px;
+  background: transparent; color: var(--ink-2); font-size: 14px; cursor: pointer;
+  transition: background-color 0.15s var(--ease), opacity 0.15s var(--ease);
+}
+.ml-locate-actions button:hover, .ml-locate-actions button:focus-visible { background: var(--fill); color: var(--ink); outline: none; }
+.ml-locate-actions .ml-locate-allow { padding: 13px 16px; border-color: var(--ink); background: var(--ink); color: var(--bg); font-size: 15px; font-weight: 500; }
+.ml-locate-actions .ml-locate-allow:hover, .ml-locate-actions .ml-locate-allow:focus-visible { background: var(--ink); color: var(--bg); opacity: 0.85; }
+@keyframes ml-locate-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } }
+@keyframes ml-scrim-in { from { opacity: 0; } }
+
+.ml .maplibregl-ctrl-attrib { font-size: 10px; }
+
+/* a building open on top: the panel and controls step aside, the map stays as its city */
+.ml-panel, .ml .maplibregl-ctrl-bottom-right { transition: opacity 0.45s var(--ease), transform 0.45s var(--ease); }
+/* hidden, not only see-through, once it has faded: a blurred panel over the moving map costs a re-blur every frame */
+.ml-open .ml-panel { opacity: 0; transform: translateX(-12px); pointer-events: none; visibility: hidden; transition: opacity 0.45s var(--ease), transform 0.45s var(--ease), visibility 0s linear 0.45s; }
+.ml-open .maplibregl-ctrl-bottom-right { opacity: 0; pointer-events: none; }
+
+/* narrow screens: a bottom sheet, the list capped so the map stays the main thing */
+@media (max-width: 899px) {
+  .ml-panel { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 42vh; }
+  .ml-open .ml-panel { transform: translateY(12px); }
+  .ml-panel header { padding: 14px 16px 8px; }
+  .ml .maplibregl-ctrl-bottom-right { bottom: calc(42vh + 24px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ml-list button, .ml-more, .ml-locate-actions button { transition: none; }
+  .ml-locate, .ml-locate-scrim { animation: none; }
+}

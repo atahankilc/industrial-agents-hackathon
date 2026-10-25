@@ -1,6 +1,7 @@
 """Deterministic parser for benchmark questions: question text + building → kind and resolved parameters.
 
-The benchmark questions are generated from one template per kind. Each template is a regex whose named groups
+The benchmark questions (questions.jsonl) and the warm-up questions (questions_basic.jsonl: locate, count, route,
+route_step_free, route_with_closure, tour) are generated from one template per kind. Each template is a regex whose named groups
 are resolved against the building (space names → space ids, floor phrases → floor ids, type phrases → room or
 asset types). The parameter keys match the `inputs` dict in the train/dev question files.
 
@@ -56,8 +57,18 @@ TEMPLATES: dict[str, re.Pattern] = {
         "what_if_door": rf"^What if we add a door between {space('first')} and {space('second')}, in the "
         rf"middle of the wall they share\? How many rooms on {floor('floor')} would then have a shorter walk "
         r"out of the building, to their nearest entrance, by more than 1 m\?$",
+        # warm-up kinds (questions_basic.jsonl)
+        "locate": rf"^Where is (?:the |an? )?{type_phrase('asset_type')}\?$",
+        "count": rf"^How many {type_phrase('asset_type')} items are on {floor('floor')}\?$",
+        "route": rf"^How do I get from {space('start')} to {space('destination')}\?$",
+        "route_step_free": rf"^Is there a step-free route from {space('start')} to {space('destination')}\?$",
+        "route_with_closure": rf"^(?P<closed>.+?) is closed for maintenance\. How do I get from {space('start')} "
+        rf"to {space('destination')}\?$",
+        "tour": rf"^Starting at {space('start')}, visit (?P<stops>.+), then {space('destination')} in this order\. "
+        r"What is the route\?$",
     }.items()
 }
+STOP = re.compile(SPACE.format(name="stop"), flags=re.IGNORECASE)
 
 
 class ParseError(ValueError):
@@ -100,12 +111,14 @@ class Resolver:
         kind = template_name.removesuffix("_above").removesuffix("_below")
         params: dict[str, object] = {}
         notes: dict[str, str] = {}
-        for slot in ("start", "first", "second"):
+        for slot in ("start", "first", "second", "destination"):
             if groups.get(slot) is not None:
                 candidates = self.space_ids(groups[slot], groups[f"{slot}_floor"])
                 params[slot] = candidates[0]
                 if len(candidates) > 1:
                     self.alternatives[slot] = candidates
+        if groups.get("stops") is not None:
+            params["stops"] = [params["start"], *self.stop_ids(groups["stops"]), params["destination"]]
         if groups.get("closed") is not None:
             params["closed"] = self.connector_id(groups["closed"])
         if groups.get("asset_type") is not None:
@@ -148,6 +161,20 @@ class Resolver:
                 return sorted(space["id"] for space in candidates)
         raise ParseError(f"No space named '{name}' on {floor_phrase}")
 
+    def stop_ids(self, stops: str | list[tuple[str, str]]) -> list[str]:
+        """Intermediate tour stops: "A (Floor 1), B (Ground floor)" from the regex, or (name, floor) pairs."""
+        if isinstance(stops, str):
+            stops = [(match["stop"], match["stop_floor"]) for match in STOP.finditer(stops)]
+        if not stops:
+            raise ParseError("A tour needs at least one stop between start and destination")
+        resolved = []
+        for index, (name, floor_phrase) in enumerate(stops):
+            candidates = self.space_ids(name, floor_phrase)
+            resolved.append(candidates[0])
+            if len(candidates) > 1:
+                self.alternatives[f"stop{index + 1}"] = candidates
+        return resolved
+
     def connector_id(self, name: str) -> str:
         matches = [
             connector_id
@@ -162,7 +189,21 @@ class Resolver:
         return self.type_from(phrase, {space["room_type"] for space in self.map.spaces.values()}, "room type")
 
     def asset_type(self, phrase: str) -> str:
-        return self.type_from(phrase, {asset["type"] for asset in self.map.assets.values()}, "asset type")
+        """Exact or plural type first; then the label people use: the start of the asset names ("air compressor"
+        → compressor, name "Air compressor H-C2") or the end of the type ("seating row" → lecture_seating_row)."""
+        known = {asset["type"] for asset in self.map.assets.values()}
+        try:
+            return self.type_from(phrase, known, "asset type")
+        except ParseError:
+            wanted = normalise(phrase)
+            for matches in (
+                {asset["type"] for asset in self.map.assets.values() if normalise(asset["name"]).startswith(wanted + " ")
+                 or normalise(asset["name"]) == wanted},
+                {kind for kind in known if normalise(kind).endswith(" " + wanted)},
+            ):
+                if len(matches) == 1:
+                    return matches.pop()
+            raise
 
     @staticmethod
     def type_from(phrase: str, known: set[str], label: str) -> str:

@@ -1,0 +1,28 @@
+{
+  "building": "data/dev/proc-campus-dev-001",
+  "turns": [
+    {
+      "user": "How many 3D printers are there in the building?",
+      "expect": {
+        "asked": false,
+        "grounded": true,
+        "asset_total": "3d_printer"
+      }
+    },
+    {
+      "user": "I'm in the main lobby. How do I get to the 3D printer?",
+      "expect": {
+        "asked": true,
+        "grounded": true
+      }
+    },
+    {
+      "user": "The one on floor 2.",
+      "expect": {
+        "asked": false,
+        "route_to": "proc-campus-dev-001-F2-S020",
+        "grounded": true
+      }
+    }
+  ]
+}

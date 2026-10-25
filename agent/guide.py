@@ -26,12 +26,15 @@ Without ANTHROPIC_API_KEY, `make_client()` returns the offline rule-based client
 import json
 import os
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from decimal import ROUND_HALF_UP, Decimal
 
 import anthropic
 
-from agent.speech import speakable
-from agent.tools import PRESETS, PROFILE_FIELDS, TOOL_DEFINITIONS, BuildingSession, RoutingProfile
+from agent.rewriter import TranscriptRewriter
+from agent.speech import SpokenStream, speakable
+from agent.tools import PRESETS, PROFILE_FIELDS, BuildingSession, RoutingProfile
 
 DEFAULT_MODEL = "claude-opus-5-5"  # override with GUIDE_MODEL
 DEFAULT_EFFORT = "medium"  # override with GUIDE_EFFORT (low | medium | high | xhigh | max)
@@ -50,33 +53,55 @@ The same goes for general claims ("nothing upstairs is reachable"): say them onl
 How to talk:
 - Ask only what changes the answer. When a place is vague ("the printer") or a name matches several spaces, \
 use search/locate first; if the user's words still don't settle it, ask one short question with at most 3 \
-options, each with its floor. Don't ask for anything the question doesn't need.
+options, each with its floor. This holds when items of the asked kind sit in several rooms and the user wants \
+to go to one: ask which before routing, even if one is nearer (you may give each option's distance). Don't ask \
+for anything the question doesn't need, and don't end a complete answer with an offer ("Do you want…?").
 - Remember what you learn. When the user mentions a mobility constraint for themselves or the person they \
 guide (wheelchair, pram, trolley width, no lifts, or that a constraint no longer applies), call set_profile \
 once, with a preset where one fits, and confirm it in one line, naming any assumed value ("I assumed doors of \
-at least 0.8 m; tell me if yours is wider"); later routes use it without asking again. Remember where the user \
-is once they've said it.
-- For directions: first one line echoing what you understood (from → to, constraints, closures), then \
-numbered steps a person can follow, with landmarks, explicit floor changes and rounded metres.
+at least 0.8 m; tell me if yours is wider"); later routes use it without asking again. When the user says where \
+they are ("I'm in the lobby"), call set_my_location with that place: the app shows them there. After that, or \
+when a [location note] says where the user is (they put the app's "you are here" figure there), that is the \
+start of every route: pass "here" as the start and never ask where they are.
+- For directions: the app draws the whole route on the map and then walks the user through it one step at a \
+time, waiting until they say they've arrived at each step. So don't read out all the steps: give one line echoing \
+what you understood (from → to, constraints, closures), the total as about_m ("about 85 m", never the exact \
+length_m), which floors it crosses, and the first step only (from the route's steps, which carry the turns, \
+landmarks and rounded metres). The user starts the step-by-step guide with the Start button or by saying "start".
+- If something is not in this building and search_nearby_buildings is available, look there before saying it \
+isn't here; name the building and how far it is, and use route_to_building when they want to go.
 - Changes go propose_change → show the user the summary and its effect → apply_change only after the user \
 confirms in a later message. propose_change already reports who loses access and how much longer routes get; \
 use a change_id only after a tool has returned it. After applying, re-run the affected route and say what changed.
-- Use show_on_map to highlight what you're talking about when it helps. Routes and highlights appear on the \
-user's map automatically, so don't offer to show them.
+- To change the building itself (rename or re-purpose a room, move walls, move or widen doors, add, move or \
+remove items, or when the user wants to edit or redesign it), call open_edit_mode with their request: the app switches to the \
+Edit mode and its Builder takes over there. Say so in one line; don't describe the change as done.
+- What search, locate and room_facts find is shown on the user's map (the map zooms to it); when they found \
+several and you mean one or a few, call show_on_map with those so the map shows exactly what you are talking \
+about. Routes and highlights appear on the map automatically, so don't offer to show them.
 - Be brief: this is also spoken aloud. No headings, no tables."""
 
 # Voice turns (ElevenLabs via /v1/chat/completions) get this operator instruction; agent/speech.py then makes the
 # text speakable deterministically. Sent as a mid-conversation system message where the model supports it (keeps
 # the cached prefix), otherwise as a note in the user turn.
 VOICE_STYLE = ("[voice channel] This reply will be spoken aloud. Use plain spoken sentences: no markdown, lists, "
-               "symbols or ids, and at most about three short sentences. For directions, give the first two or "
-               "three steps with landmarks and rounded metres, then offer to continue. Facts still come only from "
-               "tools.")
+               "symbols or ids, and at most about three short sentences. For directions, give the total and the first step "
+               "only: the app then guides the user step by step. Facts still come only from "
+               "tools. Before your first tool call, write one short sentence saying what you are checking (\"Let me "
+               "look up the way to the kitchen.\"), with no facts in it: it is spoken while the tools run.")
 SYSTEM_MESSAGE_MODELS = ("claude-opus-5", "claude-opus-4-8", "claude-fable-5", "claude-mythos-5", "claude-sonnet-5-5",
                          "claude-haiku-5-5")
 CHANNELS = ("text", "voice")
+PHOTO_NOTE = ("[camera photo attached, not from the building data] The user is standing where this photo was taken. "
+              "Read signs, room numbers or labels in it, then confirm them with the building tools before you rely "
+              "on them; if nothing in it is legible, say so and ask where they are.")
+PHOTO_KEPT = "[the user sent a camera photo here; it is not kept in the history]"
+PHOTO_TYPES = ("image/jpeg", "image/png", "image/webp")
 
-NUMBER = re.compile(r"(?<![\w.])\d+(?:[.,]\d+)?(?![\w])")
+# A number, also when glued to a unit ("120m", "45m²"); not "3D" or "2nd" (from agent/guide_v1/grounding.py).
+UNIT = r"(?:m²|m2|km|cm|mm|min|m|s|%|x)"
+NUMBER = re.compile(rf"(?<![\w.])\d+(?:[.,]\d+)?(?={UNIT}?(?!\w))")
+TIME = re.compile(r"\b\d{1,2}:\d{2}\b")
 IDENTIFIER = re.compile(r"\b[A-Za-z0-9]+(?:-[A-Za-z0-9]+){2,}\b")
 LIST_MARKER = re.compile(r"^\s*\d+[.)]\s", re.MULTILINE)
 
@@ -251,10 +276,21 @@ def overview_text(session: BuildingSession) -> str:
     return json.dumps(session.building.overview(), ensure_ascii=False, separators=(",", ":"))
 
 
+RESTRICTED_NOTE = """
+
+Access: some areas of this building are restricted for this user and are not in your tools. When a tool answers \
+"restricted", tell the user that area is restricted for them, give no detail about it, and offer a public place \
+instead."""
+
+
 def system_blocks(session: BuildingSession) -> list[dict]:
+    note = RESTRICTED_NOTE if session.restricted_names else ""  # access mode only (backend/access.py)
+    if session.preferences_enabled and session.guide_preferences:  # remembered by the app (access mode only)
+        wishes = ", ".join(f"{name.replace('_', ' ')}: {value}" for name, value in session.guide_preferences.items())
+        note += f"\n\nThe user's remembered preferences for how you talk: {wishes}. Follow them."
     return [
         {"type": "text", "text": INSTRUCTIONS},
-        {"type": "text", "text": "Building overview:\n" + overview_text(session),
+        {"type": "text", "text": "Building overview:\n" + overview_text(session) + note,
          "cache_control": {"type": "ephemeral"}},
     ]
 
@@ -263,16 +299,46 @@ def ungrounded(text: str, corpus: str) -> list[str]:
     """Numbers and ids in `text` that appear nowhere in `corpus` (tool results, overview, user messages).
 
     A number counts as grounded when some corpus number rounds to it at the same precision ("about 124 m" for
-    124.24). Numbered-list markers are ignored; digits inside ids are checked as part of the id."""
+    124.24), or when it is the length of a list in a JSON tool result ("I found 2 options"). Numbered-list markers
+    and clock times are ignored; digits inside ids are checked as part of the id."""
     missing = [token for token in dict.fromkeys(IDENTIFIER.findall(text)) if token not in corpus]
-    scrubbed = LIST_MARKER.sub(" ", IDENTIFIER.sub(" ", text))
+    scrubbed = TIME.sub(" ", LIST_MARKER.sub(" ", IDENTIFIER.sub(" ", text)))
     known = [float(token.replace(",", ".")) for token in NUMBER.findall(IDENTIFIER.sub(" ", corpus))]
+    known += list_lengths(corpus)
     for token in dict.fromkeys(NUMBER.findall(scrubbed)):
         value = float(token.replace(",", "."))
         decimals = len(token.replace(",", ".").partition(".")[2])
-        if not any(round(number, decimals) == value for number in known):
+        if not any(half_up(number, decimals) == value for number in known):
             missing.append(token)
     return missing
+
+
+def half_up(number: float, decimals: int) -> float:
+    """round() rounds halves to even (42.5 → 42); people say 43."""
+    return float(Decimal(repr(number)).quantize(Decimal(1).scaleb(-decimals), ROUND_HALF_UP))
+
+
+def list_lengths(corpus: str) -> list[float]:
+    """Lengths of the lists of records or names inside the corpus lines that are JSON (tool results)."""
+    lengths: list[float] = []
+
+    def walk(value: object) -> None:
+        if isinstance(value, dict):
+            for item in value.values():
+                walk(item)
+        elif isinstance(value, list):
+            if value and all(isinstance(item, (dict, str)) for item in value):
+                lengths.append(float(len(value)))
+            for item in value:
+                walk(item)
+
+    for line in corpus.splitlines():
+        if line.startswith(("{", "[")):
+            try:
+                walk(json.loads(line))
+            except ValueError:
+                continue
+    return lengths
 
 
 @dataclass
@@ -284,6 +350,7 @@ class GuideTurn:
     stop_reason: str | None = None
     spoken: str | None = None  # voice turns: the reply made speakable (agent/speech.py)
     auto_profile: dict | None = None  # {"cues", "arguments", "result"} when the safety net set the profile
+    rewritten: str | None = None  # voice turns: the transcript normalised to the building's names (D-013)
 
 
 @dataclass
@@ -309,31 +376,66 @@ class Guide:
         self.proposed_in_turn: dict[str, int] = {}
         self.usage = Usage()
         self.profile_note: str | None = None  # tells the model next turn what the safety net set
+        self.location_note: str | None = None  # where the app's "you are here" figure stands, sent with the next turn
+        # Voice transcripts are normalised first (D-013), only when talking to the real API.
+        self.rewriter: TranscriptRewriter | None = (
+            TranscriptRewriter(session.building) if isinstance(self.client, anthropic.Anthropic)
+            and os.environ.get("GUIDE_REWRITER", "on").lower() != "off" else None)
+        self.on_step: Callable[[dict], None] | None = None  # live progress for the UI (backend /chat/stream)
+        # voice turns: each sentence the moment it may be said (agent/speech.py SpokenStream; backend /chat/stream)
+        self.on_say: Callable[[str], None] | None = None
+        self.speech: SpokenStream | None = None
 
-    def reply(self, text: str, channel: str = "text") -> GuideTurn:
-        """One user turn. channel="voice" asks for a spoken style and fills `GuideTurn.spoken`."""
+    def reply(self, text: str, channel: str = "text", photo: dict | None = None, heard: bool = True,
+              selected: str | None = None) -> GuideTurn:
+        """One user turn. channel="voice" asks for a spoken style and fills `GuideTurn.spoken`; `heard=False` marks
+        a voice turn whose text was tapped, not transcribed, so it skips the transcript rewrite. `selected`: the
+        space or asset id tapped on the app's plan while asking, so "this room" / "there" resolve to it. `photo`
+        ({"media_type", "data": base64}) is shown to the model for this turn only, then dropped from the history."""
         if channel not in CHANNELS:
             raise ValueError(f"channel must be one of {CHANNELS}")
+        if photo is not None and photo.get("media_type") not in PHOTO_TYPES:
+            raise ValueError(f"photo media_type must be one of {PHOTO_TYPES}")
         self.turn += 1
         self.corpus.append(text)
+        rewritten = self.rewriter.rewrite(text) if channel == "voice" and heard and self.rewriter is not None else text
+        said = text
+        if rewritten != text:  # the model sees both: a nuance the rewrite dropped stays visible
+            self.corpus.append(rewritten)
+            said = f"{rewritten}\n\n[speech transcript as heard: {text}]"
         note, self.profile_note = self.profile_note, None
-        content = f"{note}\n\n{text}" if note else text
+        where, self.location_note = self.location_note, None
+        picked = self.selection_note(selected)
+        note = "\n\n".join(part for part in (where, picked, note) if part)
+        content = f"{note}\n\n{said}" if note else said
         system_role = self.model.startswith(SYSTEM_MESSAGE_MODELS)
         if channel == "voice" and not system_role:
             content = f"{VOICE_STYLE}\n\n{content}"
+        if photo is not None:
+            content = [{"type": "image", "source": {"type": "base64", "media_type": photo["media_type"],
+                                                    "data": photo["data"]}},
+                       {"type": "text", "text": f"{PHOTO_NOTE}\n\n{content}"}]
+        photo_at = len(self.messages)
         self.messages.append({"role": "user", "content": content})
         if channel == "voice" and system_role:
             self.messages.append({"role": "system", "content": VOICE_STYLE})
         first_event = len(self.session.events)
-        turn = self.run()
+        self.speech = self.spoken_stream(text) if channel == "voice" else None
+        try:
+            turn = self.run()
+        finally:
+            if photo is not None:  # one turn only: never resent, never persisted
+                self.messages[photo_at] = {"role": "user", "content": f"{PHOTO_KEPT}\n\n{content[1]['text']}"}
         auto = self.profile_safety_net(text)
         if auto is not None:
             routed = any(call["name"] in PROFILE_TOOLS for call in turn.tool_calls)
             if routed and turn.stop_reason == "end_turn":
+                self.step({"kind": "check", "name": "profile"})
                 self.messages.append({"role": "user", "content": (
                     f"[profile check, not from the user] From the user's words I set their routing profile to: "
                     f"{auto['result']['summary']}. Redo any route or reachability in your reply under this profile "
                     "and give the user your full reply again.")})
+                self.hold_speech()
                 redone = self.run()
                 redone.tool_calls = turn.tool_calls + redone.tool_calls
                 turn = redone
@@ -342,11 +444,13 @@ class Guide:
                                      f"routing profile to: {auto['result']['summary']}.")
         missing = ungrounded(turn.text, "\n".join(self.corpus))
         if missing and turn.stop_reason == "end_turn":
+            self.step({"kind": "check", "name": "grounding"})
             self.messages.append({"role": "user", "content": (
                 "[grounding check, not from the user] Your last reply states "
                 + ", ".join(missing)
                 + ", which appear in no tool result. Check them with a tool, or leave them out, and give the "
                 "user your full reply again.")})
+            self.hold_speech()
             repaired = self.run()
             repaired.tool_calls = turn.tool_calls + repaired.tool_calls
             turn = repaired
@@ -357,9 +461,60 @@ class Guide:
             turn.text = f"{turn.text}\n\n{confirmation_line(auto['result'])}".strip()
         turn.ungrounded = ungrounded(turn.text, "\n".join(self.corpus))
         turn.events = self.session.events[first_event:]
+        turn.rewritten = rewritten if rewritten != text else None
         if channel == "voice":
             turn.spoken = speakable(turn.text)
+        if self.speech is not None:
+            self.speech.finish(turn.text)  # what of the final reply was not said live
+            self.speech = None
         return turn
+
+    def set_location(self, space_id: str | None) -> dict | None:
+        """The user put the app's "you are here" figure down (or took it away): the session resolves "here" to
+        that space, and the next turn tells the model, so it routes from there without asking."""
+        location = self.session.set_location(space_id)
+        if location is None:
+            self.location_note = "[location note, from the app] The user removed their position; ask if you need it."
+        else:
+            ref = f" ({location['ref']})" if location.get("ref") else ""
+            self.location_note = (f"[location note, from the app] The user is in {location['name']}{ref} on the "
+                                  f"{location['floor']}. Use \"here\" as the start; don't ask where they are.")
+        self.corpus.append(self.location_note)
+        return location
+
+    def selection_note(self, item_id: str | None) -> str | None:
+        """What the user has tapped on the plan, for this turn (unknown ids are ignored)."""
+        building = self.session.building
+        if item_id in building.spaces:
+            space = building.spaces[item_id]
+            ref = f" ({space['ref']})" if space.get("ref") else ""
+            what = f"the room {space['name']}{ref} on the {building.floor_name(space['floor_id'])}"
+        elif item_id in building.assets:
+            asset = building.assets[item_id]
+            room = building.spaces[asset["space_id"]]
+            what = f"{asset['name']} in {room['name']} on the {building.floor_name(room['floor_id'])}"
+        else:
+            return None
+        note = (f"[selection note, from the app] The user has {what} selected on the map (id {item_id}). Words like "
+                "\"this\", \"it\" or \"there\" mean it.")
+        self.corpus.append(note)
+        return note
+
+    def spoken_stream(self, text: str) -> SpokenStream | None:
+        """A voice turn with a listener (`on_say`): the reply is said while the model writes it, each sentence
+        once it passes the grounding check."""
+        if self.on_say is None:
+            return None
+        speech = SpokenStream(self.on_say, lambda sentence: not ungrounded(sentence, "\n".join(self.corpus)))
+        found = profile_cues(text)
+        if found is not None and not profile_satisfies(self.session.profile, found["arguments"]):
+            speech.hold()  # the safety net may redo this reply under a new profile: say only the final one
+        return speech
+
+    def hold_speech(self) -> None:
+        """A redo is coming: stop saying the reply live; `finish` says what the final reply adds."""
+        if self.speech is not None:
+            self.speech.hold()
 
     def profile_safety_net(self, text: str) -> dict | None:
         """Apply a mobility cue from the user's message that the model's turn left unhonoured."""
@@ -397,7 +552,9 @@ class Guide:
                 return GuideTurn("\n\n".join(said), calls, stop_reason=response.stop_reason)
             results = []
             for use in uses:
+                self.step({"kind": "tool", "name": use.name, "input": dict(use.input or {})})
                 result = self.execute(use.name, dict(use.input or {}))
+                self.step({"kind": "tool_done", "name": use.name, "ok": "error" not in result})
                 calls.append({"name": use.name, "input": dict(use.input or {}), "result": result})
                 content = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
                 self.corpus.append(content)
@@ -406,6 +563,10 @@ class Guide:
             self.messages.append({"role": "user", "content": results})
         return GuideTurn("I couldn't finish that in a reasonable number of steps. Could you narrow it down?",
                          calls, stop_reason="max_tool_rounds")
+
+    def step(self, step: dict) -> None:
+        if self.on_step is not None:
+            self.on_step(step)
 
     def execute(self, name: str, arguments: dict) -> dict:
         if name == "apply_change" and self.proposed_in_turn.get(arguments.get("change_id", "")) == self.turn:
@@ -417,19 +578,38 @@ class Guide:
         return result
 
     def request(self) -> object:
-        response = self.client.beta.messages.create(
+        params = dict(
             model=self.model,
             max_tokens=MAX_TOKENS,
             system=self.system,
-            tools=TOOL_DEFINITIONS,
+            tools=self.session.tool_definitions(),
             messages=self.messages,
             cache_control={"type": "ephemeral"},
             output_config={"effort": self.effort},
             betas=[FALLBACK_BETA],
             fallbacks="default",
         )
+        if self.speech is not None and isinstance(self.client, anthropic.Anthropic):
+            response = self.streamed(params)
+        else:
+            response = self.client.beta.messages.create(**params)
+            if self.speech is not None:  # offline and test clients don't stream: each text block at once
+                for block in response.content:
+                    if block.type == "text":
+                        self.speech.feed(block.text)
+                        self.speech.end_block()
         self.track(response.usage)
         return response
+
+    def streamed(self, params: dict) -> object:
+        """The same request, streamed: its text goes to the spoken stream as the model writes it."""
+        with self.client.beta.messages.stream(**params) as stream:
+            for event in stream:
+                if event.type == "content_block_delta" and event.delta.type == "text_delta":
+                    self.speech.feed(event.delta.text)
+                elif event.type == "content_block_stop":
+                    self.speech.end_block()
+            return stream.get_final_message()
 
     def track(self, usage: object) -> None:
         self.usage.requests += 1

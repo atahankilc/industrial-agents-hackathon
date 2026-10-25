@@ -31,6 +31,9 @@ Per-module tests: `tests/test_solvers_{geometry,walls,reachability,routing}.py`.
 | what_if_door | 2% | VERIFIED (4 examples) | 4/4 | routing.py |
 | step_free_reachable_count | 0% (Sunday?) | VERIFIED (2 examples, weak) | 2/2 | reachability.py |
 
+A second implementation, `core/solvers_v1.py` (`solve(bmap, kind, params)` → dict, used by `agent/answer.py` and
+the v1 Guide `agent/guide_v1/`), reaches the same 655/655 on gold inputs (`uv run pytest tests/test_solvers.py -q -s`).
+
 End-to-end from question **text** (`agent/benchmark_agent.py`, regex parser): dev **138/138**, train **515/517** —
 the 2 misses are inherently ambiguous names ([Q-006](../../memory-bank/open-questions.md#q-006)).
 
@@ -94,6 +97,32 @@ between both rooms' outline midpoints; fallback: nearest points). For each `type
 floor: route distance to `outside` (full graph) before/after; count improvements **> 1 m**; rooms with no route
 out are skipped. Step-free distance rejected (21 vs 6). Robustness sweep over 1044 random wall-sharing pairs:
 midpoint variant changes the count in ≤ 3 pairs; no improvement falls within 0.8–1.2 m.
+
+## Warm-up kinds (questions_basic.jsonl)
+In case Sunday asks one-search / one-route questions ([Q-001](../../memory-bank/open-questions.md#q-001)), the
+parser has a template per warm-up kind and `solve()` answers them (VERIFIED 2026-10-24, from the question text,
+`uv run pytest tests/test_warm_up.py -q -s`):
+
+| Kind | Solver | train+dev |
+|---|---|---|
+| `locate` | the asset of that type (label → type: exact, plural, start of asset name, end of type) | 553/553 |
+| `count` | assets of that type with that `floor_id` | 239/239 |
+| `route` / `route_step_free` / `route_with_closure` | `BuildingMap.route()` (closure added to `closed`); `reachable: False` when cut off | 715/720, 239/240, 136/138 |
+| `tour` | `route()` with the middle stops as `via`, one leg per stop pair | 238/240 |
+
+All 10 misses are texts naming a room that several rooms share (OSM duplicates such as "Büro"); the parser picks
+the first candidate. The LLM parser knows these kinds too: 12/12 on reworded dev questions (live, 2026-10-24).
+
+<a id="sunday-routes"></a>
+## Sunday route questions (Q-014) — one route model since kit 1.1.0, rules open
+Route answers are scored as an ordered space list, re-measured with the organisers' rule — since kit 1.1.0 that rule
+is the route model of every expected answer, ported verbatim into `core/building_map.py`
+([D-014](../../memory-bank/decisions.md#d-014), [route-model.md](../kit/route-model.md)). Our route path
+(`core/basic_parser.run_parsed` → `core/navigation.find_route` / `tour`) takes `rules`
+([route-model.md](../kit/route-model.md#sunday-route-model-and-route-rules-q-014)): none for the kit answers
+(train+dev warm-up 1,338/1,338 exact with gold ids), `SUNDAY_RULES` (+ `forklift=True`) for the organisers' bay /
+forklift rules, which the kit answers don't use. `outside` is never crossed. No route under the rules →
+`reachable: false`, reason starts "no route under these rules"; the answer must say so. Open: Q-014 (3), (4).
 
 ## Answer formatting (all kinds)
 `core/formatter.py`: explanation lines, then `Answer: <number>[ unit]` (integers bare, else 2 decimals) or

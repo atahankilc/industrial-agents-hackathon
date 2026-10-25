@@ -33,6 +33,9 @@ const PIN = {
   dark: { fill: '#F3F4F6', ring: '#0F1013', disc: '#F3F4F6', text: '#F3F4F6', halo: '#0F1013' },
 }
 
+// the layers a click opens a building from, and how far the pointer may miss them (px)
+const HIT_LAYERS = ['pins', 'pin-names', 'pin-discs', 'model-blocks', 'model-footprints']
+const HIT_SLOP = 14
 const LOCATE_DISMISSED = 'ml-locate-dismissed' // "Not now" on the location card, remembered per browser
 
 type Located = Building & { location: NonNullable<Building['location']> }
@@ -102,15 +105,39 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     const geolocate = new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true, fitBoundsOptions: { maxZoom: 16 } })
     map.addControl(geolocate, 'bottom-right')
     geolocateRef.current = geolocate
-    const open = (event: maplibregl.MapLayerMouseEvent) => {
-      const id = event.features?.[0]?.properties?.id
-      if (typeof id === 'string') openRef.current(id)
+    // a building opens from its pin, its name, the halo round the pin or its block, and the pointer may miss by a
+    // finger's width (HIT_SLOP px): the pin alone is too small a target
+    const hit = (point: maplibregl.Point) => {
+      const layers = HIT_LAYERS.filter((layer) => map.getLayer(layer))
+      if (!layers.length) return null
+      const box: [maplibregl.PointLike, maplibregl.PointLike] = [
+        [point.x - HIT_SLOP, point.y - HIT_SLOP],
+        [point.x + HIT_SLOP, point.y + HIT_SLOP],
+      ]
+      // a block right under the pointer wins; else the nearest pin (neighbouring pins and their halos overlap); a block
+      // only within reach comes last
+      const distance = (feature: maplibregl.MapGeoJSONFeature) =>
+        feature.geometry.type === 'Point'
+          ? point.dist(map.project(feature.geometry.coordinates as [number, number]))
+          : Infinity
+      const blocks = layers.filter((layer) => layer.startsWith('model-'))
+      const under = blocks.length ? map.queryRenderedFeatures(point, { layers: blocks })[0] : undefined
+      const id = (under ?? map.queryRenderedFeatures(box, { layers }).sort((a, b) => distance(a) - distance(b))[0])?.properties?.id
+      return typeof id === 'string' ? id : null
     }
-    for (const layer of ['pins', 'pin-names']) {
-      map.on('click', layer, open)
-      map.on('mouseenter', layer, () => (map.getCanvas().style.cursor = 'pointer'))
-      map.on('mouseleave', layer, () => (map.getCanvas().style.cursor = ''))
-    }
+    let hovered: string | null = null
+    map.on('click', (event) => {
+      const id = hit(event.point)
+      if (id) openRef.current(id)
+    })
+    map.on('mousemove', (event) => {
+      const id = hit(event.point)
+      if (id === hovered) return
+      if (hovered && map.getSource('buildings')) map.setFeatureState({ source: 'buildings', id: hovered }, { hover: false })
+      if (id && map.getSource('buildings')) map.setFeatureState({ source: 'buildings', id }, { hover: true })
+      hovered = id
+      map.getCanvas().style.cursor = id ? 'pointer' : ''
+    })
     mapRef.current = map
     attachMap(map)
     // a new map (React's dev double mount makes two) has flown nowhere and framed nothing yet

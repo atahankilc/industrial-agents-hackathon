@@ -91,6 +91,7 @@ const END_PAUSE_MS = 1000 // this long without new words, once the user has spok
 const NO_WORDS_MS = 8000 // nothing heard at all after a tap: stop listening
 const AUTO_NO_WORDS_MS = 6000 // … after listening started by itself: the conversation is over
 const CARRY_PAUSE_MS = 2000 // after talking over the Guide: the words so far are sent unless more follow
+const BARGE_GRACE_MS = 1000 // talking over the Guide counts only after its voice has played this long
 
 type SpeakOptions = { conversation?: boolean; waitMs?: number; listenAfter?: () => boolean }
 
@@ -130,6 +131,7 @@ export function useVoice({ onUtterance }: Options) {
   // barge-in (see `watch`): the recognizer that runs while the Guide speaks, and what the Guide is saying
   const watcher = useRef<Recognition | null>(null)
   const said = useRef('')
+  const spokeAt = useRef(0) // when the reply's first sound played
   const [bargeIn, setBargeIn] = useState(false)
 
   const unwatch = useCallback(() => {
@@ -300,9 +302,16 @@ export function useVoice({ onUtterance }: Options) {
     recognizer.lang = lang
     recognizer.interimResults = true
     recognizer.continuous = true
+    let heldTalk = false // "talk" must be heard on two results in a row (or a final one): one stray result is noise
     recognizer.onresult = (event) => {
+      if (Date.now() - spokeAt.current < BARGE_GRACE_MS) return // the echo is loudest as the voice starts
       const results = Array.from(event.results, (result) => result[0].transcript)
-      const kind = interruption(results.join(' '), said.current)
+      const kind = interruption(userPart(results, said.current), said.current)
+      if (kind === 'talk' && !heldTalk && !event.results[event.results.length - 1]?.isFinal) {
+        heldTalk = true
+        return
+      }
+      heldTalk = kind === 'talk'
       if (!kind) return
       unwatch()
       if (kind === 'stop') {
@@ -347,6 +356,7 @@ export function useVoice({ onUtterance }: Options) {
       unwatch()
       const speech = openSpeech(lang, {
         onStart: () => {
+          spokeAt.current = Date.now()
           set('speaking')
           if (talk) watch()
         },

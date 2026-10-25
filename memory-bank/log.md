@@ -10,6 +10,23 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Calmer barge-in, readable nearby-buildings card, bigger map click target (not committed)
+
+- **Did:** Barge-in no longer fires on one stray word: `voice/bargeIn.ts` `interruption` now needs a stop word in a
+  phrase of ≤3 words, or ≥3 own words that are at least half of the user's part; `useVoice.ts` ignores results in
+  the first 1 s of the voice (`BARGE_GRACE_MS`) and holds "talk" until two results in a row (or a final one) agree.
+  Nearby-buildings card (`building/Elsewhere.tsx`): own buttons (Directions in the route blue, Open outlined), names
+  ellipsised, rows wrap. Map (`map/MapLanding.tsx`): a building opens from its pin, name, halo or block, with 14 px
+  slop; the nearest pin wins when pins overlap.
+- **Learned:** the dark-mode buttons were unreadable because `.screen button { color: inherit }`
+  (`building/screen.css`, 0,1,1) beat `.hud-pill` (0,1,0): text took the panel ink, same as the solid fill. Fixed by
+  scoping `.screen .hud-pill` (also fixes the camera pill in `NextMove`).
+- **Checked:** `tsc -b` clean; oxlint warnings only (pre-existing); in Chrome (dark + light): card buttons
+  rgb(75,133,255)/white and transparent/ink; a click 15 px off a pin opened the nearest building; interruption cases
+  via node ("okay", "hmm", misheard echo → nothing; "stop", "wait please" → stop; "actually where is the cafeteria"
+  → talk). Not tested with a live microphone.
+- **Changed docs:** `docs/architecture/ai-agents.md` (barge-in rules).
+
 ## 2026-10-25 — Voice gaps: tapped questions spoken, selection and "I'm in …" reach the Guide, faster turns (not committed)
 
 - **Did:** Tapped questions (room card Directions, chips, nearby-building directions, camera "Where am I", Builder

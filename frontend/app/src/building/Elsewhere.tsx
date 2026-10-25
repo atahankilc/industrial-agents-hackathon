@@ -33,13 +33,15 @@ export function Elsewhere({ buildings, onDirections, onOpen, onClose }: {
                 {item.total > 1 ? ` (+${item.total - 1})` : ''}
               </small>
             </span>
-            <button type="button" className="hud-pill" onClick={() => onDirections(item)}>
-              <Navigation size={14} />
-              Directions
-            </button>
-            <button type="button" className="hud-pill" onClick={() => onOpen(item)}>
-              Open
-            </button>
+            <span className="acts">
+              <button type="button" className="go" onClick={() => onDirections(item)}>
+                <Navigation size={14} />
+                Directions
+              </button>
+              <button type="button" onClick={() => onOpen(item)}>
+                Open
+              </button>
+            </span>
           </li>
         ))}
       </ul>

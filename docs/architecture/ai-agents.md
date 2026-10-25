@@ -176,8 +176,11 @@ starts a conversation: from the reply's first sound (`onStart`, which can be the
 is still pending) a second recogniser listens while the Guide speaks (restarted after 250 ms if the browser ends it
 early; aborted on speech end, `stop()`, when listening starts, or once it has fired);
 `voice/bargeIn.ts` drops what is the Guide's own echo (its words, three-letter stems, numbers, single letters), and
-`interruption` decides: three or more own words → "talk"; otherwise any stop word → "stop"; otherwise two own
-words or any own word of three or more letters → "talk"; else nothing. "Talk" cuts the voice and becomes the next question (their words carried over, sent after 2 s unless
+`interruption` decides on the user's part (`userPart`): a stop word in a phrase of at most three words → "stop";
+three or more own words that are at least half of what was heard → "talk"; else nothing (was: one own word of three
+letters already counted, which cut the Guide off on misheard echo and room noise — tightened 2026-10-25). Results in
+the first 1 s of the voice are ignored (`BARGE_GRACE_MS`), and "talk" must hold on two results in a row or a final
+one. "Talk" cuts the voice and becomes the next question (their words carried over, sent after 2 s unless
 more follow); "stop" (stop words: "stop", "wait", "stopp", "dur", …) just stops it. When the reply ends, the Guide
 listens again by itself (after 200 ms) and ends the conversation quietly after 6 s of silence. Typed questions and walk-mode step
 readings don't start a conversation. An utterance spoken while a Guide turn is still pending (for example a

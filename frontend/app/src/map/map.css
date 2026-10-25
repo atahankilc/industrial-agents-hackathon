@@ -86,6 +86,14 @@
 .ml-name { font-size: 14.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ml-address { font-size: 12.5px; color: var(--hud-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ml-empty { margin: 0; padding: 18px 14px; font-size: 13.5px; color: var(--hud-ink-2); }
+/* the panel's last row: "New building from floor plans … Create →" (MapLanding, admin / access mode off) */
+.ml-more {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex: none;
+  margin: 0; padding: 14px 20px; border: 0; border-top: 1px solid var(--hud-line);
+  background: transparent; color: var(--hud-ink); font: 500 13.5px var(--font-ui); text-align: left; cursor: pointer;
+}
+.ml-more span:last-child { color: var(--hud-ink-2); white-space: nowrap; }
+.ml-more:focus-visible { background: var(--hud-fill); outline: 2px solid var(--hud-route); outline-offset: -2px; }
 
 .ml-panel button { transition: background-color 0.15s, scale 0.12s var(--ease-out); }
 .ml-panel button:active { scale: 0.98; }
@@ -94,6 +102,7 @@
   .ml-list .ml-enter:hover { opacity: 0.88; }
   .ml-kinds button[aria-pressed='false']:hover { background: var(--hud-fill-2); color: var(--hud-ink); }
   .ml-clear:hover { background: var(--hud-fill-2); color: var(--hud-ink); }
+  .ml-more:hover { background: var(--hud-fill); }
 }
 
 /* the location card: top right, clear of the list panel; a top banner on narrow screens */

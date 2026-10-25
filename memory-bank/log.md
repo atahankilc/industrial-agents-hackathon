@@ -10,6 +10,14 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+
+## 2026-10-25 — Map list: "New building from floor plans / Create →" row styled again
+
+- **Did:** `frontend/app/src/map/map.css` `.ml-more` (+ hover, focus-visible) on the HUD tokens (`--hud-line`,
+  `--hud-ink`, `--hud-ink-2`, `--hud-fill`, `--hud-route`, `--font-ui`): one row at the bottom of the list panel, name
+  left, "Create →" right. **Learned:** the rule was dropped in 3113a99 (map list rework), so the two spans ran
+  together ("plansCreate"). **Checked:** headless Chrome, wide dark / light and phone (390 px): row 47 px high, the two
+  texts apart; `tsc -b` exit 0, `vite build` OK.
 ## 2026-10-25 15:00 — Buildings from plans: reference + trace in Edit mode, real map position (branch `7-buildings-from-plans` (started as `6-plan-reference-location`))
 
 - **Did:** design + plan (`docs/superpowers/specs|plans/2026-10-25-plan-reference-and-location*`), executed inline.

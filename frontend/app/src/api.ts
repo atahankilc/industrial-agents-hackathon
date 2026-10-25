@@ -483,15 +483,66 @@ async function speech(text: string, lang: string, signal?: AbortSignal): Promise
   return response.arrayBuffer()
 }
 
+// The server sends a line at least every 10 s while a turn runs (a "ping" while the model thinks). A phone that locked
+// or lost its network mid-turn never gets an error, only silence: after this long without a byte the turn has failed.
+const STALL_MS = 45_000
+const LOST = 'The connection to the Guide was lost. Send it again.'
+
+/** Fetch an NDJSON stream whose reads give up after STALL_MS of silence (the request is aborted, then LOST). */
+async function watchedStream(path: string, init: RequestInit) {
+  const controller = new AbortController()
+  let timer = 0
+  const arm = () => {
+    clearTimeout(timer)
+    timer = window.setTimeout(() => controller.abort(), STALL_MS)
+  }
+  arm()
+  let response: Response
+  try {
+    response = await fetch(BASE + path, { ...init, signal: controller.signal })
+  } catch (error) {
+    clearTimeout(timer)
+    throw controller.signal.aborted ? new Error(LOST) : error
+  }
+  if (!response.ok || !response.body) {
+    clearTimeout(timer)
+    throw await failed(response, path)
+  }
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  return {
+    read: async () => {
+      arm()
+      try {
+        const chunk = await reader.read()
+        if (chunk.done) clearTimeout(timer)
+        return chunk
+      } catch (error) {
+        clearTimeout(timer)
+        throw controller.signal.aborted ? new Error(LOST) : error
+      }
+    },
+    close: () => {
+      clearTimeout(timer)
+      controller.abort()
+    },
+  }
+}
+
 /** One Guide turn over NDJSON: `onStep` fires while tools run, the promise resolves with the /chat payload. */
 async function chatStream(id: string, message: string, options: ChatOptions = {}): Promise<ChatReply> {
-  const response = await fetch(BASE + '/chat/stream', {
+  const reader = await watchedStream('/chat/stream', {
     method: 'POST',
     headers: await headers(),
     body: JSON.stringify({ session_id: id, message, channel: options.channel ?? 'text', heard: options.heard, selected: options.selected, photo: options.photo, route_step: options.routeStep }),
   })
-  if (!response.ok || !response.body) throw await failed(response, '/chat/stream')
-  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  try {
+    return await readChat(reader, options)
+  } finally {
+    reader.close()
+  }
+}
+
+async function readChat(reader: { read: () => Promise<ReadableStreamReadResult<string>> }, options: ChatOptions): Promise<ChatReply> {
   let buffer = ''
   for (;;) {
     const { value, done } = await reader.read()
@@ -512,13 +563,19 @@ async function chatStream(id: string, message: string, options: ChatOptions = {}
 
 /** One Builder turn (prompt edit) over NDJSON, parsed like `chatStream`. */
 async function builderStream(draftId: string, message: string, onStep?: (step: BuilderStep) => void): Promise<BuilderReply> {
-  const response = await fetch(`${BASE}/drafts/${draftId}/chat/stream`, {
+  const reader = await watchedStream(`/drafts/${draftId}/chat/stream`, {
     method: 'POST',
     headers: await headers(),
     body: JSON.stringify({ message }),
   })
-  if (!response.ok || !response.body) throw await failed(response, '/drafts/chat/stream')
-  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  try {
+    return await readBuilder(reader, onStep)
+  } finally {
+    reader.close()
+  }
+}
+
+async function readBuilder(reader: { read: () => Promise<ReadableStreamReadResult<string>> }, onStep?: (step: BuilderStep) => void): Promise<BuilderReply> {
   let buffer = ''
   for (;;) {
     const { value, done } = await reader.read()

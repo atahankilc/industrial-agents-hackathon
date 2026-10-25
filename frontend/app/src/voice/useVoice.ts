@@ -422,7 +422,8 @@ export function useVoice({ onUtterance }: Options) {
         onStart: () => {
           spokeAt.current = Date.now()
           set('speaking')
-          if (talk) watch()
+          // no talking over the reply on iOS: listening keeps the mic open, and iOS then plays the voice at call volume
+          if (talk && !iOS) watch()
         },
         onLevel: (value) => { level.current = value },
         onEnd: () => {

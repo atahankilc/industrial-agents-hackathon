@@ -237,6 +237,28 @@ def test_chat_stream_voice_says_sentences_before_the_reply(client):
     assert '"say"' not in text  # text turns are not spoken
 
 
+def test_chat_stream_is_not_gzipped(client):
+    # gzip held every line back until the turn ended: the app saw no steps and a phone's connection sat idle
+    session_id = new_session(client)
+    response = client.post("/chat/stream", json={"session_id": session_id, "message": ROUTE},
+                           headers={"accept-encoding": "gzip"})
+    assert response.status_code == 200 and "content-encoding" not in response.headers
+    assert client.get("/buildings", headers={"accept-encoding": "gzip"}).headers["content-encoding"] == "gzip"
+
+
+def test_stream_pings_while_quiet(monkeypatch):
+    import queue
+    import threading
+
+    import backend.app as backend_app
+
+    monkeypatch.setattr(backend_app, "PING_S", 0.05)
+    lines: queue.Queue = queue.Queue()
+    threading.Timer(0.3, lambda: (lines.put({"type": "say", "text": "hi"}), lines.put(None))).start()
+    out = [json.loads(line) for line in backend_app.ndjson_with_pings(lines)]
+    assert out[-1] == {"type": "say", "text": "hi"} and {"type": "ping"} in out[:-1]
+
+
 def test_chat_voice_channel_and_bad_channel(client):
     session_id = new_session(client)
     turn = client.post("/chat", json={"session_id": session_id, "message": ROUTE, "channel": "voice"}).json()

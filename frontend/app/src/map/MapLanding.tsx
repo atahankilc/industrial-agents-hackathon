@@ -148,6 +148,8 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport }: {
     // zoom about twice MapLibre's default speed (wheel 1/450, trackpad 1/100)
     map.scrollZoom.setWheelZoomRate(1 / 220)
     map.scrollZoom.setZoomRate(1 / 50)
+    // the compact credits start open, a two-line bar over the map on a phone: closed to their (i) button
+    map.once('idle', () => container.current?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show'))
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right')
     // the viewer's own position as a dot (the browser asks first; it needs https or localhost)
     const geolocate = new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true, fitBoundsOptions: { maxZoom: 16 } })

@@ -26,6 +26,7 @@ import json
 import os
 import queue
 import threading
+from collections.abc import Iterator
 from pathlib import Path
 
 import anthropic
@@ -35,6 +36,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
+from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES
 from pydantic import BaseModel
 
 from agent.guide import PHOTO_TYPES, llm_mode
@@ -73,7 +75,10 @@ class StripPrefix:
 origins = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "*").split(",") if origin.strip()]
 app = FastAPI(title="Talk to Your Building")
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
-app.add_middleware(GZipMiddleware, minimum_size=1000)  # the floor plan export is up to ~0.5 MB of JSON
+# the floor plan export is up to ~0.5 MB of JSON; NDJSON streams stay uncompressed: gzip held a Guide turn's lines
+# back until the turn ended (browsers ask for gzip), so the app saw no steps and a phone's connection sat idle
+app.add_middleware(GZipMiddleware, minimum_size=1000,
+                   exclude_content_types=(*DEFAULT_EXCLUDED_CONTENT_TYPES, "application/x-ndjson"))
 app.add_middleware(StripPrefix)  # added last = outermost: routes see the path without /api
 store = SessionStore()
 drafts = DraftStore(backend_from_env(Path(os.environ.get("GUIDE_USER_DIR", DATA_DIR / "user"))), store.catalogue)
@@ -362,6 +367,23 @@ def channel_or_422(channel: str) -> str:
     return channel
 
 
+PING_S = 10  # a quiet turn (the model thinking) still sends a line this often; the app gives up after 45 s of silence
+
+
+def ndjson_with_pings(lines: queue.Queue) -> Iterator[str]:
+    """The queued lines as NDJSON until None, with {"type": "ping"} whenever PING_S pass without one, so a phone's
+    connection is never idle long enough to be dropped and the app can tell a slow turn from a lost one."""
+    while True:
+        try:
+            line = lines.get(timeout=PING_S)
+        except queue.Empty:
+            yield '{"type": "ping"}\n'
+            continue
+        if line is None:
+            return
+        yield json.dumps(line, ensure_ascii=False) + "\n"
+
+
 @app.post("/chat/stream")
 def chat_stream(body: ChatRequest, authorization: str | None = Header(None)) -> StreamingResponse:
     """One turn as NDJSON lines: {"type": "step", …} per tool call or check while the Guide works (the map can
@@ -398,8 +420,7 @@ def chat_stream(body: ChatRequest, authorization: str | None = Header(None)) -> 
 
     def stream():
         threading.Thread(target=work, daemon=True).start()
-        while (line := lines.get()) is not None:
-            yield json.dumps(line, ensure_ascii=False) + "\n"
+        yield from ndjson_with_pings(lines)
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 
@@ -800,8 +821,7 @@ def draft_chat_stream(draft_id: str, body: BuilderMessage) -> StreamingResponse:
 
     def stream():
         threading.Thread(target=work, daemon=True).start()
-        while (line := lines.get()) is not None:
-            yield json.dumps(line, ensure_ascii=False) + "\n"
+        yield from ndjson_with_pings(lines)
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 

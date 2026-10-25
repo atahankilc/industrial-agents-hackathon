@@ -67,6 +67,11 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## What works (verified 2026-10-24)
 
+- **Phones (2026-10-25, branch `6-mobile`):** Guide voice no longer hangs when iOS blocks the browser voice, streams
+  are not gzipped and ping every 10 s, the app drops a silent stream after 45 s, home-screen app metas + manifest,
+  16 px fields on touch ([ai-agents.md](../docs/architecture/ai-agents.md)). **Blocker:** `ELEVENLABS_API_KEY` is
+  not set on Vercel (no ElevenLabs voice / Scribe there). Not yet tried on a real iPhone.
+
 - **Chat Guide + Sunday layers (2026-10-25, branch `4-sunday-agent`, after merging dev c3ab8f0):** `compute` tool
   (Python sandbox; its `route()` = `find_route`'s rules and profile), `find_nearest` with `closed` + shortlist,
   readable Claude API errors (`backend/service_errors.py`, app note + voice). New vs old dev Guide: capability set 5/5

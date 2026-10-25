@@ -10,6 +10,22 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Phones: Guide voice and stuck turns, home-screen app (merged into dev)
+
+- **Did:** `voice/tts.ts`: unlock on `pointerup`/`touchend`/`click` too, a silent first utterance primes
+  speechSynthesis, browser utterances run one at a time with a start timeout (`START_MS` 4 s) and an end timeout
+  (`MS_PER_CHAR`), `navigator.audioSession` set to playback; on iOS the warm mic is closed before speaking
+  (`mic.ts` `dropMicrophone`) and `useVoice` starts no barge-in watcher; `scribe.ts` resumes its capture context on
+  those events. `backend/app.py`: NDJSON excluded from gzip, `ndjson_with_pings` (10 s) for `/chat/stream` and the
+  Builder stream; `api.ts` `watchedStream` gives up after 45 s without a byte. `index.html`: `viewport-fit=cover`,
+  `maximum-scale=1`, home-screen metas, `manifest.webmanifest`; `styles.css`: 16 px fields on touch (iOS zooms into
+  smaller ones and stays zoomed), no overscroll / tap flash; map sheet clear of the home bar, credits start closed.
+- **Learned:** the deployment has no `ELEVENLABS_API_KEY` (`/api/health` tts/stt false), so iPhones used the browser
+  voice, which iOS drops silently outside a gesture: the orb then stayed on "Working". Through gzip the deployment's
+  stream sent nothing for 40 s, then every line at once (curl without `--compressed` looked fine).
+- **Changed docs:** [ai-agents.md](../docs/architecture/ai-agents.md), [commands.md](../docs/guides/commands.md#deploy-vercel).
+- **Next:** add `ELEVENLABS_API_KEY` on Vercel and redeploy; try it on a real iPhone home-screen app.
+
 ## 2026-10-25 12:00 — Floor changes and "where you are" on the plan (session 22)
 
 *Did:* the riser between floors is a cased tube drawn over the slabs (was an invisible 1px line); a stairs/lift step while guiding stacks its two floors; a new position from the Guide shows before the route (1.6 s); with the position unknown, `maybe_here` (Guide's rooms via new `suggest_my_location`, else entrances) → "Here? · room" badges, tap to stand there. *Learned:* vite reads `BACKEND_URL` only when exported in its own shell; without it, it proxies to the shared 8765 backend. *Next:* screenshot the stacked ride step.

@@ -47,6 +47,18 @@ export async function acquireMicrophone(): Promise<MediaStream> {
   }
 }
 
+/** The shared stream is open (in use, or kept warm). */
+export const microphoneLive = () => capturing(shared)
+
+/** Close the kept-warm stream now (iOS: the Guide's voice is about to play, and a live capture would turn it into a
+ * quiet call through the earpiece). A stream someone still uses stays open. */
+export function dropMicrophone() {
+  if (users > 0 || !shared) return
+  clearTimeout(timer)
+  shared.getTracks().forEach((track) => track.stop())
+  shared = null
+}
+
 export function releaseMicrophone() {
   users = Math.max(0, users - 1)
   if (users > 0) return
@@ -59,6 +71,9 @@ export function releaseMicrophone() {
 }
 
 async function open(): Promise<MediaStream> {
+  // tts.ts asks iOS for media playback (past the silent switch); a capture needs play-and-record, which "auto" picks
+  const session = (navigator as { audioSession?: { type: string } }).audioSession
+  if (session) session.type = 'auto'
   if (chosen) {
     try {
       return await navigator.mediaDevices.getUserMedia({ audio: { ...AUDIO, deviceId: { exact: chosen } } })

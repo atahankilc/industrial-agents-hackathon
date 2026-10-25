@@ -224,6 +224,24 @@ ended, committed and sent ~1.9 s after it, answered aloud, barge-in watcher on i
 request failing, browser recognition took over with no error. The transcript rewriter (D-013) still runs:
 [Q-020](../../memory-bank/open-questions.md#q-020).
 
+**Phones and the home-screen app (2026-10-25):** the deployment answered `/health` with `"tts": false, "stt": false`
+(no `ELEVENLABS_API_KEY` on Vercel), so an iPhone fell back to the browser's voice. iOS drops a `speechSynthesis`
+utterance that wasn't started from a tap without firing any event, so the voice loop waited forever and the orb stayed
+on "Working". Now: audio is unlocked on `pointerup` / `touchend` / `click` as well (a touch's `pointerdown` is not a
+user gesture), and the first unlock speaks a silent utterance so later replies may speak; Scribe's capture
+`AudioContext` resumes on those events too; a browser utterance that hasn't started after 4 s ends the browser voice
+(`START_MS`), and one that never reports its end counts as ended after its estimated length (`MS_PER_CHAR`);
+`navigator.audioSession.type = 'playback'` (Safari 17+) while nothing captures, so the silent switch doesn't mute the
+voice (`'auto'` again before a capture, `voice/mic.ts`). On iOS the kept-warm mic stream is closed before the voice
+plays (`dropMicrophone`) and there is no barge-in watcher, because a live capture plays the voice at call volume
+through the earpiece. Streams: `GZipMiddleware` held a turn's NDJSON lines back until the turn ended (browsers ask for
+gzip; measured on the deployment: 40 s of nothing, then all lines at once), so `application/x-ndjson` is excluded;
+`/chat/stream` and the Builder's stream send `{"type": "ping"}` after 10 s without a line (`PING_S`,
+`ndjson_with_pings`), and the app gives up after 45 s without a byte with "The connection to the Guide was lost. Send
+it again." (`api.ts` `watchedStream`, `STALL_MS`). Tests `tests/test_backend.py::test_chat_stream_is_not_gzipped`,
+`::test_stream_pings_while_quiet`. Checked in headless Chromium at phone size (ElevenLabs on and `/tts` blocked: the
+orb returns to rest either way); not yet on a real iPhone.
+
 **Implemented (2026-10-24):** `Guide.reply(text, channel="voice")` — used by `/v1/chat/completions` — adds the
 `VOICE_STYLE` instruction (plain spoken sentences, ≤ ~3 sentences, first 2–3 steps then offer to continue) as a
 mid-conversation **system message** after the user turn on models that support it (Opus 5/5.5, Opus 4.8, Fable,

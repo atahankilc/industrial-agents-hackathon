@@ -46,6 +46,15 @@
 
 html, body, #root { height: 100%; margin: 0; }
 
+/* phones: the app is a fixed screen, not a page — no rubber-band scroll, no font boosting, no grey tap flash */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavior: none; }
+body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+
+/* iOS zooms into any field under 16 px when it is tapped, and the zoom stays: every component then overflows */
+@media (pointer: coarse) {
+  input, textarea, select { font-size: max(16px, 1em) !important; }
+}
+
 body {
   background: var(--bg);
   color: var(--ink);

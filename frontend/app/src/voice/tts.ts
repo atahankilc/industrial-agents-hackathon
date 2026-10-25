@@ -4,6 +4,7 @@
 // written: `openSpeech` takes sentences as they arrive (the Guide's `say` lines, api.ts chatStream).
 
 import { api } from '../api'
+import { iOS, microphoneLive, dropMicrophone } from './mic'
 
 type Handlers = {
   /** the first sound plays (ElevenLabs audio takes a moment to arrive) */
@@ -37,6 +38,8 @@ const PIECE_CHARS = 220
 // ---------- ElevenLabs availability ----------
 
 const COOL_OFF_MS = 15_000 // after a piece failed twice, use the browser voice for a while before trying again
+const START_MS = 4000 // a browser utterance that hasn't started by then was dropped
+const MS_PER_CHAR = 110 // generous speaking time per character, after which a silent utterance counts as ended
 const SHORT_CHARS = 24 // a first sentence this short ("Step 2.") goes with the next one, not as a clip of its own
 let cloud: Promise<boolean> | null = null
 let cloudOffUntil = 0
@@ -68,19 +71,42 @@ function audioOutput() {
   return output
 }
 
-/** Browsers keep audio locked until the user taps or types: unlock it on the first gesture. */
-export function unlockAudio() {
-  if (typeof AudioContext === 'undefined') return
-  const { context } = audioOutput()
-  if (context.state === 'suspended') void context.resume()
+// iOS plays Web Audio as "ambient" sound, which the silent switch mutes: ask for media playback instead (Safari 17+).
+// While the microphone captures, iOS needs play-and-record, so `mic.ts` switches back to auto around a capture.
+type AudioSession = { type: string }
+const audioSession = typeof navigator !== 'undefined' ? (navigator as { audioSession?: AudioSession }).audioSession : undefined
+export function playbackSession() {
+  if (audioSession && !microphoneLive()) audioSession.type = 'playback'
 }
 
+let primed = false
+
+/** Browsers keep audio locked until the user taps or types: unlock it on the first gesture. iOS also needs the first
+ * speechSynthesis utterance spoken inside a gesture; after that, replies that arrive later may speak too. */
+export function unlockAudio() {
+  if (typeof AudioContext === 'undefined') return
+  playbackSession()
+  const { context } = audioOutput()
+  if (context.state !== 'running') void context.resume().catch(() => {})
+  if (!primed && 'speechSynthesis' in window) {
+    primed = true
+    const silent = new SpeechSynthesisUtterance(' ')
+    silent.volume = 0
+    speechSynthesis.speak(silent)
+  }
+}
+
+// Only some events count as a user gesture: a touch's pointerdown doesn't (its pointerup / touchend / click do).
 if (typeof window !== 'undefined') {
-  for (const type of ['pointerdown', 'keydown']) window.addEventListener(type, unlockAudio, { capture: true, passive: true })
+  for (const type of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) {
+    window.addEventListener(type, unlockAudio, { capture: true, passive: true })
+  }
 }
 
 async function audioReady() {
   if (typeof AudioContext === 'undefined') return false
+  if (iOS) dropMicrophone() // while the mic captures, iOS plays at call volume through the earpiece
+  playbackSession()
   const { context } = audioOutput()
   if (context.state !== 'running') await Promise.race([context.resume(), new Promise((resolve) => setTimeout(resolve, 300))])
   return context.state === 'running'
@@ -223,7 +249,10 @@ export function openSpeech(lang: string, handlers: Handlers = {}): Speech {
     }
   }
 
-  // Browser voice: one utterance per sentence (Chrome stops long utterances after ~15 s), queued as text arrives.
+  // Browser voice: one utterance per sentence (Chrome stops long utterances after ~15 s), each one after the one before.
+  // iOS drops an utterance it won't play without any event (a home screen app outside a tap): one that hasn't started
+  // in START_MS ends the browser voice, and one that never reports its end counts as ended after its estimated length,
+  // so the voice loop never waits forever.
   const speakBrowser = async () => {
     const synth = 'speechSynthesis' in window
     const voice = synth ? bestVoice(lang) : null
@@ -234,26 +263,47 @@ export function openSpeech(lang: string, handlers: Handlers = {}): Speech {
       run.frame = requestAnimationFrame(decay)
     }
     run.frame = requestAnimationFrame(decay)
-    let speaking = 0
+    let speaking = false
+    let blocked = false
     for (;;) {
       if (run.stopped) return
-      while (queue.length) {
+      if (!synth) queue.length = 0
+      if (!speaking && queue.length) {
         const text = queue.shift()!
-        if (!synth) continue
         const utterance = new SpeechSynthesisUtterance(text)
         utterance.lang = lang
         if (voice) utterance.voice = voice
         utterance.rate = 1.04
-        utterance.onboundary = () => { level = 0.55 + Math.random() * 0.45 }
-        utterance.onend = utterance.onerror = () => {
-          speaking -= 1
+        let settled = false
+        const timers: number[] = []
+        const done = () => {
+          if (settled) return
+          settled = true
+          timers.forEach((timer) => clearTimeout(timer))
+          speaking = false
           nudge()
         }
-        speaking += 1
-        start()
+        utterance.onstart = () => {
+          clearTimeout(timers[0])
+          start()
+        }
+        utterance.onboundary = () => { level = 0.55 + Math.random() * 0.45 }
+        utterance.onend = utterance.onerror = done
+        timers.push(window.setTimeout(() => {
+          console.info('[voice] the browser voice did not start (blocked by the browser?)')
+          blocked = true
+          done()
+        }, START_MS))
+        timers.push(window.setTimeout(done, START_MS + text.length * MS_PER_CHAR))
+        speaking = true
         speechSynthesis.speak(utterance)
       }
-      if (ended && speaking <= 0) break
+      if (blocked) {
+        speechSynthesis.cancel()
+        queue.length = 0
+        break
+      }
+      if (ended && !speaking && !queue.length) break
       await signal()
     }
     cancelAnimationFrame(run.frame)

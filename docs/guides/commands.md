@@ -223,7 +223,7 @@ Atahan (once): Vercel → *Add New → Project* → import the GitHub repo. Leav
 | `SUPABASE_DB_URL` | Transaction pooler URI (port 6543), same as `.env` |
 | `GUIDE_MODEL` / `GUIDE_EFFORT` | optional (defaults `claude-opus-5-5` / `medium`; Sonnet + `low` is cheaper and faster) |
 | `CORS_ORIGINS` | optional; the frontend is same-origin, so it isn't needed |
-| `ELEVENLABS_API_KEY` | the Guide's ElevenLabs voice (`/tts`); without it the app speaks with the browser voice |
+| `ELEVENLABS_API_KEY` | the Guide's ElevenLabs voice (`/tts`) and Scribe (`/stt/token`); without it the app speaks with the browser voice and listens with the browser's recognition, which iOS blocks outside a tap (no voice on iPhones; recognition in a home-screen app UNVERIFIED). Missing on the deployment as of 2026-10-25 (`/api/health` → `"tts": false, "stt": false`) |
 | `TTS_VOICE_ID` / `TTS_MODEL` | optional (defaults "River" `SAz9YHcvj6GT2YYXdXww` / `eleven_flash_v2_5`) |
 | `STT_MODE` | optional: `scribe` (default with the key) or `browser` (keep the browser's speech recognition) |
 

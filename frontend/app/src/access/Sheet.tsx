@@ -1,7 +1,7 @@
 // A glass sheet for access mode (sign in, set a password, building settings): from the bottom on phones, a panel on
 // the right on wide screens. Same tokens as the HUD (building/hud.css); styles in ./access.css.
 
-import { X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react'
 import './access.css'
 
@@ -27,12 +27,15 @@ export function Sheet({ title, onClose, children, wide = false }: { title: strin
   )
 }
 
-/** Access groups as chips: type a name, Enter or comma adds it, × or Backspace on an empty field removes one. */
-export function GroupChips({ groups, onChange, placeholder = 'Add a group', label }: {
+/** Access groups as chips: type a name, Enter or comma adds it, × or Backspace on an empty field removes one.
+ * `suggestions`: groups already in use here, offered under the field as one-tap chips. */
+export function GroupChips({ groups, onChange, placeholder = 'Add a group', label, suggestions = [], autoFocus = false }: {
   groups: string[]
   onChange: (groups: string[]) => void
   placeholder?: string
   label: string
+  suggestions?: string[]
+  autoFocus?: boolean
 }) {
   const [draft, setDraft] = useState('')
   const add = () => {
@@ -49,7 +52,8 @@ export function GroupChips({ groups, onChange, placeholder = 'Add a group', labe
       onChange(groups.slice(0, -1))
     }
   }
-  return (
+  const offered = suggestions.filter((group) => !groups.includes(group))
+  const field = (
     <div className="chips">
       {groups.map((group) => (
         <span key={group} className={`chip${group === 'public' ? ' public' : ''}`}>
@@ -69,7 +73,22 @@ export function GroupChips({ groups, onChange, placeholder = 'Add a group', labe
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck={false}
+        autoFocus={autoFocus}
       />
+    </div>
+  )
+  if (!offered.length) return field
+  return (
+    <div className="chips-with-offers">
+      {field}
+      <div className="chip-offers" aria-label={`Add to ${label}`}>
+        {offered.map((group) => (
+          <button key={group} type="button" className="chip-offer" onClick={() => onChange([...groups, group])}>
+            <Plus size={12} strokeWidth={2.4} />
+            {group}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

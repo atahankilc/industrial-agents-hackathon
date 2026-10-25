@@ -6,7 +6,8 @@
 // - every door on the floor (select, drag along its wall: move_opening); the selected item (drag: move_asset);
 // - the Door / Item tools' ghost under the pointer (edit/place.ts) — the click itself is the plan's tap
 //   (PlanView onTap → BuildingScreen), so panning, zooming and turning the model keep working while placing;
-// - the Builder's proposal as a dashed ghost, and what the validator flags in red.
+// - the Builder's proposal as a dashed ghost, and what the validator flags in red;
+// - with the Access tool, the rooms only some groups may enter, hatched (src/access/useAccessRules.ts).
 // Handles keep their screen size: strokes don't scale, and a corner is a round-capped stroke of almost no length.
 
 import { useEffect, useMemo, useState } from 'react'
@@ -28,6 +29,7 @@ type Props = {
   tool: Tool
   preset: ItemPreset
   align: React.RefObject<SVGGElement | null> // kept on the floor plane by PlanView
+  restricted?: Set<string> // the Access tool: spaces only some groups may enter
 }
 
 type Drag =
@@ -57,7 +59,7 @@ function doorSegment(opening: OpeningJson, polygonOf: (id: string) => XY[] | und
   return along(opening.position, a, b, opening.width_m)
 }
 
-export function EditLayer({ building, floorId, issues, selected, onSelect, onOps, busy, revision, ghost, tool, preset, align }: Props) {
+export function EditLayer({ building, floorId, issues, selected, onSelect, onOps, busy, revision, ghost, tool, preset, align, restricted }: Props) {
   const [drag, setDrag] = useState<Drag | null>(null)
   // A dropped edit stays drawn where it was dropped until the backend's answer arrives.
   const [sent, setSent] = useState<Drag | null>(null)
@@ -87,7 +89,7 @@ export function EditLayer({ building, floorId, issues, selected, onSelect, onOps
 
   // Placing tools: follow the pointer without taking events from the model (pan / zoom / turn keep working).
   useEffect(() => {
-    if (tool === 'select') {
+    if (tool !== 'door' && tool !== 'item') {
       setPointer(null)
       return
     }
@@ -193,6 +195,20 @@ export function EditLayer({ building, floorId, issues, selected, onSelect, onOps
   return (
     <svg className={`edit-layer tool-${tool}${busy ? ' busy' : ''}`} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={() => setDrag(null)}>
       <g ref={align}>
+        {/* the Access tool: restricted rooms, hatched (the pattern in metres, so it turns and zooms with the plan) */}
+        {tool === 'access' && restricted && (
+          <>
+            <defs>
+              <pattern id="access-hatch" className="access-hatch" patternUnits="userSpaceOnUse" width="0.7" height="0.7" patternTransform="rotate(45)">
+                <rect width="0.7" height="0.7" fill="transparent" />
+                <line x1="0" y1="0" x2="0" y2="0.7" />
+              </pattern>
+            </defs>
+            {spaces.filter((space) => restricted.has(space.id)).map((space) => (
+              <polygon key={`locked-${space.id}`} className="restricted-space" points={pts(space.polygon as XY[])} />
+            ))}
+          </>
+        )}
         {/* what the validator flags */}
         {spaces.filter((space) => bad.has(space.id)).map((space) => (
           <polygon key={`bad-${space.id}`} className="bad-space" points={pts(space.polygon as XY[])} />

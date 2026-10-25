@@ -1,9 +1,10 @@
-// The Edit mode's bar, under the building screen's top line (right of it on wide screens): that you are editing a
-// copy and how many changes, the tools (Select / Add door / Add item), the validator's problems, undo / redo, start
+// The Edit mode's bar, under the building screen's top line (right of it on wide screens, left of the settings
+// corner): that you are editing a copy and how many changes, the tools (Select / Add door / Add item, and Access
+// for the admin in access mode), the validator's problems, undo / redo, start
 // again from the original (asks once more), Save as a new building and Done. The conversation with the Builder is the Guide's card (building/Guide.tsx), the inspector for
 // what is selected is shown in it (EditCard).
 
-import { Check, DoorOpen, MousePointer2, Package, Redo2, RotateCcw, TriangleAlert, Undo2, X } from 'lucide-react'
+import { Check, DoorOpen, Lock, MousePointer2, Package, Redo2, RotateCcw, TriangleAlert, Undo2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Issue } from '../api'
 import type { Draft } from './useDraft'
@@ -14,6 +15,7 @@ const TOOLS: { tool: Tool; key: string; label: string; Icon: typeof MousePointer
   { tool: 'select', key: 'V', label: 'Select', Icon: MousePointer2 },
   { tool: 'door', key: 'D', label: 'Door', Icon: DoorOpen },
   { tool: 'item', key: 'I', label: 'Item', Icon: Package },
+  { tool: 'access', key: 'A', label: 'Access', Icon: Lock },
 ]
 
 type Props = {
@@ -21,9 +23,11 @@ type Props = {
   onFocusIssue: (issue: Issue) => void
   onDone: () => void
   onSave: (name: string) => void
+  /** offer the Access tool (access mode, the admin) */
+  accessTool: boolean
 }
 
-export function EditBar({ draft, onFocusIssue, onDone, onSave }: Props) {
+export function EditBar({ draft, onFocusIssue, onDone, onSave, accessTool }: Props) {
   const { state, busy, tool, setTool } = draft
   const [problems, setProblems] = useState(false)
   const [naming, setNaming] = useState<string | null>(null)
@@ -37,7 +41,10 @@ export function EditBar({ draft, onFocusIssue, onDone, onSave }: Props) {
   if (!state) {
     return (
       <div className="edit-bar" role="toolbar" aria-label="Edit">
-        <p className="edit-status">{draft.message ?? 'Making an editable copy…'}</p>
+        <p className={`edit-status${draft.failed ? ' failed' : ''}`} role={draft.failed ? 'alert' : 'status'}>
+          {draft.failed ? `Could not edit: ${draft.failed}` : 'Making an editable copy…'}
+        </p>
+        <button type="button" className="edit-done" onClick={onDone}>{draft.failed ? 'Close' : 'Cancel'}</button>
       </div>
     )
   }
@@ -49,7 +56,7 @@ export function EditBar({ draft, onFocusIssue, onDone, onSave }: Props) {
     <>
       <div className="edit-bar" role="toolbar" aria-label="Edit">
         <div className="edit-tools" role="radiogroup" aria-label="Tool">
-          {TOOLS.map(({ tool: value, key, label, Icon }) => (
+          {TOOLS.filter(({ tool: value }) => value !== 'access' || accessTool).map(({ tool: value, key, label, Icon }) => (
             <button key={value} type="button" role="radio" aria-checked={tool === value} title={`${label} (${key})`} onClick={() => setTool(value)}>
               <Icon size={16} strokeWidth={2} />
               <span>{label}</span>
@@ -64,7 +71,7 @@ export function EditBar({ draft, onFocusIssue, onDone, onSave }: Props) {
         <button type="button" className="edit-icon" onClick={draft.undo} disabled={busy || changes === 0} aria-label="Undo" title="Undo (⌘Z)">
           <Undo2 size={16} strokeWidth={2} />
         </button>
-        <button type="button" className="edit-icon" onClick={draft.redo} disabled={busy || !draft.canRedo} aria-label="Redo" title="Redo (⇧⌘Z)">
+        <button type="button" className="edit-icon edit-redo" onClick={draft.redo} disabled={busy || !draft.canRedo} aria-label="Redo" title="Redo (⇧⌘Z)">
           <Redo2 size={16} strokeWidth={2} />
         </button>
         {discarding ? (
@@ -81,8 +88,9 @@ export function EditBar({ draft, onFocusIssue, onDone, onSave }: Props) {
           title={changes === 0 ? 'Make a change first' : 'Save as a new building'} onClick={() => setNaming(`${state.draft.name} (edited)`)}>
           Save
         </button>
-        <button type="button" className="edit-done" onClick={onDone} disabled={busy} title="Stop editing — the draft is kept">
-          Done
+        <button type="button" className="edit-done" onClick={onDone} disabled={busy} title="Stop editing — the draft is kept" aria-label="Done">
+          <Check size={16} strokeWidth={2.4} className="edit-done-icon" />
+          <span>Done</span>
         </button>
       </div>
       {draft.message && (

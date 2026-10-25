@@ -70,8 +70,10 @@ def describe(building: BuildingMap, space_id: str, extra: str | None = None) -> 
     return f"{space_id} ({', '.join(parts)})"
 
 
-def problem(building: BuildingMap, reference: str, found: list[str], extras: dict[str, str] | None = None) -> str:
-    """MapError text for a phrase that matched no space or several."""
+def problem(building: BuildingMap, reference: str, found: list[str], extras: dict[str, str] | None = None,
+            total: int | None = None) -> str:
+    """MapError text for a phrase that matched no space or several. `total`: how many matched, when `found` is only
+    a shortlist of them (the nearest)."""
     if not found:
         close = nearest_names(building, reference)
         hint = f" Did you mean: {', '.join(close)}?" if close else ""
@@ -79,5 +81,6 @@ def problem(building: BuildingMap, reference: str, found: list[str], extras: dic
     shown = found[:MAX_OPTIONS]
     more = f"; and {len(found) - len(shown)} more" if len(found) > len(shown) else ""
     listed = "; ".join(describe(building, space_id, (extras or {}).get(space_id)) for space_id in shown)
-    return (f"'{reference}' is ambiguous: {len(found)} places match. Ask the user which one, naming what tells "
+    count = f"{total} places match, these are the {len(found)} nearest" if total and total > len(found) else f"{len(found)} places match"
+    return (f"'{reference}' is ambiguous: {count}. Ask the user which one, naming what tells "
             f"them apart — floor, ref, size or a neighbour: {listed}{more}")

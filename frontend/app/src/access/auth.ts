@@ -20,6 +20,8 @@ export type AccessState = {
   email: string | null
   /** the admin (GET /me) */
   admin: boolean
+  /** signed in and GET /me not answered yet: whether this is the admin is still open */
+  checking: boolean
   /** arrived from an invite: the account has no password yet */
   needsPassword: boolean
   /** bumps when the viewer changes */
@@ -30,7 +32,7 @@ export type AccessState = {
   notice: string | null
 }
 
-let state: AccessState = { mode: false, email: null, admin: false, needsPassword: false, version: 0, panel: null, notice: null }
+let state: AccessState = { mode: false, email: null, admin: false, checking: false, needsPassword: false, version: 0, panel: null, notice: null }
 const listeners = new Set<() => void>()
 let client: SupabaseClient | null = null
 let userId: string | null = null
@@ -119,7 +121,8 @@ export function startAccess() {
     .then(async (config) => {
       if (!config.access_mode) return done()
       readLink()
-      set({ mode: true, needsPassword: storedFlag(NEEDS_PASSWORD_KEY) })
+      // a sign-in that may be restored counts as being checked until it is (or isn't)
+      set({ mode: true, checking: maySignIn(), needsPassword: storedFlag(NEEDS_PASSWORD_KEY) })
       auth.onUnauthorized(() => {
         void client?.auth.signOut({ scope: 'local' })
         notify('You were signed out. Sign in again to see restricted areas.')
@@ -138,10 +141,14 @@ export function startAccess() {
       const user = data.session?.user
       // the restored viewer is the first one: nothing loaded so far needs reloading (requests waited at the gate)
       const restoring = viewerChanged(user?.id ?? null, user?.email ?? null, false)
+      if (!user) set({ checking: false })
       done()
       await restoring
     })
-    .catch(() => done())
+    .catch(() => {
+      set({ checking: false })
+      done()
+    })
 }
 
 async function viewerChanged(id: string | null, email: string | null, reload = true) {
@@ -150,16 +157,17 @@ async function viewerChanged(id: string | null, email: string | null, reload = t
   const version = state.version + (reload ? 1 : 0)
   if (!id) {
     storeFlag(NEEDS_PASSWORD_KEY, false)
-    set({ email: null, admin: false, needsPassword: false, version })
+    set({ email: null, admin: false, checking: false, needsPassword: false, version })
     return
   }
   const needsPassword = storedFlag(NEEDS_PASSWORD_KEY)
-  set({ email, admin: false, needsPassword, panel: needsPassword ? 'password' : state.panel === 'signin' ? null : state.panel, version })
+  set({ email, admin: false, checking: true, needsPassword, panel: needsPassword ? 'password' : state.panel === 'signin' ? null : state.panel, version })
   try {
     const me = await api.me()
-    if (userId === id) set({ admin: me.admin })
+    if (userId === id) set({ admin: me.admin, checking: false })
   } catch {
     // /me failed (a 401 signs out on its own); the account just isn't treated as admin
+    if (userId === id) set({ checking: false })
   }
 }
 

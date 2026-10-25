@@ -24,7 +24,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from agent.guide import Guide, make_client
+from agent.guide import Guide, make_client, system_blocks
 from backend import persistence
 from agent.tools import BuildingSession
 from core.access import filter_building, restricted_names, restricted_polygons
@@ -202,7 +202,8 @@ class SessionStore:
         """Put the conversation on the building copy for this restricted set (access mode). Same set → nothing.
         Otherwise its state is replayed onto the new copy; if a change no longer applies there (it touched a space
         that is now restricted) the conversation starts fresh on that building. The Guide's system prompt is
-        rebuilt from the copy, so its overview never names a restricted space."""
+        rebuilt from the copy, so its overview never names a restricted space (a different copy is a different
+        building: the cached prefix is lost on purpose, unlike refresh_system's note)."""
         if conversation.restricted == restricted:
             return conversation
         with conversation.lock:
@@ -216,7 +217,8 @@ class SessionStore:
                 session = self.load_session(conversation.building, restricted)
                 guide = Guide(session, client=make_client())
             session.preferences_enabled = conversation.session.preferences_enabled
-            guide.refresh_system()
+            guide.system = system_blocks(session)
+            guide.seen_overview = guide.system[1]["text"]
             conversation.session, conversation.guide = session, guide
             conversation.restricted = restricted
             data = self.base_data(conversation.building)

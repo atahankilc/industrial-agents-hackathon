@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from agent.guide import Guide
+from agent import places
 from agent.tools import BuildingSession
 from tests.test_backend import BUILDING, client, new_session  # noqa: F401  (client is a fixture)
 from tests.test_guide import ScriptedClient, say
@@ -74,3 +75,47 @@ def test_the_figure_point_moves_only_where_the_route_line_starts(client):  # noq
     assert route["line"][0][:2] == placed["location"]["point"]
     off = client.put(f"/sessions/{session_id}/location", json={"space_id": lobby["id"], "point": [1e6, 1e6]}).json()
     assert "point" not in off["location"]  # a point outside the room is not kept
+
+
+def test_unknown_position_marks_the_entrances_every_turn(session):
+    result = session.call("find_route", {"start": "here", "destination": "Meeting room 3.07"})
+    assert "not known" in result["error"] and "marks the entrances" in result["error"]
+    marked = [event for event in session.events if event["type"] == "maybe_here"]
+    assert len(marked) == 1 and marked[0]["source"] == "entrances"
+    assert marked[0]["space_ids"] == session.entrance_rooms()[:8] and marked[0]["space_ids"]
+    before = len(session.events)  # a later turn (the app reads only its own events) marks them again
+    session.call("find_route", {"start": "here", "destination": "Main lobby"})
+    assert [event["type"] for event in session.events[before:]] == ["maybe_here"]
+
+
+def test_unknown_position_without_entrances_promises_no_marks(session, monkeypatch):
+    monkeypatch.setattr(session, "entrance_rooms", lambda: [])
+    before = len(session.events)
+    result = session.call("find_route", {"start": "here", "destination": "Main lobby"})
+    assert "not known" in result["error"] and "entrances" not in result["error"]
+    assert session.events[before:] == []
+    assert "no entrances" in session.call("suggest_my_location", {})["error"]
+
+
+def test_suggest_my_location_marks_the_guides_rooms_else_the_entrances(session):
+    guessed = session.call("suggest_my_location", {"rooms": ["Main lobby", "Meeting room 3.07"]})
+    rooms = [space_named(session, "Main lobby"), space_named(session, "Meeting room 3.07")]
+    assert [room["id"] for room in guessed["shown"]] == rooms
+    assert session.events[-1] == {"type": "maybe_here", "space_ids": rooms, "source": "guide"}
+    session.call("suggest_my_location", {})
+    assert session.events[-1]["source"] == "entrances"
+    assert session.events[-1]["space_ids"] == session.entrance_rooms()[:8]
+    assert session.call("suggest_my_location", {"rooms": ["no such room at all"]}).get("error")
+
+
+def test_an_ambiguous_start_marks_every_match_as_where_the_user_might_be(session):
+    found = places.candidates(session.building, "office")
+    assert len(found) > 1
+    for tool, arguments in [("set_my_location", {"place": "office"}),
+                            ("find_route", {"start": "office", "destination": "Main lobby"})]:
+        before = len(session.events)
+        result = session.call(tool, arguments)
+        assert "might be" in result["error"]
+        marked = [event for event in session.events[before:] if event["type"] == "maybe_here"]
+        assert marked == [{"type": "maybe_here", "space_ids": found[:8], "source": "guide"}]
+    assert session.user_location is None

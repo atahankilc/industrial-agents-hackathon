@@ -1,8 +1,11 @@
 // What the Guide's card shows in the Edit mode in place of the room card (building/Guide.tsx `card`): the Builder's
-// proposal waiting for Apply / Cancel, else the Inspector for the selection or the active tool. Nothing = the
+// proposal waiting for Apply / Cancel, else the Inspector for the selection or the active tool (the Access tool:
+// src/access/AccessCard.tsx, who may enter the room picked). Nothing = the
 // conversation with the Builder (captions, trail, Core) shows.
 
 import { Check, X } from 'lucide-react'
+import { AccessCard } from '../access/AccessCard'
+import type { AccessRulesState } from '../access/useAccessRules'
 import { Inspector } from './Inspector'
 import type { Draft } from './useDraft'
 
@@ -10,7 +13,7 @@ import type { Draft } from './useDraft'
 const plain = (text: string) =>
   text.replace(/\*\*(.+?)\*\*/g, '$1').replace(/^\s*[-*]\s+/gm, '• ').split(/\n+/).map((line) => line.trim()).filter(Boolean)
 
-export function EditCard({ draft }: { draft: Draft }) {
+export function EditCard({ draft, access, onSettings }: { draft: Draft; access: AccessRulesState; onSettings: () => void }) {
   const { state, proposal, selected, tool, busy } = draft
   if (!state) return null
   if (proposal) {
@@ -37,12 +40,24 @@ export function EditCard({ draft }: { draft: Draft }) {
     )
   }
   if (!selected && tool === 'select') return null
+  const close = (
+    <button type="button" className="hud-icon edit-card-close" aria-label="Close"
+      onClick={() => (tool === 'select' || (tool === 'access' && selected) ? draft.setSelected(null) : draft.setTool('select'))}>
+      <X size={16} />
+    </button>
+  )
+  if (tool === 'access') {
+    const space = selected?.kind === 'space' ? state.building.spaces.find((item) => item.id === selected.id) : undefined
+    return (
+      <article className="place-card edit-card">
+        {close}
+        <AccessCard key={space?.id ?? ''} access={access} spaceId={space?.id ?? null} spaceName={space?.name ?? null} onSettings={onSettings} />
+      </article>
+    )
+  }
   return (
     <article className="place-card edit-card">
-      <button type="button" className="hud-icon edit-card-close" aria-label="Close"
-        onClick={() => (tool === 'select' ? draft.setSelected(null) : draft.setTool('select'))}>
-        <X size={16} />
-      </button>
+      {close}
       <Inspector
         building={state.building}
         selected={selected}

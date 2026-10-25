@@ -229,6 +229,9 @@ def test_settings_change_after_the_first_turn_keeps_the_system_prompt(session):
     assert guide.system_note is None
     sent = [m["content"] for m in guide.messages if m["role"] == "user" and isinstance(m["content"], str)]
     assert "Turkish" in sent[-1] and "[settings note" in sent[-1]
+    corpus = len(guide.corpus)
+    guide.refresh_system()  # nothing changed since the note: no second note
+    assert guide.system_note is None and len(guide.corpus) == corpus
 
 
 # ---------- D-003 grounding ----------

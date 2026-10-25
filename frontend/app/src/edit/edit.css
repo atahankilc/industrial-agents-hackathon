@@ -12,6 +12,9 @@
 .edit-layer .selected-space { fill: color-mix(in srgb, var(--hud-route) 10%, transparent); stroke: var(--hud-route); stroke-width: 2.5px; stroke-linejoin: round; }
 .edit-layer .moved-space { fill: color-mix(in srgb, var(--hud-route) 6%, transparent); stroke: var(--hud-route); stroke-width: 1.5px; stroke-dasharray: 5 4; }
 .edit-layer .bad-space { fill: color-mix(in srgb, var(--danger) 12%, transparent); stroke: var(--danger); stroke-width: 2px; }
+.edit-layer .restricted-space { fill: url(#access-hatch); stroke: var(--hud-warn); stroke-width: 1.5px; stroke-dasharray: 6 4; }
+.edit-layer .access-hatch line { stroke: color-mix(in srgb, var(--hud-warn) 55%, transparent); stroke-width: 0.14px; vector-effect: none; }
+.edit-layer.tool-access .selected-space { stroke-width: 3px; }
 .edit-layer .target-space { fill: color-mix(in srgb, var(--hud-route) 12%, transparent); stroke: var(--hud-route); stroke-width: 2px; }
 
 .edit-layer .edge-handle { stroke: transparent; stroke-width: 14px; stroke-linecap: round; pointer-events: stroke; cursor: grab; }
@@ -67,10 +70,12 @@
   color: var(--hud-ink);
   animation: hud-in 0.2s var(--ease-out);
 }
+/* wide: left of the settings corner (src/access/AccessLayer.tsx .account-corner, 16px in, one --btn-lg wide) */
 @media (min-width: 900px) {
-  .edit-bar { top: 16px; left: auto; right: 16px; }
+  .edit-bar { top: 16px; left: auto; right: calc(16px + var(--btn-lg) + 8px); }
 }
-.edit-bar .edit-status { margin: 0 10px; color: var(--hud-ink-2); font-size: 13px; }
+.edit-bar .edit-status { flex: 1; min-width: 0; margin: 0 10px; overflow: hidden; color: var(--hud-ink-2); font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }
+.edit-bar .edit-status.failed { color: var(--danger); white-space: normal; line-height: 1.25; }
 .edit-bar .edit-tools { display: flex; gap: 2px; flex: 1; }
 .edit-bar .edit-tools button {
   display: inline-flex;
@@ -114,7 +119,8 @@
   font-weight: 600;
 }
 .edit-bar .edit-save-button { background: var(--hud-solid); color: var(--hud-solid-ink); }
-.edit-bar .edit-done { background: var(--hud-fill); color: var(--hud-ink); }
+.edit-bar .edit-done { display: inline-flex; align-items: center; justify-content: center; background: var(--hud-fill); color: var(--hud-ink); }
+.edit-bar .edit-done-icon { display: none; }
 .edit-bar .edit-discard {
   height: var(--btn-md);
   padding: 0 14px;
@@ -129,6 +135,18 @@
 @media (max-width: 899px) {
   .edit-bar .edit-tools button span { display: none; }
   .edit-bar .edit-problems:not(.has-errors) span { display: none; }
+  /* a phone fits the bar without scrolling: smaller buttons, Done as a tick, redo only by keyboard */
+  .edit-bar { gap: 2px; }
+  .edit-bar .edit-tools button { min-width: var(--btn-sm); height: var(--btn-sm); padding: 0 6px; }
+  .edit-bar .edit-problems, .edit-bar .edit-icon { min-width: var(--btn-sm); height: var(--btn-sm); padding: 0 6px; }
+  .edit-bar .edit-save-button { height: var(--btn-sm); padding: 0 12px; }
+  .edit-bar .edit-done { height: var(--btn-sm); padding: 0 12px; }
+  .edit-bar .edit-done:has(.edit-done-icon) { width: var(--btn-sm); min-width: var(--btn-sm); padding: 0; }
+  .edit-bar .edit-done:has(.edit-done-icon) span { display: none; }
+  .edit-bar .edit-status.failed { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 12px; }
+  .edit-bar .edit-done .edit-done-icon { display: block; }
+  .edit-bar .edit-redo { display: none; }
+  .edit-bar .edit-discard { height: var(--btn-sm); padding: 0 10px; }
 }
 
 .edit-issues {
@@ -203,6 +221,27 @@
 .edit-card.proposal h2 { font-size: 20px; }
 .edit-card .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .edit-card .edit-problem { color: var(--danger); font-size: 13px; }
+
+/* the Access tool's card (src/access/AccessCard.tsx) */
+.edit-card .access-status { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 0; color: var(--hud-live); font-size: 13px; font-weight: 600; }
+.edit-card .access-status.restricted { color: var(--hud-warn); }
+.inspector .access-fields .field { grid-template-columns: 1fr; gap: 6px; }
+.edit-card .access-settings {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: var(--btn-md);
+  margin-top: 10px;
+  padding: 0 14px 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--hud-fill);
+  color: var(--hud-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.edit-card .access-settings:hover { background: var(--hud-fill-2); }
 .edit-card .edit-said { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; color: var(--hud-ink); font-size: 14px; line-height: 1.45; }
 
 .inspector { display: flex; flex-direction: column; gap: 4px; }

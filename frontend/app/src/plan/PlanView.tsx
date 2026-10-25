@@ -82,12 +82,16 @@ type Props = {
   onMe?: (me: Me | null) => void
   /** the badge at the end of a walk to a nearby building */
   onNext?: () => void
+  /** a "you might be here" badge tapped: the room to stand in */
+  onMaybe?: (space: string) => void
   /** an SVG group over the canvas drawn in building metres (src/edit/EditLayer.tsx): kept in register with the
    * current floor's plane on every frame (the camera is orthographic, so the plane maps to the screen affinely) */
   align?: React.RefObject<SVGGElement | null>
   /** every tap on the building (or, on one floor, beside it): the floor, the point in plan metres and the pixels per
    * metre there. Returning true takes the tap (no selecting); a tap on another floor still steps onto it. */
   onTap?: (tap: Tap) => boolean
+  /** every framing looks straight down (the Edit mode); tilting by hand still works in between */
+  topDown?: boolean
 }
 
 export type Tap = { floor: number; at: [number, number]; pixelsPerMetre: number }
@@ -115,7 +119,7 @@ const STOREY_M = 3 // a floor without its own height (height_m) in street view
 // "All floors" stacks every floor at its real elevation (from the lowest floor), so the building keeps its proportions
 const floorLift = (plan: Plan, index: number) => (plan.floors[index]?.elevation_m ?? 0) - (plan.floors[0]?.elevation_m ?? 0)
 export function PlanView(props: Props) {
-  const { plan, floor, stacked, only, palette, selected, insets, frameInsets, focusInsets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, city, camera, onMiss, objects, focus = null, me = null, onMe, onNext, align, onTap } = props
+  const { plan, floor, stacked, only, palette, selected, insets, frameInsets, focusInsets, fitKey, onSelect, onPickFloor, onTilt, spread, settings, story, ground = true, city, camera, onMiss, objects, focus = null, me = null, onMe, onNext, onMaybe, align, onTap, topDown = false } = props
   const groundRef = useRef<THREE.Mesh>(null)
   const labels = useRef<HTMLCanvasElement>(null)
   const { wallHeight, colours } = settings
@@ -363,7 +367,7 @@ export function PlanView(props: Props) {
           )}
         </Slide>
         </Reveal>
-        <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} frameInsets={frameInsets ?? insets} focusInsets={focusInsets ?? insets} fitKey={fitKey} focus={focus} onTilt={onTilt} intro={camera?.intro} ground={groundRef} maxPolar={camera ? MAX_POLAR_ON_MAP : MAX_POLAR} northUp={northUp} headingUp={headingUp && !street} onNoCompass={() => setHeadingUp(false)} />
+        <Rig plan={plan} floor={floor} floors={shown} stacked={stacked} frameInsets={frameInsets ?? insets} focusInsets={focusInsets ?? insets} fitKey={fitKey} focus={focus} onTilt={onTilt} intro={camera?.intro} ground={groundRef} maxPolar={camera ? MAX_POLAR_ON_MAP : MAX_POLAR} northUp={northUp} headingUp={headingUp && !street} onNoCompass={() => setHeadingUp(false)} topDown={topDown} />
         <CompassTracker rose={rose} azimuth={azimuth} />
         {align && <Align plan={plan} y={stacked ? stackLift(floor) : lift(floor)} target={align} />}
         <Follow plan={plan} ground={groundRef} follow={camera?.follow} />
@@ -404,7 +408,7 @@ export function PlanView(props: Props) {
         </span>
       </button>
       <Pins pins={pinList} elements={pinElements} onPick={(pin: Pin) => pin.space && onSelect({ kind: 'space', id: pin.space })} />
-      <StoryMarkers markers={markers} elements={markerElements} onGoto={onPickFloor} onNext={onNext} onMeDrop={dropMe} onMePreview={(x, y) => resolveMe(x, y)?.label ?? null} />
+      <StoryMarkers markers={markers} elements={markerElements} onGoto={onPickFloor} onNext={onNext} onMeDrop={dropMe} onMePreview={(x, y) => resolveMe(x, y)?.label ?? null} onMaybe={onMaybe} />
       {onMe && (
         <div ref={ghost} className="me-ghost" aria-hidden="true">
           <span className="me-figure">
@@ -1187,7 +1191,7 @@ type Move = { t: number; from: Pose; to: Pose; seconds?: number }
 /** Frames the shown floors (tilted, or flat if the user went flat on one floor) whenever they or fitKey change, easing there. Tilting is free in between
  * (0 = straight down … MAX_POLAR); a nearly flat tilt snaps flat when the gesture ends, and the current look
  * (flat or tilted) is reported so a flat view can stop spreading the floors. */
-function Rig({ plan, floor, floors, stacked, frameInsets, focusInsets, fitKey, focus, onTilt, intro, ground, maxPolar, northUp, headingUp, onNoCompass }: {
+function Rig({ plan, floor, floors, stacked, frameInsets, focusInsets, fitKey, focus, onTilt, intro, ground, maxPolar, northUp, headingUp, onNoCompass, topDown }: {
   plan: Plan
   floor: number
   floors: number[]
@@ -1206,6 +1210,7 @@ function Rig({ plan, floor, floors, stacked, frameInsets, focusInsets, fitKey, f
   /** turn with the phone's compass: the way it faces stays up (where it looks, its zoom and tilt stay the user's) */
   headingUp: boolean
   onNoCompass: () => void
+  topDown: boolean
 }) {
   const camera = useThree((state) => state.camera) as THREE.OrthographicCamera
   const size = useThree((state) => state.size)
@@ -1230,6 +1235,7 @@ function Rig({ plan, floor, floors, stacked, frameInsets, focusInsets, fitKey, f
   const framedFor = useRef<string | null>(null)
   const touched = useRef(false)
   const reported = useRef<ViewMode | null>(null)
+  const wasTopDown = useRef(topDown)
   // only what is framed: the whole stack refits when its floors change; one floor at a time never refits on a floor
   // change (the camera stays where you put it, the floors slide past it), nor when the plan object is replaced by
   // the same building (an edit in the Edit mode: same id, same centre)
@@ -1330,11 +1336,15 @@ function Rig({ plan, floor, floors, stacked, frameInsets, focusInsets, fitKey, f
     if (!first.current && trigger === framedFor.current && touched.current) return
     framedFor.current = trigger
     touched.current = false
+    // leaving the Edit mode's straight-down look: back to the usual tilt
+    const leftTopDown = wasTopDown.current && !topDown
+    wasTopDown.current = topDown
     // keep the user's own turn, unless the answer faces a way (plan +y is scene -Z; azimuth 0 looks along -Z)
     const heading = first.current ? undefined : focus?.heading
     const azimuth = first.current ? TILTED.azimuth : heading ? Math.atan2(-heading[0], heading[1]) : controls.getAzimuthalAngle()
     // and the user's own tilt (the whole stack is only readable tilted: a flat look goes back to the default tilt)
-    const polar = first.current ? TILTED.polar : stacked && reported.current === '2d' ? TILTED.polar : controls.getPolarAngle()
+    // (the Edit mode: straight down, so walls and corners are where they look)
+    const polar = topDown && !stacked ? FLAT_POLAR : first.current || leftTopDown ? TILTED.polar : stacked && reported.current === '2d' ? TILTED.polar : controls.getPolarAngle()
     // the whole stack, or the floor you are on: the camera focuses on your floor; the others stay spread
     // above and below it, out of frame until you zoom out
     const framed = stacked ? floors : [floor]

@@ -76,6 +76,7 @@ def dump(session: BuildingSession, guide: Guide) -> dict:
             "profile_note": guide.profile_note,
             "location_note": guide.location_note,
             "system_note": guide.system_note,
+            "seen_overview": guide.seen_overview,
         },
     }
     return json.loads(json.dumps(state, ensure_ascii=False))  # tuples → lists, fails early on anything non-JSON
@@ -114,6 +115,7 @@ def restore(state: dict, session: BuildingSession, client: object) -> tuple[Buil
     guide.profile_note = saved["profile_note"]
     guide.location_note = saved.get("location_note")
     guide.system_note = saved.get("system_note")
+    guide.seen_overview = saved.get("seen_overview", guide.system[1]["text"])
     return session, guide
 
 

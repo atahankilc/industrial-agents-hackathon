@@ -65,7 +65,7 @@ type Props = {
   voice: VoiceView
   info: InfoCard | null
   suggestions: Suggestion[]
-  /** the answer's route is on screen as the next-move card: its numbered steps leave the caption */
+  /** the answer's route is on screen in the route bar: its numbered steps leave the caption */
   route: boolean
   /** `tapped`: a chip or the room card's Directions button, not typed — the reply is read aloud */
   onSend: (text: string, tapped?: boolean) => void
@@ -469,7 +469,7 @@ function lastWordSoft(text: string) {
 }
 
 /** Guide replies are short prose, sometimes with numbered steps: drop markdown emphasis, keep the lines. With the
- * route on screen as the next-move card, the numbered steps are there instead (a lead-in's ":" becomes "."). */
+ * route on screen in the route bar, the numbered steps are there instead (a lead-in's ":" becomes "."). */
 function lines(text: string, route: boolean) {
   const all = text.replace(/\*\*(.+?)\*\*/g, '$1').split(/\n+/).map((line) => line.trim()).filter(Boolean)
   const prose = route ? all.filter((line) => !/^\d+[.)]\s/.test(line)) : all

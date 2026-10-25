@@ -169,6 +169,9 @@ export type EditModeEvent = { type: 'edit_mode'; request: string | null }
 export type SettingsEvent = { type: 'settings' }
 /** The user told the Guide where they are (agent/tools.py set_my_location): the "you are here" figure goes there. */
 export type LocationEvent = { type: 'location'; space_id: string }
+/** The user's position is needed but not known (agent/tools.py suggest_my_location, or a route from "here"): rooms
+ * they might be in — the Guide's guesses, else the entrances — marked after the answer; a tap stands them there. */
+export type MaybeHereEvent = { type: 'maybe_here'; space_ids: string[]; source: 'guide' | 'entrances' }
 /** The Guide talked about another step of the route being followed (agent/tools.py show_route_step): the step card
  * goes there. */
 export type RouteStepEvent = { type: 'route_step'; index: number }
@@ -180,7 +183,7 @@ export type RouteEndEvent = { type: 'route_end'; arrived: boolean; space_id?: st
  * to it (route_to_building's `next_building`) when one is on the map. */
 export type OpenBuildingEvent = { type: 'open_building'; building: string; name: string }
 
-export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent | ElsewhereEvent | EditModeEvent | SettingsEvent | LocationEvent | RouteStepEvent | RouteEndEvent | OpenBuildingEvent
+export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent | ElsewhereEvent | EditModeEvent | SettingsEvent | LocationEvent | MaybeHereEvent | RouteStepEvent | RouteEndEvent | OpenBuildingEvent
 
 export type ChatReply = {
   reply: string
@@ -303,7 +306,7 @@ function streamError(item: Record<string, unknown>): ServiceError {
   return new ServiceError(String(item.message ?? item.detail), String(item.code ?? 'internal'))
 }
 
-/** JSON headers plus the bearer token when signed in (also used by src/dev/devApi.ts). */
+/** JSON headers plus the bearer token when signed in. */
 export async function headers(extra?: HeadersInit): Promise<HeadersInit> {
   if (gate) await gate.catch(() => undefined)
   return { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), ...extra }

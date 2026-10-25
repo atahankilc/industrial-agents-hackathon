@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight, LocateFixed, ScanEye, X } from 'lucide-react
 import { useEffect, useState } from 'react'
 import type { GuideStep } from '../api'
 import { TurnIcon } from '../ui/TurnIcon'
-import type { RouteTrack } from './tracking'
+import { metresLeft, type RouteTrack } from './tracking'
 import type { Position } from './useTracking'
 
 type Props = {
@@ -38,7 +38,7 @@ export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onC
   const live = position && track ? position : null
   // metres still to walk in this step, and on the whole route, from the tracked position
   const stepLeft = live && track ? Math.max(0, (track.starts[index + 1] ?? track.total) - live.metres) : null
-  const routeLeft = live && track ? Math.max(0, track.total - live.metres) : null
+  const routeLeft = live && track ? metresLeft(steps, index, lengthM, false, track, live) : null
   const metres = stepLeft !== null ? (stepLeft < 1 ? 0 : aboutM(stepLeft)) : step.metres
 
   return (

@@ -6,7 +6,7 @@
 import { ArrowRight, Check, LocateFixed, Play, ScanEye, X } from 'lucide-react'
 import type { GuideStep, NextBuilding } from '../api'
 import { aboutM } from './NextMove'
-import type { RouteTrack } from './tracking'
+import { metresLeft, type RouteTrack } from './tracking'
 import type { Position } from './useTracking'
 
 type TripProps = {
@@ -32,8 +32,7 @@ const DEFAULT_PROFILE = 'stairs allowed'
 export function TripBar({ steps, index, lengthM, profile, guiding, next, track, position, tracking = false, onTrack, onCamera, onIndex, onClose }: TripProps) {
   const arrive = steps[steps.length - 1]
   const to = next ? next.name : arrive?.kind === 'arrive' && arrive.to_id !== 'outside' ? arrive.to : 'Way out'
-  // metres still to go: from the tracked position, else from the step being walked, else the whole route
-  const left = position && track ? track.total - position.metres : guiding && track ? track.total - (track.starts[index] ?? 0) : lengthM
+  const left = metresLeft(steps, index, lengthM, guiding, track, position)
   return (
     <section className="trip-bar" aria-label="Route">
       <div className="trip-main">

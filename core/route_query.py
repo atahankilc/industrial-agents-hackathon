@@ -97,6 +97,7 @@ def route_query(
     min_width: float | None = None,
     closed: list[str] | tuple[str, ...] = (),
     include_steps: bool = True,
+    rules: RouteRules | None = None,
 ) -> dict:
     """Shortest route through `stops` in order; each stop is a list of candidate space ids (`resolve_place`).
 
@@ -110,7 +111,7 @@ def route_query(
     narrow = [opening["id"] for opening in bmap.openings.values()
               if min_width is not None and opening["width_m"] < min_width]
     view = navigation.routing_view(bmap, [*closures, *narrow])
-    rules = RouteRules(forklift=forklift)
+    rules = rules or RouteRules(forklift=forklift)  # the Guide's compute passes its own (agent/tools.py)
     graph = route_models.route_graph(view, step_free, KIT, rules)
     endpoints = route_models.endpoint_only(view, rules)
 

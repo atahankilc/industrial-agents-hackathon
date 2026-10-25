@@ -165,7 +165,7 @@ def guidance_steps(building: BuildingMap, space_path: list[str], element_path: l
     start = space_path[0]
     first = ("Start outside the building." if start == OUTSIDE
              else f"Start in {building.spaces[start]['name']} ({floor_of(building, start)}).")
-    return [first] + [step["text"] for step in guidance(building, space_path, element_path)]
+    return [first] + [step["text"] for step in maneuvers(guidance(building, space_path, element_path))]
 
 
 def guidance(building: BuildingMap, space_path: list[str], element_path: list[str]) -> list[dict]:
@@ -207,8 +207,37 @@ def guidance(building: BuildingMap, space_path: list[str], element_path: list[st
             text = (f"Go through the {door}{by} {where}." if short
                     else f"{TURN_PHRASE[turn]} about {metres} m through the {door}{by} {where}.")
             steps.append({**base, "turn": "straight" if short else turn, "metres": metres, "door": door, "landmark": mark,
-                          "text": text})
+                          "distance_m": leg["distance_m"], "text": text})
             behind = building.anchor(current) if current != OUTSIDE else entered
             entered = door_at
         current = leg["to_id"]
     return steps
+
+
+PLURAL = {"door": "doors", "entrance": "entrances", "opening": "openings"}
+
+
+def maneuvers(steps: list[dict]) -> list[dict]:
+    """`guidance` steps joined into the moves a person makes: a door step straight on, on the same floor, joins the
+    step before it ("walk about 6 m through 2 doors into …"), so a new step starts only at a turn, a ride, an exit
+    and the arrival. Each step says how many of the route's legs it covers (`legs`), for the app to place it on the
+    route line; the landmark is the last door's, where the step ends."""
+    out: list[dict] = []
+    for step in steps:
+        last = out[-1] if out else None
+        if (last and step["kind"] == "door" and step["turn"] == "straight" and last["kind"] == "door"
+                and last["floor"] == step["floor"]):
+            doors = last["doors"] + 1
+            distance = last["distance_m"] + step["distance_m"]
+            metres = about_m(distance) if distance >= 1 else 0
+            mark = step.get("landmark")
+            by = f" (the last one by the {mark})" if mark else ""
+            through = f"through {doors} {PLURAL.get(step['door'], 'openings')}"
+            text = (f"Go {through} into {step['to']}{by}." if not metres
+                    else f"{TURN_PHRASE[last['turn']]} about {metres} m {through} into {step['to']}{by}.")
+            out[-1] = {**last, "to": step["to"], "to_id": step["to_id"], "metres": metres, "distance_m": distance,
+                       "door": step["door"], "landmark": mark, "doors": doors, "legs": last["legs"] + 1, "text": text}
+        else:
+            out.append({**step, "distance_m": step.get("distance_m", 0.0), "doors": 1 if step["kind"] in ("door", "exit") else 0,
+                        "legs": 1})
+    return out

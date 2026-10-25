@@ -38,6 +38,7 @@ from core.validate import validate
 
 DRAFT_ID = re.compile(r"^[0-9a-f]{32}$")
 USER_SPLIT = "user"
+IMPORT_PREFIX = "import/"  # private base of a draft made by the Creator (plan import), not in the catalogue
 SAVE_ATTEMPTS = 3  # tries of one draft change against other instances' saves before Conflict
 CATALOGUE_TTL_S = 5.0  # how stale this instance's list of saved buildings may get before /buildings reloads it
 
@@ -71,6 +72,8 @@ class DraftBackend(Protocol):
     def saved_buildings(self) -> list[dict]: ...  # [{"slug", "name"}]
     def load_building(self, slug: str) -> dict | None: ...
     def building_path(self, slug: str) -> Path | None: ...  # directory of a saved building, if it is a file
+    def insert_import(self, import_id: str, building: dict) -> None: ...
+    def load_import(self, import_id: str) -> dict | None: ...
 
 
 class FileDraftBackend:
@@ -142,6 +145,13 @@ class FileDraftBackend:
     def building_path(self, slug: str) -> Path | None:
         return self.root / slug
 
+    def insert_import(self, import_id: str, building: dict) -> None:
+        self.write(self.root / ".imports" / f"{import_id}.json", building)
+
+    def load_import(self, import_id: str) -> dict | None:
+        file = self.root / ".imports" / f"{import_id}.json"
+        return json.loads(file.read_text(encoding="utf-8")) if file.exists() else None
+
 
 class MemoryDraftBackend:
     """Same contract as PostgresDraftBackend, in one process; rows go through JSON like they would in the DB."""
@@ -150,6 +160,7 @@ class MemoryDraftBackend:
         self.drafts: dict[str, str] = {}
         self.builders: dict[str, tuple[str, int]] = {}
         self.buildings: dict[str, tuple[str, str]] = {}  # slug → (name, building JSON)
+        self.imports: dict[str, str] = {}  # import id → building JSON
         self.lock = threading.Lock()
 
     def draft_version(self, draft_id: str) -> int | None:
@@ -201,9 +212,18 @@ class MemoryDraftBackend:
     def building_path(self, slug: str) -> Path | None:
         return None
 
+    def insert_import(self, import_id: str, building: dict) -> None:
+        with self.lock:
+            self.imports[import_id] = json.dumps(building)
+
+    def load_import(self, import_id: str) -> dict | None:
+        row = self.imports.get(import_id)
+        return None if row is None else json.loads(row)
+
 
 class PostgresDraftBackend(PostgresConnection):
-    """Tables `builder_drafts` and `saved_buildings` (supabase/migrations/20261025120000_builder_drafts.sql)."""
+    """Tables `builder_drafts` and `saved_buildings` (supabase/migrations/20261025120000_builder_drafts.sql) and
+    `builder_imports` (20261025180000_builder_imports.sql)."""
 
     def draft_version(self, draft_id: str) -> int | None:
         rows = self.execute("select version from builder_drafts where id = %s", (draft_id,))
@@ -259,6 +279,13 @@ class PostgresDraftBackend(PostgresConnection):
     def building_path(self, slug: str) -> Path | None:
         return None
 
+    def insert_import(self, import_id: str, building: dict) -> None:
+        self.execute("insert into builder_imports (id, building) values (%s, %s)", (import_id, Jsonb(building)))
+
+    def load_import(self, import_id: str) -> dict | None:
+        rows = self.execute("select building from builder_imports where id = %s", (import_id,))
+        return rows[0][0] if rows else None
+
 
 def backend_from_env(root: Path) -> DraftBackend:
     url = db_url()
@@ -285,7 +312,7 @@ class DraftStore:
 
     def register(self, slug: str, name: str) -> str:
         building_id = f"{USER_SPLIT}/{slug}"
-        entry = {"id": building_id, "split": USER_SPLIT, "name": name, "source": "saved"}
+        entry = {"id": building_id, "split": USER_SPLIT, "name": name, "source": "saved", "kind": "saved"}
         if (path := self.backend.building_path(slug)) is not None:
             entry["path"] = path
         self.catalogue[building_id] = entry
@@ -308,13 +335,33 @@ class DraftStore:
                     self.register(item["slug"], item["name"])
         self.refreshed = time.monotonic()
 
+    @staticmethod
+    def import_id(base: str) -> str | None:
+        """The import id of a private import base, None if `base` is not one (or not a well-formed one)."""
+        if not base.startswith(IMPORT_PREFIX):
+            return None
+        import_id = base.removeprefix(IMPORT_PREFIX)
+        return import_id if DRAFT_ID.match(import_id) else ""
+
     def known(self, building_id: str) -> bool:
+        if (import_id := self.import_id(building_id)) is not None:
+            if not import_id:
+                return False
+            if building_id in self.bases:
+                return True
+            building = self.backend.load_import(import_id)
+            if building is not None:
+                self.bases[building_id] = building
+            return building is not None
         if building_id not in self.catalogue:
             self.refresh(max_age=0)
         return building_id in self.catalogue
 
     def base_building(self, base: str) -> dict:
         """A catalogue building's data (cached: dataset files and saved buildings never change)."""
+        if base not in self.bases and self.import_id(base):
+            if not self.known(base):
+                raise KeyError(base)
         if base not in self.bases:
             entry = self.catalogue[base]
             if "path" in entry:
@@ -364,6 +411,19 @@ class DraftStore:
             self.drafts[draft.id] = draft
         return draft
 
+    def create_import(self, building: dict) -> Draft:
+        """A draft on a building the Creator made: stored as a private base `import/<id>` (not in the catalogue, not
+        listed) until the draft is saved."""
+        import_id = uuid.uuid4().hex
+        self.backend.insert_import(import_id, building)
+        base = IMPORT_PREFIX + import_id
+        self.bases[base] = building
+        draft = Draft(uuid.uuid4().hex, base, building["building"]["name"])
+        self.backend.insert_draft(draft)
+        with self.lock:
+            self.drafts[draft.id] = draft
+        return draft
+
     def building(self, draft: Draft) -> dict:
         key = (draft.id, draft.version)
         if key not in self.cache:
@@ -382,6 +442,8 @@ class DraftStore:
             return export_plan(BuildingMap(self.building(draft)), center)
 
     def issues(self, draft: Draft) -> list[dict]:
+        if self.import_id(draft.base):  # an imported building's own problems stay errors
+            return validate(self.building(draft))
         return validate(self.building(draft), base=self.base_building(draft.base))
 
     def change(self, draft: Draft, edit) -> Draft:
@@ -439,8 +501,12 @@ class DraftStore:
         slug, n = stem, 1
         while True:
             if f"{USER_SPLIT}/{slug}" not in self.catalogue:
-                building["building"].update({"id": slug, "name": name, "source": "edited",
-                                             "source_ref": {"base": draft.base}, "split": USER_SPLIT})
+                source_ref = {"base": draft.base}
+                if self.import_id(draft.base):
+                    source_ref["import"] = self.base_building(draft.base)["building"]["source_ref"].get("import")
+                building["building"].update({"id": slug, "name": name,
+                                             "source": "imported" if self.import_id(draft.base) else "edited",
+                                             "source_ref": source_ref, "split": USER_SPLIT})
                 if self.backend.insert_building(slug, name, draft.base, building, steps):
                     break
             n += 1

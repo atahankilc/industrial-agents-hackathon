@@ -236,3 +236,12 @@ def test_admin_emails_comma_separated(monkeypatch):
     assert admin_emails() == {"a@x.org", "b@y.org"}
     monkeypatch.delenv("ADMIN_EMAIL")
     assert admin_emails() == set()
+
+
+def test_imports_are_admin_only(client):
+    """Each import is a paid Creator run and hands its building to the Edit mode: admin only, like /drafts."""
+    files = [("files", ("plan.png", b"\x89PNG\r\n\x1a\n"))]
+    assert client.post("/imports/stream", files=files).status_code == 403  # anonymous
+    assert client.post("/imports/stream", files=files, headers=auth("staff")).status_code == 403
+    assert client.post("/api/imports/stream", files=files, headers=auth("staff")).status_code == 403
+    assert client.post("/imports/stream", files=files, headers=auth("forged")).status_code == 401

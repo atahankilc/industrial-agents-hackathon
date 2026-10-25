@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { interruption, userPart } from './bargeIn'
-import { openMicrophone } from './mic'
+import { acquireMicrophone, capturing, iOS, releaseMicrophone } from './mic'
 import { ScribeRecognition, scribeReady } from './scribe'
 import { openSpeech, silence, speakAloud, unlockAudio, type Speech } from './tts'
 
@@ -121,6 +121,21 @@ export function useVoice({ onUtterance }: Options) {
   const [error, setError] = useState<string | null>(null)
   const [lang, setLang] = useState<string>(initialLanguage)
   const [handsFree, setHandsFree] = useState(true)
+  /** the Guide answers aloud; off, replies are text only (the user's choice, remembered on this device) */
+  const [speaks, setSpeaksState] = useState(() => readSpeaks())
+  const setSpeaks = useCallback((on: boolean) => {
+    setSpeaksState(on)
+    writeSpeaks(on)
+    if (!on) silence()
+  }, [])
+  /** push to talk (the user's choice, remembered; off by default): listen only while the ball is held, never by
+   * itself after a reply and no talking over it; off, a tap listens until silence and the conversation goes on
+   * hands-free */
+  const [holdToTalk, setHoldState] = useState(() => readFlag(HOLD_KEY, false))
+  const setHoldToTalk = useCallback((on: boolean) => {
+    setHoldState(on)
+    writeFlag(HOLD_KEY, on)
+  }, [])
   /** listening and the microphone is really capturing (state 'listening' comes first, while the mic opens) */
   const [hearing, setHearing] = useState(false)
   /** 0…1, read every animation frame by the orb (a ref, not state: it changes 60 times a second). */
@@ -162,21 +177,38 @@ export function useVoice({ onUtterance }: Options) {
   const stopMeter = useCallback(() => {
     if (!mic.current) return
     cancelAnimationFrame(mic.current.frame)
-    mic.current.stream.getTracks().forEach((track) => track.stop())
     void mic.current.context.close()
     mic.current = null
+    releaseMicrophone()
   }, [])
 
-  const startMeter = useCallback(async () => {
-    if (mic.current) return
+  const startMeter = useCallback(async (scribe: boolean) => {
+    // iOS captures from one stream at a time: beside the browser's own recognition a meter would take its mic away
+    if (mic.current || (iOS && !scribe)) return
+    let stream: MediaStream
     try {
-      const stream = await openMicrophone({ echoCancellation: true, noiseSuppression: true })
+      stream = await acquireMicrophone() // Scribe's own stream, never a second capture
+    } catch {
+      return // the orb still works without a level; recognition reports a real permission problem itself
+    }
+    if (mic.current || stateRef.current !== 'listening') return releaseMicrophone() // the listen ended meanwhile
+    try {
       const context = new AudioContext()
+      // started without a tap (listening again after a reply) iOS may keep it suspended: a meter that reads nothing
+      // would drop every word, so then there is none
+      if (context.state !== 'running') await Promise.race([context.resume(), new Promise((resolve) => setTimeout(resolve, 300))])
+      if (context.state !== 'running' || mic.current || stateRef.current !== 'listening') {
+        void context.close()
+        return releaseMicrophone()
+      }
       const analyser = context.createAnalyser()
       analyser.fftSize = 512
       context.createMediaStreamSource(stream).connect(analyser)
       const samples = new Uint8Array(analyser.fftSize)
       const tick = () => {
+        // the stream went quiet under us (muted by another capture, an interruption): no meter rather than one that
+        // reads silence, which would drop every word as heard without a voice
+        if (!capturing(stream) || context.state !== 'running') return stopMeter()
         analyser.getByteTimeDomainData(samples)
         let sum = 0
         for (const sample of samples) sum += ((sample - 128) / 128) ** 2
@@ -188,9 +220,9 @@ export function useVoice({ onUtterance }: Options) {
       }
       mic.current = { stream, context, frame: requestAnimationFrame(tick) }
     } catch {
-      // the orb still works without a level; recognition reports a real permission problem itself
+      releaseMicrophone()
     }
-  }, [])
+  }, [stopMeter])
 
   // ---------- listening ----------
 
@@ -198,8 +230,9 @@ export function useVoice({ onUtterance }: Options) {
    * `finish`, or with nothing heard. `auto`: started by itself (after a reply, or by talking over the Guide), so
    * hearing nothing just ends the conversation quietly. `carry`: words already heard while the Guide spoke.
    * `until`: keep listening (again and again) until this time when nothing is heard — the step-by-step guide,
-   * waiting for "I'm there" while the user walks. */
-  const listenWith = useCallback(({ auto = false, carry = '', until = 0 }: { auto?: boolean; carry?: string; until?: number } = {}) => {
+   * waiting for "I'm there" while the user walks. `hold`: push to talk — no timers at all, it ends on `finish`
+   * (the ball let go). */
+  const listenWith = useCallback(({ auto = false, carry = '', until = 0, hold = false }: { auto?: boolean; carry?: string; until?: number; hold?: boolean } = {}) => {
     const Ctor = recognitionCtor()
     if (!Ctor) {
       setError('Voice input needs Chrome, Edge or Safari.')
@@ -215,7 +248,8 @@ export function useVoice({ onUtterance }: Options) {
     recognizer.continuous = true // our own pause timer decides when the utterance is over
     let finalText = carry ? carry + ' ' : ''
     // words carried over may already be the whole question: send them soon unless more follow
-    let timer = setTimeout(() => recognizer.stop(), carry ? CARRY_PAUSE_MS : auto ? AUTO_NO_WORDS_MS : NO_WORDS_MS)
+    const later = (ms: number) => (hold ? undefined : setTimeout(() => recognizer.stop(), ms))
+    let timer = later(carry ? CARRY_PAUSE_MS : auto ? AUTO_NO_WORDS_MS : NO_WORDS_MS)
     recognizer.onresult = (event) => {
       let heard = ''
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -230,13 +264,13 @@ export function useVoice({ onUtterance }: Options) {
       setHearing(true)
       if (!mic.current) level.current = 0.45 + Math.random() * 0.4 // no meter: pulse on each recognised word
       clearTimeout(timer)
-      timer = setTimeout(() => recognizer.stop(), pauseAfter(sofar)) // stop() still delivers the words in flight
+      timer = later(pauseAfter(sofar)) // stop() still delivers the words in flight
     }
     let failed = false
     let retry = false
     recognizer.onaudiostart = () => {
       setHearing(true)
-      if (!meterBlocked.current) void startMeter() // after recognition holds the mic, never before
+      if (!meterBlocked.current) void startMeter(Ctor === ScribeRecognition) // after recognition holds the mic, never before
     }
     recognizer.onerror = (event) => {
       console.info('[voice] recognition error:', event.error)
@@ -269,7 +303,7 @@ export function useVoice({ onUtterance }: Options) {
       if (stateRef.current !== 'listening') return
       if (retry) {
         console.info('[voice] retrying (without the level meter, or with browser recognition)')
-        setTimeout(() => listenRef.current?.({ auto, carry, until }), 150)
+        setTimeout(() => listenRef.current?.({ auto, carry, until, hold }), 150)
         return
       }
       if (!text && !failed && Date.now() < until) {
@@ -282,7 +316,7 @@ export function useVoice({ onUtterance }: Options) {
       }
       set('off')
       // Never end silently: say why nothing was sent (unless the conversation simply went quiet).
-      if (!failed && !text && !auto) {
+      if (!failed && !text && !auto && !hold) {
         setError(silentMic
           ? "I couldn't hear your microphone. Check the input device (macOS: System Settings → Sound → Input), then tap the orb."
           : "I didn't catch that. Tap the orb and try again.")
@@ -310,6 +344,9 @@ export function useVoice({ onUtterance }: Options) {
 
   /** Listen for one utterance (a tap on the orb). */
   const listen = useCallback(() => listenWith(), [listenWith])
+
+  /** Listen while the ball is held (push to talk); `finish` on release sends. */
+  const hold = useCallback(() => listenWith({ hold: true }), [listenWith])
 
   /** Stop listening now and send what was heard so far. */
   const finish = useCallback(() => recognition.current?.stop(), [])
@@ -374,7 +411,11 @@ export function useVoice({ onUtterance }: Options) {
    * once the speech ends — listen for an answer anyway (a tapped question whose reply asks something back). */
   const stream = useCallback(
     ({ conversation = false, waitMs = 0, listenAfter }: SpeakOptions = {}): Speech => {
-      const talk = conversation && handsFree
+      // replies are text only: nothing is spoken, and the loop goes back to rest once the reply is in
+      if (!speaks) return { add: () => {}, end: () => stateRef.current === 'thinking' && set('off') }
+      // push to talk: the user holds the ball to answer, so nothing listens by itself
+      const free = handsFree && !holdToTalk
+      const talk = conversation && free
       said.current = ''
       unwatch()
       const speech = openSpeech(lang, {
@@ -389,7 +430,7 @@ export function useVoice({ onUtterance }: Options) {
           level.current = 0
           if (stateRef.current === 'thinking') set('off') // nothing was said
           if (stateRef.current !== 'speaking') return
-          if (!talk && !(handsFree && listenAfter?.())) return set('off')
+          if (!talk && !(free && listenAfter?.())) return set('off')
           // a moment for the room to go quiet, so the mic doesn't catch the Guide's last word
           setTimeout(() => stateRef.current === 'speaking' && listenRef.current?.({ auto: true, until: waitMs ? Date.now() + waitMs : 0 }), 200)
         },
@@ -402,7 +443,7 @@ export function useVoice({ onUtterance }: Options) {
         end: () => speech.end(),
       }
     },
-    [lang, handsFree, set, unwatch, watch],
+    [lang, handsFree, holdToTalk, speaks, set, unwatch, watch],
   )
 
   const speak = useCallback(
@@ -458,9 +499,29 @@ export function useVoice({ onUtterance }: Options) {
   }, [stopMeter])
 
   return {
-    state, interim, error, level, lang, setLang, handsFree, setHandsFree, bargeIn, hearing,
-    listen, finish, speak, stream, stop, idle,
+    state, interim, error, level, lang, setLang, handsFree, setHandsFree, speaks, setSpeaks, holdToTalk, setHoldToTalk,
+    bargeIn, hearing, listen, hold, finish, speak, stream, stop, idle,
   }
 }
 
 export type Voice = ReturnType<typeof useVoice>
+
+const SPEAKS_KEY = 'ttyb-guide-speaks'
+const HOLD_KEY = 'ttyb-guide-hold'
+const readSpeaks = () => readFlag(SPEAKS_KEY, true)
+const writeSpeaks = (on: boolean) => writeFlag(SPEAKS_KEY, on)
+function readFlag(key: string, fallback: boolean) {
+  try {
+    const value = localStorage.getItem(key)
+    return value === null ? fallback : value === 'true'
+  } catch {
+    return fallback
+  }
+}
+function writeFlag(key: string, on: boolean) {
+  try {
+    localStorage.setItem(key, String(on))
+  } catch {
+    // storage unavailable: the choice just isn't remembered
+  }
+}

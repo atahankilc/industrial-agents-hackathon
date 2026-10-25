@@ -1,0 +1,23 @@
+/* The answer's badges over the plan (StoryLayer.tsx). Uses the .screen tokens (building/screen.css), so they
+   follow light and dark with the rest of the chrome. */
+
+.story-markers { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.story-marker { position: absolute; top: 0; left: 0; will-change: transform; }
+.story-marker span, .story-marker button {
+  position: absolute; transform: translate(-50%, calc(-100% - 10px)); white-space: nowrap;
+  font: 600 12px/1 var(--font-ui); padding: 6px 9px; border-radius: 999px; background: var(--surface);
+  color: var(--ink); box-shadow: var(--shadow-float); border: 0;
+}
+.story-marker.start::before, .story-marker.end::before {
+  content: ''; position: absolute; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%);
+  border: 3px solid var(--surface); box-shadow: var(--shadow-float);
+}
+.story-marker.start::before { background: var(--ink-2); }
+.story-marker.end::before { background: var(--accent); width: 14px; height: 14px; }
+.story-marker.end span { background: var(--accent-fill); color: var(--accent-ink); }
+.story-marker.change button { pointer-events: auto; cursor: pointer; transform: translate(-50%, 10px); background: var(--ink); color: var(--surface); }
+.story-marker.change button:hover { filter: brightness(1.15); }
+.story-marker i {
+  position: absolute; width: 10px; height: 10px; border-radius: 50%; transform: translate(-50%, -50%);
+  background: var(--accent); border: 2px solid var(--surface); box-shadow: var(--shadow-float);
+}

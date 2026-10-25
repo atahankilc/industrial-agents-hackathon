@@ -1,35 +1,38 @@
-// The building screen: the model fills the screen and a thin HUD sits on top. Top: back, the building and floor,
-// a floor chip (with "all floors" stacked) and a menu (edit, fit, theme, dev tools). Bottom: the Guide, voice first —
-// captions and the Core (src/building/Guide.tsx). One backend session per building; the plan comes from
+// The building screen: the model fills the screen and a thin HUD sits on top. Top: back, the building's name and,
+// on a phone, a floor chip (with "all floors" stacked); the theme, Preferences and the account are in the settings
+// corner beside it (src/access/AccessLayer.tsx). Bottom right, over the plan's own buttons and only for whoever may
+// change the building: the admin button, which turns the Edit mode on and off — the Guide opens it and the Building
+// settings too
+// (agent/tools.py open_edit_mode, open_building_settings). Bottom: the
+// Guide, voice first — captions and the Core (src/building/Guide.tsx). One backend session per building; the plan comes from
 // GET /sessions/{id}/plan.
 // A building with a place on the map (`origin`) sits on the landing map, which follows the model's camera
-// (src/map/bridge.ts): shown in its city (neighbours and their pins around it, a tap on a pin opens that one) or
-// alone (the map faded out, the model on its own stage). The model takes over from the map's camera when it
+// (src/map/bridge.ts), shown in its city: neighbours and their pins around it, a tap on a pin opens that one. A
+// building without one stands alone on its own stage. The model takes over from the map's camera when it
 // arrives and rises out of the ground; leaving fades it out.
 // Answers move the camera to what they are about (`focus`): the rooms and items found, or a route — every floor
 // stacked first when it crosses floors, then one step at a time once the user starts it; each step is read aloud
 // and waits for "I'm there". The "you are here" figure tells the Guide where the user is. A route on to a nearby
 // building ends in a Continue that opens that building and carries on there (arrival via sessionStorage).
 
-import { Box, Check, ChevronLeft, ChevronsUpDown, Ellipsis, KeyRound, Layers, LogIn, LogOut, Map as MapIcon, Moon, PencilRuler, Scan, Settings2, SlidersHorizontal, Sun, SunMoon, Wrench } from 'lucide-react'
+import { ChevronLeft, ChevronsUpDown, Layers, LoaderCircle, PencilRuler } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { notify, openPanel, signOut, useAccess } from '../access/auth'
+import { notify, useAccess } from '../access/auth'
 import { BuildingSettings } from '../access/BuildingSettings'
-import { capture, effective, usePreferences } from '../access/preferences'
-import { api, ApiError, type FleetObject, type Issue, type NextBuilding, type Plan } from '../api'
+import { capture, effective, sessionValues as toSession, setHere, usePreferences } from '../access/preferences'
+import { api, ApiError, ServiceError, type FleetObject, type Issue, type NextBuilding, type Plan, type Preferences } from '../api'
 import { EditLayer } from '../edit/EditLayer'
 import { EditBar } from '../edit/EditBar'
 import { EditCard } from '../edit/EditCard'
 import { useDraft } from '../edit/useDraft'
 import { CATEGORY_LABEL, DARK, LIGHT } from '../plan/palette'
+import { contains, prepareFloors } from '../plan/geometry'
 import { PlanView, type Focus, type Insets, type Me, type Selected, type ViewMode } from '../plan/PlanView'
 import { DEFAULT_SETTINGS } from '../plan/settings'
-import { DevPanel, type LogEntry } from '../dev/DevPanel'
-import { devApi, type DevEvent } from '../dev/devApi'
 import { routeRuns } from '../dev/StoryLayer'
-import { applyEvents, EMPTY_STORY, type Outdoor, type Story } from '../dev/story'
+import { applyEvents, EMPTY_STORY, type DevEvent, type Outdoor, type Story } from '../dev/story'
 import { addStep, settle, type Step } from '../ui/guideSteps'
-import { follow, fromLngLat, hideBlocks, mapView, onShell, pinAt, settled, showBlocks, type Origin, type ShellBlock } from '../map/bridge'
+import { follow, fromLngLat, hideBlocks, mapView, onShell, pinAt, pulse, settled, showBlocks, type Origin, type ShellBlock } from '../map/bridge'
 import { groundColour } from '../map/style'
 import { useTheme } from '../theme'
 import { setScribeSession } from '../voice/scribe'
@@ -39,7 +42,7 @@ import { Guide, type InfoCard, type Message, type Suggestion } from './Guide'
 import { CameraWalk } from './CameraWalk'
 import { grabFrame } from './frame'
 import { Elsewhere } from './Elsewhere'
-import { NextMove } from './NextMove'
+import { RouteBar, TripBar } from './RouteHud'
 import { take } from './opening'
 import { routeTrack, type RouteTrack } from './tracking'
 import { askForMotion, useTracking } from './useTracking'
@@ -48,12 +51,16 @@ import './hud.css'
 
 const WIDE_PX = 900
 const TOP_PX = 64 // the HUD line
-const GUIDE_PX = 250 // captions + Core on phones
+const GUIDE_PX = 250 // captions + Core on phones, until the Guide has measured itself
 const EDIT_PX = 330 // the Builder card with an inspector in it, on phones
 const EDIT_BAR_PX = 52 // the edit bar under the top line on phones (src/edit/edit.css .edit-bar)
-const PANEL_PX = 440 // the Guide panel on wide screens
+const GUIDE_COL_PX = 360 // the Guide's column (bubble + dock) in the bottom-left corner of a wide screen
+const ACTIONS_RIGHT_PX = 2 // the plan's own buttons (street view, compass, figure) and the admin button: one column under the floor rail, centred on it
 const RAIL_PX = 72 // the floor rail on the right edge of a wide screen, with its margin
-const MOVE_PX = 132 // the next-move card under the top line on phones
+const CALLOUT_PX = 96 // room beyond the floor rail for the step callout beside a route's start (it reaches ~260px right)
+const MOVE_PX = 56 // the trip pill under the top line (./RouteHud.tsx)
+const OPEN_DELAY_MS = 1500 // the Guide opening a nearby building: its one-line reply shows first ...
+const OPEN_MAX_MS = 15000 // ... and is heard to its end, but no longer than this
 const TRACK_PX = 30 // its position line while tracking
 // spoken commands while walking with the camera (anything else goes to the Guide with the frame)
 const NEXT = /^\s*(next|weiter|nächste|sonraki|ileri|done|okay|ok|tamam|geldim|vardım|arrived|i'?m there|i'?m here|here|da|angekommen)\b/i
@@ -61,8 +68,13 @@ const NEXT = /^\s*(next|weiter|nächste|sonraki|ileri|done|okay|ok|tamam|geldim|
 const START = /^\s*(start|go|let'?s go|begin|başla|basla|hadi|yola çık|los|starten)\b/i
 // … also inside a short sentence ("okay, start the guide"), but not "start from the lobby"
 const START_SAID = /\b(?:(?:start|begin)\b(?!\s+(?:from|at|in|with)\b)|let'?s go\b|başla|yola çık|starten\b)/i
+// saying you reached a step inside a short sentence ("okay I'm there now", "tamam vardım"); unlike NEXT it also
+// moves a route that was never started (the user walked its first step without pressing Start)
+const ARRIVED_SAID = /(?:^|[^\p{L}])(?:i'?m there|i'?m here|i(?: have|'ve)? arrived|arrived|got there|made it|next step|vardım|geldim|ulaştım|angekommen|bin da)(?!\p{L})/iu
 const BACK = /^\s*(back|previous|zurück|geri|önceki)\b/i
 const REPEAT = /^\s*(repeat|again|wiederholen|nochmal|tekrar)\b/i
+// ending the route that is on the map ("stop", "cancel the route", "rotayı iptal et", "navigasyonu bitir")
+const STOP = /^\s*(?:(?:stop|cancel|end|close|quit)(?:\s+(?:the\s+)?(?:route|directions|navigation|guide))?|(?:rotayı|navigasyonu|yol tarifini)\s+(?:iptal\s+et|kapat|bitir|durdur)|iptal(?:\s+et)?|beenden|abbrechen)\s*[.!]?\s*$/i
 const WHERE_AM_I = 'Where am I? Use what my camera sees.'
 /** the Edit mode's assistant in the Guide's card (agent/builder.py) */
 const BUILDER = {
@@ -83,8 +95,6 @@ const useViewport = () => {
 
 const floorTab = (level: number) => (level < 0 ? `B${-level}` : level === 0 ? 'G' : String(level))
 const humanise = (type: string) => type.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
-const THEME_ICON = { system: SunMoon, light: Sun, dark: Moon }
-const THEME_LABEL = { system: 'Theme: system', light: 'Theme: light', dark: 'Theme: dark' }
 
 /** Shown once as the first chat line when a building opens right after it was saved in the Edit mode. */
 const noteKey = (buildingId: string) => `note:${buildingId}`
@@ -94,24 +104,22 @@ type Arrival = { entrance: string; destination: string; from: string | null; fro
 const STEP_WAIT_MS = 45_000 // the step-by-step guide listens this long for "I'm there" while the user walks
 const FOCUS_ROOM_M = 14 // a found room is framed at least this wide, so its neighbours show around it
 const FOCUS_STEP_M = 12
+const STEP_AHEAD_M = 10 // a step frames where you are and this much of the way ahead, not the whole stretch to its end
 const FOCUS_ROUTE_M = 10
-
-/** how a building with a place on the map is shown: in its city, or on its own */
-export type Showing = 'city' | 'alone'
 
 type ScreenProps = {
   buildingId: string
   /** where the building's metres start on the map, when the map is under this screen */
   origin: Origin | null
-  showing: Showing
-  onShowing: (showing: Showing) => void
   /** fading out (another building, or the landing, is coming) */
   leaving: boolean
   onBack: () => void
   onOpen: (buildingId: string) => void
+  /** open straight into the Edit mode (a building just created from floor plans: ImportScreen) */
+  startEditing?: boolean
 }
 
-export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving, onBack, onOpen }: ScreenProps) {
+export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, startEditing = false }: ScreenProps) {
   const theme = useTheme()
   const palette = theme.dark ? DARK : LIGHT
   const viewport = useViewport()
@@ -120,6 +128,8 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [plan, setPlan] = useState<Plan | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // the Guide's height on a phone, measured by the Guide itself (`onHeight`)
+  const [guideHeight, setGuideHeight] = useState(GUIDE_PX)
   const [floor, setFloor] = useState(0)
   const [stacked, setStacked] = useState(false)
   const [selected, setSelected] = useState<Selected | null>(null)
@@ -127,14 +137,16 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
     const note = sessionStorage.getItem(noteKey(buildingId))
     return note ? [{ role: 'note', text: note }] : []
   })
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(startEditing)
   // Edit mode (src/edit/): the model becomes the draft copy's, handles sit on it, the edit card takes the Guide's place
   const draft = useDraft(buildingId, editing)
   const align = useRef<SVGGElement>(null)
   // a request the Guide handed over with open_edit_mode, sent to the Builder once the draft is open
   const handOver = useRef<{ text: string; spoken: boolean } | null>(null)
+  // a nearby building the Guide opened (open_nearby_building), gone to once its reply has been said
+  const opening = useRef<{ go: () => void; at: number } | null>(null)
   const [pending, setPending] = useState(false)
-  const [popover, setPopover] = useState<'floors' | 'menu' | null>(null)
+  const [popover, setPopover] = useState<'floors' | null>(null)
   // access mode (src/access/): who is signed in, and the building settings sheet (admin)
   const access = useAccess()
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -149,7 +161,6 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   // live tracking along the route (useTracking): counted steps between fixes
   const [tracking, setTracking] = useState(false)
   const cameraVideo = useRef<HTMLVideoElement>(null)
-  const [fitKey, setFitKey] = useState(0)
   const [look, setLook] = useState<ViewMode>('3d') // tilted, or flat once the user tilts straight down
   // what the camera frames (an answer's rooms, items or route part), and the "you are here" figure
   const [focus, setFocus] = useState<Focus | null>(null)
@@ -158,26 +169,17 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   const [me, setMe] = useState<Me | null>(null)
   // the route answer whose step-by-step guide was started (Start, or "start"); a new answer ends it
   const [guideKey, setGuideKey] = useState(-1)
+  // the route answer shown as an overview (only its floors stacked); picking a floor or Start ends it
+  const [overviewKey, setOverviewKey] = useState(-1)
   // the step the Guide just moved the card to: its reply already covers it, so it isn't read out again
   const quietStep = useRef<number | null>(null)
 
   useEffect(() => sessionStorage.removeItem(noteKey(buildingId)), [buildingId])
 
-  // ---- dev tool (DEV_TOOLS only): the panel, plan display settings, and the answer drawn on the plan
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
+  // plan display settings, and the answer drawn on the plan
+  const settings = DEFAULT_SETTINGS
   const [story, setStory] = useState<Story>(EMPTY_STORY)
   const storyRef = useRef(story)
-  const [devOpen, setDevOpen] = useState(() => DEV_TOOLS && readFlag(DEV_KEY, false))
-  const [log, setLog] = useState<LogEntry[]>([])
-  useEffect(() => writeFlag(DEV_KEY, devOpen), [devOpen])
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const typing = event.target instanceof HTMLElement && event.target.closest('input, textarea, select')
-      if (DEV_TOOLS && event.key === '`' && !typing) setDevOpen((open) => !open)
-    }
-    addEventListener('keydown', onKey)
-    return () => removeEventListener('keydown', onKey)
-  }, [])
   const reloadPlan = useCallback(() => {
     if (sessionId) void api.plan(sessionId).then(setPlan).catch((reason) => setError(String(reason)))
   }, [sessionId])
@@ -198,12 +200,24 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
 
   // access mode: the remembered preferences for this building go to the session when it opens, when the viewer
   // changes and after every edit (src/access/preferences.ts); remembering off sends none
+  // the Preferences sheet offers this building's own preferences beside the general ones while it is on screen
+  useEffect(() => {
+    if (!plan) return
+    const roomTypes = [...new Set(plan.spaces.map((space) => space.room_type).filter(Boolean))].sort()
+    setHere({ id: buildingId, name: plan.building.name, roomTypes, spaceName: (id) => plan.spaces.find((space) => space.id === id)?.name })
+    return () => setHere(null)
+  }, [plan, buildingId])
   const sessionValues = useMemo(() => JSON.stringify(effective(preferences, buildingId)), [preferences, buildingId])
   const autoCapture = preferences.remember && preferences.auto_capture
+  // the last values sent to this session: a field they had and the store no longer has goes as "not set"
+  const sent = useRef<{ session: string; values: Preferences } | null>(null)
   useEffect(() => {
     if (!access.mode || !sessionId) return
     const timer = setTimeout(() => {
-      api.sessionPreferences(sessionId, JSON.parse(sessionValues), autoCapture).catch(() => undefined)
+      const now = JSON.parse(sessionValues) as Preferences
+      const values = toSession(sent.current?.session === sessionId ? sent.current.values : null, now)
+      sent.current = { session: sessionId, values: now }
+      api.sessionPreferences(sessionId, values, autoCapture).catch(() => undefined)
     }, 150)
     return () => clearTimeout(timer)
   }, [access.mode, sessionId, sessionValues, autoCapture, access.version])
@@ -238,8 +252,8 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
       pollNow.current = () => undefined
     }
   }, [access.mode, hasPlan, buildingId, access.version])
-  /** Show a new answer and take the camera to it: a route whole (every floor stacked when it crosses floors), or
-   * the rooms and items found (their floor, zoomed to them). */
+  /** Show a new answer and take the camera to it: a route whole (when it crosses floors, only its floors, stacked:
+   * the overview), or the rooms and items found (their floor, zoomed to them). */
   const present = (next: Story) => {
     const changed = next.key !== storyRef.current.key
     storyRef.current = next
@@ -254,6 +268,7 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
       const floorsCrossed = new Set(runs.map((run) => run.floor))
       setFloor(runs[0].floor)
       setStacked(floorsCrossed.size > 1)
+      setOverviewKey(next.key)
       frameOn(points, FOCUS_ROUTE_M)
       return
     }
@@ -283,6 +298,20 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
         setEditing(true)
       }
     }
+    // the Guide opened the Building settings: shown to whoever may change the building (the admin button's people)
+    if (events.some((event) => event.type === 'settings')) {
+      if (access.mode && access.admin) setSettingsOpen(true)
+      else setMessages((list) => [...list, { role: 'note', text: access.mode ? 'Building settings need its admin account.' : 'Building settings come with sign-in.' }])
+    }
+    // the Guide opened a nearby building: a route to it (in this answer or already on the map) goes on there, like
+    // its Continue; once the reply has been read and heard (the voice watch below)
+    const opened = events.findLast((event) => event.type === 'open_building')
+    if (opened?.type === 'open_building' && !editing) {
+      const routed = events.findLast((event) => event.type === 'route' && !!event.next_building)
+      const next = (routed?.type === 'route' ? routed.next_building : null) ?? storyRef.current.route?.next ?? null
+      setMessages((list) => [...list, { role: 'note', text: `Opening ${opened.name}…` }])
+      opening.current = { go: () => (next?.building === opened.building ? continueTo(next) : onOpen(opened.building)), at: Date.now() }
+    }
     // access mode: what the Guide heard you prefer, remembered when you let it
     for (const event of events) {
       if (event.type === 'preference' && access.mode) capture(event.scope, event.values, buildingId, (id) => plan?.spaces.find((space) => space.id === id)?.name)
@@ -308,6 +337,15 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
         return
       }
     }
+    // the Guide ended the route (end_route): when nothing in this answer comes after it, the walk is over and the
+    // figure goes where the user is now (the session put them there already)
+    const ends = events.findLastIndex((event) => event.type === 'route_end')
+    const ended = events[ends]
+    if (ended?.type === 'route_end' && route && !events.slice(ends).some((event) => event.type === 'route')) {
+      endRoute(ended.arrived, { at: ended.space_id ?? null, known: true })
+      present(applyEvents(storyRef.current, events.slice(ends + 1)))
+      return
+    }
     present(applyEvents(storyRef.current, events))
     // the Guide talked about another step of the route being followed: the step card (and the map) go there,
     // without reading the step out again over the reply (a new route in the same answer starts at step 1)
@@ -317,14 +355,21 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
       quietStep.current = index
       setGuideKey(storyRef.current.key)
       onMove(index)
+      setAskedAt(Date.now() + 1) // the Guide's words about that step stay up
     }
   }
 
   useEffect(() => {
     let cancelled = false
-    // fetched since the tap (./opening.ts); shown once the map's fly-in has landed, so the model takes over from it
+    // fetched since the tap (./opening.ts) and its floors built a frame at a time during the flight; shown once the
+    // map's fly-in has landed, so the model takes over from it
     const opening = take(buildingId)
-    Promise.all([opening.promise, settled()])
+    const look = { wallHeight: settings.wallHeight, colours: settings.colours }
+    const built = opening.promise.then(async (opened) => {
+      if (!cancelled) await prepareFloors(opened.plan, palette, look)
+      return opened
+    })
+    Promise.all([built, settled()])
       .then(([{ sessionId: id, plan: next }]) => {
         if (cancelled) return
         setSessionId(id)
@@ -338,15 +383,12 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
       cancelled = true
       opening.release()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the look the first view will have; a later change rebuilds in PlanView
   }, [buildingId])
 
-  // "Opening the building…" only once the wait is noticeable: over the map the fly-in is the wait (a timer, not a CSS
-  // delay: the app's reduced-motion rule switches CSS animations off)
-  const [slow, setSlow] = useState(false)
-  useEffect(() => {
-    const timer = setTimeout(() => setSlow(true), origin ? 2400 : 900)
-    return () => clearTimeout(timer)
-  }, [origin])
+  // its block on the map breathes until the model is there (a failed open stops it too)
+  const opened = plan !== null || error !== null
+  useEffect(() => (origin && !opened ? pulse(buildingId) : undefined), [origin, opened, buildingId])
 
   // the map's own block of this building gives way to the model while this screen is up
   useEffect(() => {
@@ -361,7 +403,7 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   useEffect(() => onShell(setShell), [])
 
   // the map under the model: where the model's camera starts, and the camera the map follows
-  const alone = !origin || showing === 'alone'
+  const alone = !origin
   const mapCamera = useMemo(
     () => (origin ? { intro: () => mapView(origin), follow: leaving ? undefined : (view: Parameters<typeof follow>[1]) => follow(origin, view) } : undefined),
     [origin, leaving],
@@ -371,9 +413,22 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   const moving = routeSteps.length > 0
   const moveIndex = moveAt.key === story.key ? Math.min(moveAt.index, routeSteps.length - 1) : 0
   const guiding = moving && guideKey === story.key
-  const track = useMemo(() => (story.route ? routeTrack(story.route.line, story.route.legs) : null), [story.route])
+  // a route over several floors is first shown whole: only its floors, stacked, until it starts or a floor is picked
+  const routeFloors = useMemo(() => (story.route ? [...new Set(routeRuns(story.route.line).map((run) => run.floor))].sort((a, b) => a - b) : []), [story.route])
+  const overview = stacked && !guiding && overviewKey === story.key && routeFloors.length > 1
+  // on a phone the Guide's sheet grows with the answer that brought the route: framed again clear of it
+  useEffect(() => {
+    if (overview && !wide) setFocus((shown) => (shown ? { ...shown, key: ++focusKey.current } : shown))
+    // only the sheet's height asks for it; the route's own framing happens in present()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guideHeight])
+  const track = useMemo(() => (story.route ? routeTrack(story.route.line, story.route.legs, story.route.steps.map((step) => step.legs ?? 1)) : null), [story.route])
+  // while a step is walked the Guide's last answer gives the map room, until something new is asked or said
+  const [movedAt, setMovedAt] = useState(0)
+  const [askedAt, setAskedAt] = useState(0)
   const onMove = (index: number) => {
     setMoveAt({ key: story.key, index })
+    setMovedAt(Date.now())
     // walking steps happen on their room's floor; a stairs or lift step changes it on the step after
     const step = routeSteps[index]
     const at = step && step.kind !== 'connector' && plan ? plan.floors.findIndex((item) => item.name === step.floor) : -1
@@ -381,11 +436,12 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
       setFloor(at)
       setStacked(false)
     }
-    // the camera follows the step: the stretch of the route it covers (a ride: where it starts)
+    // the camera follows you: where the step starts and the first metres of it (a ride: where it starts)
     if (track && step) {
       const from = track.starts[index] ?? 0
       const to = track.starts[index + 1] ?? from
-      const points = Array.from({ length: 9 }, (_, i) => track.at(from + ((to - from) * i) / 8)).map(({ at: [x, y], floor: on }) => [x, y, on] as [number, number, number])
+      const ahead = Math.min(to, from + STEP_AHEAD_M)
+      const points = Array.from({ length: 9 }, (_, i) => track.at(from + ((ahead - from) * i) / 8)).map(({ at: [x, y], floor: on }) => [x, y, on] as [number, number, number])
       const here = at >= 0 ? at : points[0][2]
       if (at < 0 && (here !== floor || stacked)) {
         setFloor(here)
@@ -399,6 +455,52 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   const startGuide = () => {
     setGuideKey(story.key)
     onMove(0)
+  }
+  /** The room the plan point is in (the smallest, on that floor), if any. */
+  const roomAt = (at: [number, number], on: number) =>
+    plan?.spaces.filter((space) => space.floor === on && contains(space.polygon, at[0], at[1])).sort((a, b) => a.area_m2 - b.area_m2)[0]
+  /** The route is over — arrived, or ended or cancelled on the way: it leaves the map, the step guide, tracking and
+   * the camera walk stop, and the "you are here" figure goes where the user is now: the destination when
+   * `arrived`, else `at` (a room the Guide placed them in), else as far as the walk got (tracking's position, or
+   * the last step they said they reached); otherwise it stays. `known`: the Guide ended it, so the session
+   * knows already; else the app tells it (the route and the new position). */
+  const endRoute = (arrived: boolean, { at = null, known = false }: { at?: string | null; known?: boolean } = {}) => {
+    const route = storyRef.current.route
+    const room = (id?: string | null) => (id ? plan?.spaces.find((space) => space.id === id) : undefined)
+    let next: Me | null = null
+    const placed = room(at) ?? (arrived ? room(route?.space_path[route.space_path.length - 1]) : undefined)
+    if (placed) next = { at: placed.label, floor: placed.floor, space: placed.id, label: placed.name }
+    else if (!known && tracking && position && track) {
+      const there = track.at(position.metres)
+      const inside = roomAt(there.at, there.floor)
+      if (inside) next = { at: there.at, floor: there.floor, space: inside.id, label: inside.name }
+    } else if (!known && guiding && moveIndex > 0) {
+      const reached = room(routeSteps[moveIndex - 1]?.to_id)
+      if (reached) next = { at: reached.label, floor: reached.floor, space: reached.id, label: reached.name }
+    }
+    setTracking(false)
+    setWalking(false)
+    setGuideKey(-1)
+    present({ ...EMPTY_STORY, key: storyRef.current.key + 1 })
+    if (next) {
+      if (known) setMe(next)
+      else placeMe(next)
+    }
+    if (!known && sessionId) void api.endRoute(sessionId).catch(() => undefined)
+  }
+  /** The user is at the last step: the route leaves the map, they stand at its end, and the chat says so. `say`:
+   * also aloud. */
+  const finishRoute = (say = false) => {
+    const text = `You have arrived at ${routeSteps[routeSteps.length - 1]?.to ?? 'your destination'}.`
+    endRoute(true)
+    setMessages((list) => [...list, { role: 'note', text }])
+    if (say) speak(text)
+  }
+  /** The user stopped the directions on the way (End directions, or "stop"). `say`: also aloud. */
+  const cancelRoute = (say = false) => {
+    endRoute(false)
+    setMessages((list) => [...list, { role: 'note', text: 'Directions ended.' }])
+    if (say) speak('Directions ended.')
   }
   // the walk outside to a nearby building, drawn from the exit to its entrance
   const outdoor = useMemo((): Outdoor | null => {
@@ -428,9 +530,12 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
       ? { done: track.toLine(position ? position.metres : from), from: track.toLine(from), to: track.toLine(to), end: end.at, floor: end.floor, next: routeSteps[moveIndex + 1] ?? null }
       : undefined
     const you = position && track
-      ? { ...track.at(position.metres), stale: position.stale }
-      : stepping && track && to - from > 0.5 ? { ...track.at(from + 0.01), stale: false } : undefined
-    return { ...placed, step, you }
+      ? { ...track.at(position.metres), stale: position.stale, along: track.toLine(position.metres) }
+      : stepping && track && to - from > 0.5 ? { ...track.at(from + 0.01), stale: false, along: track.toLine(from + 0.01) } : undefined
+    // the step on the card, pinned where it is made (the arrival: at the end); before Start too, so the first move shows
+    const pin = track ? track.at(routeSteps[moveIndex]?.kind === 'arrive' ? track.total : Math.min(track.total, from + 0.01)) : null
+    const move = moving && pin ? { at: pin.at, floor: pin.floor, step: routeSteps[moveIndex], index: moveIndex } : undefined
+    return { ...placed, step, you, move }
   }, [story, position, track, outdoor, moving, guiding, walking, moveIndex, routeSteps])
 
   // the "you are here" figure: the Guide learns the room (and stops asking where the user is), and where in it the
@@ -474,18 +579,23 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   }, [sessionId, plan, buildingId])
 
   const insets: Insets = wide
-    ? { top: TOP_PX + 8 + (moving ? MOVE_PX + (followed ? TRACK_PX : 0) : 0), right: 24, bottom: 24, left: 16 + PANEL_PX + 24 + (devOpen ? DEV_PX : 0) }
+    ? { top: TOP_PX + 8 + (moving ? MOVE_PX + (followed ? TRACK_PX : 0) : 0), right: ACTIONS_RIGHT_PX, bottom: 24, left: 16 + GUIDE_COL_PX + 24 }
     : editing
       ? { top: TOP_PX + 8 + EDIT_BAR_PX, right: 0, bottom: EDIT_PX, left: 0 }
-      : { top: TOP_PX + 8 + (moving ? MOVE_PX + (followed ? TRACK_PX : 0) : 0), right: 0, bottom: GUIDE_PX, left: 0 }
+      : { top: TOP_PX + 8 + (moving ? MOVE_PX + (followed ? TRACK_PX : 0) : 0), right: 0, bottom: guideHeight, left: 0 }
 
-  // the whole building is centred on the screen: on a wide screen the Guide is a card in the bottom-left corner,
-  // not a column, so it does not push the building right (the floor rail on the right is mirrored on the left);
-  // an answer's own rooms still keep clear of the card (`insets`)
-  const frameInsets: Insets = wide ? { ...insets, left: devOpen ? DEV_PX + 16 : RAIL_PX, right: RAIL_PX } : insets
+  // the whole building is centred on the screen: on a wide screen the Guide floats in the bottom-left corner, not
+  // in a column, so it does not push the building right (the floor rail on the right is mirrored on the left); an
+  // answer's own rooms still keep clear of it (`insets`). On a phone the plan's buttons stand on the Guide's top
+  // edge (its measured height), so they never sit under a longer answer.
+  const frameInsets: Insets = wide ? { ...insets, left: RAIL_PX, right: RAIL_PX } : insets
+  // an answer's rooms and route: clear of the Guide column on the left (`insets`) and of the floor rail on the right
+  // (`insets.right` only places the plan's buttons under the rail), with room for the start's step callout
+  const focusInsets: Insets = wide ? { ...insets, right: RAIL_PX + CALLOUT_PX } : insets
 
   const current = plan?.floors[floor]
-  const rooms = plan ? plan.spaces.filter((space) => space.floor === floor && space.type === 'room').length : 0
+  // who may change the building: its admin in access mode, anyone without it (editing works on a copy)
+  const mayChange = !access.mode || access.admin
   const suggestions = useMemo(() => (plan ? suggest(plan, plan.floors[floor]?.name ?? '') : []), [plan, floor])
 
   const info = useMemo((): InfoCard | null => {
@@ -512,14 +622,18 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   const routeCommand = (text: string): boolean => {
     const words = text.trim().split(/\s+/).length
     if (!moving) return false
+    if (words <= 4 && STOP.test(text)) return cancelRoute(!muted), true
     if (!guiding && (START.test(text) && words <= 3 || START_SAID.test(text) && words <= 6)) return startGuide(), true
-    if (!guiding || words > 3) return false
     const step = (to: number) => onMove(Math.max(0, Math.min(routeSteps.length - 1, to)))
-    if (NEXT.test(text)) {
-      if (moveIndex >= routeSteps.length - 1) speak(story.route?.next ? `You're at the exit. Tap Continue for ${story.route.next.name}.` : 'You have arrived.')
-      else step(moveIndex + 1)
+    // "I'm there": the card moves on (and the guide starts, if the user walked without pressing Start)
+    if (guiding && words <= 3 && NEXT.test(text) || words <= 6 && ARRIVED_SAID.test(text)) {
+      if (!guiding) setGuideKey(story.key)
+      if (moveIndex < routeSteps.length - 1) step(moveIndex + 1)
+      else if (story.route?.next) speak(`You're at the exit. Tap Continue for ${story.route.next.name}.`)
+      else finishRoute(!muted)
       return true
     }
+    if (!guiding || words > 3) return false
     if (BACK.test(text)) return step(moveIndex - 1), true
     if (REPEAT.test(text)) {
       const again = routeSteps[moveIndex]?.text
@@ -537,6 +651,7 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
     const aloud = spoken || (walking ? !muted : via === 'tap')
     const picked = selected?.id
     setSelected(null)
+    setAskedAt(Date.now() + 1)
     setMessages((list) => [...list, { role: 'user', text, spoken }, { role: 'guide', text: '', live: true }])
     setPending(true)
     let key = 0
@@ -553,8 +668,8 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
         heard: spoken,
         selected: picked,
         photo,
-        // only once the user follows it (Start, camera walk, or moved the card): a route just drawn isn't walked yet
-        routeStep: moving && (guiding || walking || moveIndex > 0) ? moveIndex : undefined,
+        // whenever a route is on the map, so "I'm at the stairs" can move the card (show_route_step)
+        routeStep: moving ? moveIndex : undefined,
         onStep: (step) => onLive((steps) => addStep(steps, step, key++)),
         onSay: (sentence) => (live.speech ??= voice.stream(talk)).add(sentence),
       })
@@ -566,16 +681,18 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
         ),
       )
       onEvents(turn.events, spoken)
-      asked = via === 'tap' && turn.reply.includes('?')
+      // ... and so does a new route, which ends in the offer to walk the user there ("say start")
+      asked = via === 'tap' && (turn.reply.includes('?') || turn.events.some((event) => event.type === 'route'))
       if (live.speech) live.speech.end()
       else if (aloud && !queued.current) voice.speak(turn.spoken ?? turn.reply, talk)
     } catch (reason) {
       live.speech?.end() // let what was already said finish
-      setMessages((list) => [
-        ...list.filter((item) => !(item.role === 'guide' && item.live)),
-        { role: 'note', text: `The Guide could not answer: ${String(reason)}` },
-      ])
-      voice.idle()
+      // a server failure (e.g. the API credit ran out) comes as a readable sentence; anything else as a short note
+      const readable = reason instanceof ServiceError
+      const text = readable ? reason.message : `The Guide could not answer: ${reason instanceof Error ? reason.message : String(reason)}`
+      setMessages((list) => [...list.filter((item) => !(item.role === 'guide' && item.live)), { role: 'note', text }])
+      if (aloud && readable) voice.speak(text) // asked by voice: told by voice, once
+      else voice.idle()
     } finally {
       setPending(false)
     }
@@ -623,6 +740,23 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   // talk over the reply); silence or a tap ends it. Typed questions and walk-mode steps don't (voice/useVoice.ts).
   // Scribe listens for this conversation's building names (keyterms, voice/scribe.ts).
   useEffect(() => setScribeSession(sessionId), [sessionId])
+  // the building the Guide opened: after OPEN_DELAY_MS, once the voice is no longer saying the reply (or about to)
+  const voiceState = useRef(voice.state)
+  useEffect(() => {
+    voiceState.current = voice.state
+  }, [voice.state])
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const open = opening.current
+      if (!open) return
+      const waited = Date.now() - open.at
+      const talking = voiceState.current === 'speaking' || voiceState.current === 'thinking'
+      if (waited < OPEN_DELAY_MS || (talking && waited < OPEN_MAX_MS)) return
+      opening.current = null
+      open.go()
+    }, 250)
+    return () => window.clearInterval(timer)
+  }, [])
 
   // walking with the camera, or the step-by-step guide: each step is read aloud when it comes up (not on mute); the
   // guide then listens for "I'm there" when the conversation is hands-free
@@ -638,12 +772,11 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
 
   const pickFloor = (index: number | 'all') => {
     setStacked(index === 'all')
+    setOverviewKey(-1) // "All floors" is every floor, also with a route on the map
     if (index !== 'all') setFloor(index)
     setSelected(null)
     setPopover(null)
   }
-
-  const ThemeIcon = THEME_ICON[theme.mode]
 
   // while editing the model is the draft's (the original until the draft's plan has loaded), one floor at a time
   const shownPlan = editing && draft.plan ? draft.plan : plan
@@ -687,18 +820,20 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   }
 
   return (
-    <main className={`screen${devOpen && wide ? ' dev-open' : ''}${origin ? ' on-map' : ''}${alone ? ' alone' : ''}${plan ? ' ready' : ''}${leaving ? ' leaving' : ''}`}>
+    <main className={`screen${origin ? ' on-map' : ''}${alone ? ' alone' : ''}${plan ? ' ready' : ''}${leaving ? ' leaving' : ''}`}>
       <div className="screen-stage" aria-hidden="true" />
       {shownPlan && (
         <PlanView
           plan={shownPlan}
           floor={floor}
           stacked={stacked}
+          only={overview && !editing ? routeFloors : undefined}
           palette={palette}
           selected={editing ? (draft.selected && draft.selected.kind !== 'opening' ? { kind: draft.selected.kind, id: draft.selected.id } : null) : selected}
           insets={insets}
           frameInsets={frameInsets}
-          fitKey={fitKey}
+          focusInsets={focusInsets}
+          fitKey={0}
           onSelect={editing ? draft.setSelected : setSelected}
           onPickFloor={(index) => {
             setFloor(index)
@@ -710,7 +845,8 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
           story={editing ? EMPTY_STORY : shownStory}
           objects={access.mode && !editing ? objects : undefined}
           focus={editing ? null : focus}
-          me={editing ? null : me}
+          // while guided, the dot on the route is you; the figure would stay behind at the start
+          me={editing || guiding ? null : me}
           onMe={editing ? undefined : placeMe}
           onNext={story.route?.next && !editing ? () => continueTo(story.route!.next!) : undefined}
           align={editing && !stacked ? align : undefined}
@@ -748,9 +884,18 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
         />
       )}
 
-      {!plan && (slow || error) && (
-        <div className="screen-status" role="status">
-          {error ? <p>Could not open this building. {error}</p> : <p>Opening the building…</p>}
+      {/* "Opening the building…" from the tap until the model is there, the map's fly-in included; it fades in a
+          beat late (screen.css), so a building that opens at once shows nothing */}
+      {!plan && (
+        <div className={`screen-status${error ? ' failed' : ''}`} role="status">
+          {error ? (
+            <p>Could not open this building. {error}</p>
+          ) : (
+            <p>
+              <LoaderCircle size={16} strokeWidth={2.2} className="spin" aria-hidden="true" />
+              Opening the building…
+            </p>
+          )}
         </div>
       )}
 
@@ -760,11 +905,6 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
         </button>
         <div className="hud-place">
           <h1>{plan?.building.name ?? 'Building'}</h1>
-          {plan && (
-            <p>
-              {editing ? `Editing a copy${draft.state?.draft.steps ? ` · ${draft.state.draft.steps} ${draft.state.draft.steps === 1 ? 'change' : 'changes'}` : ''}` : stacked ? 'All floors' : `${rooms} ${rooms === 1 ? 'room' : 'rooms'}`}
-            </p>
-          )}
         </div>
         {plan && plan.floors.length > 1 && (
           <button
@@ -779,18 +919,6 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
             <ChevronsUpDown size={14} strokeWidth={2} />
           </button>
         )}
-        {plan && (
-          <button
-            type="button"
-            className="hud-btn"
-            aria-haspopup="menu"
-            aria-expanded={popover === 'menu'}
-            aria-label="More"
-            onClick={() => setPopover((open) => (open === 'menu' ? null : 'menu'))}
-          >
-            <Ellipsis size={19} strokeWidth={2} />
-          </button>
-        )}
       </header>
 
       {!editing && !moving && story.elsewhere && story.elsewhere.length > 0 && (
@@ -803,24 +931,19 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
       )}
 
       {!editing && moving && !walking && (
-        <NextMove
+        <TripBar
           steps={routeSteps}
           index={moveIndex}
           lengthM={story.route?.length_m ?? null}
           profile={story.route?.profile ?? null}
-          onIndex={onMove}
           guiding={guiding}
-          onStart={startGuide}
           next={story.route?.next ?? null}
-          onContinue={(next) => continueTo(next)}
-          onClose={() => {
-            setTracking(false)
-            present({ ...EMPTY_STORY, key: storyRef.current.key + 1 })
-          }}
+          onIndex={onMove}
+          onClose={() => cancelRoute()}
           onCamera={() => setWalking(true)}
           tracking={tracking}
           position={followed ? position : null}
-          track={followed ? track : null}
+          track={track}
           onTrack={async () => {
             if (!tracking) await askForMotion() // iOS asks from this tap; a refusal leaves door and camera fixes
             setTracking((on) => !on)
@@ -844,67 +967,21 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
           ))}
         </nav>
       )}
-      {plan && popover === 'menu' && (
-        <div className="hud-pop menu" role="menu">
-          <button type="button" role="menuitem" onClick={() => { setEditing((on) => !on); setPopover(null) }} title="Edit this building (on a copy)">
-            <PencilRuler size={17} strokeWidth={2} />
-            {editing ? 'Stop editing' : 'Edit this building'}
-            {editing && <Check size={16} className="on" />}
+      {/* the admin button, on top of the column of the plan's buttons (PlanView: figure, street view, compass; just
+          the compass while editing) — beside the floor rail on a wide screen, above the Guide on a phone. A tap
+          turns the Edit mode on and off. */}
+      {plan && mayChange && (
+        <div className="admin-corner" style={{ right: insets.right + 16, bottom: insets.bottom + 16 + (44 + 10) * (editing ? 1 : 3) }}>
+          <button
+            type="button"
+            className="admin-button"
+            aria-pressed={editing}
+            aria-label={editing ? 'Stop editing' : 'Edit this building'}
+            title={editing ? 'Stop editing' : 'Edit this building (on a copy)'}
+            onClick={() => setEditing((on) => !on)}
+          >
+            <PencilRuler size={19} strokeWidth={2} />
           </button>
-          <button type="button" role="menuitem" onClick={() => { setFitKey((key) => key + 1); setPopover(null) }}>
-            <Scan size={17} strokeWidth={2} />
-            Show it all
-          </button>
-          {origin && (
-            <button type="button" role="menuitem" onClick={() => { onShowing(showing === 'city' ? 'alone' : 'city'); setPopover(null) }}>
-              {showing === 'city' ? <Box size={17} strokeWidth={2} /> : <MapIcon size={17} strokeWidth={2} />}
-              {showing === 'city' ? 'Show the building alone' : 'Show it in the city'}
-            </button>
-          )}
-          <button type="button" role="menuitem" onClick={theme.cycle}>
-            <ThemeIcon size={17} strokeWidth={2} />
-            {THEME_LABEL[theme.mode]}
-          </button>
-          {access.mode && (
-            <>
-              <button type="button" role="menuitem" onClick={() => { openPanel('preferences'); setPopover(null) }}>
-                <SlidersHorizontal size={17} strokeWidth={2} />
-                Preferences
-              </button>
-              <button type="button" role="menuitem" onClick={() => { setSettingsOpen(true); setPopover(null) }}>
-                <Settings2 size={17} strokeWidth={2} />
-                Building settings
-              </button>
-            </>
-          )}
-          {access.mode && !access.email && (
-            <button type="button" role="menuitem" onClick={() => { openPanel('signin'); setPopover(null) }}>
-              <LogIn size={17} strokeWidth={2} />
-              Sign in
-            </button>
-          )}
-          {access.mode && access.email && (
-            <>
-              <p className="account" title={access.email}>{access.email}</p>
-              {access.needsPassword && (
-                <button type="button" role="menuitem" onClick={() => { openPanel('password'); setPopover(null) }}>
-                  <KeyRound size={17} strokeWidth={2} />
-                  Set a password
-                </button>
-              )}
-              <button type="button" role="menuitem" onClick={() => { void signOut(); setPopover(null) }}>
-                <LogOut size={17} strokeWidth={2} />
-                Sign out
-              </button>
-            </>
-          )}
-          {DEV_TOOLS && (
-            <button type="button" role="menuitem" onClick={() => { setDevOpen((open) => !open); setPopover(null) }}>
-              <Wrench size={17} strokeWidth={2} />
-              Dev tools
-              {devOpen && <Check size={16} className="on" />}
-            </button>
-          )}
         </div>
       )}
 
@@ -920,35 +997,13 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
         />
       )}
 
-      {plan && sessionId && devOpen && (
-        <DevPanel
-          sessionId={sessionId}
-          plan={plan}
-          story={story}
-          selected={selected}
-          settings={settings}
-          onSettings={setSettings}
-          onEvents={onEvents}
-          onStory={(make) => present(make(storyRef.current))}
-          onReset={async () => {
-            await devApi.reset(sessionId)
-            present({ ...EMPTY_STORY, key: storyRef.current.key + 1 })
-            reloadPlan()
-          }}
-          onClose={() => setDevOpen(false)}
-          log={log}
-          onLog={(entry) => setLog((list) => [...list.slice(-199), entry])}
-          themeLabel={THEME_LABEL[theme.mode]}
-          onTheme={theme.cycle}
-        />
-      )}
-
       {editing && (
         <EditBar draft={draft} onFocusIssue={focusIssue} onDone={() => setEditing(false)} onSave={(name) => void saveDraft(name)} />
       )}
 
-      {/* one assistant card: the Guide, or while editing the Builder (with the selection's inspector in it) */}
-      {editing ? (
+      {/* one assistant card: the Guide, or while editing the Builder (with the selection's inspector in it); it
+          comes up once the building has loaded, not over the loading screen */}
+      {!plan || !sessionId ? null : editing ? (
         <Guide
           messages={draft.messages}
           pending={draft.asking}
@@ -967,12 +1022,28 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
         />
       ) : (
         <Guide
+          onHeight={setGuideHeight}
           messages={messages}
           pending={pending}
           voice={{ ...voice, supported: voiceSupported() }}
           info={info}
           suggestions={suggestions}
           route={moving}
+          quiet={guiding && movedAt >= askedAt}
+          routeBar={
+            moving && !walking ? (
+              <RouteBar
+                steps={routeSteps}
+                index={moveIndex}
+                guiding={guiding}
+                next={story.route?.next ?? null}
+                onStart={startGuide}
+                onNext={() => onMove(Math.min(routeSteps.length - 1, moveIndex + 1))}
+                onFinish={() => finishRoute()}
+                onContinue={(next) => continueTo(next)}
+              />
+            ) : undefined
+          }
           onSend={(text, tapped) => {
             if (routeCommand(text)) setMessages((list) => [...list, { role: 'user', text }])
             else void send(text, tapped ? 'tap' : 'text')
@@ -1014,27 +1085,8 @@ export function BuildingScreen({ buildingId, origin, showing, onShowing, leaving
   )
 }
 
-/** The dev panel (src/dev/) is for building and testing: on in the Vite dev server, else only with ?dev in the URL. */
-const DEV_TOOLS = import.meta.env.DEV || new URLSearchParams(location.search).has('dev')
-const DEV_PX = 372
-const DEV_KEY = 'ttyb-dev-open'
 const OBJECTS_POLL_MS = 1000
 const OBJECTS_POLL_MAX_MS = 15_000
-function readFlag(key: string, fallback: boolean) {
-  try {
-    const value = localStorage.getItem(key)
-    return value === null ? fallback : value === 'true'
-  } catch {
-    return fallback
-  }
-}
-function writeFlag(key: string, value: boolean) {
-  try {
-    localStorage.setItem(key, String(value))
-  } catch {
-    // storage unavailable: the choice just isn't remembered
-  }
-}
 
 /** The walk outside to a nearby building in this building's plan metres: from the exit to the other entrance. */
 function outdoorWalk(next: NextBuilding, origin: Origin, floor: number): Outdoor {
@@ -1046,17 +1098,19 @@ function outdoorWalk(next: NextBuilding, origin: Origin, floor: number): Outdoor
   }
 }
 
-/** Starting questions that fit this building's data (no toilet chip in a building without toilets). */
+/** Starting questions that fit this building's data (no toilet chip in a building without toilets): the places
+ * people look for first, each asked as "nearest" so the Guide routes from where the user is (find_nearest). Step-free
+ * is a preference (the preferences form), not a question; food only where there is a canteen, since most buildings
+ * are homes whose kitchens are private; three at most, the Guide card shows no more. */
 function suggest(plan: Plan, floorName: string): Suggestion[] {
   const has = (...types: string[]) => plan.spaces.some((space) => types.includes(space.room_type))
   const out: Suggestion[] = []
-  if (has('toilet', 'bathroom')) out.push({ label: 'Toilet', prompt: 'Where is the nearest toilet?', icon: 'toilet' })
-  if (plan.openings.some((opening) => opening.entrance)) out.push({ label: 'Way out', prompt: 'How do I get out of the building?', icon: 'exit' })
-  out.push({ label: 'Step-free', prompt: 'I use a wheelchair. Please keep my routes step-free.', icon: 'access' })
-  if (has('canteen', 'kitchen')) out.push({ label: 'Food', prompt: 'Where can I get something to eat?', icon: 'food' })
+  if (has('toilet', 'bathroom')) out.push({ label: 'Toilet', prompt: 'Take me to the nearest toilet.', icon: 'toilet' })
+  if (plan.openings.some((opening) => opening.entrance)) out.push({ label: 'Way out', prompt: 'Take me to the nearest exit.', icon: 'exit' })
+  if (plan.floors.length > 1 && plan.connectors.some((connector) => connector.kind === 'lift')) out.push({ label: 'Lift', prompt: 'Take me to the nearest lift.', icon: 'lift' })
+  if (has('canteen')) out.push({ label: 'Canteen', prompt: 'Take me to the nearest canteen.', icon: 'food' })
   if (plan.floors.length > 1) out.push({ label: 'This floor', prompt: `What is on the ${floorName.toLowerCase()}?`, icon: 'floor' })
-  out.push({ label: 'Help', prompt: 'What can you help me with here?', icon: 'help' })
-  return out.slice(0, 5)
+  return out.slice(0, 3)
 }
 
 /** Which way a step goes (plan frame, unit): from its start to its end, so where it takes you is straight ahead and

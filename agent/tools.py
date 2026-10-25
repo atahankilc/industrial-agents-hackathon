@@ -23,10 +23,12 @@ from pathlib import Path
 from shapely.geometry import Point
 
 from agent import places
-from core.directions import about_m, guidance, guidance_steps
+from agent.solver_agent import ALLOWED_MODULES, namespace, run_code
+from core.directions import about_m, guidance, guidance_steps, maneuvers
 from core import navigation, route_models
 from core.building_map import LIFT, OUTSIDE, BuildingMap, MapError
 from core.preferences import Penalties
+from core.route_query import route_query, shortlist
 from core.route_models import FORKLIFT_MIN_WIDTH_M, KIT, RouteRules
 from core.solvers import SOLVERS, solve
 from core.solvers.geometry import adjacent_floor, centre_3d, polygon
@@ -343,7 +345,8 @@ class BuildingSession:
             ][:MAX_RESULTS],
         }
 
-    def tool_find_route(self, start: str, destination: str, via: list[str] | None = None) -> dict:
+    def tool_find_route(self, start: str, destination: str, via: list[str] | None = None,
+                        closed: list[str] | None = None) -> dict:
         start, via = self.stop(start), [self.stop(item) for item in via or ()]
         if destination != OUTSIDE and (options := self.destination_options(start, destination, via)):
             return options
@@ -353,7 +356,7 @@ class BuildingSession:
             start,
             destination,
             step_free=self.profile.step_free,
-            closed=self.profile_closures(),
+            closed=[*self.profile_closures(), *(closed or [])],
             via=via or (),
             model=self.route_model,
             rules=self.route_rules(),
@@ -368,16 +371,22 @@ class BuildingSession:
                                 "profile": route["profile"], **self.start_point(start)})
         return route
 
-    def tool_find_nearest(self, start: str, query: str, floor_id: str | None = None) -> dict:
+    def tool_find_nearest(self, start: str, query: str, floor_id: str | None = None,
+                          closed: list[str] | None = None) -> dict:
         """The nearest room holding `query` (an item kind like "toilet", or a room kind/name) by walking distance
-        under the profile: routes to it (one route event, the map shows only that one) and lists the next ones."""
+        under the profile: routes to it (one route event, the map shows only that one) and lists the next ones.
+        `closed`: closures for this question only (names or ids). Only the 12 candidates nearest in a straight line
+        are routed to (core/route_query.shortlist), so big buildings with many matches stay fast."""
         start = self.stop(start)
+        closures = [*self.profile_closures(), *(closed or [])]
         found = navigation.locate(self.building, query, floor_id).to_dict()
         spaces = list(dict.fromkeys(hit["space_id"] for hit in found.get("assets") or []))
         if not spaces:
             spaces = [hit["id"] for hit in self.building.search(query) if hit["kind"] == "space"
                       and floor_id in (None, self.building.spaces[hit["id"]]["floor_id"])]
         spaces = [space for space in spaces if space != start]
+        if spaces and start != OUTSIDE:
+            spaces = shortlist(self.building, start, spaces)
         if not spaces:
             result = {"error": f"Nothing matching '{query}' in this building."}
             if self.campus is not None and self.campus.neighbours():
@@ -386,7 +395,7 @@ class BuildingSession:
         ranked = []
         for space_id in spaces:
             route = navigation.find_route(self.building, start, space_id, step_free=self.profile.step_free,
-                                          closed=self.profile_closures(), model=self.route_model,
+                                          closed=closures, model=self.route_model,
                                           rules=self.route_rules(), penalties=self.profile.penalties()).to_dict()
             if route.get("reachable"):
                 ranked.append((route["length_m"], space_id))
@@ -394,7 +403,7 @@ class BuildingSession:
             return {"error": f"No room with '{query}' is reachable from here under the current profile.",
                     "profile": self.profile.describe()}
         ranked.sort()
-        route = self.tool_find_route(start, ranked[0][1])
+        route = self.tool_find_route(start, ranked[0][1], closed=closed)
         route["nearest"] = self.space_summary(ranked[0][1])
         route["next_nearest"] = [{**self.space_summary(space_id), "about_m": about_m(length)}
                                  for length, space_id in ranked[1:3]]
@@ -412,6 +421,33 @@ class BuildingSession:
             for leg in tour.get("legs") or []:
                 self.guide_steps(leg)
         return tour
+
+    def tool_compute(self, code: str) -> dict:
+        """Run Python over a copy of the building (the solver agent's sandbox): {"output"} or {"output", "error"}.
+        Its route() routes as find_route does — the Guide's rules (production bays destination-only), the user's
+        profile and its closures — so code and tools never disagree on whether a route exists."""
+        view = copy.deepcopy(self.building)
+        scope = namespace(view)
+
+        def place(reference: str) -> list[str]:
+            if reference.strip().lower() in HERE:
+                return [self.resolve(reference)]
+            return scope["place"](reference) or [view.resolve_space(reference)]
+
+        def route(start: str, destination: str, stops: list[str] | tuple[str, ...] = (), step_free: bool | None = None,
+                  forklift: bool | None = None, min_width: float | None = None,
+                  closed: list[str] | tuple[str, ...] = ()) -> dict:
+            rules = self.route_rules()
+            if forklift is not None:
+                rules = RouteRules(bays_destination_only=rules.bays_destination_only, no_outside=rules.no_outside,
+                                   forklift=forklift)
+            return route_query(view, [place(start), *[place(stop) for stop in stops], place(destination)],
+                               step_free=self.profile.step_free if step_free is None else step_free,
+                               min_width=min_width, closed=[*self.profile_closures(view), *closed], rules=rules,
+                               include_steps=False)
+
+        scope["route"] = route
+        return run_code(code, scope)
 
     def guide_steps(self, route: dict) -> None:
         """Followable steps (turns, landmarks, rounded metres, no ids) instead of the kit's step text, plus the
@@ -745,14 +781,23 @@ class BuildingSession:
             self.events.append({"type": "location", "space_id": space_id})
         return {"location": location, "note": "The app now shows the user here; pass \"here\" as the start."}
 
+    def shown_route(self) -> dict | None:
+        """The last route event, while it is still on the app's map (no `route_end` after it)."""
+        for event in reversed(self.events):
+            if event["type"] == "route_end":
+                return None
+            if event["type"] == "route":
+                return event
+        return None
+
     def route_card(self) -> list[dict]:
         """The steps of the app's next-move card for the last route shown (core/directions.guidance, as
         backend/sessions.py sends them with the route event); [] when there is none."""
-        route = next((event for event in reversed(self.events) if event["type"] == "route"), None)
+        route = self.shown_route()
         if route is None:
             return []
         try:
-            return guidance(self.building, route.get("space_path") or [], route.get("element_path") or [])
+            return maneuvers(guidance(self.building, route.get("space_path") or [], route.get("element_path") or []))
         except (KeyError, StopIteration):  # path no longer valid on this building
             return []
 
@@ -768,6 +813,24 @@ class BuildingSession:
             self.events.append({"type": "route_step", "index": int(step) - 1})
         return {"shown": int(step), "of": len(steps), "text": steps[int(step) - 1]["text"]}
 
+    def tool_end_route(self, arrived: bool = False, place: str | None = None) -> dict:
+        """Take the route off the app's map and end its step guide (event `route_end`). `arrived`: the user is at
+        its destination, which becomes "here"; else `place`, where they say they are, if given."""
+        route = self.shown_route()
+        if route is None:
+            return {"error": "No route is on the map."}
+        if place:
+            space_id = self.resolve(place)
+        else:
+            last = (route.get("space_path") or [None])[-1]
+            space_id = last if arrived and last in self.building.spaces else None
+        location = self.set_location(space_id) if space_id else None
+        if self.emitting:
+            self.events.append({"type": "route_end", "arrived": bool(arrived),
+                                **({"space_id": space_id} if space_id else {})})
+        return {"ended": True, "location": location,
+                "note": "The route is off the map." + (" The app now shows the user here." if location else "")}
+
     def tool_open_edit_mode(self, request: str | None = None) -> dict:
         """Switch the app to its Edit mode (frontend/app/src/edit/), where the Builder (agent/builder.py) takes the
         request on a draft copy; this session's building is not changed."""
@@ -776,6 +839,16 @@ class BuildingSession:
             self.events.append({"type": "edit_mode", "request": wanted})
         return {"opened": True, "request": wanted,
                 "note": "The app now shows the Edit mode; its Builder takes the request from here, on a copy."}
+
+    def tool_open_building_settings(self) -> dict:
+        """Open the app's Building settings (frontend/app/src/access/BuildingSettings.tsx, admin only): Access
+        (who may enter which rooms), Members and Objects. Personal preferences are not there: they go through
+        set_preference or the app's Preferences sheet. The app opens it for the building's admin and says why not
+        to anyone else; this session's building is not changed."""
+        if self.emitting:
+            self.events.append({"type": "settings"})
+        return {"opened": True, "note": "The app now shows the Building settings (admins only; it tells anyone "
+                                        "else that it needs the admin account)."}
 
     def asset_ref(self, reference: str) -> str | None:
         if reference in self.building.assets:
@@ -801,6 +874,19 @@ class BuildingSession:
         if self.campus is None:
             return {"error": "This building has no known neighbours."}
         return self.campus.route(self, start, building, destination)
+
+    def tool_open_nearby_building(self, building: str) -> dict:
+        """Open a nearby building in the app (frontend/app/src/building/BuildingScreen.tsx `open_building`). When the
+        route on the map leads there (route_to_building), the app continues it: the user stands at its entrance and
+        the rest of the route is drawn. This session's building is not changed; the Guide there starts afresh."""
+        if self.campus is None:
+            return {"error": "This building has no known neighbours."}
+        target = self.campus.resolve_building(building)
+        name = self.campus.catalogue[target].get("name") or target
+        if self.emitting:
+            self.events.append({"type": "open_building", "building": target, "name": name})
+        return {"opened": True, "building": name,
+                "note": "The app now opens it; a route there on the map continues inside it. Say so in one line."}
 
 
 # What propose_change adds from compare_routes, so a proposal already says who loses access and how much longer.
@@ -832,11 +918,24 @@ TOOL_DEFINITIONS: list[dict] = [
     {"name": "find_nearest", "description": "The nearest place with something (\"nearest toilet\", \"closest "
      "kitchen\", \"a meeting room near me\"): ranks every room holding that item kind (or of that room kind/name) by "
      "walking distance under the user's profile, routes to the nearest (the map shows that route only; the result "
-     "is a find_route result) and lists the next two with about_m. Use it instead of several find_route calls.",
+     "is a find_route result) and lists the next two with about_m. Use it instead of several find_route calls. "
+     "closed: lifts, stairs, rooms, corridors or doors closed for THIS question only (\"the lift is out of order\"); "
+     "use propose_change for lasting closures.",
      "input_schema": {"type": "object", "properties": {
          "start": PLACE, "query": {"type": "string", "description": "item or room kind, e.g. toilet, kitchen"},
-         "floor_id": {"type": "string", "description": "only when the user restricts the floor"}},
+         "floor_id": {"type": "string", "description": "only when the user restricts the floor"},
+         "closed": {"type": "array", "items": {"type": "string"}}},
          "required": ["start", "query"]}},
+    {"name": "compute", "description": "Exact building analytics no other tool covers (the smallest / second-largest "
+     "room, how many rooms of a kind, the narrowest door on a route, lists by any criterion). Runs Python over a copy "
+     "of the building and returns what it prints. In scope: b (the BuildingMap: b.spaces, b.floors, b.openings, "
+     "b.connectors, b.assets, dicts by id), spaces(floor=None, room_type=None, type=None), floor_id(name_or_level), "
+     "area(space_id) m², polygon(space_id), place(phrase, floor=None, item=False), route(start, destination, "
+     "stops=(), step_free=None, forklift=None, min_width=None, closed=()) — routes exactly as find_route (your route "
+     "rules, the user's profile) —, solve(kind, **inputs), describe(space_id), "
+     "math, Counter, Polygon, Point, nx; importable: " + ", ".join(sorted(ALLOWED_MODULES)) + ". \"Rooms\" = spaces "
+     "with type room. Print only what you need; state only numbers it printed.", "input_schema": {
+         "type": "object", "properties": {"code": {"type": "string"}}, "required": ["code"]}},
     {"name": "tour", "description": "Visit several places in the given order.", "input_schema": {
         "type": "object", "properties": {"stops": {"type": "array", "items": PLACE}}, "required": ["stops"]}},
     {"name": "reachable_rooms", "description": "Rooms the user can reach from a place under their profile.",
@@ -853,10 +952,15 @@ TOOL_DEFINITIONS: list[dict] = [
      "preset: wheelchair or pram = step-free + doors ≥ 0.8 m (assumed); trolley = step-free, also give "
      "min_door_width_m (ask if unknown); no_lifts; forklift = openings ≥ 3 m, no stairs, no pedestrian walkways; "
      "default = clear all constraints. A preset changes only its own "
-     "fields; explicit fields override it. The result lists assumed values: name them to the user.",
+     "fields; explicit fields override it. The result lists assumed values: name them to the user. When the user "
+     "no longer has a constraint, set just that field back (e.g. they can take stairs again: step_free false) in "
+     "one call; don't re-set fields they didn't mention.",
      "input_schema": {"type": "object", "properties": {
-         "preset": {"type": "string", "enum": list(PRESETS)}, "step_free": {"type": "boolean"},
-         "min_door_width_m": {"type": "number"}, "avoid_lifts": {"type": "boolean"},
+         "preset": {"type": "string", "enum": list(PRESETS)},
+         "step_free": {"type": "boolean", "description": "true = routes must avoid steps and stairs; "
+                       "false = stairs are fine"},
+         "min_door_width_m": {"type": "number", "description": "narrowest door the user fits through; 0 clears it"},
+         "avoid_lifts": {"type": "boolean", "description": "true = never use lifts; false = lifts are fine"},
          "forklift": {"type": "boolean"}}}},
     {"name": "propose_change", "description": "Prepare (not apply) a building change and predict its effect: the "
      "last route before/after and, from that route's start, rooms that lose access and routes that get longer. "
@@ -882,11 +986,20 @@ TOOL_DEFINITIONS: list[dict] = [
      "one the user is at (they moved on, ask what's next, or ask about a later or earlier step).",
      "input_schema": {"type": "object", "properties": {"step": {"type": "integer", "minimum": 1}},
                       "required": ["step"]}},
+    {"name": "end_route", "description": "End the route on the user's map and its step guide: call it when "
+     "the user has arrived at the destination (arrived true; that room becomes their position) or wants to stop, "
+     "cancel or close the directions (arrived false). place: where they say they are now, if they say it.",
+     "input_schema": {"type": "object", "properties": {"arrived": {"type": "boolean"}, "place": PLACE}}},
     {"name": "open_edit_mode", "description": "Switch the app to its Edit mode, where the Builder changes the "
      "building itself on a copy: rename or re-purpose rooms, move or reshape walls, move or widen doors, add, "
      "move or remove items, save as a new building. Pass the user's request in their words (or nothing when they "
      "just want to edit). Not for closing, reopening or adding a door for routing: that is propose_change.",
      "input_schema": {"type": "object", "properties": {"request": {"type": "string"}}}},
+    {"name": "open_building_settings", "description": "Open the app's Building settings (admin only): Access (who "
+     "may enter which rooms), Members and Objects. Use it when the user asks to see or change the building's "
+     "settings, access or members. Only the building's admin can use them; the app says so to anyone else. Not for "
+     "the user's personal preferences: use set_preference, or point them to the app's Preferences sheet.",
+     "input_schema": {"type": "object", "properties": {}}},
 ]
 # Only for buildings with neighbours (BuildingSession.campus).
 CAMPUS_TOOLS = [
@@ -895,10 +1008,17 @@ CAMPUS_TOOLS = [
      "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}},
     {"name": "route_to_building", "description": "Route from a place here to a place in a nearby building: inside "
      "here to the best exit, outside (straight line, rounded), inside there. The app shows the first part and a "
-     "Continue button; give the totals and the first steps.", "input_schema": {"type": "object", "properties": {
+     "Continue button; give the totals and the floors as an overview (no steps). When the user is at the exit or asks to go on / go in, "
+     "call open_nearby_building.", "input_schema": {"type": "object", "properties": {
          "start": PLACE, "building": {"type": "string", "description": "nearby building id or name"},
          "destination": {"type": "string", "description": "place in that building"}},
          "required": ["start", "building", "destination"]}},
+    {"name": "open_nearby_building", "description": "Open a nearby building in the app. Use it when the user wants "
+     "to go into, open, switch to or look at a nearby building, or to go on with a route_to_building route (they are "
+     "at the exit, \"continue\", \"let's go in\"): the app then continues that route inside it. Never tell the "
+     "user to tap Continue or that you can't open it.",
+     "input_schema": {"type": "object", "properties": {
+         "building": {"type": "string", "description": "nearby building id or name"}}, "required": ["building"]}},
 ]
 
 # Access mode only (BuildingSession.preferences_enabled): set_profile with route preferences, and set_preference.

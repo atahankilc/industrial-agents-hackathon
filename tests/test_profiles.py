@@ -101,6 +101,8 @@ def test_cues(text, arguments):
     "Is there a pram room?",
     "Where is the coffee cart?",
     "How many rooms are step-free reachable if Lift 1 is closed?",  # analytics, not a constraint
+    "I don't need step-free routes any more, I can take stairs now",  # lifting a constraint: the model's call
+    "I no longer need step-free routes",
 ])
 def test_no_cue(text):
     assert profile_cues(text) is None

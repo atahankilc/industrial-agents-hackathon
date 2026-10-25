@@ -265,6 +265,10 @@ Template:
 - **Meanwhile:** with ~14 h left, Level 4 Builder is not a priority over the submission ([Q-019](#q-019)). If needed,
   the 797 `floor_*_plain.png` renders across 280 buildings (each with its `building.json`) are a ready eval set
   ([ai-agents.md](../docs/architecture/ai-agents.md#builder-level-4)).
+- **Built anyway (2026-10-25):** the Creator ([plan import design](../docs/superpowers/specs/2026-10-25-plan-import-design.md))
+  takes PDFs / photos / scans and drafts a kit-schema `building.json` (spaces, openings, connectors; no assets), then
+  the Builder corrects it by conversation. Measured on our own renders with `scripts/eval_import.py --full` (count ratio
+  0.97, IoU 0.91, doors 89 %); the organisers' input format and check are still unknown, so the question stays open.
 
 <a id="q-016"></a>
 ### Q-016 — Level 3 "several buildings": what format, and how do walkways link them?

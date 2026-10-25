@@ -20,10 +20,11 @@ const kindOf = (id: string) => KINDS.find((k) => k.test(id))
 const NO_LOCATION = 'nolocation'
 const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
-type Row = Building & { kind: string; kindKey: KindKey | null; haystack: string }
+// kind here is the shown label, not Building's source kind
+type Row = Omit<Building, 'kind'> & { kind: string; kindKey: KindKey | null; haystack: string }
 type Filter = KindKey | typeof NO_LOCATION
 
-export function BuildingSearch({ onOpen, onMap }: { onOpen: (id: string) => void; onMap: () => void }) {
+export function BuildingSearch({ onOpen, onMap, onImport }: { onOpen: (id: string) => void; onMap: () => void; onImport: () => void }) {
   const [buildings, setBuildings] = useState<Row[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -31,7 +32,7 @@ export function BuildingSearch({ onOpen, onMap }: { onOpen: (id: string) => void
   const [active, setActive] = useState(0)
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLOListElement>(null)
-  const { version } = useAccess() // access mode: the list depends on who is signed in
+  const { version, mode, admin } = useAccess() // access mode: the list depends on who is signed in
 
   useEffect(() => {
     api.buildings()
@@ -85,7 +86,10 @@ export function BuildingSearch({ onOpen, onMap }: { onOpen: (id: string) => void
   return (
     <main className="bs">
       <div className="bs-inner">
-        <button className="bs-map" onClick={onMap}>← Map</button>
+        <div className="bs-top">
+          <button className="bs-map" onClick={onMap}>← Map</button>
+          {(!mode || admin) && <button className="bs-map" onClick={onImport}>New from floor plans →</button>}
+        </div>
         <header className="bs-head">
           <h1>Find a building</h1>
           <p>{buildings ? `${buildings.length} buildings` : error ? 'Could not load buildings' : 'Loading…'}</p>

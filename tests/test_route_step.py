@@ -41,3 +41,34 @@ def test_route_note_tells_the_guide_the_cards_step(session):
     assert "[route note" in sent and f"step 2 of {len(steps)}" in sent and steps[1]["text"] in sent
     guide.reply("And then?", route_step=99)  # out of range: no note
     assert "[route note" not in guide.messages[-2]["content"]
+
+
+def test_end_route_takes_it_off_the_map(session):
+    assert session.call("end_route", {"arrived": True}).get("error")  # no route on the map yet
+    routed(session)
+    destination = session.events[-1]["space_path"][-1]
+    result = session.call("end_route", {"arrived": True})
+    assert result["ended"] and result["location"]["space_id"] == destination
+    assert session.events[-1] == {"type": "route_end", "arrived": True, "space_id": destination}
+    assert session.user_location["space_id"] == destination
+    assert session.route_card() == [] and session.call("show_route_step", {"step": 1}).get("error")
+    assert session.call("end_route", {}).get("error")  # already ended
+
+
+def test_end_route_cancelled_keeps_the_position_unless_told(session):
+    routed(session)
+    result = session.call("end_route", {"arrived": False})
+    assert result["location"] is None and session.user_location is None
+    assert session.events[-1] == {"type": "route_end", "arrived": False}
+    routed(session)
+    result = session.call("end_route", {"arrived": False, "place": "Main lobby"})
+    assert result["location"]["name"] == "Main lobby" and session.events[-1]["space_id"] == result["location"]["space_id"]
+
+
+def test_directions_are_an_overview_that_ends_in_the_start_line():
+    """D-020: no first step and no "do you want to start?"; the app reads the steps after Start."""
+    from agent.guide import INSTRUCTIONS, VOICE_STYLE
+
+    for text in (INSTRUCTIONS, VOICE_STYLE):
+        assert "Say start or press Start" in text and "first step only" not in text
+    assert "don't want step by step" in INSTRUCTIONS

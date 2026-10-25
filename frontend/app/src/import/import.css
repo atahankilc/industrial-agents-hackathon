@@ -1,0 +1,48 @@
+/* Create from floor plans (ImportScreen). Same tokens and rhythm as the building search (search/search.css). */
+
+.im { position: fixed; inset: 0; overflow: auto; background: var(--bg); color: var(--ink); }
+.im-inner { max-width: 640px; margin: 0 auto; padding: 12vh 24px 64px; }
+.im-back {
+  margin: 0 0 18px -10px; padding: 6px 10px; border: 0; border-radius: 999px; background: transparent;
+  color: var(--ink-2); font-size: 13px; cursor: pointer;
+}
+.im-back:hover, .im-back:focus-visible { background: var(--fill); color: var(--ink); outline: none; }
+.im-head h1 { margin: 0; font-size: 28px; font-weight: 500; letter-spacing: -0.02em; }
+.im-head p { margin: 8px 0 0; color: var(--ink-3); font-size: 13.5px; line-height: 1.5; }
+
+.im-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; margin-top: 28px;
+  height: 160px; border: 1.5px dashed var(--hair-strong); border-radius: var(--radius); color: var(--ink-2);
+  font-size: 14px; cursor: pointer; transition: background-color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.im-drop svg { width: 26px; height: 26px; stroke: var(--ink-3); }
+.im-drop:hover, .im-drop:focus-visible, .im-drop.over { background: var(--fill); border-color: var(--ink-3); outline: none; }
+
+.im-files { list-style: none; margin: 16px 0 0; padding: 0; border-top: 1px solid var(--hair); }
+.im-files li {
+  display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px; padding: 8px 4px;
+  border-bottom: 1px solid var(--hair); font-size: 13.5px;
+}
+.im-files li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.im-size { font: 11.5px var(--mono); color: var(--ink-3); }
+.im-files button { border: 0; background: transparent; color: var(--ink-3); cursor: pointer; padding: 2px; display: flex; }
+.im-files button svg { width: 15px; height: 15px; }
+.im-files button:hover { color: var(--ink); }
+
+.im-go {
+  margin-top: 22px; padding: 11px 20px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg);
+  font-size: 14px; cursor: pointer;
+}
+.im-go:disabled { opacity: 0.35; cursor: default; }
+
+.im-work { margin-top: 30px; }
+.im-doing { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 14px; color: var(--ink); }
+.im-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); animation: im-pulse 1.2s ease-in-out infinite; }
+@keyframes im-pulse { 50% { opacity: 0.25; transform: scale(0.7); } }
+.im-said { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 1px solid var(--hair-strong); }
+.im-said li { margin: 0 0 9px; font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
+.im-said li:last-child { color: var(--ink); }
+.im-warn { margin: 10px 0 0; font: 12px var(--mono); color: #b26a00; }
+.im-end { margin: 18px 0 0; font-size: 14px; color: var(--ink); }
+
+@media (max-width: 760px) { .im-inner { padding: 8vh 16px 48px; } }

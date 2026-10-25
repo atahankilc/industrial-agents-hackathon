@@ -80,11 +80,42 @@ function roomHash(text: string) {
   return ((h >>> 0) % 1000) / 1000
 }
 
+/** floors built ahead by prepareFloors, taken once by the next buildFloors of the same plan, palette and look (the
+ * fills get recoloured in place, so a second view of the plan builds its own) */
+const prepared = new WeakMap<Plan, { palette: PlanPalette; look: string; floors: FloorGeometry[] }>()
+const lookKey = (look: Look) => `${look.wallHeight}|${look.colours}`
+
 export function buildFloors(plan: Plan, palette: PlanPalette, look: Look): FloorGeometry[] {
+  const ready = prepared.get(plan)
+  if (ready) {
+    prepared.delete(plan)
+    if (ready.palette === palette && ready.look === lookKey(look)) return ready.floors
+  }
   return plan.floors.map((_, index) => buildFloor(plan, index, palette, look))
 }
 
-function buildFloor(plan: Plan, floor: number, palette: PlanPalette, look: Look): FloorGeometry {
+/** A frame for the page (the map's fly-in) between two floors; a hidden tab gets no frames, so a timer backs it up. */
+const nextFrame = () => new Promise<void>((resolve) => {
+  const done = () => {
+    clearTimeout(timer)
+    resolve()
+  }
+  const timer = setTimeout(done, 50)
+  requestAnimationFrame(() => setTimeout(done, 0))
+})
+
+/** Build a plan's floors ahead of its first view, one floor per frame, so the model is ready when it is shown and
+ * the page doesn't freeze while the whole building is built in one go. */
+export async function prepareFloors(plan: Plan, palette: PlanPalette, look: Look): Promise<void> {
+  const floors: FloorGeometry[] = []
+  for (let index = 0; index < plan.floors.length; index++) {
+    await nextFrame()
+    floors.push(buildFloor(plan, index, palette, look))
+  }
+  prepared.set(plan, { palette, look: lookKey(look), floors })
+}
+
+export function buildFloor(plan: Plan, floor: number, palette: PlanPalette, look: Look): FloorGeometry {
   const spaces = plan.spaces.filter((space) => space.floor === floor)
 
   // ---- floor fills

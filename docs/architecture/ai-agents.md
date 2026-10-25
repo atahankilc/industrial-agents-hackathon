@@ -19,7 +19,7 @@ distance, count or route that did not come from a tool result ([D-003](../../mem
 |---|---|---|---|---|
 | **Building Guide** | conversation: find, route, react, edit; clarifies; remembers user profile. **v1 implemented** (terminal, `agent/guide_v1/`: 6 tools, grounding check, session; live scripted run 16/16 turns, 9 conversations, [spec](../superpowers/specs/2026-10-24-guide-agent-design.md), [plan](../superpowers/plans/2026-10-24-guide-agent.md)); the v1 Guide has no edit tools, UI or voice — those are in the canonical `agent/guide.py` (below) | Opus 5.5 default (`GUIDE_MODEL`), medium effort | terminal REPL; text chat + voice (via ElevenLabs) planned | Interaction 25, L1–L3 |
 | **Benchmark pipeline** | question text → parse → solver → `Answer:` line; no free-form LLM | none; Haiku/Sonnet only as parse fallback | CLI `run_benchmark`, `benchmark.evaluate --agent` | Does it work 55 |
-| **Builder** | floor-plan image → draft `building.json` → validate → user confirms | Opus 5.5 (vision) | UI upload + chat | L4 |
+| **Builder** | floor-plan image → draft `building.json` → validate → user confirms; drafting from plans is the **Creator** ([design](../superpowers/specs/2026-10-25-plan-import-design.md), [plan](../superpowers/plans/2026-10-25-plan-import.md), in progress) | Opus 5.5 (vision) | UI upload + chat | L4 |
 | (dev) **Claude Code subagents** | build the product: research, solvers, tests | — | this repo | — |
 
 Model ids: [claude-api skill / docs]; switch by env var, compare cost/quality with `benchmark.evaluate`.
@@ -35,7 +35,8 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 | `search(query, floor?)` | ranked spaces/assets with ids | no |
 | `room_facts(space)` | area, centre, floor, neighbours (shared walls), above/below (omitted on Swiss Dwellings buildings, floors not aligned — [solver-plan](solver-plan.md#straight_line_3d)), doors + widths | no |
 | `find_route(from, to, via?, profile)` | node path, metres, steps with landmarks, profile used | no |
-| `find_nearest(start, query, floor_id?)` | the nearest room holding that item kind (or matching room kind/name) by route length under the profile: a `find_route` result plus `nearest` and `next_nearest` (the next 2, with `about_m`); emits one route (to the nearest) + a highlight | no |
+| `find_nearest(start, query, floor_id?, closed?)` | the nearest room holding that item kind (or matching room kind/name) by route length under the profile: a `find_route` result plus `nearest` and `next_nearest` (the next 2, with `about_m`); emits one route (to the nearest) + a highlight. `closed`: closures for this question only, used for the ranking and the final route; only the 12 candidates nearest in a straight line are routed to (`core/route_query.shortlist`) | no |
+| `compute(code)` | what the Python prints: code over a copy of the building in the solver agent's sandbox (`agent/solver_agent.py`: restricted builtins, module whitelist, 30 s limit); its `route()` routes as `find_route` does (the Guide's route rules, the user's profile and closures, "here"), so code and tools never disagree; access-mode preference penalties are not applied ([D-022](../../memory-bank/decisions.md#d-022)) | no (works on a copy) |
 | `compare_routes(before/after change)` | diff: rooms that lost access, extra metres | no |
 | `set_profile(...)` | the active [routing profile](../product/routing-profiles.md) for this user | user state only |
 | `propose_change(kind, …)` | a **pending** change (close lift, add door, move asset) + its predicted effect | no — needs confirm |
@@ -43,14 +44,17 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 | `show_on_map(space_ids?, asset_ids?)` | UI event (highlight rooms and items / fly to / switch floor) | no |
 | `set_my_location(place)` | the user's position ("here" from now on) + UI event `location` (the "you are here" figure) | user state only |
 | `show_route_step(step)` | moves the app's step card to `step` (1-based, the card's numbering from the `[route note]`); UI event `route_step` | no |
+| `end_route(arrived?, place?)` | takes the route off the map and ends its step guide; `arrived` makes the destination the user's position, `place` sets the one they name; UI event `route_end` | user state only |
 | `open_edit_mode(request?)` | UI event `edit_mode`: the app opens its Edit mode, the Builder takes the request | no |
+| `open_building_settings()` | UI event `settings`: the app opens the Building settings for the building's admin, and says they need the admin account to anyone else | no |
 | `search_nearby_buildings(query)` / `route_to_building(start, building, destination)` | matches / a route in the buildings next to this one (only offered when the building has located neighbours) | no |
+| `open_nearby_building(building)` | UI event `open_building`: the app opens that neighbour; a `route_to_building` route to it on the map goes on inside it (same path as its Continue button). Only with located neighbours | no |
 
 **Implemented (2026-10-24):** `agent/tools.py` — `BuildingSession` (private building copy, routing profile,
 pending/applied changes, UI events) + `TOOL_DEFINITIONS` (Anthropic tool schemas) for building_overview, search,
 locate, count_assets, room_facts, find_route, tour, reachable_rooms, solve (every benchmark kind), set_profile,
 propose_change, apply_change, compare_routes, show_on_map (`space_ids` and `asset_ids`), set_my_location,
-open_edit_mode, find_nearest, show_route_step. Since 2026-10-25: `set_my_location(place)` makes that space the user's position and emits a
+open_edit_mode, find_nearest, show_route_step, compute. Since 2026-10-25: `set_my_location(place)` makes that space the user's position and emits a
 `location` event (the app moves its "you are here" figure there); every place argument then also accepts "here"
 (`HERE` in `agent/tools.py`: "here", "me", "my location", …; unknown position → an error telling the model to ask).
 `open_edit_mode(request?)` emits an `edit_mode` event and the app switches to its Edit mode, where the Builder
@@ -61,16 +65,17 @@ search or ask. Profile → constraints: `min_door_width_m` and `avoid_lifts` act
 lifts. Built on `core/navigation.py` (locate, count, find_route, tour; gold path format) and `core/solvers/`.
 Tests: `tests/test_agent_tools.py`.
 
-**Nearest place and the step card (2026-10-25):** `find_nearest(start, query, floor_id?)` takes the rooms holding
-an item of kind `query` (via `locate`), else the rooms whose kind/name matches, ranks the reachable ones by route
-length under the user's profile, routes to the nearest (one `route` event, so the map shows only that route) and
+**Nearest place and the step card (2026-10-25):** `find_nearest(start, query, floor_id?, closed?)` takes the rooms
+holding an item of kind `query` (via `locate`), else the rooms whose kind/name matches, keeps only the 12 nearest
+in a straight line (`core/route_query.shortlist`), ranks the reachable ones by route length under the user's profile
+plus `closed` (closures for this question only, e.g. "the lift is out of order"; also applied to the final route), routes to the nearest (one `route` event, so the map shows only that route) and
 highlights it; the result is a `find_route` result with `nearest` and `next_nearest` (the next 2, each with
 `about_m`). The system prompt sends "nearest/closest X" to it without asking which; it is in `PROFILE_TOOLS`
 (`agent/guide.py`). While a route is followed the app sends `route_step` (the card's 0-based step) with `/chat`
 and `/chat/stream` (`backend/app.py`); `Guide.route_note` turns it into a `[route note]` listing the card's steps
 (`BuildingSession.route_card`) and the current one. `show_route_step(step)` (1-based, card numbering) emits a
 `route_step` event `{index: step - 1}` and the app moves the card there; the prompt tells the Guide to call it
-whenever it talks about another step. Test: `tests/test_route_step.py`.
+whenever it talks about another step. `end_route(arrived?, place?)` emits `route_end` (with `space_id` when the position changed): the app clears the route, stops the step guide, tracking and camera walk, and moves the figure; the prompt calls it on arrival and when the user wants to stop the directions. When the app ends a route itself (End directions, "stop"/"iptal", or the arrival) it calls `DELETE /sessions/{id}/route` and places the figure (destination, else tracking's position, else the last step reached) via the location endpoint; after a `route_end` `route_card` is empty. Test: `tests/test_route_step.py`.
 
 `compare_routes(change_id, start?)` works on a **pending** change (current building vs the building with the
 change) or an **applied** one (snapshot before vs after `apply_change`). From `start` (default: the last route's
@@ -95,8 +100,9 @@ events — so one call answers "what happens if…", and the model never counts 
 - **Profile once, remember always.** Infer constraints (wheelchair, trolley width, no lifts, quiet) from the
   conversation, confirm once in one line, store in the session/user profile → used by every later route
   without asking twice ([routing-profiles.md](../product/routing-profiles.md)).
-- **Echo understanding in one line** (from → to, constraints, closures), then the total, the floors crossed and the
-  first step only: the app shows the whole route and guides step by step
+- **Echo understanding in one line** (from → to, constraints, closures), then the total and the floors crossed — an
+  overview, no step — ending in "Say start or press Start when you're ready."; after Start the app reads the steps
+  one by one; "no steps" gets the whole route in a few sentences instead
   ([D-020](../../memory-bank/decisions.md#d-020)). With the app's "you are here" figure placed, "here" is the start
   and the Guide never asks where the user is. Not in this building → `search_nearby_buildings` /
   `route_to_building` for located buildings ([D-021](../../memory-bank/decisions.md#d-021), `agent/campus.py`).
@@ -334,7 +340,7 @@ without the model. **Milestone 3 built (2026-10-24, deploy pending):** with `SUP
 and the Builder's conversation live in Postgres (`builder_drafts`, `saved_buildings`), so any serverless instance
 serves any request — a proposal made on one instance can be applied on another; each person edits their own draft,
 concurrent writes are version-checked (409); saved buildings are shared with everyone
-([milestone 3 plan](../superpowers/plans/2026-10-24-builder-edit-mode-m3.md)). Not yet: plan images (project 2).
+([milestone 3 plan](../superpowers/plans/2026-10-24-builder-edit-mode-m3.md)). Plan images (project 2): the Creator agent, [design](../superpowers/specs/2026-10-25-plan-import-design.md) and [plan](../superpowers/plans/2026-10-25-plan-import.md) (in progress, 2026-10-25).
 
 1. Upload plan image (PNG/PDF page) or describe changes by conversation.
 2. Claude vision drafts `floors`/`spaces`/`openings` in our schema (scale from a known dimension the user gives
@@ -344,6 +350,29 @@ concurrent writes are version-checked (409); saved buildings are shared with eve
 4. Render the draft over the image; user confirms or corrects by chat ("the door is on the north wall").
 5. Measure on our own data: rebuild train buildings from `floor_*_plain.png` and compare to `building.json`
    (room count, area error, connectivity) — a measurable L4 score.
+
+### Creator — plans → building (`agent/creator.py`, 2026-10-25)
+
+[Design](../superpowers/specs/2026-10-25-plan-import-design.md) · [plan](../superpowers/plans/2026-10-25-plan-import.md).
+Upload PDFs / photos / scans (HEIC too) → the Creator, a Claude tool loop (`CREATOR_MODEL`, default
+`claude-opus-5-5`, `CREATOR_EFFORT` medium) over the deterministic stages in `core/plan_import/`, builds the whole
+building without asking anything; the result opens as a draft on a private base `import/<id>` and the Builder above
+corrects it. Code does all geometry (wall mask → cells → doors, colour separators, scale, stacking); the model reads
+the drawings (which page is which floor, what each numbered cell is, names from legends and signs) and looks at its
+own overlays. Fallbacks it chooses itself: colour segmentation, `add_rooms` (cut merged rooms out, or add open rooms
+with cell 0), coarse boxes per room (marked `low_confidence`). Stairs / lifts join floors by name, then distance;
+floors that would stay unconnected get their nearest pair (`synthetic: true`). Import notes (scale method, segmentation,
+alignment, carved rooms) are kept in `building.source_ref.import`.
+
+Measured (live, Opus 5.5 medium, 2026-10-25): `eval_import.py --full --n 8` on dataset renders — median room-count
+ratio 0.97, median IoU 0.91, median door pairs found 89 %, 6/8 runs without errors, ≈ $1.09 for all 8 (16–152 s each;
+weakest: a 71-room OSM basement, 21 % of doors). Urban Colab escape-plan photos (11 HEIC originals): 5 floors / 104
+spaces, all floors joined by real stairs + lift, 23 errors left (13 doors off a shared wall, 7 unreachable, 3 overlaps)
+for the Builder to fix, 766 s, ≈ $1.73. Residenz brochure PDF: 2 floors / 56 spaces / 0 errors, 174 s (coarse boxes,
+legend names). Rathaus 1900s drawing: 59 spaces / 0 errors, 139 s, ≈ $0.35. Projektsteckbrief (text + landscape plans):
+`no_plan` in 10 s. Segmentation alone (no model) on 30 renders: median IoU 0.40 — the Creator's labelling and fixes take
+it to 0.91. Cost lesson: keep the prompt prefix stable (an earlier version dropped one image per turn and paid ≈ $4.4
+of ≈ $4.8 per Urban Colab run in cache writes).
 
 ## Budget
 

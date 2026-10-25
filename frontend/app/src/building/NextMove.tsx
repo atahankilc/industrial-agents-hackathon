@@ -3,12 +3,11 @@
 // directions never disagree. One segment per step below: tap the card (or ›) for the next one, a segment to jump.
 // While tracking (useTracking), the metres count down from your position, and a last line says where that position
 // comes from and how old it is; it turns amber when it rests on many counted steps.
-// Before the guide starts the card offers Start (the map shows the whole route meanwhile); once started, "I'm there"
-// moves on, and a route that goes on in a nearby building ends in Continue.
+// Shown in the camera walk (CameraWalk); on the plan, Start / "I'm there" / Done / Continue are RouteHud's RouteBar.
 
-import { ArrowRight, Check, ChevronLeft, ChevronRight, LocateFixed, Play, ScanEye, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LocateFixed, ScanEye, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { GuideStep, NextBuilding } from '../api'
+import type { GuideStep } from '../api'
 import { TurnIcon } from '../ui/TurnIcon'
 import type { RouteTrack } from './tracking'
 import type { Position } from './useTracking'
@@ -29,15 +28,9 @@ type Props = {
   onTrack?: () => void
   position?: Position | null
   track?: RouteTrack | null
-  /** the step-by-step guide: started or not, and how to start it (absent: no guide, e.g. in the camera view) */
-  guiding?: boolean
-  onStart?: () => void
-  /** the route goes on in a nearby building */
-  next?: NextBuilding | null
-  onContinue?: (next: NextBuilding) => void
 }
 
-export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onCamera, inline = false, tracking = false, onTrack, position, track, guiding = false, onStart, next, onContinue }: Props) {
+export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onCamera, inline = false, tracking = false, onTrack, position, track }: Props) {
   const step = steps[index]
   if (!step) return null
   const last = steps.length - 1
@@ -85,7 +78,8 @@ export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onC
           )}
         </span>
       </header>
-      <button type="button" className={`move ${step.kind}`} onClick={() => go(index + 1)} disabled={index === last} aria-label={step.text}>
+      {/* keyed by the step, so a new step slides in (hud.css .next-move .move) */}
+      <button key={index} type="button" className={`move ${step.kind}`} onClick={() => go(index + 1)} disabled={index === last} aria-label={step.text}>
         <span className="arrow">
           <TurnIcon leg={step} size={30} stroke={2.2} />
         </span>
@@ -113,28 +107,6 @@ export function NextMove({ steps, index, lengthM, profile, onIndex, onClose, onC
           </li>
         ))}
       </ol>
-      {(onStart || next) && (
-        <div className="guide-actions">
-          {onStart && !guiding && (
-            <button type="button" className="primary" onClick={onStart}>
-              <Play size={15} />
-              Start — guide me step by step
-            </button>
-          )}
-          {onStart && guiding && index < last && (
-            <button type="button" className="primary" onClick={() => go(index + 1)}>
-              <Check size={15} />
-              I'm there — next step
-            </button>
-          )}
-          {next && onContinue && (guiding ? index === last : true) && (
-            <button type="button" className={guiding ? 'primary' : ''} onClick={() => onContinue(next)}>
-              Continue in {next.name} · {next.outdoor_m} m {next.heading}
-              <ArrowRight size={15} />
-            </button>
-          )}
-        </div>
-      )}
       {live && <Fix position={live} />}
     </section>
   )
@@ -168,7 +140,7 @@ const DEFAULT_PROFILE = 'stairs allowed'
 
 const TURN = { left: 'Turn left', right: 'Turn right', back: 'Turn around', straight: '' } as const
 
-function title(step: GuideStep): string {
+export function title(step: GuideStep): string {
   const turn = TURN[step.turn]
   if (step.kind === 'arrive') return step.to_id === 'outside' ? 'You are outside' : `${step.to}`
   if (step.kind === 'exit') return turn ? `${turn} and leave the building` : 'Leave the building'
@@ -179,7 +151,7 @@ function title(step: GuideStep): string {
   return turn ? `${turn} into ${step.to}` : `Into ${step.to}`
 }
 
-function detail(step: GuideStep): string | null {
+export function detail(step: GuideStep): string | null {
   if (step.kind === 'arrive') return step.to_id === 'outside' ? null : `You have arrived${step.floor ? ` · ${step.floor}` : ''}`
   if (step.kind === 'connector') return null
   if (step.landmark) return `by the ${step.landmark}`
@@ -187,7 +159,7 @@ function detail(step: GuideStep): string | null {
 }
 
 /** How the Guide says a total distance (core/directions.about_m): whole metres below 10, steps of 5, of 10 from 100. */
-function aboutM(metres: number): number {
+export function aboutM(metres: number): number {
   const step = metres < 10 ? 1 : metres < 100 ? 5 : 10
   return Math.max(1, Math.floor(metres / step + 0.5) * step)
 }

@@ -1,6 +1,6 @@
 // Landing: the buildings with a real position (GET /buildings `location`, the kit's OpenStreetMap buildings) as pins
-// on a city map; tap a pin or a row to open the building. Every other building has no position and is found in the
-// list view (search). Map: MapLibre with our own base style on OpenFreeMap's tiles (./style.ts), light or dark with
+// on a city map; tap a pin or a row to open the building. The panel lists every building, the ones on the map first,
+// then the ones with no position; a field narrows it by name and chips by kind (campus, factory, home, …). Map: MapLibre with our own base style on OpenFreeMap's tiles (./style.ts), light or dark with
 // the app theme, tilted, buildings extruded to their OSM height (streamed with the tiles, nothing stored). Pins and names are map layers drawn above, so names that would collide
 // are dropped by the map itself.
 // With a building open the map stays mounted under its screen (src/Root.tsx): it flies in to the building and then
@@ -11,22 +11,34 @@
 import maplibregl, { type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Building } from '../api'
+import { useAccess } from '../access/auth'
+import type { Building, BuildingKind } from '../api'
 import { useTheme } from '../theme'
 import { applyBlocks, attachMap, FLAT_FOV, osmHeights, setTheme, toLngLat, type Origin } from './bridge'
+import '../building/hud.css' // the HUD tokens (--hud-*) the panel shares with the building screen
 import './map.css'
-import { BUILDINGS_FROM_ZOOM, MODEL_TONES, mapStyle, modelColours, modelTones } from './style'
+import { BUILDINGS_FROM_ZOOM, MODEL_TONES, mapStyle, mix, modelColours, modelTones } from './style'
+import { reducedMotion } from '../motion'
 
+// the list's kind chips, in this order; a chip shows only when some building has that kind
+const KINDS: { kind: BuildingKind; label: string }[] = [
+  { kind: 'campus', label: 'Campus' },
+  { kind: 'factory', label: 'Factory' },
+  { kind: 'home', label: 'Home' },
+  { kind: 'real', label: 'Real' },
+  { kind: 'saved', label: 'Saved' },
+]
 const MUNICH = { center: [11.575, 48.14] as [number, number], zoom: 10.5 }
 const FIT_PADDING = { top: 80, right: 60, bottom: 80, left: 60 }
-const PANEL_PX = 340 // wide screens: the list panel covers the map's left edge
+const PANEL_PX = 416 // wide screens: the list panel covers the map's left edge
 const WIDE_PX = 900
 const PITCH = 50
 const FOV = 36.87 // MapLibre's own vertical field of view (degrees)
 const FLY = { zoom: 17.6, pitch: 56, bearing: -45 } // close to where the model's first framing lands (src/plan/PlanView.tsx TILTED)
 const FLY_MS = 1500
+const PICK_ZOOM = 17 // a building picked in the list: close enough to see its block and tap it
 const CALM_FLY_MS = 1000 // with "reduce motion" on: still a flight (the move tells you where you are), just shorter
-const flyMs = () => (matchMedia('(prefers-reduced-motion: reduce)').matches ? CALM_FLY_MS : FLY_MS)
+const flyMs = () => (reducedMotion() ? CALM_FLY_MS : FLY_MS)
 // pins in the HUD's ink, ringed in the ground colour, on a soft disc that marks them from afar (no glow)
 const PIN = {
   light: { fill: '#111215', ring: '#F2F2EF', disc: '#111215', text: '#111215', halo: '#F2F2EF' },
@@ -38,14 +50,26 @@ const HIT_LAYERS = ['pins', 'pin-names', 'pin-discs', 'model-blocks', 'model-foo
 const MODEL_LAYERS = ['model-footprints', 'model-blocks', 'model-edges']
 const HIT_SLOP = 14
 const LOCATE_DISMISSED = 'ml-locate-dismissed' // "Not now" on the location card, remembered per browser
+const LOCATE_ALLOWED = 'ml-locate-allowed' // "Allow" on it: an iOS home screen app forgets the grant on every launch
 
 type Located = Building & { location: NonNullable<Building['location']> }
 /** light up a building's pin and block */
 function hoverBuilding(map: MapLibreMap, id: string, on: boolean) {
   for (const source of ['buildings', 'models']) if (map.getSource(source)) map.setFeatureState({ source, id }, { hover: on })
 }
+/** keep a building's pin and block lit while it is the one picked in the list */
+function selectBuilding(map: MapLibreMap, id: string, on: boolean) {
+  for (const source of ['buildings', 'models']) if (map.getSource(source)) map.setFeatureState({ source, id }, { selected: on })
+}
+// a pin or block is lit while under the pointer or picked in the list
+const LIT: maplibregl.ExpressionSpecification = [
+  'any',
+  ['boolean', ['feature-state', 'hover'], false],
+  ['boolean', ['feature-state', 'selected'], false],
+]
 
 const nameOf = (b: Building) => b.name ?? b.id.split('/')[1]
+const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 /** the building open on top of the map */
 export type Focus = { id: string; origin: Origin }
 
@@ -66,13 +90,14 @@ function easeFov(map: MapLibreMap, to: number, ms: number) {
   easing.set(map, requestAnimationFrame(step))
 }
 
-export function MapLanding({ buildings, error, focus, onOpen, onList }: {
+export function MapLanding({ buildings, error, focus, onOpen, onImport }: {
   buildings: Building[] | null
   error: string | null
   focus: Focus | null
   onOpen: (id: string) => void
-  onList: () => void
+  onImport: () => void
 }) {
+  const access = useAccess() // access mode: only the admin creates buildings (an import is a paid Creator run)
   const { dark } = useTheme()
   setTheme(dark) // the blocks the bridge draws around an open building take the map's colours
   const container = useRef<HTMLDivElement>(null)
@@ -82,6 +107,9 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
   const focusRef = useRef(focus)
   focusRef.current = focus
   const geolocateRef = useRef<maplibregl.GeolocateControl | null>(null)
+  // the building picked in the list: the map flies to it and keeps it lit; a tap on it on the map opens it
+  const [picked, setPicked] = useState<string | null>(null)
+  const pickRef = useRef(setPicked)
   const [askLocation, setAskLocation] = useState(false)
 
   const located = useMemo(
@@ -91,7 +119,21 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
         .sort((a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { numeric: true })),
     [buildings],
   )
-  const elsewhere = (buildings?.length ?? 0) - located.length
+  // every other building has no position: listed after the ones on the map
+  const elsewhere = useMemo(
+    () => (buildings ?? []).filter((b) => !b.location).sort((a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { numeric: true })),
+    [buildings],
+  )
+  // the search field: by name only, accents and case ignored, every word must match
+  const [query, setQuery] = useState('')
+  const words = fold(query).split(/\s+/).filter(Boolean)
+  // the kind chips: one at a time, none = every kind
+  const [kind, setKind] = useState<BuildingKind | null>(null)
+  const kinds = KINDS.filter((k) => buildings?.some((b) => b.kind === k.kind))
+  const named = (b: Building) => (!kind || b.kind === kind) && words.every((w) => fold(nameOf(b)).includes(w))
+  const shownLocated = located.filter(named)
+  const shownElsewhere = elsewhere.filter(named)
+  const shown = [...shownLocated, ...shownElsewhere]
 
   // the map: created once; its style follows the theme (a style swap drops our layers, so they go back on style.load)
   useEffect(() => {
@@ -135,6 +177,7 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
     map.on('click', (event) => {
       const id = hit(event.point)
       if (id) openRef.current(id)
+      else pickRef.current(null)
     })
     map.on('mousemove', (event) => {
       const id = hit(event.point)
@@ -186,28 +229,34 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
       // (each in its tone, the one under the pointer lit up, every footprint traced: see modelColours)
       const models = modelColours(dark)
       const tall: maplibregl.ExpressionSpecification = ['+', ['max', ['get', 'height'], ['get', 'osm']], 0.4]
-      const lit: maplibregl.ExpressionSpecification = ['boolean', ['feature-state', 'hover'], false]
+      const lit = LIT
       const byTone = (pick: (tone: number) => maplibregl.ExpressionSpecification | string) =>
         ['match', ['get', 'tone'], ...MODEL_TONES.slice(1).flatMap((_, i) => [i + 1, pick(i + 1)]), pick(0)] as unknown as maplibregl.ExpressionSpecification
+      // the building being opened breathes, lit or not, toward a paler accent until its model is there (bridge.ts
+      // `pulse`)
+      const breathing = (base: maplibregl.ExpressionSpecification): maplibregl.ExpressionSpecification =>
+        ['interpolate', ['linear'], ['number', ['feature-state', 'pulse'], 0], 0, base, 1, mix(models.hover, 0.25)]
       map.addSource('models', { type: 'geojson', data: modelData(), promoteId: 'id' })
+      // the flat footprint and its edge lie on the ground under the OSM blocks, so the blocks in front hide them
+      const ground = map.getLayer('buildings-3d') ? 'buildings-3d' : undefined
       map.addLayer({
         id: 'model-footprints',
         type: 'fill',
         source: 'models',
         minzoom: 12,
         maxzoom: BUILDINGS_FROM_ZOOM + 0.6,
-        paint: { 'fill-color': ['case', lit, models.hover, byTone((tone) => modelColours(dark, tone).wall)] },
-      })
+        paint: { 'fill-color': breathing(['case', lit, models.hover, byTone((tone) => modelColours(dark, tone).wall)]) },
+      }, ground)
       map.addLayer({
         id: 'model-blocks',
         type: 'fill-extrusion',
         source: 'models',
         minzoom: BUILDINGS_FROM_ZOOM,
         paint: {
-          'fill-extrusion-color': [
+          'fill-extrusion-color': breathing([
             'case', lit, models.hover,
             byTone((tone) => ['interpolate', ['linear'], tall, 0, modelColours(dark, tone).wall, 45, modelColours(dark, tone).roof]),
-          ],
+          ]),
           'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], BUILDINGS_FROM_ZOOM, 0, BUILDINGS_FROM_ZOOM + 0.6, tall],
           'fill-extrusion-opacity': 0.95,
           'fill-extrusion-vertical-gradient': true,
@@ -219,9 +268,9 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
         source: 'models',
         minzoom: 12,
         paint: { 'line-color': models.edge, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 0.8, 17, 1.8], 'line-opacity': 0.9 },
-      })
+      }, ground)
       map.addSource('buildings', { type: 'geojson', data, promoteId: 'id' })
-      const hover: maplibregl.ExpressionSpecification = ['boolean', ['feature-state', 'hover'], false]
+      const hover = LIT
       map.addLayer({
         id: 'pin-discs',
         type: 'circle',
@@ -385,8 +434,10 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
   useEffect(() => {
     if (!('geolocation' in navigator) || focusRef.current) return
     let dismissed = false
+    let allowed = false
     try {
       dismissed = localStorage.getItem(LOCATE_DISMISSED) === '1'
+      allowed = localStorage.getItem(LOCATE_ALLOWED) === '1'
     } catch {
       // storage blocked: ask again next time
     }
@@ -395,23 +446,55 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
       ?.query({ name: 'geolocation' })
       .then((status) => {
         if (cancelled) return
-        if (status.state === 'granted') locate()
+        // allowed here before: straight to the browser's own prompt, not our card again in front of it
+        if (status.state === 'granted' || (status.state === 'prompt' && allowed)) locate()
         else if (status.state === 'prompt' && !dismissed) setAskLocation(true)
       })
-      .catch(() => !cancelled && !dismissed && setAskLocation(true))
-    if (!navigator.permissions && !dismissed) setAskLocation(true)
+      .catch(() => !cancelled && (allowed ? locate() : !dismissed && setAskLocation(true)))
+    if (!navigator.permissions) {
+      if (allowed) locate()
+      else if (!dismissed) setAskLocation(true)
+    }
     return () => {
       cancelled = true
     }
   }, [])
   const answerLocation = (allow: boolean) => {
     setAskLocation(false)
-    if (allow) return locate()
     try {
-      localStorage.setItem(LOCATE_DISMISSED, '1')
+      localStorage.setItem(allow ? LOCATE_ALLOWED : LOCATE_DISMISSED, '1')
     } catch {
       // storage blocked: nothing to remember
     }
+    if (allow) locate()
+  }
+
+  // the picked building stays lit on the map (feature state is dropped with a style swap, so set again on style.load)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !picked) return
+    const light = () => selectBuilding(map, picked, true)
+    light()
+    map.on('style.load', light)
+    map.on('idle', light)
+    return () => {
+      map.off('style.load', light)
+      map.off('idle', light)
+      if (mapRef.current === map) selectBuilding(map, picked, false) // (not once the map itself is gone)
+    }
+  }, [picked])
+
+  // a row: a building on the map is flown to and picked (it opens from the map); one with no position has nowhere
+  // to fly to, so it opens at once
+  const pick = (b: Building) => {
+    const map = mapRef.current
+    if (!b.location || !map) return onOpen(b.id)
+    setPicked(b.id)
+    const outline = (b.location.outline ?? []).flat()
+    const bounds = new maplibregl.LngLatBounds()
+    for (const point of outline.length ? outline : [[b.location.lon, b.location.lat] as [number, number]]) bounds.extend(point)
+    const camera = map.cameraForBounds(bounds, { padding: fitPadding(), maxZoom: PICK_ZOOM })
+    map.flyTo({ ...camera, zoom: Math.min(camera?.zoom ?? PICK_ZOOM, PICK_ZOOM), pitch: PITCH, duration: flyMs(), essential: true })
   }
 
   // a row under the pointer (or focus) enlarges its pin
@@ -445,31 +528,88 @@ export function MapLanding({ buildings, error, focus, onOpen, onList }: {
       )}
       <aside className="ml-panel">
         <header>
-          <h1>Buildings</h1>
-          <p>{buildings ? `${located.length} on the map` : error ? 'Could not load buildings' : 'Loading…'}</p>
+          <span>Buildings</span>
+          <span>{buildings ? (words.length || kind ? `${shown.length} of ${buildings.length}` : buildings.length) : error ? 'Could not load' : 'Loading…'}</span>
         </header>
-        {located.length > 0 && (
-          <ol className="ml-list">
-            {located.map((b) => (
-              <li key={b.id}>
-                <button
-                  onClick={() => onOpen(b.id)}
-                  onMouseEnter={() => mark(b.id, true)}
-                  onMouseLeave={() => mark(b.id, false)}
-                  onFocus={() => mark(b.id, true)}
-                  onBlur={() => mark(b.id, false)}
-                >
-                  <span className="ml-name">{nameOf(b)}</span>
-                  {b.location.address && <span className="ml-address">{b.location.address}</span>}
-                </button>
-              </li>
+        <label className="ml-field">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && shown[0]) pick(shown[0])
+              else if (e.key === 'Escape') setQuery('')
+            }}
+            placeholder="Search by name"
+            aria-label="Search buildings by name"
+            spellCheck={false}
+            disabled={!buildings}
+          />
+          {query && (
+            <button className="ml-clear" onClick={() => setQuery('')} aria-label="Clear search">
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
+          )}
+        </label>
+        {kinds.length > 1 && (
+          <div className="ml-kinds" role="group" aria-label="Filter by kind">
+            {[{ kind: null, label: 'All' }, ...kinds].map((k) => (
+              <button key={k.kind ?? 'all'} aria-pressed={kind === k.kind} onClick={() => setKind(k.kind)}>
+                {k.label}
+              </button>
             ))}
-          </ol>
+          </div>
         )}
-        <button className="ml-more" onClick={onList} disabled={!buildings}>
-          <span>{buildings ? `${elsewhere} more without a location` : 'More buildings'}</span>
-          <span aria-hidden>Search →</span>
-        </button>
+        <div className="ml-list">
+          {[
+            { key: 'map', label: 'On the map', items: shownLocated },
+            { key: 'none', label: 'No location', items: shownElsewhere },
+          ].map(
+            (group) =>
+              group.items.length > 0 && (
+                <section key={group.key}>
+                  <h2>
+                    <span>{group.label}</span>
+                    <span>{group.items.length}</span>
+                  </h2>
+                  <ol>
+                    {group.items.map((b) => (
+                      <li key={b.id} className={picked === b.id ? 'on' : undefined}>
+                        <button
+                          className="ml-row"
+                          aria-current={picked === b.id || undefined}
+                          onClick={() => pick(b)}
+                          onMouseEnter={() => mark(b.id, true)}
+                          onMouseLeave={() => mark(b.id, false)}
+                          onFocus={() => mark(b.id, true)}
+                          onBlur={() => mark(b.id, false)}
+                        >
+                          <span className="ml-name">{nameOf(b)}</span>
+                          {b.location?.address && <span className="ml-address">{b.location.address}</span>}
+                        </button>
+                        {picked === b.id && (
+                          <button className="ml-enter" onClick={() => onOpen(b.id)}>
+                            Open
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ),
+          )}
+          {buildings && !shown.length && (words.length > 0 || kind) && (
+            <p className="ml-empty">
+              {words.length ? `No ${kind ? `${KINDS.find((k) => k.kind === kind)!.label.toLowerCase()} building` : 'building'} is called “${query.trim()}”.` : 'No building of this kind.'}
+            </p>
+          )}
+        </div>
+        {(!access.mode || access.admin) && (
+          <button className="ml-more" onClick={onImport}>
+            <span>New building from floor plans</span>
+            <span aria-hidden>Create →</span>
+          </button>
+        )}
       </aside>
     </main>
   )

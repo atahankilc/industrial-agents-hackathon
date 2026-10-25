@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../docs/architecture/solver-p
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-25** (step guide faces the step + animated route band, step card and Guide in sync via `route_step` / `show_route_step`, `find_nearest` tool, route line from the figure, calmer voice, map building tones, round-button system — shipped on `dev`; before that: building screen "Quiet HUD" steps 1–5 with the pulls of `origin/dev` 26b908f + b352e83)
+[Memory bank](README.md) · Last updated: **2026-10-25** (route following variant B — `maneuvers` steps, `RouteHud` trip pill + dock line, thin route line with a step callout; floating Guide with the shader ball, hold/tap talk, history arrows; one settings corner; `open_building_settings` tool; learned preferences with Undo; street view + phone compass; opening without the freeze; Mensa fit inside its OSM way; basement veil removed — shipped on `dev`; before that: step guide faces the step + animated route band, step card and Guide in sync via `route_step` / `show_route_step`, `find_nearest` tool, route line from the figure, calmer voice, map building tones, round-button system — shipped on `dev`; before that: building screen "Quiet HUD" steps 1–5 with the pulls of `origin/dev` 26b908f + b352e83)
 
 ## Phase
 
@@ -36,14 +36,14 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   (`frontend/app/src/plan/`, `core/floorplan.py`); the point-cloud prototype and
   scene moved to the gitignored `.viz-archive/`, see [visualization.md](../docs/product/visualization.md).
 - Map → building (2026-10-25): the map stays under the building screen, flies in, then follows the model's camera
-  (`src/map/bridge.ts`); plan preloaded on the tap (`src/building/opening.ts`), model rises in; menu toggle "in the
-  city" (default, neighbour pins tappable) / "alone"; buildings with a model drawn as blue blocks on the map; new
+  (`src/map/bridge.ts`); plan preloaded on the tap (`src/building/opening.ts`), model rises in; (a menu toggle "in the
+  city" / "alone" was removed later; neighbour pins tappable); buildings with a model drawn as blue blocks on the map; new
   light map palette ([visualization.md](../docs/product/visualization.md#current-vector-plan-view-2026-10-24)).
-  Since: buildings refitted onto their OSM ways (`scripts/fit_locations.py`, 12 shifted, 5 partial models kept),
+  Since: buildings refitted onto their OSM ways (`scripts/fit_locations.py`, 12 shifted; the 5 partial models get the least shift that puts them inside their way),
   open with all floors, transition plays with "reduce motion" on, map field of view 1° + model tilt ≤ 60° over the map
   (≤ 10 px apart). City view refinements: open building's map blocks drawn as a wireframe in the model's scene,
-  no z-fighting under the blue blocks, an x-ray cut-away of blocks in front (`src/map/neighbours.ts`), roads at estimated real widths, a ground line plus an underground veil
-  over basements, and Back flies the map to where it was when the building was opened.
+  no z-fighting under the blue blocks, an x-ray cut-away of blocks in front (`src/map/neighbours.ts`), roads at estimated real widths, a ground line, no
+  underground veil (removed; a basement you are not on is drawn darker instead), and Back flies the map to where it was when the building was opened.
 - Building screen, 2026-10-25 later chunk ([log](log.md)): new Guide tools `find_nearest(start, query, floor_id?)`
   (nearest room with an item kind / room kind by route length under the profile, one route + highlight, `nearest` +
   `next_nearest`; in `PROFILE_TOOLS`, the prompt sends "nearest/closest X" to it without asking) and
@@ -65,6 +65,34 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `3300e6c` pushed to `origin/main`.
 
 ## What works (verified 2026-10-24)
+
+- **Chat Guide + Sunday layers (2026-10-25, branch `4-sunday-agent`, after merging dev c3ab8f0):** `compute` tool
+  (Python sandbox; its `route()` = `find_route`'s rules and profile), `find_nearest` with `closed` + shortlist,
+  readable Claude API errors (`backend/service_errors.py`, app note + voice). New vs old dev Guide: capability set 5/5
+  vs 3/5, eval_guide 18/18 vs 17/18, interaction judge mixed within noise (log 08:30).
+
+- **Plan import / Creator (branch `3-plan-import`, worktree `.claude/worktrees/3-plan-import`, in progress,
+  2026-10-25):** create a building from floor-plan PDFs / photos —
+  [spec](../docs/superpowers/specs/2026-10-25-plan-import-design.md) (approved by Utku),
+  [plan](../docs/superpowers/plans/2026-10-25-plan-import.md). Built: deterministic core `core/plan_import/` (ingest
+  incl. HEIC, rectify / crop / wall mask, cells by walls / colours / boxes, labels with stable door numbers, scale,
+  stacking with scale search + name joins, assembly + autofix + validate); the Creator (`agent/creator.py` +
+  `agent/creator_tools.py`, 11 tools); private import drafts (`import/<id>`; migration
+  `20261025180000_builder_imports.sql` applied to Supabase 2026-10-25 by Utku, table + RLS checked); `POST /imports/stream`; the "Create from floor plans" screen
+  (`frontend/app/src/import/`, checked in headless Chrome); `scripts/eval_import.py`, `scripts/live_creator.py`.
+  New deps: numpy, opencv-python-headless, pypdfium2, pypdf, pillow, pillow-heif, python-multipart (no PyMuPDF, D-009).
+  Measured live (Opus 5.5, logs in the worktree's `.superpowers/runs/`): dataset eval (8 floors) count ratio 0.97,
+  IoU 0.91, doors 89 %, ≈ $1.09; Urban Colab photos 5 floors / 104 spaces / 23 errors, all floors joined by stairs +
+  lift, ≈ $1.73 (≈ $4.80 before the prompt-cache fix); Residenz 2 floors / 56 spaces / 0 errors; Rathaus 59 spaces /
+  0 errors, ≈ $0.35; Projektsteckbrief → no_plan in 10 s. origin/dev (`ed7e974`, new UI) merged into the branch
+  (dev as the base, Utku 2026-10-25): the import now opens the building screen on `import/<id>` straight into the new
+  Edit mode (`?edit=1`, `BuildingScreen` `startEditing`); sessions open private import bases; checked in headless
+  Chrome (upload → Creator → Edit mode "No problems"; Urban Colab draft with "23 problems"). Plan done (Tasks 1–14): cross-floor
+  routes on the Urban Colab result (stairs; step-free via lift), Builder fix → Save → `user/munich-urban-colab` with a
+  route F0 → F4; final review (opus) fixes in (imports admin-only in access mode, no silent merges, bar scales kept,
+  cancel on leave, PDF limits); spec status built; Q-018 note. Local `dev` fast-forwarded to the branch
+  (`99e6203`, not pushed); migration applied. **Next:** push `dev` to origin when Utku says so; deferred minors. Deferred minors in the log. Demo inputs in the main checkout's
+  `building_plans/` (not committed).
 
 - **Sunday agentic layers (2026-10-25, branch `4-sunday-agent`, [D-022](decisions.md#d-022) proposed):** P0 committed
   (`b1805d4`: crash-safe runner, hybrid Sunday command, top-level ids in `answers.json`). P1: LLM route spec →
@@ -88,7 +116,8 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   `solve` included, plan `restricted`), remembered preferences (soft penalties, `set_preference`, `preference`
   events), moving objects (`/objects`, device tokens, missions, `scripts/sim_object.py`, Guide `send_object`).
   Frontend done (`frontend/app/src/access/`, `plan/ObjectsLayer.tsx`): sign-in, darkened spaces, Preferences,
-  Building settings (My preferences / Access / Members / Objects), live object markers — checked headless with a
+  Building settings (admin only: Access / Members / Objects; My preferences moved to the Preferences sheet
+  2026-10-25), live object markers — checked headless with a
   fake sign-in. Migration `20261025200000_access.sql` applied 2026-10-25 (Postgres stores round-trip verified live).
   **Not yet:** admin account (`ADMIN_EMAIL`), a real Supabase sign-in, invite redirect URLs in Supabase, `/events`
   polling (voice turns' preferences are not captured).
@@ -159,9 +188,10 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   (`NextMove.tsx`, route events carry `steps`), camera walk (`CameraWalk.tsx`), live tracking by dead reckoning
   (`tracking.ts`, `useTracking.ts`; 0.7 m stride UNVERIFIED, `?walk=sim`). Checked with `tsc` + screenshots; not on a
   real phone, camera "Where am I?" needs the real Claude Guide. Next: the plan follows the dot; calibrate the stride.
-- **Dev panel** (2026-10-24): in the app (`frontend/app/src/dev/`, backend `/dev/*`) — try every
-  Guide capability by hand (find, directions, profiles, closures with impact, display switches, log), answers
-  drawn over the plan; route events carry a plan `line` ([visualization.md](../docs/product/visualization.md#dev-panel)).
+- **Dev panel removed** (2026-10-25): the app's dev tools panel is gone; the admin button is a single Edit
+  toggle (Building settings now open only through the Guide). Answers are still drawn over the plan
+  (`frontend/app/src/dev/StoryLayer.tsx`, `story.ts`); backend `/dev/*` kept for tests
+  ([visualization.md](../docs/product/visualization.md#answers-on-the-plan)).
 - **Guide voice = ElevenLabs** (2026-10-25, [D-016](decisions.md#d-016)): `POST /tts` (`backend/tts.py`, Flash v2.5,
   voice "River") played by `frontend/app/src/voice/tts.ts`, browser voice as fallback. Voice replies are spoken while the Guide works ([D-017](decisions.md#d-017)): grounded sentences
   stream as `say` lines from `/chat/stream`, a fact-free "let me check" sentence comes first (first sound ~2.3 s).

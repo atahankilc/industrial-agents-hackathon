@@ -11,7 +11,8 @@ Realtime token + keyterms for the user's words, backend/stt.py), the
 OpenAI-compatible /v1/chat/completions for ElevenLabs (backend/openai_compat.py), and the Edit mode's /drafts (create, get, plan, ops, undo, save, chat/stream for the Builder agent, proposals/{pid}/apply — backend/drafts.py;
 saved buildings appear in /buildings as `user/<slug>`; stored in Postgres with SUPABASE_DB_URL, else under
 GUIDE_USER_DIR, default data/user/). A draft change or Builder turn that lost a race to another instance answers 409;
-a database error 503.
+a database error 503. /imports/stream runs the Creator (agent/creator.py) on uploaded floor plans and opens its building
+as a draft on a private base `import/<id>`.
 Guide turns are blocking (tool loop + LLM calls), so those endpoints are plain `def` and run in FastAPI's
 threadpool; each conversation's lock serialises its turns. With persistence on (backend/persistence.py) every turn
 is saved when it ends; a turn that lost a save race to another instance answers 409 and must be resent.
@@ -27,26 +28,30 @@ import queue
 import threading
 from pathlib import Path
 
+import anthropic
 import psycopg
-from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi import FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from agent.guide import PHOTO_TYPES, llm_mode, system_blocks
+from agent.guide import PHOTO_TYPES, llm_mode
 from agent.speech import speakable
-from backend import devtools, openai_compat, persistence, stt, tts
+from backend import devtools, openai_compat, persistence, service_errors, stt, tts
 from backend.fleet import Fleet, fleet_from_env
 from backend.fleet import router as fleet_router
 from backend.access import Access, AuthError, AuthUnavailable, BuildingAccess, Member, Viewer
 from agent.builder import Builder
 from agent.campus import Campus, arrive
 from core.building_map import MapError
+from agent.creator import Creator
+from agent.creator_tools import ImportSession
 from backend.drafts import Draft, DraftStore, backend_from_env
 from backend.sessions import DATA_DIR, DEFAULT_SESSION, Conversation, SessionStore, UnknownBuilding, summary
 from core.edits import EditError
+from core.plan_import.ingest import load_sources
 
 API_PREFIX = "/api"
 
@@ -79,9 +84,11 @@ access = Access()  # access mode (ACCESS_MODE=on): accounts, restricted spaces �
 
 @app.middleware("http")
 async def drafts_admin_only(request: Request, call_next):
-    """Access mode: Edit mode (/drafts) hands out a building's full data, so only the admin may use it."""
+    """Access mode: Edit mode (/drafts) hands out a building's full data, and an import (/imports) is a paid Creator
+    run that ends in the Edit mode, so only the admin may use them."""
     path = request.url.path.removeprefix(API_PREFIX)
-    if access.enabled and (path == "/drafts" or path.startswith("/drafts/")) and request.method != "OPTIONS":
+    admin_only = any(path == root or path.startswith(root + "/") for root in ("/drafts", "/imports"))
+    if access.enabled and admin_only and request.method != "OPTIONS":
         try:
             viewer = await run_in_threadpool(access.viewer, request.headers.get("authorization"))
         except AuthError:
@@ -95,6 +102,14 @@ async def drafts_admin_only(request: Request, call_next):
 
 UPDATED_ELSEWHERE = "this draft was updated elsewhere meanwhile; try again"
 DB_DOWN = "the database is unavailable right now; try again in a moment"
+
+
+@app.exception_handler(anthropic.APIError)
+def claude_failed(request: Request, error: anthropic.APIError) -> JSONResponse:
+    """A Claude call failed on a plain request (/chat, Builder, …): the readable sentence, not a 500 trace."""
+    readable = service_errors.friendly(error)
+    return JSONResponse({"detail": readable["message"], "code": readable["code"]},
+                        status_code=service_errors.STATUS[readable["code"]])
 
 
 @app.exception_handler(persistence.Conflict)
@@ -281,7 +296,8 @@ def text_to_speech(body: SpeechRequest) -> StreamingResponse:
 def buildings(authorization: str | None = Header(None)) -> list[dict]:
     drafts.refresh(quiet=True)  # buildings saved on other instances; dataset buildings even if the database is down
     hidden = access.hidden_buildings(viewer_or_401(authorization))
-    return [{"id": item["id"], "split": item["split"], "name": item["name"], "location": item.get("location")}
+    return [{"id": item["id"], "split": item["split"], "name": item["name"], "kind": item.get("kind"),
+             "location": item.get("location")}
             for item in store.catalogue.values() if item["id"] not in hidden]
 
 
@@ -370,12 +386,13 @@ def chat_stream(body: ChatRequest, authorization: str | None = Header(None)) -> 
                 try:
                     store.save(conversation)
                 except persistence.Conflict:
-                    lines.put({"type": "error", "detail": "this conversation was updated elsewhere meanwhile; "
-                                                          "send the message again"})
+                    lines.put({"type": "error", "code": "conflict",
+                               "message": "This conversation was updated elsewhere meanwhile. Send the message again.",
+                               "detail": "this conversation was updated elsewhere meanwhile; send the message again"})
                     return
                 lines.put({"type": "reply", **turn_payload(conversation, turn)})
         except Exception as error:  # the stream has started: report instead of a status code
-            lines.put({"type": "error", "detail": f"{type(error).__name__}: {error}"[:300]})
+            lines.put(service_errors.error_line(error))
         finally:
             lines.put(None)
 
@@ -397,6 +414,20 @@ def put_location(session_id: str, body: LocationRequest, authorization: str | No
         location = conversation.guide.set_location(body.space_id, body.point)
         save_or_409(conversation)
     return {"location": location}
+
+
+@app.delete("/sessions/{session_id}/route")
+def delete_route(session_id: str, authorization: str | None = Header(None)) -> dict:
+    """The user ended the route in the app (End directions, or the arrival): it is off the map, so the Guide gets
+    no route note for it and show_route_step / end_route no longer see it."""
+    conversation = conversation_or_404(session_id, authorization)
+    with conversation.lock:
+        session = conversation.session
+        if session.shown_route() is None:
+            return {"ended": False}
+        session.events.append({"type": "route_end", "arrived": False, "by": "app"})
+        save_or_409(conversation)
+    return {"ended": True}
 
 
 @app.post("/sessions/{session_id}/arrive")
@@ -502,7 +533,7 @@ def session_preferences(session_id: str, body: SessionPreferences, authorization
         except (TypeError, ValueError) as error:
             raise HTTPException(422, f"bad preferences: {error}") from None
         session.auto_capture = body.auto_capture
-        conversation.guide.system = system_blocks(session)
+        conversation.guide.refresh_system()
         save_or_409(conversation)
     return summary(conversation)
 
@@ -754,15 +785,16 @@ def draft_chat_stream(draft_id: str, body: BuilderMessage) -> StreamingResponse:
                 try:
                     store_builder(builder)
                 except persistence.Conflict:
-                    lines.put({"type": "error", "detail": "this conversation was updated elsewhere meanwhile; "
-                                                          "send the message again"})
+                    lines.put({"type": "error", "code": "conflict",
+                               "message": "This conversation was updated elsewhere meanwhile. Send the message again.",
+                               "detail": "this conversation was updated elsewhere meanwhile; send the message again"})
                     return
                 lines.put({"type": "reply", "reply": turn.text,
                            "tool_calls": [{"name": call["name"], "input": call["input"]} for call in turn.tool_calls],
                            "proposal": proposal_payload(draft, turn.proposal), "applied": turn.applied,
                            "ungrounded": turn.ungrounded, "state": drafts.state(draft)})
         except Exception as error:  # the stream has started: report instead of a status code
-            lines.put({"type": "error", "detail": f"{type(error).__name__}: {error}"[:300]})
+            lines.put(service_errors.error_line(error))
         finally:
             lines.put(None)
 
@@ -770,6 +802,72 @@ def draft_chat_stream(draft_id: str, body: BuilderMessage) -> StreamingResponse:
         threading.Thread(target=work, daemon=True).start()
         while (line := lines.get()) is not None:
             yield json.dumps(line, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+# ---------- Plan import: the Creator (agent/creator.py) — a building from floor plans ----------
+
+MAX_IMPORT_FILES = 20
+MAX_IMPORT_BYTES = 25 * 1024 * 1024  # per file
+
+
+def make_creator(session: ImportSession) -> Creator:
+    return Creator(session)
+
+
+@app.post("/imports/stream")
+def import_stream(files: list[UploadFile] = File(...)) -> StreamingResponse:
+    """Floor plans (PDF / images) → the Creator → a draft on a private base `import/<id>`, as NDJSON:
+    {"type": "warning", "detail"} per unreadable file, {"type": "step", …} while the Creator works, then one of
+    {"type": "done", "draft_id", "base", "name", "issues", "notes"}, {"type": "no_plan", "reason"} or
+    {"type": "error", "detail"}."""
+    if len(files) > MAX_IMPORT_FILES:
+        raise HTTPException(413, f"at most {MAX_IMPORT_FILES} files per import")
+    uploads = []
+    for upload in files:
+        data = upload.file.read(MAX_IMPORT_BYTES + 1)
+        if len(data) > MAX_IMPORT_BYTES:
+            raise HTTPException(413, f"{upload.filename}: larger than {MAX_IMPORT_BYTES // (1024 * 1024)} MB")
+        uploads.append((upload.filename or "upload", data))
+    lines: queue.Queue[dict | None] = queue.Queue()
+    cancel = threading.Event()  # the client went away: the Creator stops and no draft is made
+
+    def work() -> None:
+        try:
+            sources, warnings = load_sources(uploads)
+            for warning in warnings:
+                lines.put({"type": "warning", "detail": warning})
+            if not sources:
+                lines.put({"type": "error", "detail": "no readable PDF or image among the files"})
+                return
+            creator = make_creator(ImportSession(sources, warnings))
+            creator.cancel = cancel
+            creator.on_step = lambda step: lines.put({"type": "step", **step})
+            result = creator.run()
+            if cancel.is_set() or result.status == "cancelled":
+                return
+            if result.status == "no_plan":
+                lines.put({"type": "no_plan", "reason": result.reason})
+            elif result.status != "done" or result.building is None:
+                lines.put({"type": "error", "detail": result.reason or "the import did not finish"})
+            else:
+                draft = drafts.create_import(result.building)
+                lines.put({"type": "done", "draft_id": draft.id, "base": draft.base, "name": draft.name,
+                           "issues": drafts.issues(draft),
+                           "notes": result.building["building"]["source_ref"].get("import")})
+        except Exception as error:  # the stream has started: report instead of a status code
+            lines.put({"type": "error", "detail": f"{type(error).__name__}: {error}"[:300]})
+        finally:
+            lines.put(None)
+
+    def stream():
+        threading.Thread(target=work, daemon=True).start()
+        try:
+            while (line := lines.get()) is not None:
+                yield json.dumps(line, ensure_ascii=False) + "\n"
+        finally:  # also on GeneratorExit: the client disconnected or the screen was left
+            cancel.set()
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 

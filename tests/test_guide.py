@@ -210,6 +210,26 @@ def test_requests_cache_the_overview_and_only_append(session, monkeypatch):
                 if uses:
                     assert {block["tool_use_id"] for block in answered} == uses
 
+    assert all(request["thinking"]["block_binding"] == {"prefix_mismatch_behavior": "drop_block"}
+               for request in client.requests)
+
+
+def test_settings_change_after_the_first_turn_keeps_the_system_prompt(session):
+    guide = Guide(session, client=OfflineClient())
+    session.preferences_enabled = True
+    session.guide_preferences = {"language": "German"}
+    guide.refresh_system()  # before the first turn: rebuilt
+    assert "German" in guide.system[1]["text"] and guide.system_note is None
+    guide.reply("Where is the 3D printer?")
+    before = copy.deepcopy(guide.system)
+    session.guide_preferences = {"language": "Turkish"}
+    guide.refresh_system()  # after it: the prompt stays (thinking blocks and cache stay valid), a note goes out
+    assert guide.system == before and "Turkish" in guide.system_note
+    guide.reply("And the nearest toilet?")
+    assert guide.system_note is None
+    sent = [m["content"] for m in guide.messages if m["role"] == "user" and isinstance(m["content"], str)]
+    assert "Turkish" in sent[-1] and "[settings note" in sent[-1]
+
 
 # ---------- D-003 grounding ----------
 

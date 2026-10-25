@@ -1,6 +1,6 @@
-// Building settings (menu → "Building settings", access mode): one component per section. Everyone gets My
-// preferences (this building's overrides, src/access/PreferencesForm.tsx); the admin also gets Access, Members and
-// Objects (src/access/ObjectsSection.tsx).
+// Building settings (opened by the Guide's open_building_settings; access mode,
+// admin only): Access, Members and Objects (src/access/ObjectsSection.tsx). A viewer's own preferences for the
+// building are in the Preferences sheet (src/access/PreferencesForm.tsx, "Only in …").
 // Access: the building public or not, room-type rules (a room type restricted to groups) and per-space exceptions
 // (groups, or the reserved group "public" to open one space); Save → PUT /access/building.
 // Members: who has groups here (PUT /access/members, no groups removes them) and an invite that returns a sign-in
@@ -10,7 +10,6 @@ import { Check, Copy } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { api, type AccessMember, type AccessRules, type BuildingAccess, type FleetObject, type Plan } from '../api'
 import { ObjectsSection } from './ObjectsSection'
-import { BuildingPreferencesSection } from './PreferencesForm'
 import { GroupChips, Sheet } from './Sheet'
 
 const humanise = (type: string) => type.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
@@ -31,7 +30,6 @@ export function BuildingSettings({ buildingId, plan, admin, objects, onClose, on
 }) {
   return (
     <Sheet title="Building settings" onClose={onClose} wide>
-      <BuildingPreferencesSection buildingId={buildingId} plan={plan} />
       {admin && (
         <>
           <AccessSection buildingId={buildingId} onSaved={onSaved} />

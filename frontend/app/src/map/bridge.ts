@@ -7,6 +7,7 @@
 import type { ExpressionSpecification, GeoJSONSource, Map as MapLibreMap, MapSourceDataEvent } from 'maplibre-gl'
 import { neighbourLayer, type Neighbour } from './neighbours'
 import { blockLook, BUILDINGS_3D_FILTER, modelColours, rgb } from './style'
+import { reducedMotion } from '../motion'
 
 const R = 6378137 // the sphere the (archived) georef.py projected the OSM outline with
 const TILE_PX = 512 // MapLibre's world is 512 px wide at zoom 0
@@ -210,6 +211,33 @@ export function settled(): Promise<void> {
     }
     current.on('moveend', check)
   })
+}
+
+const PULSE_MS = 1400 // one breath of a building's block while it opens
+/** The building being opened breathes on the map (its block eases toward the lit colour and back, MapLanding's
+ * `pulse` feature state) until its model is there; with reduced motion it is just lit. Returns the stop. */
+export function pulse(id: string): () => void {
+  const current = map
+  if (!current) return () => undefined
+  const set = (value: number) => {
+    // not once that map is gone (removed, its style is undefined): a stop after it would throw
+    if (map === current && current.getSource('models')) current.setFeatureState({ source: 'models', id }, { pulse: value })
+  }
+  if (reducedMotion()) {
+    set(0.6)
+    return () => set(0)
+  }
+  const start = performance.now()
+  let frame = 0
+  const step = (now: number) => {
+    set((1 - Math.cos(((now - start) / PULSE_MS) * 2 * Math.PI)) / 2)
+    frame = requestAnimationFrame(step)
+  }
+  frame = requestAnimationFrame(step)
+  return () => {
+    cancelAnimationFrame(frame)
+    set(0)
+  }
 }
 
 /** The building pin under a screen point (client px), if any: a tap on the city around the model opens it. */

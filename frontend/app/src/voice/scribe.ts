@@ -6,12 +6,11 @@
 // the browser's own recognition (error "scribe-unavailable").
 
 import { api } from '../api'
-import { openMicrophone } from './mic'
+import { acquireMicrophone, releaseMicrophone } from './mic'
 
 const SOCKET = 'wss://api.elevenlabs.io/v1/speech-to-text/realtime'
 const RATE = 16000
 const COMMIT_WAIT_MS = 800 // after stop(): wait this long for the last committed segment (else the partial counts)
-const MIC_WARM_MS = 8000 // the mic stays open this long after a listen, so the next one (a reply later) starts at once
 const COOL_OFF_MS = 60_000 // after a failure, the browser's recognition for a minute
 
 // ---------- availability ----------
@@ -85,43 +84,34 @@ let workletUrl: string | null = null
 
 type Mic = { node: AudioWorkletNode; source: MediaStreamAudioSourceNode }
 
-// One microphone stream and audio graph for every listen (the barge-in watcher and the listener can overlap for a
-// moment): opening them costs a few hundred milliseconds, so they stay warm for MIC_WARM_MS after the last user.
-type Warm = { stream: MediaStream; context: AudioContext; users: number; timer: number }
-let warm: Warm | null = null
-let opening: Promise<Warm> | null = null
+// One audio graph for every listen (the barge-in watcher and the listener can overlap for a moment), on the app's one
+// microphone stream (voice/mic.ts): opening them costs a few hundred milliseconds, so both stay for the next listen.
+let context: Promise<AudioContext> | null = null
 
-async function warmMic(): Promise<Warm> {
-  if (warm && warm.stream.getAudioTracks().some((track) => track.readyState === 'live')) return warm
-  if (warm) releaseNow()
-  opening ??= (async () => {
-    const stream = await openMicrophone({ echoCancellation: true, noiseSuppression: true, autoGainControl: true })
-    const context = new AudioContext()
+function captureContext(): Promise<AudioContext> {
+  context ??= (async () => {
+    const created = new AudioContext()
     workletUrl ??= URL.createObjectURL(new Blob([WORKLET], { type: 'text/javascript' }))
-    await context.audioWorklet.addModule(workletUrl)
-    const opened: Warm = { stream, context, users: 0, timer: 0 }
-    warm = opened
-    return opened
-  })().finally(() => { opening = null })
-  return opening
-}
-
-function releaseNow() {
-  if (!warm) return
-  clearTimeout(warm.timer)
-  warm.stream.getTracks().forEach((track) => track.stop())
-  void warm.context.close()
-  warm = null
+    await created.audioWorklet.addModule(workletUrl)
+    return created
+  })()
+  context.catch(() => { context = null })
+  return context
 }
 
 async function openMic(onChunk: (pcm: ArrayBuffer) => void): Promise<Mic> {
-  const shared = await warmMic()
-  clearTimeout(shared.timer)
-  shared.users += 1
-  if (shared.context.state !== 'running') void shared.context.resume()
-  const node = new AudioWorkletNode(shared.context, 'pcm16')
+  const stream = await acquireMicrophone()
+  let shared: AudioContext
+  try {
+    shared = await captureContext()
+  } catch (error) {
+    releaseMicrophone()
+    throw error
+  }
+  if (shared.state !== 'running') void shared.resume() // interrupted (iOS: a call, another app's audio)
+  const node = new AudioWorkletNode(shared, 'pcm16')
   node.port.onmessage = (event) => onChunk(event.data as ArrayBuffer)
-  const source = shared.context.createMediaStreamSource(shared.stream)
+  const source = shared.createMediaStreamSource(stream)
   source.connect(node)
   return { node, source }
 }
@@ -131,9 +121,7 @@ function closeMic(mic: Mic | null) {
   mic.node.port.onmessage = null
   mic.source.disconnect()
   mic.node.disconnect()
-  if (!warm) return
-  warm.users = Math.max(0, warm.users - 1)
-  if (warm.users === 0) warm.timer = window.setTimeout(releaseNow, MIC_WARM_MS)
+  releaseMicrophone()
 }
 
 function base64(buffer: ArrayBuffer) {

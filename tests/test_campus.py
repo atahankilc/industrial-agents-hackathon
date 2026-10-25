@@ -132,3 +132,14 @@ def test_location_endpoint_and_arrive_endpoint(client, catalogue):
     assert arrived["route"]["reachable"] and arrived["location"]["space_id"] == follow["entrance_space"]
     assert arrived["events"][-1]["type"] == "route" and arrived["events"][-1]["steps"]
     assert client.put(f"/sessions/{first}/location", json={"space_id": None}).json()["location"] is None
+
+
+def test_the_guide_opens_a_nearby_building_itself(catalogue, haupt):
+    assert "open_nearby_building" in [tool["name"] for tool in haupt.tool_definitions()]
+    result = haupt.call("open_nearby_building", {"building": "Mensa Arcisstraße"})
+    assert result["opened"] and haupt.events[-1] == {"type": "open_building", "building": MENSA,
+                                                     "name": result["building"]}
+    assert "No single nearby building" in haupt.call("open_nearby_building", {"building": "zzzz"})["error"]
+    lonely = BuildingSession.load(catalogue[LONELY]["path"])
+    lonely.campus = Campus(LONELY, catalogue)
+    assert "open_nearby_building" not in [tool["name"] for tool in lonely.tool_definitions()]

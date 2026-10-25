@@ -92,7 +92,7 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | POST | `/sessions/{id}/arrive` | `{"entrance", "destination", "from_session"?}` | `{"route": {reachable, reason, about_m, length_m}, "location", "events"}` — coming over from a nearby building (`route_to_building` → Continue): the user stands at opening `entrance`, the route to space `destination` comes back as events; bad entrance / destination → 422; `from_session`'s routing profile carries over only if this viewer may see that session (same access check), else it is ignored |
 | GET | `/sessions/{id}/plan` | – | vector floor plan of the current building (`core/floorplan.py`, gzip) |
 | POST | `/chat` | `{"session_id", "message", "channel"?, "photo"?, "heard"?, "selected"?}` | `{"reply", "tool_calls", "events", "ungrounded", "spoken"}` — `channel: "voice"` fills `spoken`; `heard: false` = a tapped button's text on the voice channel: spoken, not rewritten as a transcript (default true); `selected` = the space or asset id tapped on the plan while asking → a selection note for the Guide; `photo` = base64 data URL (jpeg/png/webp, ≤1.5 M chars), shown to the Guide for this turn only |
-| POST | `/chat/stream` | same as `/chat` | NDJSON: `{"type":"step","kind":"tool"\|"tool_done"\|"check",…}` while the Guide works, then `{"type":"reply",…/chat payload}` or `{"type":"error","detail"}`; voice turns also send `{"type":"say","text"}` per sentence as soon as it may be spoken (grounding-checked, all before `reply`, together the whole spoken reply — `agent/speech.py` `SpokenStream`) |
+| POST | `/chat/stream` | same as `/chat` | NDJSON: `{"type":"step","kind":"tool"\|"tool_done"\|"check",…}` while the Guide works, then `{"type":"reply",…/chat payload}` or `{"type":"error","code","message","detail"}` (`message`: a sentence to show — e.g. the Claude API credit ran out; `code` ∈ credits, auth, busy, unavailable, offline, internal, conflict; `backend/service_errors.py`; plain `/chat` answers 503/429 with `{"detail": message, "code"}`); voice turns also send `{"type":"say","text"}` per sentence as soon as it may be spoken (grounding-checked, all before `reply`, together the whole spoken reply — `agent/speech.py` `SpokenStream`) |
 | GET | `/events` | `?session_id=&after=N` | `{"events": [...since N], "next"}` — UI highlights, routes (with turn-by-turn `legs` and the Guide's followable `steps` — turn, rounded metres, door, landmark, text — both `core/directions.py`), changes |
 | POST | `/drafts` | `{"base"}` (catalogue id) | Edit mode: new draft copy → `{"draft": {id, base, name, steps}, "building", "issues"}` (unknown base → 422) |
 | GET | `/drafts/{id}` | – | same shape (unknown / malformed id → 404) |
@@ -102,6 +102,7 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | POST | `/drafts/{id}/proposals/{pid}/apply` | – | apply an open proposal → draft state; unknown or made against an older draft → 409 |
 | POST | `/drafts/{id}/undo` | – | drops the last step (nothing to undo → 409) |
 | POST | `/drafts/{id}/save` | `{"name"}` | `{"building": "user/<slug>", "issues"}` — written to `GUIDE_USER_DIR` (default `data/user/`, gitignored), listed in `/buildings`; name clash → `-2` |
+| POST | `/imports/stream` | multipart `files` (PDF / images incl. HEIC; ≤ 20 files, ≤ 25 MB each, else 413; at most 40 pages / images read, the rest named in a `warning`; access mode: admin only, like `/drafts`; closing the stream stops the Creator) | the Creator (`agent/creator.py`, `CREATOR_MODEL` default `claude-opus-5-5`, `CREATOR_EFFORT`) builds a building from floor plans, as NDJSON: `warning` per unreadable file, `step` lines (`say` / `tool` / `tool_done`), then `{"type":"done","draft_id","base":"import/<id>","name","issues","notes"}` / `no_plan` / `error`; the draft opens in the Edit mode, the base is private until saved |
 | POST | `/v1/chat/completions` | OpenAI body, `stream` | OpenAI-compatible (SSE: `"... "` first, then sentences, `data: [DONE]`) for an ElevenLabs Custom LLM |
 | POST | `/tts` | `{"text", "lang"?}` (≤ 1,000 chars after `speakable()`) | the Guide's voice: ElevenLabs MP3 (`audio/mpeg`, `backend/tts.py`); no `ELEVENLABS_API_KEY` → 503, ElevenLabs refused → 502, empty → 422, too long → 413 — the app then uses the browser voice. `/health` says `"tts": true` when the key is set. `TTS_VOICE_ID` / `TTS_MODEL` override voice "River" / `eleven_flash_v2_5` |
 | POST | `/stt/token` | `{"session_id"?}` | `{"token", "keyterms"}`: a single-use ElevenLabs Scribe Realtime token (15 min, one connection) and ≤ 50 keyterms (≤ 20 chars) from the session's building (`backend/stt.py`); the browser then streams the mic to Scribe itself (`voice/scribe.ts`). Scribe off (`STT_MODE=browser` or no key) → 503, ElevenLabs refused → 502, unknown session → 404 — the app then uses browser recognition. `/health` says `"stt": true` when it is on |
@@ -186,13 +187,24 @@ under `data/user/`; with it (`uv run --env-file .env uvicorn …`, and on Vercel
 Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8765`). Design and data path:
 [visualization.md](../product/visualization.md#app-and-data-path).
 
-## Dev panel
+### Plan import (Creator)
 
-Part of the app (`frontend/app/src/dev/`, backend `/dev/*` in `backend/devtools.py`): try every Guide capability
-by hand, without an LLM — find places and items, directions, routing profiles, closures and new doors with their
-impact, plan display switches, a log of every call. Shown in the Vite dev server (`npx vite`), or in a build with
-`?dev` in the URL; open it with ` (backtick) or the wrench. No extra server or port. What it shows:
-[visualization.md](../product/visualization.md#dev-panel).
+```bash
+uv run --env-file .env python scripts/live_creator.py <file|folder>... [--out building.json] [--images DIR]  # live run, steps + tokens
+uv run python scripts/eval_import.py --segment-only [--n 30] [--method walls|colours]   # free: segmentation vs dataset renders
+uv run --env-file .env python scripts/eval_import.py --full [--n 10]                    # the Creator on dataset renders
+```
+
+In the app: "New building from floor plans" on the map, or "New from floor plans" in the list (`?view=import`) →
+`POST /imports/stream` → the building screen on the private base, opened in the Edit mode (`?building=import/<id>&edit=1`). Locally without the database: `GUIDE_PERSIST=off` (the `builder_imports` table
+from `supabase/migrations/20261025180000_builder_imports.sql` must be applied before imports work with
+`SUPABASE_DB_URL`). Tests: `uv run pytest -q tests/test_plan_import_*.py tests/test_creator*.py tests/test_import*.py`.
+
+## Dev endpoints
+
+The app's dev tools panel was removed 2026-10-25. The backend's `/dev/*` endpoints (`backend/devtools.py`: run one
+Guide tool directly, read or reset a session's routing state) remain for tests (`tests/test_devtools.py`) and
+scripts; no UI calls them.
 
 ## Deploy (Vercel)
 

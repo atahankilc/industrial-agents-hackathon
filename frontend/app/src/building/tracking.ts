@@ -1,5 +1,5 @@
 // Where along a route you are, as a point on the plan. The route line ([x, y, floor] in the plan frame, from
-// core/routeline.py) and the route legs (metres per leg, one per Guide step) are in the same order; walking legs are
+// core/routeline.py) and the route legs (metres per leg; a Guide step covers `spans[i]` of them) are in order; walking legs are
 // spread over the line in proportion to their metres, rides (stairs, lifts) take no length on it. So "metres walked
 // since the start" gives a point, the direction ahead, and the step you are in.
 
@@ -16,15 +16,23 @@ export type RouteTrack = {
   toLine: (metres: number) => number
 }
 
-export function routeTrack(line: [number, number, number][], legs: RouteLeg[]): RouteTrack | null {
+/** `spans`: legs per step (GuideStep.legs); without it, one step per leg */
+export function routeTrack(line: [number, number, number][], legs: RouteLeg[], spans?: number[]): RouteTrack | null {
   if (line.length < 2 || !legs.length) return null
-  const starts: number[] = []
+  const legStarts: number[] = []
   let walked = 0
   for (const leg of legs) {
-    starts.push(walked)
+    legStarts.push(walked)
     if (leg.kind !== 'connector') walked += leg.distance_m
   }
+  const starts: number[] = []
+  let leg = 0
+  for (const span of spans ?? legs.map(() => 1)) {
+    starts.push(legStarts[Math.min(leg, legs.length - 1)])
+    leg += span
+  }
   starts.push(walked)
+  const steps = starts.length - 1
   const total = walked
 
   // plan length along the line; a jump between floors is a ride and adds nothing
@@ -56,7 +64,7 @@ export function routeTrack(line: [number, number, number][], legs: RouteLeg[]): 
 
   const stepAt = (metres: number) => {
     let step = 0
-    while (step + 1 < legs.length && metres >= starts[step + 1] - 1e-6) step++
+    while (step + 1 < steps && metres >= starts[step + 1] - 1e-6) step++
     return step
   }
 

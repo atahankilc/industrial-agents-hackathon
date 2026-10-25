@@ -7,10 +7,14 @@ export const apiUrl = () => new URL(BASE, location.origin).href.replace(/\/$/, '
 /** `location`: real position (centre of the OSM outline) for the kit's OpenStreetMap buildings, else null;
  * `origin` is where the building's own metres start (x east, y north from it), which puts the model on the map;
  * `outline` its footprint, which marks its block on the map. */
+export type BuildingKind = 'campus' | 'factory' | 'home' | 'real' | 'saved'
+
 export type Building = {
   id: string
   split: string
   name: string | null
+  /** what the landing list filters by (backend/sessions.py building_kind); null for an unknown source */
+  kind: BuildingKind | null
   location: {
     lat: number
     lon: number
@@ -116,6 +120,9 @@ export type GuideStep = {
   via_kind?: string
   up?: boolean
   floors?: number
+  /** how many route legs this step covers (core/directions.maneuvers joins straight-on doors), and doors passed */
+  legs?: number
+  doors?: number
   text: string
 }
 
@@ -158,13 +165,22 @@ export type ChangeEvent = { type: 'change'; summary: string; targets: string[]; 
 export type PreferenceEvent = { type: 'preference'; scope: 'global' | 'building'; values: Record<string, unknown> }
 /** The Guide switched the app to the Edit mode (agent/tools.py open_edit_mode); `request` goes on to the Builder. */
 export type EditModeEvent = { type: 'edit_mode'; request: string | null }
+/** The Guide opened the Building settings (agent/tools.py open_building_settings): the app shows them to the admin. */
+export type SettingsEvent = { type: 'settings' }
 /** The user told the Guide where they are (agent/tools.py set_my_location): the "you are here" figure goes there. */
 export type LocationEvent = { type: 'location'; space_id: string }
 /** The Guide talked about another step of the route being followed (agent/tools.py show_route_step): the step card
  * goes there. */
 export type RouteStepEvent = { type: 'route_step'; index: number }
+/** The Guide ended the route (agent/tools.py end_route): off the map, the step guide stops; `space_id`: where the
+ * user is now (the destination when `arrived`, or the place they named), the figure goes there. */
+export type RouteEndEvent = { type: 'route_end'; arrived: boolean; space_id?: string }
 
-export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent | ElsewhereEvent | EditModeEvent | LocationEvent | RouteStepEvent
+/** The Guide opened a nearby building (agent/tools.py open_nearby_building): the app goes there, continuing a route
+ * to it (route_to_building's `next_building`) when one is on the map. */
+export type OpenBuildingEvent = { type: 'open_building'; building: string; name: string }
+
+export type UiEvent = RouteEvent | HighlightEvent | ChangeEvent | PreferenceEvent | ElsewhereEvent | EditModeEvent | SettingsEvent | LocationEvent | RouteStepEvent | RouteEndEvent | OpenBuildingEvent
 
 export type ChatReply = {
   reply: string
@@ -240,6 +256,14 @@ export type BuilderReply = {
   applied: string | null
   state: DraftState
 }
+export type ImportLine =
+  | { type: 'warning'; detail: string }
+  | { type: 'step'; kind: 'say'; text: string }
+  | { type: 'step'; kind: 'tool'; name: string; level?: number }
+  | { type: 'step'; kind: 'tool_done'; name: string; ok: boolean }
+  | { type: 'done'; draft_id: string; base: string; name: string; issues: Issue[]; notes: unknown }
+  | { type: 'no_plan'; reason: string }
+  | { type: 'error'; detail: string }
 export type BuilderStep = { kind: 'tool' | 'tool_done' | 'check'; name: string; input?: Record<string, unknown>; ok?: boolean }
 
 // ---- access mode (src/access/auth.ts): the bearer token of the signed-in user, a gate that holds requests while a
@@ -265,6 +289,20 @@ export class ApiError extends Error {
   }
 }
 
+/** A Guide / Builder turn that failed on the server, e.g. the Claude API credit ran out (backend/service_errors.py):
+ * `message` is a sentence to show as is; `code` is credits | auth | busy | unavailable | offline | internal | conflict. */
+export class ServiceError extends Error {
+  code: string
+  constructor(message: string, code: string) {
+    super(message)
+    this.code = code
+  }
+}
+
+function streamError(item: Record<string, unknown>): ServiceError {
+  return new ServiceError(String(item.message ?? item.detail), String(item.code ?? 'internal'))
+}
+
 /** JSON headers plus the bearer token when signed in (also used by src/dev/devApi.ts). */
 export async function headers(extra?: HeadersInit): Promise<HeadersInit> {
   if (gate) await gate.catch(() => undefined)
@@ -275,6 +313,12 @@ async function failed(response: Response, path: string): Promise<ApiError> {
   const detail = await response.text().catch(() => '')
   if (response.status === 401 && token) onUnauthorized?.()
   if (response.status === 403) return new ApiError(403, 'Only the building admin can do this')
+  try {
+    const body = JSON.parse(detail) as { detail?: unknown; code?: unknown }
+    if (typeof body.code === 'string' && typeof body.detail === 'string') return new ApiError(response.status, body.detail) // readable already
+  } catch {
+    // not JSON: fall through to the raw text
+  }
   return new ApiError(response.status, `${response.status} ${path}: ${detail.slice(0, 200)}`)
 }
 
@@ -315,7 +359,9 @@ export type Preferences = {
   /** per building only: saved places (space ids) */
   favourites?: string[]
 }
-export type PreferenceStore = { remember: boolean; auto_capture: boolean; global: Preferences; buildings: Record<string, Preferences> }
+/** Which fields the Guide set (heard from the user) and nobody has changed since, everywhere and per building. */
+export type Learned = { global: string[]; buildings: Record<string, string[]> }
+export type PreferenceStore = { remember: boolean; auto_capture: boolean; global: Preferences; buildings: Record<string, Preferences>; learned?: Learned }
 
 /** backend/fleet.py `Fleet.public`: a moving object; trail and mission `line` points are [x, y, floor index]. */
 export type ObjectKind = 'forklift' | 'robot' | 'agv' | 'cart' | 'other'
@@ -389,6 +435,8 @@ export const api = {
    * (plan metres) is where in the room it stands, so a route's line starts there */
   setLocation: (id: string, spaceId: string | null, point: [number, number] | null = null) =>
     request<{ location: UserLocation | null }>(`/sessions/${id}/location`, { method: 'PUT', body: JSON.stringify({ space_id: spaceId, point }) }),
+  /** the user ended the route in the app: the Guide no longer sees it on the map */
+  endRoute: (id: string) => request<{ ended: boolean }>(`/sessions/${id}/route`, { method: 'DELETE' }),
   /** coming over from a nearby building: placed at `entrance`, the route on to `destination` as events */
   arrive: (id: string, entrance: string, destination: string, fromSession: string | null) =>
     request<{ route: { reachable: boolean; reason?: string; about_m?: number }; location: UserLocation; events: UiEvent[] }>(`/sessions/${id}/arrive`, {
@@ -407,6 +455,7 @@ export const api = {
   saveDraft: (id: string, name: string) =>
     request<{ building: string; issues: Issue[] }>(`/drafts/${id}/save`, { method: 'POST', body: JSON.stringify({ name }) }),
   builderStream,
+  importPlans,
   cancelProposal: (id: string, proposalId: string) =>
     request<{ cancelled: string }>(`/drafts/${id}/proposals/${proposalId}/cancel`, { method: 'POST' }),
   applyProposal: (id: string, proposalId: string) =>
@@ -452,7 +501,7 @@ async function chatStream(id: string, message: string, options: ChatOptions = {}
       if (item.type === 'step') options.onStep?.(item as unknown as ChatStep)
       else if (item.type === 'say') options.onSay?.(String(item.text))
       else if (item.type === 'reply') return item as unknown as ChatReply
-      else if (item.type === 'error') throw new Error(String(item.detail))
+      else if (item.type === 'error') throw streamError(item)
     }
     if (done) throw new Error('the reply stream ended early')
   }
@@ -478,8 +527,38 @@ async function builderStream(draftId: string, message: string, onStep?: (step: B
       const item = JSON.parse(line) as { type: string } & Record<string, unknown>
       if (item.type === 'step') onStep?.(item as unknown as BuilderStep)
       else if (item.type === 'reply') return item as unknown as BuilderReply
-      else if (item.type === 'error') throw new Error(String(item.detail))
+      else if (item.type === 'error') throw streamError(item)
     }
     if (done) throw new Error('the reply stream ended early')
+  }
+}
+
+/** Floor plans → the Creator → a draft (POST /imports/stream, multipart). Every NDJSON line goes to `onLine`; a stream
+ *  that ends without its last line (done / no_plan / error) throws. `signal` aborts the request (the backend then
+ *  stops the Creator). */
+async function importPlans(files: File[], onLine: (line: ImportLine) => void, signal?: AbortSignal): Promise<void> {
+  const form = new FormData()
+  for (const file of files) form.append('files', file, file.name)
+  const { 'content-type': _json, ...auth } = (await headers()) as Record<string, string> // the browser sets the multipart boundary
+  const response = await fetch(BASE + '/imports/stream', { method: 'POST', body: form, headers: auth, signal })
+  if (!response.ok || !response.body) throw await failed(response, '/imports/stream')
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  let ended = false
+  for (;;) {
+    const { value, done } = await reader.read()
+    buffer += value ?? ''
+    const lines = buffer.split('\n')
+    buffer = done ? '' : lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line.trim()) continue
+      const item = JSON.parse(line) as ImportLine
+      ended ||= item.type === 'done' || item.type === 'no_plan' || item.type === 'error'
+      onLine(item)
+    }
+    if (done) {
+      if (!ended) throw new Error('the import stream ended early (connection lost); try again')
+      return
+    }
   }
 }

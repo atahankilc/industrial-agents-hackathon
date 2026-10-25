@@ -29,6 +29,8 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 - [challenge/brief.md](challenge/brief.md) — mission, levels 1–5, add-ins, personas, judging weights, rules.
 - [challenge/scoring.md](challenge/scoring.md) — `Answer:` line parsing, tolerances per kind, submission CSV,
   Sunday benchmark, format conflicts.
+- [challenge/technical-explanation.md](challenge/technical-explanation.md) — the submission form's technical
+  explanation (architecture + stack), built facts only.
 
 ### Kit (provided by organisers; data + scorer extracted to root, rest in `archive/initial-repo/`)
 - [kit/repo-layout.md](kit/repo-layout.md) — files, splits, sources, dataset statistics.
@@ -65,6 +67,7 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 
 ### Guides
 - [guides/commands.md](guides/commands.md) — setup, chat, evaluate, score, produce submission.
+- [guides/demo-runbook.md](guides/demo-runbook.md) — demo video (2 min) and final pitch: building, exact lines, expected answers, checklist.
 - [guides/dev-workflow.md](guides/dev-workflow.md) — verified commits: worklog claims → verifier agent → fixer loop → hook-enforced stamp.
 - [guides/glossary.md](guides/glossary.md) — shared vocabulary.
 

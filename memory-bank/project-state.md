@@ -51,6 +51,15 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
 
 ## What works (verified 2026-10-24)
 
+- **Sunday agentic layers (2026-10-25, branch `4-sunday-agent`, [D-015](decisions.md#d-015) proposed):** P0 committed
+  (`b1805d4`: crash-safe runner, hybrid Sunday command, top-level ids in `answers.json`). P1: LLM route spec →
+  `core/route_query.py` (closures of any element, item / room-type endpoints with the nearest taken, stops,
+  step-free + forklift + min width combined), `asks_for` check, kind `other` → solver agent
+  (`agent/solver_agent.py`, Python sandbox, 2 runs + tie-break, effort `medium`), decision cache
+  `llm_cache/decisions.json` (`agent/llm_cache.py`). Probe `scripts/eval_sunday_probe.py`: **14/14** (old pipeline
+  ~7/14; agent only for the 3 new kinds), and 14/14 identical when replayed with no API access. Test-set answers
+  byte-identical. Not merged into `dev` yet.
+
 - **Builder Edit mode (branch `2-builder-edit`, in progress):** design
   [builder-edit-mode-design](../docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md) (proposed, approved by
   Utku 2026-10-24), plan [M1](../docs/superpowers/plans/2026-10-24-builder-edit-mode-m1.md). Done: Task 1
@@ -227,7 +236,9 @@ has no swing info. Next: Guide events on the plan
 00. **Submission (2026-10-25):** `SUBMISSION/BENCHMARK.md` + `SUBMISSION/answers.json` (v1, test set) exist. When the
    Sunday building is released: `uv run python -m agent.run_benchmark_v1 <building_dir> <questions>
    SUBMISSION/answers.json` (hybrid, `.env` read automatically — **not** `PARSER_MODE=regex`, which answered 1 of 14
-   reworded questions), check errors, ship. Keep the folder to exactly those two files.
+   reworded questions), check errors (the summary line shows the parser mix; agent answers carry
+   `parser_failure`), then commit `SUBMISSION/answers.json` **together with `llm_cache/decisions.json`** (re-runs
+   without a key replay it) and ship. Keep `SUBMISSION/` to exactly those two files.
 
 ‼ **Submission (organisers' Discord note, 2026-10-25 00:10, ~14 h to the deadline) — before anything else:**
 - [x] `SUBMISSION/` with exactly `BENCHMARK.md` + `answers.json` (8537ca0, v1 pipeline, 145 test answers, ids match

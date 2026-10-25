@@ -21,6 +21,7 @@ import csv
 import json
 import os
 import sys
+from collections import Counter
 from collections.abc import MutableMapping
 from pathlib import Path
 
@@ -28,7 +29,7 @@ from agent.answer import respond
 from benchmark.score import committed_answer
 
 SUBMISSION_COLUMNS = ("question_id", "answer")
-ROUTE_KINDS = ("route", "route_step_free", "route_with_closure", "tour")
+ROUTE_KINDS = ("route", "route_step_free", "route_with_closure", "tour", "route_query")
 ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 
@@ -141,8 +142,8 @@ def run(root: Path, questions_path: Path, answers_path: Path, layout: str = "lis
               file=sys.stderr)
     write_answers(answers_path, answers, layout)
     failed = sum(item["error"] is not None for item in answers)
-    by_llm = sum(item["parser"] == "llm" for item in answers)
-    print(f"{len(answers)} answers written to {answers_path} ({failed} without an answer, {by_llm} read by the LLM)",
+    readers = ", ".join(f"{parser} {count}" for parser, count in Counter(item["parser"] or "-" for item in answers).items())
+    print(f"{len(answers)} answers written to {answers_path} ({failed} without an answer; read by: {readers})",
           file=sys.stderr)
     return answers
 

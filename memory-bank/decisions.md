@@ -6,7 +6,7 @@ related: [open-questions.md, project-state.md, ../docs/architecture/overview.md]
 
 # Decisions
 
-[Memory bank](README.md) · Next free id: **D-015**
+[Memory bank](README.md) · Next free id: **D-016**
 
 Template:
 
@@ -201,3 +201,28 @@ Template:
   One gold value disagrees with the starter itself (resplan-12462, 10 cm); validators accept starter-equal lengths.
 - **Evidence:** [route-model.md](../docs/kit/route-model.md), `tests/test_routes.py`, `scripts/validate_warmup.py`,
   `scripts/validate_solvers.py`.
+
+<a id="d-015"></a>
+### D-015 — Sunday agentic layers: route specs on the canonical core, a solver agent, a committed decision cache
+- **Status:** proposed · **Date:** 2026-10-25 · **By:** Utku (asked for "the most advanced agent for this task";
+  P1 of the Sunday plan, branch `4-sunday-agent`)
+- **Context:** A probe of 14 Sunday-style questions on a factory dev building: `regex` answered 1, `hybrid` 11 without
+  an error, but only about 7 correctly — the LLM parser had to squeeze every question into one of 15 templates, so
+  combined constraints (closure + step-free), item destinations, forklift and new kinds became near-miss kinds
+  (silently wrong). The canonical `core.navigation` already handles closures of any element, item endpoints and
+  route rules, and reproduces every warm-up route answer. The organisers may re-run our command, possibly without an
+  API key (Utku's question).
+- **Decision:** (1) the LLM schema gets one general `route` spec (places = rooms, room types or items, nearest
+  taken; stops; step_free, forklift, min_width, closures) plus `asks_for`; a spec that is exactly a warm-up kind
+  keeps it, anything richer is `route_query` (`core/route_query.py` on `core.navigation`); (2) kind `other`, an
+  `asks_for` the kind cannot answer, unresolvable slots or a solver error go to a solver agent
+  (`agent/solver_agent.py`: Python sandbox over the building + `submit_answer`, 2 runs + tie-break, Answer line by
+  code); (3) every model decision is stored in `llm_cache/decisions.json` (committed) and replayed first, so re-runs
+  reproduce `answers.json` without a key. Regex templates stay first and unchanged.
+- **Consequences:** test-set and dev answers unchanged (all template wording); Sunday questions in unseen wording or
+  new kinds get answers; the cache file must be committed with `SUBMISSION/answers.json`. Model code runs locally in a
+  restricted `exec` (accident guard, not a security boundary). Tests never touch the committed cache
+  (`tests/conftest.py`).
+- **Evidence:** `tests/test_route_query.py`, `tests/test_llm_route_spec.py`, `tests/test_solver_agent.py`,
+  `tests/test_answer_agentic.py`, `scripts/eval_sunday_probe.py` (`tests/sunday_probe/`),
+  [ai-agents.md](../docs/architecture/ai-agents.md#sunday-layers-route-specs-solver-agent-decision-cache-2026-10-25).

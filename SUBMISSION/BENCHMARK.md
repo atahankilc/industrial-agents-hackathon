@@ -32,7 +32,18 @@ How it works: question text → template parser (`core/question_parser.py`, `age
 (`core/solvers_v1.py`) → reply with a deterministic `Answer:` line (`agent/answer.py`). Routes are Dijkstra on the
 kit's door-to-door route model (`core/building_map.py`). Every number comes from code, not from an LLM.
 
-Kinds covered: the benchmark kinds (`largest_room`, `floor_area_total`, `shared_walls_count`, `room_stacked`,
+Unseen wording goes to the LLM parser (`agent/llm_parser.py`), which only fills slots from the building's own
+vocabulary: route questions become one spec (start, stops, destination — rooms, room types or items — with any
+mix of step-free, forklift, minimum door width and closures), solved by `core/route_query.py` on the same route
+model. Questions no solver kind answers go to the solver agent (`agent/solver_agent.py`): Claude computes the
+answer with Python over the loaded building and submits it; the `Answer:` line is still written by code.
+
+**Reproducible without an API key:** every model decision (the parser's slots, the agent's submitted answer and
+the code it ran) is stored in `llm_cache/decisions.json`, keyed by the building's content, the question text and a
+schema version. Re-running the command replays them — no key needed — and reproduces `answers.json`; the
+`parser` field then reads `llm-cache` / `agent-cache`. `LLM_CACHE=off` asks the model again.
+
+Kinds covered: `route_query` (combined route constraints), `agent` (solver agent), the benchmark kinds (`largest_room`, `floor_area_total`, `shared_walls_count`, `room_stacked`,
 `straight_line_3d`, `errand`, `what_if_door`, `wide_delivery_count`, `step_free_reachable_count`) and the warm-up
 kinds (`locate`, `count`, `route`, `route_step_free`, `route_with_closure`, `tour`).
 

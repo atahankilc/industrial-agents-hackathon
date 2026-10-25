@@ -10,6 +10,28 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 04:00 — Sunday hardening P1: route specs, solver agent, decision cache (branch `4-sunday-agent`)
+
+- **Did:** `core/route_query.py` (one route with any mix of constraints; places = rooms, room types or items, the
+  nearest taken via one Dijkstra per leg; on `core.navigation`); LLM schema: general `route` spec + `asks_for`,
+  kinds `other` / mismatches → `NeedsAgent`; simple specs keep the warm-up kinds and v1 solvers.
+  `agent/solver_agent.py`: Opus 5.5 tool loop with a `python` sandbox (restricted builtins, module whitelist, 30 s,
+  deep-copied building) and `submit_answer`; 2 runs, a third on disagreement, majority; Answer line by code.
+  `agent/llm_cache.py`: parser slots and agent submissions (with code) keyed by building hash + question + version,
+  replayed first. Probe set `tests/sunday_probe/proc-factory-dev-004.json` (expected answers by direct code) +
+  `scripts/eval_sunday_probe.py`. Solver agent effort lowered to `medium` (Utku).
+- **Learned:** the first live probe was 14/14 but every question went to the agent: the new schema had 21
+  union-typed parameters and the API rejects more than 16 (HTTP 400 on every parser call) — the fallback masked it.
+  Fixed (flags plain booleans, empty lists, `""` floors; 12 unions) and guarded by a test; agent answers now carry
+  `parser_failure`. After the fix: 14/14, parser for 10 reworded routes/locates, agent only for the 3 new kinds
+  (smallest room, room count, narrowest door), 76 s (high) / 71 s (medium). Replay with an empty key and an
+  unreachable API base URL: 14/14 identical in 0 s. Tests initially wrote to the committed cache → `tests/conftest.py`
+  sets `LLM_CACHE=off`. The old pipeline's silent errors confirmed: p09 70.59 m (true 107.02), p12 30.85 m (0.9 m),
+  p13 31.24 m (no route).
+- **Decisions:** D-015 proposed.
+- **Next:** ship P1, merge `4-sunday-agent` into `dev` (ask before pushing); P2 (bay / forklift rules on Sunday) when
+  the question file shows the wording; Sunday run → commit `answers.json` + `llm_cache/decisions.json`.
+
 ## 2026-10-25 03:00 — Sunday hardening P0: crash-safe runner, hybrid by default (branch `4-sunday-agent`)
 
 - **Did:** probed the v1 pipeline with 14 Sunday-style questions on `proc-factory-dev-004` (paraphrases, no floor

@@ -229,7 +229,10 @@ templates first, the LLM only for unseen wording; `.env` is read automatically; 
 question id) — documented in [`SUBMISSION/BENCHMARK.md`](../../SUBMISSION/BENCHMARK.md) (v1 is the submission
 pipeline: it also answers the warm-up kinds, routes included; `agent.run_benchmark` has no solvers for them). Do not
 use `PARSER_MODE=regex` on Sunday: on 14 reworded questions it answered 1 (2026-10-25). A failing question becomes an
-`error` entry and the run goes on; the file is rewritten after every question. Output format still unannounced →
+`error` entry and the run goes on; the file is rewritten after every question. Model decisions go to
+`llm_cache/decisions.json` — **commit it together with `SUBMISSION/answers.json`**, so a re-run without a key
+reproduces the answers ([ai-agents.md](../architecture/ai-agents.md#sunday-layers-route-specs-solver-agent-decision-cache-2026-10-25)).
+Probe of the agentic layers: `uv run python scripts/eval_sunday_probe.py` (`tests/sunday_probe/`, calls Claude). Output format still unannounced →
 [Q-001](../../memory-bank/open-questions.md#q-001).
 
 ## Related

@@ -2,7 +2,7 @@
 id: arch-agents
 summary: PROPOSED design of every AI agent in the system — Building Guide (chat + voice), benchmark pipeline, Builder (plan → building), and how they share one deterministic tool layer.
 status: proposed
-sources: [../research/elevenlabs.md, ../kit/starter-agent.md, ../challenge/brief.md, ../challenge/scoring.md, ../../agent/tools.py, ../../agent/guide.py, ../../agent/offline_llm.py]
+sources: [../research/elevenlabs.md, ../kit/starter-agent.md, ../challenge/brief.md, ../challenge/scoring.md, ../../agent/tools.py, ../../agent/guide.py, ../../agent/offline_llm.py, ../../agent/llm_parser.py, ../../agent/solver_agent.py, ../../agent/llm_cache.py, ../../core/route_query.py]
 related: [overview.md, solver-plan.md, ../product/routing-profiles.md, ../product/personas.md, ../research/question-parsing.md]
 ---
 
@@ -177,6 +177,43 @@ tie there, and is non-deterministic. Where the LLM wins is wording the templates
 fallback, not the default. Both paths share one `Resolver`: the LLM returns raw slot text chosen from the
 building's vocabulary (never ids or numbers), code resolves it, and a resolution error is sent back once for
 correction. Measure live with `scripts/eval_llm_parser.py [--paraphrase]`.
+
+### Sunday layers: route specs, solver agent, decision cache (2026-10-25)
+
+The submission pipeline (`agent/answer.py` → `agent/run_benchmark_v1.py`) now has three layers after the
+templates, so unseen wording, combined constraints and new kinds get an answer instead of a near-miss kind:
+
+```
+question ─► regex templates ──ok──────────────────────────────► v1 solver ─► reply + "Answer: …"
+              │ fail                                                ▲
+              ▼                                                     │
+            LLM slots (agent/llm_parser.py, asks_for + kind) ──────┤  warm-up kinds when the spec is simple
+              │ route spec with combined constraints ─► core/route_query.py (canonical core.navigation)
+              │ kind `other`, asks_for ≠ kind, never resolves, solver error
+              ▼
+            solver agent (agent/solver_agent.py): python sandbox over the building + submit_answer,
+            2 runs (+1 tie-break), majority; the Answer: line is written by code
+every model decision ─► decision cache (agent/llm_cache.py, llm_cache/decisions.json) ─► replayed on re-runs
+```
+
+- **Route spec** (`route` kind in the LLM schema): start, destination, ordered stops; each place a room name, a
+  room type ("the nearest toilet") or an item ("a forklift charging station" → the room of the nearest one);
+  constraints combine freely: `step_free`, `forklift`, `min_width_m`, `closures` (lifts, stairs, rooms, corridors,
+  doors). A spec that is exactly a warm-up kind keeps that kind and its v1 solver (answers unchanged); anything
+  richer is `route_query` on `core.navigation`, which reproduces every warm-up route answer
+  (`tests/test_navigation.py`).
+- **`asks_for`**: what the question wants back (room, item_location, area_m2, count, distance_m, route, other). A
+  kind that cannot answer it, or kind `other`, raises `NeedsAgent`.
+- **Solver agent**: Opus 5.5 at effort `medium` (`SOLVER_AGENT_EFFORT`); tools `python` (restricted builtins, module whitelist, 30 s limit, a
+  deep copy of the building per run; helpers `route`, `place`, `spaces`, `area`, `solve` over the canonical core)
+  and `submit_answer` (number / space / no_route / text, validated). Two independent runs, a third when they
+  disagree, majority wins (`SOLVER_AGENT_RUNS`, `SOLVER_AGENT=off`).
+- **Decision cache**: the parser's slots and the agent's submission (with the code it ran), keyed by the building's
+  content hash, the question text and a schema version. Re-running the command — also without an API key, as the
+  organisers may — replays them and reproduces `answers.json`; numbers are recomputed by code from replayed slots.
+  `LLM_CACHE=off` asks the model again; `parser` in `answers.json` says `llm-cache` / `agent-cache` on replay.
+- **Probe**: `scripts/eval_sunday_probe.py` runs `tests/sunday_probe/*.json` (reworded questions, new constraints,
+  new kinds; expected answers computed by direct code) through this path and scores them.
 
 ## Deterministic vs adaptive — the split
 

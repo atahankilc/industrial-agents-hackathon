@@ -10,6 +10,16 @@ related: [project-state.md, decisions.md, open-questions.md]
 
 Template: `## YYYY-MM-DD HH:MM — title` then *Did / Learned / Changed docs / Opened-closed Q / Next*.
 
+## 2026-10-25 — Plan import: stacking fix, API errors, docs; credits ran out
+
+- **Did:** floors registered with a relative-scale search (each photo has its own px/m), stairs / lifts joined by name
+  before distance, unconnected consecutive floors get their nearest pair (`synthetic: true`); the Creator ends with
+  "Claude API error: …" instead of a traceback; Creator docs in ai-agents.md + commands.md; import screen checked in
+  headless Chrome (upload → streamed lines → Edit mode, NO PROBLEMS).
+- **Learned:** the Urban Colab run (5 floors, 107 spaces, 329 s, ~0.87 M cache-write tokens) failed on stacking, not
+  on reading: 80 rooms unreachable. EditMode's header class `.guide-line` has no CSS any more (pre-existing).
+- **Blocked:** the API key's credit balance ran out mid-run → no live runs until topped up.
+
 ## 2026-10-25 — Plan import: Creator agent, /imports/stream, import screen
 
 - **Did:** Tasks 8–12 of the [plan](../docs/superpowers/plans/2026-10-25-plan-import.md): private import drafts,

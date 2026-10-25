@@ -291,8 +291,8 @@ class CreatorTools:
         summary = {"floors": {str(f.level): {"alignment": f.alignment, "scale_method": f.scale_method,
                                              "m_per_px": round(f.m_per_px, 5)} for f in floors},
                    "connectors": len(joined),
-                   "joined": [{"kind": kind, "stops": [{"level": level, "cell": cell} for level, cell in stops]}
-                              for kind, stops in joined]}
+                   "joined": [{"kind": kind, "stops": [{"level": level, "cell": cell} for level, cell in stops],
+                               **({"guessed": True} if guessed else {})} for kind, stops, guessed in joined]}
         return [text(summary), image(self.overlay(floors))]
 
     @staticmethod

@@ -48,7 +48,8 @@ bathroom, toilet, storage, corridor, balcony, stairwell, lift, office, meeting_r
 makerspace, library, server_room, technical_room, lobby, canteen, shop, print_room, locker_room, production_zone, \
 additive_zone, assembly_zone, warehouse_zone, logistics_zone, quality_lab, generic_room — and the name written in \
 the room (translate nothing; use the legend's name for a number, e.g. "74 Nibelungen Hall"; ref = the room number \
-if there is one). Stairs and lifts must be labelled on every floor they serve — that is how floors connect. Doors: \
+if there is one). Stairs and lifts must be labelled on every floor they serve, with the same name on every floor for the same \
+stair or lift (e.g. "Treppe West" on all floors) — that is how floors connect. Doors: \
 keep the red candidates that are real doors, add [cell, cell] for openings you see that have none. Mark entrances \
 (arrows, "Eingang", exit signs on the outer wall). Then look at the labelled plan it returns and fix what is wrong — \
 at most two review rounds per floor.
@@ -112,7 +113,10 @@ class Creator:
         nudged = False
         for _ in range(self.max_rounds):
             self.prune()
-            response = self.request()
+            try:
+                response = self.request()
+            except anthropic.APIError as error:  # credits, limits, network: end with the reason, not a traceback
+                return CreatorResult("failed", reason=f"Claude API error: {error}"[:300], usage=self.usage)
             self.messages.append({"role": "assistant", "content": response.content})
             for block in response.content:
                 if block.type == "text" and block.text.strip():

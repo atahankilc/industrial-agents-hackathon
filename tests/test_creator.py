@@ -92,3 +92,16 @@ def test_without_a_key_it_says_so(monkeypatch):
     monkeypatch.setenv("GUIDE_LLM", "offline")
     result = Creator(plan_session()).run()
     assert result.status == "failed" and "ANTHROPIC_API_KEY" in result.reason
+
+
+def test_an_api_error_ends_the_import_with_its_message():
+    import anthropic
+    import httpx
+
+    class Broke(ScriptedClient):
+        def create(self, **request):
+            response = httpx.Response(400, request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"))
+            raise anthropic.BadRequestError("Your credit balance is too low", response=response, body=None)
+
+    result = Creator(plan_session(), client=Broke([])).run()
+    assert result.status == "failed" and "credit balance is too low" in result.reason

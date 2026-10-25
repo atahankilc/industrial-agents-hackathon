@@ -154,6 +154,19 @@ under `data/user/`; with it (`uv run --env-file .env uvicorn …`, and on Vercel
 Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8765`). Design and data path:
 [visualization.md](../product/visualization.md#app-and-data-path).
 
+### Plan import (Creator)
+
+```bash
+uv run --env-file .env python scripts/live_creator.py <file|folder>... [--out building.json] [--images DIR]  # live run, steps + tokens
+uv run python scripts/eval_import.py --segment-only [--n 30] [--method walls|colours]   # free: segmentation vs dataset renders
+uv run --env-file .env python scripts/eval_import.py --full [--n 10]                    # the Creator on dataset renders
+```
+
+In the app: "New building from floor plans" on the map, or "New from floor plans" in the list (`?view=import`) →
+`POST /imports/stream` → the Edit mode. Locally without the database: `GUIDE_PERSIST=off` (the `builder_imports` table
+from `supabase/migrations/20261025180000_builder_imports.sql` must be applied before imports work with
+`SUPABASE_DB_URL`). Tests: `uv run pytest -q tests/test_plan_import_*.py tests/test_creator*.py tests/test_import*.py`.
+
 ## Dev panel
 
 Part of the app (`frontend/app/src/dev/`, backend `/dev/*` in `backend/devtools.py`): try every Guide capability

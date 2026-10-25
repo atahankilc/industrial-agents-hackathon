@@ -224,6 +224,25 @@ concurrent writes are version-checked (409); saved buildings are shared with eve
 5. Measure on our own data: rebuild train buildings from `floor_*_plain.png` and compare to `building.json`
    (room count, area error, connectivity) — a measurable L4 score.
 
+### Creator — plans → building (`agent/creator.py`, 2026-10-25)
+
+[Design](../superpowers/specs/2026-10-25-plan-import-design.md) · [plan](../superpowers/plans/2026-10-25-plan-import.md).
+Upload PDFs / photos / scans (HEIC too) → the Creator, a Claude tool loop (`CREATOR_MODEL`, default
+`claude-opus-5-5`, `CREATOR_EFFORT` medium) over the deterministic stages in `core/plan_import/`, builds the whole
+building without asking anything; the result opens as a draft on a private base `import/<id>` and the Builder above
+corrects it. Code does all geometry (wall mask → cells → doors, colour separators, scale, stacking); the model reads
+the drawings (which page is which floor, what each numbered cell is, names from legends and signs) and looks at its
+own overlays. Fallbacks it chooses itself: colour segmentation, `add_rooms` (cut merged rooms out, or add open rooms
+with cell 0), coarse boxes per room (marked `low_confidence`). Stairs / lifts join floors by name, then distance;
+floors that would stay unconnected get their nearest pair (`synthetic: true`). Import notes (scale method, segmentation,
+alignment, carved rooms) are kept in `building.source_ref.import`.
+
+Measured (live, Opus 5.5 medium): a ResPlan render 8/8 rooms in 23 s; the Residenz brochure PDF 2 floors / 56 spaces /
+0 errors in 174 s (coarse boxes, legend names); the Urban Colab escape-plan photos (HEIC originals) 5 floors / 107
+spaces in 329 s but 80 rooms unreachable — the floors were misaligned (fixed since: scale search + name joins + nearest
+pair, not yet re-run). Segmentation alone on 30 dataset renders: median count ratio 1.07, median IoU 0.40 (procedural
+≈ 0.97, Swiss / OSM 0.1–0.3) — `scripts/eval_import.py`.
+
 ## Budget
 
 $150 Claude credits ([Q-012](../../memory-bank/open-questions.md#q-012)). Benchmark runs are ~free once the

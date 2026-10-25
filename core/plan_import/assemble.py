@@ -88,14 +88,14 @@ def assemble(building_id: str, name: str, floors: list[FloorPlan], origins: list
                                          "kind": "entrance" if "outside" in ends else "door",
                                          "position": [round(float(position[0]), 2), round(float(position[1]), 2)],
                                          "width_m": round(width, 2), "step_free": True, "synthetic": False})
-    for number, (kind, stops) in enumerate(connectors(ordered), start=1):
+    for number, (kind, stops, guessed) in enumerate(connectors(ordered), start=1):
         first = next(floor for floor in ordered if floor.level == stops[0][0])
         building["vertical_connectors"].append({
             "id": f"{building_id}-V{number:02d}", "kind": kind,
             "name": first.labels[stops[0][1]].name or ("Stairs" if kind == "stairs" else "Lift"),
             "floor_ids": [f"{building_id}-F{level}" for level, _ in stops],
             "space_ids": [space_ids[(level, cell_id)] for level, cell_id in stops],
-            "step_free": kind == "lift", "synthetic": False})
+            "step_free": kind == "lift", "synthetic": guessed})  # guessed = joined only so floors connect
     return building
 
 

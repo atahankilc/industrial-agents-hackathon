@@ -47,7 +47,7 @@ def test_two_shifted_floors_register_and_connect():
     a = to_frame(ground, np.mean(ground.seg.cells[stair_id(ground)].polygon, axis=0))
     b = to_frame(upper, np.mean(upper.seg.cells[stair_id(upper)].polygon, axis=0))
     assert np.hypot(*(a - b)) < 0.5  # metres
-    assert connectors(floors) == [("stairs", [(0, stair_id(ground)), (1, stair_id(upper))])]
+    assert connectors(floors) == [("stairs", [(0, stair_id(ground)), (1, stair_id(upper))], False)]
 
 
 def test_frame_is_metres_with_y_up():
@@ -67,3 +67,31 @@ def test_unalignable_floor_is_centred(monkeypatch):
     ensure_scales(floors)
     align(floors)
     assert floors[1].alignment == "centred" and floors[1].transform is not None
+
+
+def test_wrong_scale_on_one_floor_is_found_by_the_scale_search():
+    ground = labelled_floor(0, stair=True)
+    upper = labelled_floor(1, stair=True, offset_px=(40, 25))
+    ensure_scales([ground, upper])
+    upper.m_per_px *= 1.15  # e.g. a photo whose door gaps came out wider
+    align([ground, upper])
+    assert upper.alignment == "registered"
+    assert abs(upper.m_per_px - ground.m_per_px) / ground.m_per_px < 0.05
+    assert [stops for _, stops, _ in connectors([ground, upper])] == [[(0, stair_id(ground)), (1, stair_id(upper))]]
+
+
+def test_stairs_with_the_same_name_join_even_when_far_apart():
+    floors = [labelled_floor(0, stair=True), labelled_floor(1, stair=True)]
+    ensure_scales(floors)
+    align(floors)
+    (kind, stops, guessed), = connectors(floors, max_dist_m=0.0)
+    assert kind == "stairs" and len(stops) == 2 and not guessed
+
+
+def test_floors_with_no_joinable_stairs_still_get_the_nearest_pair():
+    floors = [labelled_floor(0, stair=True), labelled_floor(1, stair=True)]
+    floors[1].labels[stair_id(floors[1])].name = "Treppenhaus Ost"
+    ensure_scales(floors)
+    align(floors)
+    (kind, stops, guessed), = connectors(floors, max_dist_m=0.0)
+    assert kind == "stairs" and len(stops) == 2 and guessed

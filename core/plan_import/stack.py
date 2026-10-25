@@ -1,6 +1,8 @@
 """Stage 5b — one XY frame for all floors (metres, y up, origin at the lowest floor's bottom-left) and the stairs /
-lifts that join them. Floors are registered on their footprints (OpenCV ECC, rotation + translation) at 0.1 m/px;
-if that fails the footprints' centres are put on top of each other."""
+lifts that join them. Floors are registered on their footprints (OpenCV ECC, rotation + translation, trying a few
+relative scales because every photo has its own px/m estimate) at 0.1 m/px; if that fails the footprints' centres are
+put on top of each other. Stairs / lifts join by name first, then by distance; consecutive floors that would stay
+unconnected get their nearest pair, marked as a guess."""
 
 import cv2
 import numpy as np
@@ -10,6 +12,7 @@ from core.plan_import.model import FloorPlan
 GRID_M = 0.1  # metres per canvas pixel
 PAD_M = 10.0
 MIN_CORRELATION = 0.6
+SCALE_FACTORS = (1.0, 0.93, 1.07, 0.87, 1.15, 0.8, 1.25)
 
 
 def kept_polygons(floor: FloorPlan) -> list[np.ndarray]:
@@ -57,16 +60,28 @@ def align(floors: list[FloorPlan]) -> None:
         if a["m00"] and b["m00"]:
             start[0, 2] = b["m10"] / b["m00"] - a["m10"] / a["m00"]
             start[1, 2] = b["m01"] / b["m00"] - a["m01"] / a["m00"]
-        warp, alignment = start, "centred"
-        try:
-            criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 200, 1e-5)
-            blur = lambda m: cv2.GaussianBlur(m, (0, 0), 5).astype(np.float32)  # noqa: E731
-            correlation, found = cv2.findTransformECC(blur(template), blur(moving), start.copy(), cv2.MOTION_EUCLIDEAN,
-                                                      criteria, None, 5)
-            if correlation >= MIN_CORRELATION:
-                warp, alignment = found, "registered"
-        except cv2.error:
-            pass
+        warp, alignment, factor = start, "centred", 1.0
+        criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 200, 1e-5)
+        blur = lambda m: cv2.GaussianBlur(m, (0, 0), 5).astype(np.float32)  # noqa: E731
+        best = MIN_CORRELATION
+        for trial in SCALE_FACTORS:  # each photo has its own px/m estimate; search the relative scale too
+            metric = np.diag([trial, trial, 1.0]) @ metrics[id(floor)]
+            candidate = canvas(floor, metric, size)
+            b = cv2.moments(candidate, True)
+            guess = start.copy()
+            if a["m00"] and b["m00"]:
+                guess[0, 2] = b["m10"] / b["m00"] - a["m10"] / a["m00"]
+                guess[1, 2] = b["m01"] / b["m00"] - a["m01"] / a["m00"]
+            try:
+                correlation, found = cv2.findTransformECC(blur(template), blur(candidate), guess, cv2.MOTION_EUCLIDEAN,
+                                                          criteria, None, 5)
+            except cv2.error:
+                continue
+            if correlation > best:
+                best, warp, alignment, factor = correlation, found, "registered", trial
+        if factor != 1.0:
+            floor.m_per_px *= factor
+            metrics[id(floor)] = np.diag([factor, factor, 1.0]) @ metrics[id(floor)]
         # ECC: moving(x) = warp · template(x)  →  template grid = warp⁻¹ · moving grid
         inverse = np.linalg.inv(np.vstack([warp, [0, 0, 1]]))
         from_grid = np.linalg.inv(to_grid)
@@ -84,31 +99,52 @@ def centroid_m(floor: FloorPlan, cell_id: int) -> np.ndarray:
     return points.mean(axis=0)
 
 
-def connectors(floors: list[FloorPlan], max_dist_m: float = 3.0) -> list[tuple[str, list[tuple[int, int]]]]:
-    """Stairs / lifts joined floor to floor (consecutive levels) by the nearest cell of the same type."""
+def connectors(floors: list[FloorPlan], max_dist_m: float = 3.0) -> list[tuple[str, list[tuple[int, int]], bool]]:
+    """(kind, stops, guessed). Consecutive levels: a stair / lift joins the one of the same type with the same name,
+    else the nearest within `max_dist_m`. If two consecutive floors end up with no join at all, their nearest stair
+    (or lift) pair is joined anyway and the chain is marked guessed — a building must not fall apart into floors."""
     ordered = sorted(floors, key=lambda floor: floor.level)
-    result: list[tuple[str, list[tuple[int, int]]]] = []
-    for kind, name in (("stair", "stairs"), ("lift", "lift")):
-        chains: list[list[tuple[int, int]]] = []
-        open_ends: dict[tuple[int, int], list[tuple[int, int]]] = {}
-        for lower, upper in zip(ordered, ordered[1:]):
-            ups = [c for c, label in upper.labels.items() if label.type == kind and c in upper.seg.cells]
+    links: dict[str, list[tuple[tuple[int, int], tuple[int, int], bool]]] = {"stair": [], "lift": []}
+
+    def cells(floor: FloorPlan, kind: str) -> list[int]:
+        return [c for c, label in sorted(floor.labels.items()) if label.type == kind and c in floor.seg.cells]
+
+    for lower, upper in zip(ordered, ordered[1:]):
+        joined_any = False
+        for kind in ("stair", "lift"):
+            downs, ups = cells(lower, kind), cells(upper, kind)
             used: set[int] = set()
-            for cell_id, label in sorted(lower.labels.items()):
-                if label.type != kind or cell_id not in lower.seg.cells:
-                    continue
-                here = centroid_m(lower, cell_id)
-                options = [(np.hypot(*(centroid_m(upper, up) - here)), up) for up in ups if up not in used]
-                options = [option for option in options if option[0] <= max_dist_m]
-                if not options:
-                    continue
-                _, best = min(options)
-                used.add(best)
-                chain = open_ends.pop((lower.level, cell_id), None)
-                if chain is None:
-                    chain = [(lower.level, cell_id)]
-                    chains.append(chain)
-                chain.append((upper.level, best))
-                open_ends[(upper.level, best)] = chain
-        result += [(name, chain) for chain in chains if len(chain) >= 2]
+            for down in downs:
+                here = centroid_m(lower, down)
+                name = lower.labels[down].name.strip().lower()
+                same = [up for up in ups if up not in used and upper.labels[up].name.strip().lower() == name]
+                near = [up for up in ups if up not in used and np.hypot(*(centroid_m(upper, up) - here)) <= max_dist_m]
+                choice = (same or near)
+                if choice:
+                    best = min(choice, key=lambda up: np.hypot(*(centroid_m(upper, up) - here)))
+                    used.add(best)
+                    links[kind].append(((lower.level, down), (upper.level, best), False))
+                    joined_any = True
+        if not joined_any:
+            for kind in ("stair", "lift"):
+                pairs = [(np.hypot(*(centroid_m(upper, up) - centroid_m(lower, down))), down, up)
+                         for down in cells(lower, kind) for up in cells(upper, kind)]
+                if pairs:
+                    _, down, up = min(pairs)
+                    links[kind].append(((lower.level, down), (upper.level, up), True))
+                    break
+
+    result: list[tuple[str, list[tuple[int, int]], bool]] = []
+    for kind, name in (("stair", "stairs"), ("lift", "lift")):
+        chains: list[list] = []
+        ends: dict[tuple[int, int], list] = {}
+        for low, high, guessed in links[kind]:
+            chain = ends.pop(low, None)
+            if chain is None:
+                chain = [[low], False]
+                chains.append(chain)
+            chain[0].append(high)
+            chain[1] = chain[1] or guessed
+            ends[high] = chain
+        result += [(name, stops, guessed) for stops, guessed in chains]
     return result

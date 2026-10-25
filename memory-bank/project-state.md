@@ -62,8 +62,11 @@ Planned phases (proposal, see [overview.md](../docs/architecture/overview.md)):
   Creator (`agent/creator.py` + `agent/creator_tools.py`, 11 tools), `POST /imports/stream`, the "Create from floor
   plans" screen (`frontend/app/src/import/`, typechecked, not yet seen in a browser), HEIC support,
   `scripts/eval_import.py`, `scripts/live_creator.py`. Live (Opus 5.5): Residenz PDF → 2 floors, 56 spaces, 0 errors
-  in 174 s (coarse boxes with legend names); Urban Colab originals (HEIC) re-run pending after a crash fix.
-  Pending: browser check, Task 13 full eval, Task 14 demo runs + docs. Demo inputs in the main checkout's
+  in 174 s (coarse boxes with legend names); Urban Colab originals (HEIC) 5 floors / 107 spaces but floors misaligned
+  → stacking fixed (scale search, stairs joined by name, nearest pair as `synthetic` fallback), not re-run yet.
+  Browser check done (headless Chrome: upload → Creator lines → Edit mode). **Blocked: the Anthropic API key's
+  credit balance ran out (2026-10-25)** — Urban Colab re-run, `eval_import.py --full` and the demo runs wait for
+  credits. Pending: those runs, then Task 14 (generalisation checks, Q-018 note). Demo inputs in the main checkout's
   `building_plans/` (not committed).
 
 - **Builder Edit mode (branch `2-builder-edit`, in progress):** design

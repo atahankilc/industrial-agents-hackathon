@@ -517,7 +517,9 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport, onDelete
   }, [located])
 
   // location on open: already allowed → show it; not asked yet → our card first, so a "no" is ours to take and the
-  // browser's own prompt (which can stick as a denial) only follows a tap on Allow; denied → stay quiet
+  // browser's own prompt (which can stick as a denial) only follows a tap on Allow; denied → stay quiet. Opened into a
+  // building (a reload or a link), this waits until the map is first shown, then runs once
+  const locateAsked = useRef(false)
   const locate = () => {
     const map = mapRef.current
     const geolocate = geolocateRef.current
@@ -526,7 +528,8 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport, onDelete
     else map.once('load', () => geolocate.trigger())
   }
   useEffect(() => {
-    if (!('geolocation' in navigator) || focusRef.current) return
+    if (!('geolocation' in navigator) || focusId || locateAsked.current) return
+    locateAsked.current = true
     let dismissed = false
     let allowed = false
     try {
@@ -536,23 +539,34 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport, onDelete
       // storage blocked: ask again next time
     }
     let cancelled = false
+    let answered = false
     navigator.permissions
       ?.query({ name: 'geolocation' })
       .then((status) => {
         if (cancelled) return
+        answered = true
         // allowed here before: straight to the browser's own prompt, not our card again in front of it
         if (status.state === 'granted' || (status.state === 'prompt' && allowed)) locate()
         else if (status.state === 'prompt' && !dismissed) setAskLocation(true)
       })
-      .catch(() => !cancelled && (allowed ? locate() : !dismissed && setAskLocation(true)))
+      .catch(() => {
+        if (cancelled) return
+        answered = true
+        if (allowed) locate()
+        else if (!dismissed) setAskLocation(true)
+      })
     if (!navigator.permissions) {
+      answered = true
       if (allowed) locate()
       else if (!dismissed) setAskLocation(true)
     }
     return () => {
       cancelled = true
+      // undone before the browser answered (React's dev double mount, a building opened at once): the next run asks
+      if (!answered) locateAsked.current = false
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusId])
   const answerLocation = (allow: boolean) => {
     setAskLocation(false)
     try {

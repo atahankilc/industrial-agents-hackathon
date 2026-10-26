@@ -9,6 +9,13 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-26 — Location dot back after a reload inside a building
+
+- `frontend/app/src/map/MapLanding.tsx`: the "show my location" step ran only on the map's first mount and skipped
+  itself when a building was open, so a reload inside a building never showed the dot on the map. It now waits for
+  the map to be shown (no open building) and runs once; a run undone before the browser answered (dev double mount)
+  asks again. Checked with `npm run build`; not tried in a browser (extension not connected).
+
 ## 2026-10-26 — Post-hackathon cleanup
 
 - Git: `main` fast-forwarded into `dev` (same commit `25c79b5`); deleted the merged local branches

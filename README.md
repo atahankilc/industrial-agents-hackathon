@@ -10,6 +10,24 @@ development. The submission and the weekend's history are in [archive/hackathon/
 Project knowledge base: [CLAUDE.md](CLAUDE.md) → [docs/README.md](docs/README.md). All commands:
 [docs/guides/commands.md](docs/guides/commands.md).
 
+## Repository layout
+
+```
+frontend/          React + Vite app: map, building search, plan view, Guide, Edit mode
+backend/           all Python, one package `backend`
+  api/             FastAPI server: HTTP endpoints, sessions, Supabase persistence, voice, live building
+  agents/          LLM layer: the Guide, Builder and Creator agents and their tools
+  core/            deterministic engine: route graph, geometry, solvers, edits, plan import (no LLM, no HTTP)
+tests/             pytest; tests/kit_oracles/ holds the official kit scorer and question parsers used as oracles
+data/              the kit's buildings (train/ dev/ test/)
+scripts/           repo tooling and eval scripts
+docs/ memory-bank/ knowledge base and project state; archive/ is read-only history
+```
+
+A request goes `frontend → backend/api → backend/agents → backend/core`: the agents choose what to compute, the
+core computes it. `core` never imports `agents` or `api`; the only upward imports are the Builder
+(`builder.py`, `builder_tools.py`) using `backend/api/drafts.py` and `backend/api/persistence.py`.
+
 ## Setup
 
 You need Python ≥ 3.12, [uv](https://docs.astral.sh/uv/), Node.js for the app, and an Anthropic API key. The
@@ -26,8 +44,8 @@ cp .env.example .env                                  # put ANTHROPIC_API_KEY in
 ## Running the app
 
 ```bash
-uv run --env-file .env uvicorn backend.app:app --port 8765     # backend (GUIDE_LLM=offline: no key needed)
-cd frontend/app && npm install && npx vite --port 5181         # app on http://localhost:5181
+uv run --env-file .env uvicorn backend.api.app:app --port 8765  # backend (GUIDE_LLM=offline: no key needed)
+cd frontend && npm install && npx vite --port 5181             # app on http://localhost:5181
 ```
 
 ## Tests
@@ -35,14 +53,14 @@ cd frontend/app && npm install && npx vite --port 5181         # app on http://l
 ```bash
 uv run pytest -q                                      # offline tests
 python3 scripts/check_links.py                        # docs and memory-bank links
-cd frontend/app && npm run build                      # type-check + production bundle
+cd frontend && npm run build                          # type-check + production bundle
 ```
 
 ## Benchmark (archived)
 
 The hackathon benchmark runners, the kit evaluator and the v1 Guide are in
 [archive/hackathon/benchmark-code/](archive/hackathon/benchmark-code/README.md), with how to restore and run them.
-`benchmark/score.py` (the organisers' official scorer, never edit it) stays: the solver tests use it. The rest of the
+`tests/kit_oracles/score.py` (the organisers' official scorer, never edit it) stays: the solver tests use it. The rest of the
 organiser kit (starter agent) is in `archive/initial-repo/`.
 
 ## Licences

@@ -1,4 +1,4 @@
-"""Drive a fake moving object along its missions (demo for access mode, backend/fleet.py).
+"""Drive a fake moving object along its missions (demo for access mode, backend/api/fleet.py).
 
   uv run python scripts/sim_object.py --api http://localhost:8765 --object obj-… --token … [--speed 1.2]
 

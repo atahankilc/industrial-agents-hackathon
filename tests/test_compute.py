@@ -1,13 +1,13 @@
-"""agent.compute, the Guide's python tool sandbox (moved from tests/test_solver_agent.py with the module, 2026-10-26).
+"""backend.agents.compute, the Guide's python tool sandbox (moved from tests/test_solver_agent.py with the module, 2026-10-26).
 proc-factory-dev-004 has 50 spaces."""
 
 from pathlib import Path
 
 import pytest
 
-from agent import compute
-from agent.compute import namespace, run_code
-from core.building_map import BuildingMap
+from backend.agents import compute
+from backend.agents.compute import namespace, run_code
+from backend.core.building_map import BuildingMap
 
 DIRECTORY = Path(__file__).resolve().parent.parent / "data" / "dev" / "proc-factory-dev-004"
 

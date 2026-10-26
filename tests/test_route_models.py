@@ -1,4 +1,4 @@
-"""Route models and rules (core/route_models.py, Q-014) on small hand-made buildings, plus the Guide tool wiring.
+"""Route models and rules (backend/core/route_models.py, Q-014) on small hand-made buildings, plus the Guide tool wiring.
 
 Layout of `factory()` (one floor, metres):
 
@@ -19,10 +19,10 @@ from pathlib import Path
 
 import pytest
 
-from agent.tools import BuildingSession
-from core.building_map import BuildingMap
-from core.navigation import find_route, tour
-from core.route_models import (
+from backend.agents.tools import BuildingSession
+from backend.core.building_map import BuildingMap
+from backend.core.navigation import find_route, tour
+from backend.core.route_models import (
     GEODESIC,
     KIT,
     NO_RULES,

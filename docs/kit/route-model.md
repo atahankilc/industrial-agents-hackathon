@@ -6,7 +6,7 @@ sources:
   - archive/initial-repo/CHANGELOG.md (1.1.0)
   - archive/initial-repo/starter_agent/building_map.py:25-115, 271-327 (1.1.0)
   - organisers' Discord note on route scoring (2026-10-24), quoted in § Sunday scoring model
-  - core/building_map.py, core/route_models.py, tests/test_routes.py, tests/test_route_models.py
+  - backend/core/building_map.py, backend/core/route_models.py, tests/test_routes.py, tests/test_route_models.py
 related: [data-format.md, questions.md, ../../archive/hackathon/docs/kit/starter-agent.md, ../architecture/solver-plan.md]
 ---
 
@@ -16,7 +16,7 @@ related: [data-format.md, questions.md, ../../archive/hackathon/docs/kit/starter
 
 Since **kit 1.1.0 (2026-10-24)** the expected answers (train/dev, and the hidden test answers) and the judges'
 grading use one route model: README §3 of the kit, implemented exactly by the 1.1.0
-`starter_agent/building_map.py`. Our `core/building_map.py` carries that code unchanged (geometry helpers +
+`starter_agent/building_map.py`. Our `backend/core/building_map.py` carries that code unchanged (geometry helpers +
 `BuildingMap.graph`) — **reuse it, don't re-derive** ([D-002](../../memory-bank/decisions.md#d-002),
 [D-014](../../memory-bank/decisions.md#d-014)). Kit 1.0.0 used a different model (anchor → door straight lines,
 stairs 12 m per floor, lift 15 m + 6 m per floor, all entrances joined outside); it is gone.
@@ -65,8 +65,8 @@ once** and **each stair flight / lift ride once** (stairs F2 → F4 = the stair 
 have `legs`, each with its own paths; a tour with an unreachable stop is `{"stops": [...], "reachable": false}`.
 Example in [questions.md](questions.md#warm-up-questions).
 
-`core/building_map.py` `path_parts` / `expand` produce these from a Dijkstra node path (`expand` also gives the
-space/door/space walk the step text uses). `BuildingMap.route()` and `core/navigation.py` (`find_route`, `tour`)
+`backend/core/building_map.py` `path_parts` / `expand` produce these from a Dijkstra node path (`expand` also gives the
+space/door/space walk the step text uses). `BuildingMap.route()` and `backend/core/navigation.py` (`find_route`, `tour`)
 return them per leg. **Verified exact** (length ≤ 1 cm, `space_path`, `element_path`, unreachable cases) on all
 **1,338** train+dev warm-up route / step-free / closure / tour questions: `uv run pytest tests/test_routes.py -q -s`
 (2026-10-24). One gold value disagrees with the organisers' own 1.1.0 starter (resplan-12462 Q08 and the tour leg in
@@ -74,7 +74,7 @@ Q09: gold 7.57 m, starter and ours 7.67 m); the validators count a length equal 
 
 ## Performance
 
-Walks are cached per space by (space id, outline, its openings) in `core/building_map._WALKS`, shared by copies,
+Walks are cached per space by (space id, outline, its openings) in `backend/core/building_map._WALKS`, shared by copies,
 sessions and edits; an added door is a new key. First build (dev, 2026-10-24): all but two buildings < 1 s; osm-way27917482 ~7 s and
 **osm-way360544293 ~25 s** (two corridor polygons with ~1,000 corners each; ⅔ visibility checks, ⅓ Floyd-Warshall). A faster exact
 variant (Dijkstra from the few door points) gave identical lengths on all 108k dev walk pairs but was only 1.5×
@@ -101,14 +101,14 @@ Factory schema (aisles, walkways, bays): [Q-015](../../memory-bank/open-question
 - `straight_line_3d` uses the polygon **centroid** (not representative point) + floor `elevation_m`.
 - "Nearest" in `errand` = route-model distance on the full graph, any floor — VERIFIED 93/93 against gold `via`
   (kit 1.1.0 answers, [solver-plan.md](../architecture/solver-plan.md#errand)).
-- Step metres are NOT a separate estimate: `core/directions.py` `route_legs`, which drives the Guide's written and spoken steps and
+- Step metres are NOT a separate estimate: `backend/core/directions.py` `route_legs`, which drives the Guide's written and spoken steps and
   the camera legs, takes each step's metres from the route model's walks (as the kit's step text does), so step
   metres + stair/lift costs = the route length (`tests/test_directions.py`).
 
 <a id="sunday-route-model-and-route-rules-q-014"></a>
 ## Route rules (Q-014)
 
-`core/route_models.py`; every `core/navigation.py` route call takes `rules=RouteRules(...)` (and `model`, kept for
+`backend/core/route_models.py`; every `backend/core/navigation.py` route call takes `rules=RouteRules(...)` (and `model`, kept for
 callers: `"kit"`, with `"geodesic"` an alias since 1.1.0). **Default: no rules** — the kit graph plus the `outside`
 endpoint node (`tests/test_route_models.py`). The rules are our reading of the organiser note — **UNVERIFIED**:
 

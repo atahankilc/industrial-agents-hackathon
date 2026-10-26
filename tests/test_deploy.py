@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import app
+from backend.api.app import app
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
@@ -40,7 +40,7 @@ def test_rewrites_send_api_to_backend_and_the_rest_to_frontend():
 
 def test_entrypoint_and_functions_key_name_the_same_app():
     module, variable = API["entrypoint"].split(":")
-    assert (module, variable) == ("backend.app", "app")
+    assert (module, variable) == ("backend.api.app", "app")
     assert list(API["functions"]) == [module.replace(".", "/") + ".py"]
 
 
@@ -51,12 +51,12 @@ def glob_regex(pattern: str) -> re.Pattern:
 
 
 def test_bundle_keeps_what_the_backend_reads_and_drops_the_rest():
-    excludes = [glob_regex(item) for item in API["functions"]["backend/app.py"]["excludeFiles"].strip("{}").split(",")]
+    excludes = [glob_regex(item) for item in API["functions"]["backend/api/app.py"]["excludeFiles"].strip("{}").split(",")]
     tracked = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, text=True, check=True)
     files = [name for name in tracked.stdout.split("\0") if name]
     kept = {name for name in files if not any(pattern.match(name) for pattern in excludes)}
     buildings = {name for name in files if name.endswith("/building.json")}
     assert buildings and buildings <= kept and "data/manifest.csv" in kept
-    assert {"backend/app.py", "backend/persistence.py", "core/building_map.py", "agent/guide.py"} <= kept
+    assert {"backend/api/app.py", "backend/api/persistence.py", "backend/core/building_map.py", "backend/agents/guide.py"} <= kept
     assert not any(name.startswith(("archive/", "frontend/", "tests/", "docs/")) or name.endswith(".png")
                    for name in kept)

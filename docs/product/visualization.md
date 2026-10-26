@@ -1,12 +1,12 @@
 ---
 id: product-visualization
-summary: App visuals — the current vector plan view (core/floorplan.py, GET /sessions/{id}/plan, frontend/app/src/plan/) and the superseded point-cloud visual language; three.js vs react-three-fiber, performance, judging fit.
+summary: App visuals — the current vector plan view (backend/core/floorplan.py, GET /sessions/{id}/plan, frontend/src/plan/) and the superseded point-cloud visual language; three.js vs react-three-fiber, performance, judging fit.
 sources:
-  - core/floorplan.py, backend/sessions.py (MapView.plan), frontend/app/src/plan/, frontend/app/src/building/ (verified 2026-10-24)
-  - frontend/app/src/dev/, core/routeline.py (answers on the plan, verified 2026-10-24)
-  - frontend/app/src/plan/ObjectsLayer.tsx, src/plan/palette.ts (access mode, verified 2026-10-25)
-  - frontend/app/src/map/bridge.ts, src/building/opening.ts, src/Root.tsx (map → building transition, verified headless 2026-10-24)
-  - frontend/app/src/building/RouteHud.tsx, src/dev/StoryLayer.tsx, core/directions.py maneuvers (route following, verified headless 2026-10-25)
+  - backend/core/floorplan.py, backend/api/sessions.py (MapView.plan), frontend/src/plan/, frontend/src/building/ (verified 2026-10-24)
+  - frontend/src/dev/, backend/core/routeline.py (answers on the plan, verified 2026-10-24)
+  - frontend/src/plan/ObjectsLayer.tsx, src/plan/palette.ts (access mode, verified 2026-10-25)
+  - frontend/src/map/bridge.ts, src/building/opening.ts, src/Root.tsx (map → building transition, verified headless 2026-10-24)
+  - frontend/src/building/RouteHud.tsx, src/dev/StoryLayer.tsx, backend/core/directions.py maneuvers (route following, verified headless 2026-10-25)
   - https://threejs.org/docs/ (three.js r160)
   - https://r3f.docs.pmnd.rs/ (react-three-fiber)
 related: [../../archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md, ../architecture/overview.md, personas.md, routing-profiles.md, ../architecture/ai-agents.md]
@@ -28,17 +28,17 @@ place card) with a floating Guide conversation.
   stretched: lecture seating rows get one seat per 0.50 m (the kit's chair width), kitchen counters and wardrobes one
   front seam per 0.60 m module (the kit's wardrobe/appliance widths). No invented detail (no sink or hob on counters,
   no stair direction: the kit has neither).
-- **Data:** `core/floorplan.py` `export_plan(building_map)` → floors, spaces (polygon, label point), walls
+- **Data:** `backend/core/floorplan.py` `export_plan(building_map)` → floors, spaces (polygon, label point), walls
   per floor with door gaps cut, openings (wall angle only: the kit has no swing data, so the plan draws no door leaves, just a threshold
   strip per doorway: blue, entrances accent blue, closed doors red), connectors, assets in drawn spaces, `closed`,
   and `center` (centre of the space bounds; the y-up scene uses `X = x - cx`, `Z = -y - cz`). Served by
   `GET /sessions/{id}/plan`, cached in `MapView.plan` per building object. Route events from `/events` carry
   turn-by-turn `legs` but no polyline: a route line on the plan still needs one in the plan frame.
-- **Landing:** a city map (`frontend/app/src/map/MapLanding.tsx`; MapLibre GL JS on OpenFreeMap's hosted
+- **Landing:** a city map (`frontend/src/map/MapLanding.tsx`; MapLibre GL JS on OpenFreeMap's hosted
   `positron` / `dark` styles, free, no key), tilted 50°, every building in the tiles extruded from zoom 14 to its
   OSM height (`render_height` / `render_min_height`, streamed with the tiles), a pin per building that has a real
   position, and a panel listing them; tap a pin or a row → `BuildingScreen`. Positions come from `GET /buildings` `location` ({lat, lon, address}
-  or null), read from `backend/locations.json`: the centre of the OSM outline of the 17 `osm-way*` buildings, made
+  or null), read from `backend/api/locations.json`: the centre of the OSM outline of the 17 `osm-way*` buildings, made
   by the archived twin-lab `georef.py` (OSM API; fit median 0.05–6.6 m). Swiss, ResPlan and procedural buildings
   have no position; the list view (`?view=list`, `src/search/`) searches all 280 and has a "No location" filter.
   The building's back pill returns to whichever of the two it was opened from. "All floors" stacks the cutaway
@@ -49,7 +49,7 @@ place card) with a floating Guide conversation.
   started on the tap, one session per visit); the model then takes over from the map's own camera and eases to its
   first framing while it rises out of the ground (`PlanView` `Reveal`, 0.9 s; also for buildings with no position).
   From then on the map follows the model's camera every frame (`src/map/bridge.ts`): the kit frame is metres x east,
-  y north from `location.origin` (the fitted kit (0, 0) from `georef.py`, added to `backend/locations.json`), and
+  y north from `location.origin` (the fitted kit (0, 0) from `georef.py`, added to `backend/api/locations.json`), and
   the map narrows its field of view to 1° so its perspective matches the orthographic model (measured ≤ 10 px apart at the screen corners, ≤ 1 px at the centre; 4° was up to 40 px; below 1° MapLibre drops its tiles when tilted), and the model tilts at most 60° over the map (past 60° MapLibre switches tile selection and, at that field of view, draws no buildings at z15–18). The map blocks over the
   open building (overlap with the plan outline: block centre in it, its centre in the block, or most block corners in
   it; tile ids are not the kit's way ids) move to a see-through shell layer (`buildings-3d-shell`, opacity 0.22 light /
@@ -133,7 +133,7 @@ place card) with a floating Guide conversation.
   ring with a "then ← …" tag. The route line is thin (6 px) with no chevrons: before Start one solid line; while
   walking only the current step is solid, the walked part and the steps still to come are dotted, and one short light
   runs along the solid part the way you go. The walked part eases to a new step and the
-  "you" puck glides along the line. Steps are moves, not doors: `core/directions.maneuvers` joins a straight-on door
+  "you" puck glides along the line. Steps are moves, not doors: `backend/core/directions.maneuvers` joins a straight-on door
   into the step before it (each step carries `legs`, which `building/tracking.ts` uses to place it on the line), so
   Hauptgebäude 0119 → Toilet 0137 is 6 steps instead of 8; the Guide's spoken steps and the `[route note]` use the
   same list.
@@ -177,7 +177,7 @@ Design: [plan-reference-and-location-design.md](../../archive/hackathon/superpow
 
 ## Answers on the plan
 
-`frontend/app/src/dev/`: the current answer drawn over the plan without changing the plan's colours. (The dev
+`frontend/src/dev/`: the current answer drawn over the plan without changing the plan's colours. (The dev
 tools panel that also lived here was removed 2026-10-25; the admin button now only toggles the Edit mode. In access mode the
 admin also gets a shield button above it that opens the Building settings — tabs Access / People / Objects — and the
 Edit mode an Access tool: tap a room to choose who may enter it, restricted rooms hatched; both save at once through
@@ -194,8 +194,8 @@ Verified in Chrome on `train/proc-campus-train-000` and `dev/proc-factory-dev-00
   objects as markers with a heading cone, a faint trail and the remaining mission line in violet
   (`palette.object`, `src/plan/ObjectsLayer.tsx`).
 - **Route line**: every route event now carries `line` ([[x, y, floor_index], …], `MapView.enrich` →
-  `core/routeline.py`: door to door along the shortest path inside each space (15 cm off the walls, round
-  corners, doors entered at their 30 cm landing: the walk `core/building_map.py` measures since kit 1.1.0), anchors kept only for the first and last space and stairs/lifts — so the line never overshoots to a
+  `backend/core/routeline.py`: door to door along the shortest path inside each space (15 cm off the walls, round
+  corners, doors entered at their 30 cm landing: the walk `backend/core/building_map.py` measures since kit 1.1.0), anchors kept only for the first and last space and stairs/lifts — so the line never overshoots to a
   corridor's centre and turns back; drawing only, lengths unchanged). Since 2026-10-25: a route that starts in the
   room of the "you are here" figure starts its line at the figure's point (`PUT /sessions/{id}/location` sends
   `point`, the route event carries `start_point`), not at the room's anchor; and a door between two spaces whose
@@ -228,7 +228,7 @@ not as a description of the app.
 | Fit for us | Prototype (this folder) | The real app ([D-006](../../memory-bank/decisions.md#d-006): React frontend): chat, panels and 3D share React state (selected room, active route, closures) |
 
 Done (2026-10-24): the exporter became `core/pointcloud.py` and the shader an r3f `<BuildingCloud/>` in
-`frontend/app/` (versions pinned in `frontend/app/package.json`: three 0.186, @react-three/fiber 9, drei 10). No
+`frontend/` (versions pinned in `frontend/package.json`: three 0.186, @react-three/fiber 9, drei 10). No
 post-processing bloom: the soft additive dots in dark mode glow enough and keep it to one draw call.
 
 ## Visual language
@@ -237,7 +237,7 @@ post-processing bloom: the soft additive dots in dark mode glow enough and keep 
 (light mode), following the system setting with a toggle. No hues — meaning is carried by density, alpha, size and
 motion. (The prototype in `frontend/prototypes/pointcloud/` still uses the earlier colour scheme.)
 
-| Element | Points (app, `frontend/app/src/scene/shaders.ts`) | Meaning |
+| Element | Points (app, `frontend/src/scene/shaders.ts`) | Meaning |
 |---|---|---|
 | Walls | dense, strong alpha, extruded to ≤ 3 m | the structure "emerges" from these first |
 | Floors | sparse jittered grid, faint | footprint without hiding the level below |
@@ -272,7 +272,7 @@ re-route via Lift 2), no console errors. Not tested: phone layout, low-end GPUs.
 
 ## App and data path
 
-- **App (current, 2026-10-26):** `frontend/app/` (Vite + React + TypeScript), entry `src/Root.tsx`; folders
+- **App (current, 2026-10-26):** `frontend/` (Vite + React + TypeScript), entry `src/Root.tsx`; folders
   `src/map`, `src/search`, `src/building`, `src/plan`, `src/edit`, `src/import`, `src/access`, `src/live`,
   `src/voice`, `src/ui`, `src/dev`. The point-cloud files this section was written for (`src/scene/` with
   BuildingCloud, RouteFlow, Scene, shaders; the old `src/App.tsx`) were removed; see the note at the top of this

@@ -1,10 +1,10 @@
-"""agent/builder_tools.py: what the Builder agent can look at, and propose_edit (dry run, never applies)."""
+"""backend/agents/builder_tools.py: what the Builder agent can look at, and propose_edit (dry run, never applies)."""
 
 import pytest
 
-import backend.app as backend_app
-from agent.builder_tools import BUILDER_TOOLS, BuilderTools
-from backend.drafts import DraftStore
+import backend.api.app as backend_app
+from backend.agents.builder_tools import BUILDER_TOOLS, BuilderTools
+from backend.api.drafts import DraftStore
 
 BASE = "train/proc-campus-train-000"
 

@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from benchmark.score import score_reply
-from core.building_map import BuildingMap
+from tests.kit_oracles.score import score_reply
+from backend.core.building_map import BuildingMap
 from tests.kit_oracles.formatter import format_reply
-from core.solvers import solve
-from core.solvers.reachability import is_room, reachable_spaces, rooms_on_floor
+from backend.core.solvers import solve
+from backend.core.solvers.reachability import is_room, reachable_spaces, rooms_on_floor
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 KINDS = ("wide_delivery_count", "step_free_reachable_count")

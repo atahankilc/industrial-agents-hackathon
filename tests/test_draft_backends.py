@@ -1,4 +1,4 @@
-"""Edit-mode storage (backend/drafts.py, milestone 3): the backends' contract, and two serverless instances sharing one
+"""Edit-mode storage (backend/api/drafts.py, milestone 3): the backends' contract, and two serverless instances sharing one
 database — two DraftStores (each with its own catalogue, caches and Builders) on one MemoryDraftBackend. A live
 Postgres check runs only with PERSIST_LIVE_TEST=1 and SUPABASE_DB_URL."""
 
@@ -12,13 +12,13 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
-import backend.app as backend_app
-from agent.builder import Builder
-from backend.drafts import (SAVE_ATTEMPTS, Draft, DraftStore, FileDraftBackend, MemoryDraftBackend,
+import backend.api.app as backend_app
+from backend.agents.builder import Builder
+from backend.api.drafts import (SAVE_ATTEMPTS, Draft, DraftStore, FileDraftBackend, MemoryDraftBackend,
                             PostgresDraftBackend)
-from backend.persistence import Conflict, StateError, db_url
-from backend.sessions import load_catalogue
-from core.edits import EditError, apply_steps
+from backend.api.persistence import Conflict, StateError, db_url
+from backend.api.sessions import load_catalogue
+from backend.core.edits import EditError, apply_steps
 
 BASE = "train/proc-campus-train-000"
 
@@ -194,7 +194,7 @@ def builder_reply(client: TestClient, draft_id: str, text: str) -> dict:
 
 
 def side_prompt(store: DraftStore, draft: Draft) -> str:
-    from agent.builder_tools import BuilderTools
+    from backend.agents.builder_tools import BuilderTools
 
     tools = BuilderTools(store, draft)
     for space in store.building(draft)["spaces"]:

@@ -72,7 +72,7 @@ Template:
   for agentic dev work. One full test run with the starter-style Opus agent ≈ 145 × $0.10–0.25 ≈ $15–36; with
   deterministic solvers + template parser the LLM cost of a benchmark run should be near $0. Track spend in
   [log.md](../archive/hackathon/log-2026-10-24-to-25.md).
-- **Guide (2026-10-24):** `agent/guide.py` defaults to `claude-opus-5-5` at effort `medium`; switch with
+- **Guide (2026-10-24):** `backend/agents/guide.py` defaults to `claude-opus-5-5` at effort `medium`; switch with
   `GUIDE_MODEL` / `GUIDE_EFFORT` (e.g. `claude-sonnet-5-5`, `low` for voice latency). `guide.usage` counts tokens
   incl. cache reads.
 - **Live evidence (2026-10-24, `scripts/live_guide.py`, 7 tricky-user turns):** Opus 5.5 medium ~5.9–7.3 s/turn
@@ -134,14 +134,14 @@ Template:
 <a id="q-021"></a>
 ### Q-021 — The living building keeps device positions in one function's memory: fix before real devices?
 - **Status:** open · **Priority:** low (fine for demos) · **Resolve by:** Atahan's call when real devices are in scope
-- **Context:** `backend/live.py` holds each building's `LiveWorld` (simulated and real devices) in process memory,
+- **Context:** `backend/api/live.py` holds each building's `LiveWorld` (simulated and real devices) in process memory,
   stepped by a `threading.Thread`. On Vercel the API is a serverless function (`vercel.json`), so: nothing moves while
   no request arrives (the process is frozen or stopped; a world also drops itself after `IDLE_S = 90` without a
   viewer); two instances run two different worlds; a stopped instance loses every position. Real devices post to
   `POST /live/devices/{device_id}/report`, which also writes only to that instance's memory, never to Supabase.
   Noted by Atahan on 2026-10-26 as a weak implementation, good enough for now.
 - **Options:** (a) keep as is (demo only); (b) store each device's last report in a Supabase table (like
-  `fleet_objects`, `backend/fleet.py`) and let `/live` read from it; (c) for many devices, an always-on ingest
+  `fleet_objects`, `backend/api/fleet.py`) and let `/live` read from it; (c) for many devices, an always-on ingest
   (e.g. MQTT broker + small worker) writing to the database.
 - **How to resolve:** decide when real-device support becomes a product goal.
 
@@ -168,7 +168,7 @@ Template:
 - **Progress (2026-10-24, upstream README §3–4):** the graph's nodes are spaces (anchor =
   `representative_point()`), openings and one `"outside"` node. Warm-up route answers give the path as
   `space_path` (space ids + `"outside"`) and `element_path` (the `via` of every edge walked: an opening id twice per
-  door, a connector id once per floor segment). `core.building_map` reproduces length, `space_path` and
+  door, a connector id once per floor segment). `backend.core.building_map` reproduces length, `space_path` and
   `element_path` exactly on all 1,457 train+dev warm-up route/tour legs. **Working assumption until answered:**
   Sunday routes use this warm-up format, one leg per stop-to-stop segment (as in `tour` answers).
 - **Progress (2026-10-24, organisers' Discord note on route scoring):** a route answer is "the ordered list of
@@ -210,7 +210,7 @@ Template:
   - Scoring: the answer is the **ordered list of spaces**; each step must go through a real door/opening/stair/
     lift and obey the rules (else **score 0**); the route is re-measured with their rule; score = best length ÷
     our length, within 1 % = full marks. Our own distance numbers don't matter.
-- **Gap vs our code** (`core/building_map.py`, [route-model.md](../docs/kit/route-model.md)): we use the kit model
+- **Gap vs our code** (`backend/core/building_map.py`, [route-model.md](../docs/kit/route-model.md)): we use the kit model
   (anchor `representative_point` → door straight lines; stairs 12 m/floor; lift 15 + 6 m/floor). Floor heights in
   the data are 3.0–8.0 m, so stair/lift costs change per building and the stairs-vs-lift choice can flip (3 floors
   of 3 m: kit picks the lift 33 vs 36 m; new rule picks stairs 18 vs 24 m). We have **no production-bay rule**
@@ -222,14 +222,14 @@ Template:
   and last space (door or centre)? (3) space ids or names in the list; may it contain "outside"? (4) how are forklift
   aisles, pedestrian walkways and production bays marked (type/room_type/name/new field)? (5) "metre climbed" = the
   `elevation_m` difference between floors?
-- **Plan (no API cost, stays in `core/` + `agent/`):** (a) a second route model selectable per question:
+- **Plan (no API cost, stays in `backend/core/` + `backend/agents/`):** (a) a second route model selectable per question:
   door-to-door geodesic inside each space polygon shrunk by 0.15 m (visibility graph over the polygon's reflex
   vertices), height-based stair/lift costs; keep the kit model as default until (1) is answered; (b) measure how often
   the two models pick different space sequences on train/dev warm-up routes; (c) rules: production bays = destination
   only, forklift profile (≥ 3 m, exclude walkway-like spaces), no route through `outside`; (d) benchmark "no route"
   answer wording checked.
-- **Progress (2026-10-24):** (a)–(c) implemented — `core/geodesic.py`, `core/route_models.py` (`model="kit" |
-  "geodesic"`, `RouteRules`, `sequence_length` re-measures a space list), wired into `core/navigation.py`,
+- **Progress (2026-10-24):** (a)–(c) implemented — `core/geodesic.py`, `backend/core/route_models.py` (`model="kit" |
+  "geodesic"`, `RouteRules`, `sequence_length` re-measures a space list), wired into `backend/core/navigation.py`,
   `core/basic_parser.run_parsed` and the Guide tools (rules always on there, `forklift` preset). Kit stays the
   default. Measured on 1,457 train/dev warm-up legs ([route-model.md](../docs/kit/route-model.md#sunday-route-model-and-route-rules-q-014)):
   sequences differ in 115 (7.9 %); kit answers score 0.930 mean / 88.8 % full marks (0.984 / 93.1 % with the

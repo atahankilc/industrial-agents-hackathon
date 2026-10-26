@@ -1,11 +1,11 @@
-"""agent/creator.py: the Creator's tool loop over a scripted client (no API calls)."""
+"""backend/agents/creator.py: the Creator's tool loop over a scripted client (no API calls)."""
 
 import json
 
-from agent.creator import Creator
-from agent.creator_tools import ImportSession
-from agent.offline_llm import message, text_block, tool_use
-from core.plan_import.ingest import load_sources
+from backend.agents.creator import Creator
+from backend.agents.creator_tools import ImportSession
+from backend.agents.offline_llm import message, text_block, tool_use
+from backend.core.plan_import.ingest import load_sources
 from tests.plan_fixtures import FIXTURE_LABELS, TWO_ROOMS_AND_CORRIDOR, draw_plan, to_png
 
 
@@ -80,7 +80,7 @@ def test_images_are_kept_so_the_cached_prefix_stays_the_same():
 
 
 def test_past_the_limit_old_images_are_dropped_in_one_go(monkeypatch):
-    import agent.creator as module
+    import backend.agents.creator as module
 
     monkeypatch.setattr(module, "MAX_IMAGES", 6)
     monkeypatch.setattr(module, "KEEP_IMAGES", 2)

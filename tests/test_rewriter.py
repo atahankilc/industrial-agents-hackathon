@@ -8,10 +8,10 @@ import anthropic
 import httpx2
 import pytest
 
-from agent.guide import Guide
-from agent.offline_llm import message, text_block
-from agent.rewriter import TranscriptRewriter, invented_numbers
-from agent.tools import BuildingSession
+from backend.agents.guide import Guide
+from backend.agents.offline_llm import message, text_block
+from backend.agents.rewriter import TranscriptRewriter, invented_numbers
+from backend.agents.tools import BuildingSession
 from tests.test_guide import ScriptedClient, say
 
 BUILDING = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000"

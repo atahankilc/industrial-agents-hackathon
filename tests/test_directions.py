@@ -1,11 +1,11 @@
-"""Turn-by-turn legs (core/directions.py) for the camera walk mode and route cards."""
+"""Turn-by-turn legs (backend/core/directions.py) for the camera walk mode and route cards."""
 
 from pathlib import Path
 
 import pytest
 
-from agent.tools import BuildingSession
-from core.directions import about_m, guidance, guidance_steps, heading_change, landmark, maneuvers, route_legs, turn_word
+from backend.agents.tools import BuildingSession
+from backend.core.directions import about_m, guidance, guidance_steps, heading_change, landmark, maneuvers, route_legs, turn_word
 
 BUILDING = Path("data/train/proc-campus-train-000")
 
@@ -28,8 +28,8 @@ def test_legs_follow_the_route_and_match_kit_steps(session):
     legs = route_legs(session.building, route["space_path"], route["element_path"])
     assert legs[-1]["kind"] == "arrive" and legs[-1]["to_id"] == route["space_path"][-1]
     assert all(leg["to_id"] in route["space_path"] for leg in legs)
-    # the kit's "Walk about N m … into X" lines (core.navigation; the Guide's tool now gives guidance steps)
-    from core import navigation
+    # the kit's "Walk about N m … into X" lines (backend.core.navigation; the Guide's tool now gives guidance steps)
+    from backend.core import navigation
     kit_route = navigation.find_route(session.building, route["space_path"][0], route["space_path"][-1]).to_dict()
     assert kit_route["length_m"] == route["length_m"]
     kit = [line for line in kit_route["steps"] if line.startswith("Walk about")]
@@ -50,7 +50,7 @@ def test_legs_follow_the_route_and_match_kit_steps(session):
 def test_route_event_carries_legs():
     from fastapi.testclient import TestClient
 
-    from backend.app import app
+    from backend.api.app import app
     client = TestClient(app)
     session_id = client.post("/sessions", json={"building": "train/proc-campus-train-000"}).json()["session_id"]
     client.post("/chat", json={"session_id": session_id, "message": "from Main lobby to Meeting room 3.07"})

@@ -77,7 +77,7 @@ def bounds(polygons: list[Polygon]):
 
 
 def segment_only(n: int, method: str) -> None:
-    from core.plan_import.cells import segment_colours, segment_walls
+    from backend.core.plan_import.cells import segment_colours, segment_walls
 
     rows = []
     for building_dir, index in sample(n):
@@ -109,9 +109,9 @@ def door_pairs(building: dict, space_ids: set[str]) -> set[frozenset]:
 
 
 def full(n: int) -> None:
-    from agent.creator import Creator
-    from agent.creator_tools import ImportSession
-    from core.plan_import.ingest import load_sources
+    from backend.agents.creator import Creator
+    from backend.agents.creator_tools import ImportSession
+    from backend.core.plan_import.ingest import load_sources
 
     rows, spent = [], {"in": 0, "out": 0, "cache_read": 0, "cache_write": 0}
     for building_dir, index in sample(n):

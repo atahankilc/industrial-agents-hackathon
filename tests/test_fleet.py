@@ -1,4 +1,4 @@
-"""Moving objects (core/fleet.py, backend/fleet.py): attributes → closures, mission steps, device positions, the
+"""Moving objects (backend/core/fleet.py, backend/api/fleet.py): attributes → closures, mission steps, device positions, the
 admin's dispatch (API and the Guide's send_object), access mode only."""
 
 from pathlib import Path
@@ -6,11 +6,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import app as app_module
-from backend.access import ANONYMOUS, Access, MemoryAccess, Viewer
-from backend.fleet import MemoryFleet
-from core.building_map import BuildingMap
-from core.fleet import Attributes, closures, mission
+from backend.api import app as app_module
+from backend.api.access import ANONYMOUS, Access, MemoryAccess, Viewer
+from backend.api.fleet import MemoryFleet
+from backend.core.building_map import BuildingMap
+from backend.core.fleet import Attributes, closures, mission
 
 CAMPUS = "train/proc-campus-train-000"
 FACTORY = "train/proc-factory-train-008"

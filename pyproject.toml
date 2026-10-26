@@ -28,7 +28,7 @@ build-backend = "hatchling.build"
 testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["core", "agent", "benchmark", "backend"]
+packages = ["backend"]
 
 [dependency-groups]
 dev = [

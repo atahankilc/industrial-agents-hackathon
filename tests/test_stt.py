@@ -1,4 +1,4 @@
-"""POST /stt/token and keyterms: Scribe Realtime for the user's words (backend/stt.py), ElevenLabs faked."""
+"""POST /stt/token and keyterms: Scribe Realtime for the user's words (backend/api/stt.py), ElevenLabs faked."""
 
 import io
 import json
@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from agent.tools import BuildingSession
-from backend import stt
-from backend.app import app
+from backend.agents.tools import BuildingSession
+from backend.api import stt
+from backend.api.app import app
 
 client = TestClient(app)
 FACTORY = Path("data/dev/proc-factory-dev-003")

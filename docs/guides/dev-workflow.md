@@ -31,7 +31,7 @@ write the code checks every claim against the staged diff; only a PASS can be co
 | `worklog/TEMPLATE.md` | format of a worklog entry: summary, **claims table** (claim · where · how to verify), checks run, KB updates, known gaps |
 | `worklog/PENDING.md` | the current, not-yet-committed entry (one at a time) |
 | `worklog/history/` | archived entries + their verifier report, one per commit — the audit trail |
-| `agents/commit-verifier.md` | read-only subagent: verifies each claim, runs tests + link check, scans for secrets, hard-coded test answers, edits to `benchmark/score.py`, undeclared changes, stale knowledge base → `VERDICT: PASS/FAIL` |
+| `agents/commit-verifier.md` | read-only subagent: verifies each claim, runs tests + link check, scans for secrets, hard-coded test answers, edits to `tests/kit_oracles/score.py`, undeclared changes, stale knowledge base → `VERDICT: PASS/FAIL` |
 | `agents/commit-fixer.md` | fixes only the listed issues or honestly downgrades the claim to a known gap; restages; never commits |
 | `skills/ship/SKILL.md` | the orchestration (`/ship`, `/ship push`) |
 | `hooks/require-verification.py` | PreToolUse hook on Bash: blocks `git commit` unless `worklog/.verified` = hash of the staged tree (`git write-tree`); also blocks `--amend`, `-a`, and `git add … && git commit` one-liners. Checks the repository the commit runs in (tool-call `cwd`, then `cd <dir>` / `git -C <dir>` in the command), so a commit in a git worktree is checked against that worktree's index and stamp although settings.json runs the main checkout's copy of the hook. Commit-like text anywhere in a Bash command (even inside a heredoc) is treated as a commit |

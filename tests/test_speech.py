@@ -8,10 +8,10 @@ import anthropic
 import pytest
 from fastapi.testclient import TestClient
 
-from agent.guide import VOICE_STYLE, Guide, ungrounded
-from agent.offline_llm import OfflineClient, message, text_block, tool_use
-from agent.speech import SpokenStream, sentences, speakable
-from agent.tools import BuildingSession
+from backend.agents.guide import VOICE_STYLE, Guide, ungrounded
+from backend.agents.offline_llm import OfflineClient, message, text_block, tool_use
+from backend.agents.speech import SpokenStream, sentences, speakable
+from backend.agents.tools import BuildingSession
 from tests.test_guide import BUILDING, ScriptedClient, results
 
 ROUTE_REPLY = (
@@ -85,7 +85,7 @@ def test_voice_route_turn_is_grounded_and_speakable():
 
 def test_completions_endpoint_speaks(monkeypatch):
     monkeypatch.setenv("GUIDE_LLM", "offline")
-    from backend.app import app
+    from backend.api.app import app
 
     client = TestClient(app)
     body = {"messages": [{"role": "user", "content": "from Main lobby to Meeting room 3.07"}]}

@@ -1,8 +1,8 @@
-"""Run core.validate over every dataset building and count issues per (source, code) — the validator calibration.
+"""Run backend.core.validate over every dataset building and count issues per (source, code) — the validator calibration.
 
   uv run python scripts/validate_dataset.py
 
-Every count printed here is an issue the *unchanged* dataset has; core/validate.py treats issues already present in
+Every count printed here is an issue the *unchanged* dataset has; backend/core/validate.py treats issues already present in
 the base building as warnings, so edits are only flagged for what they introduce."""
 
 import json
@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from core.validate import validate  # noqa: E402
+from backend.core.validate import validate  # noqa: E402
 
 
 def main() -> None:

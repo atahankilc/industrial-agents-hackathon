@@ -1,6 +1,6 @@
-"""Plan import, stage 4: apply the model's labels (core/plan_import/labels.py)."""
+"""Plan import, stage 4: apply the model's labels (backend/core/plan_import/labels.py)."""
 
-from core.plan_import.labels import apply_labels, render_labels
+from backend.core.plan_import.labels import apply_labels, render_labels
 from tests.plan_fixtures import FIXTURE_LABELS, floor_from, labelled_floor
 
 PX_PER_M = 20

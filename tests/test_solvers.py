@@ -8,7 +8,7 @@ from collections import Counter
 from pathlib import Path
 
 from tests.kit_oracles.question_parser import ParseError, parse_question
-from core.solvers_v1 import solve
+from backend.core.solvers_v1 import solve
 from tests.test_question_parser import building, labelled_questions
 
 # kind -> result field holding the number the answer is compared with

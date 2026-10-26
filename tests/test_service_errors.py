@@ -1,4 +1,4 @@
-"""Claude API failures reach the user as a short, readable sentence (backend/service_errors.py), not as a raw
+"""Claude API failures reach the user as a short, readable sentence (backend/api/service_errors.py), not as a raw
 `BadRequestError: Error code: 400 - {...}`: in the Guide and Builder streams, and as a status code on plain requests."""
 
 import json
@@ -8,10 +8,10 @@ import httpx2
 import pytest
 from fastapi.testclient import TestClient
 
-from agent.builder import Builder
-from backend import app as backend_app
-from backend.drafts import DraftStore
-from backend.service_errors import friendly
+from backend.agents.builder import Builder
+from backend.api import app as backend_app
+from backend.api.drafts import DraftStore
+from backend.api.service_errors import friendly
 
 BUILDING = "train/proc-campus-train-000"
 REQUEST = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")

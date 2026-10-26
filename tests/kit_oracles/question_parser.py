@@ -10,7 +10,7 @@ Measured accuracy and the template table: docs/research/question-parsing.md."""
 import re
 from dataclasses import dataclass, field
 
-from core.building_map import BuildingMap
+from backend.core.building_map import BuildingMap
 
 ANSWER_INSTRUCTION = re.compile(r"\s*Finish with a line 'Answer:.*$", flags=re.DOTALL)
 SPACE = r"(?P<{name}>.+?) \((?P<{name}_floor>Ground floor|Floor -?\d+|Basement \d+)\)"

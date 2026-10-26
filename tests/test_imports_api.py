@@ -1,14 +1,14 @@
-"""POST /imports/stream (backend/app.py): upload → Creator → private draft, as NDJSON progress lines."""
+"""POST /imports/stream (backend/api/app.py): upload → Creator → private draft, as NDJSON progress lines."""
 
 import json
 
 import pytest
 from fastapi.testclient import TestClient
 
-import backend.app as backend_app
-from agent.creator import CreatorResult
-from backend.drafts import DraftStore
-from core.plan_import.assemble import assemble, autofix
+import backend.api.app as backend_app
+from backend.agents.creator import CreatorResult
+from backend.api.drafts import DraftStore
+from backend.core.plan_import.assemble import assemble, autofix
 from tests.plan_fixtures import TWO_ROOMS_AND_CORRIDOR, draw_plan, labelled_floor, to_png
 
 PLAN = to_png(draw_plan(*TWO_ROOMS_AND_CORRIDOR))

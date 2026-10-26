@@ -41,12 +41,12 @@ prove and explain the answer, not to make the user do the work.
 - **Outputs the UI must show:** highlighted spaces, a route across floors (stairs/lift legs), closed areas,
   spaces that lost access after an edit, proposed vs applied changes, follow-up suggestions.
 - **Data:** 280 buildings (campus, factory, office, hospital, Swiss…), 1–many floors, rooms with names/types,
-  doors with widths, stairs, lifts, equipment. Backend: FastAPI (`backend/app.py`), events via `/events` and
+  doors with widths, stairs, lifts, equipment. Backend: FastAPI (`backend/api/app.py`), events via `/events` and
   `/chat/stream`.
 
 ## Capabilities and Constraints
 
-- Frontend: React + Vite + TypeScript + three.js (react-three-fiber) in `frontend/app/`; the backend API
+- Frontend: React + Vite + TypeScript + three.js (react-three-fiber) in `frontend/`; the backend API
   contract in `src/api.ts` is fixed.
 - Roles: visitor vs facility manager. Shared building edits exist on branch `collab-edits` (phase 1); sign-in
   and role checks are planned, not built (`docs/architecture/collaboration-auth.md` on that branch).

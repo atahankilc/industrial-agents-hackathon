@@ -9,16 +9,26 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-27 — Repo restructure: frontend/ + backend/{api,agents,core}
+
+- [D-024](decisions.md#d-024): `frontend/app/` → `frontend/`; `backend/` → `backend/api/`, `agent/` →
+  `backend/agents/`, `core/` → `backend/core/` (one Python package `backend`); `benchmark/score.py` →
+  `tests/kit_oracles/score.py` (unmodified). Imports, `vercel.json` (web root `frontend/`, entrypoint
+  `backend.api.app:app`), `pyproject.toml` (`packages = ["backend"]`), `DATA_DIR` (`parents[2]`), CLAUDE.md, README,
+  docs and memory-bank paths updated; archived-file paths and the worklog history left as they were.
+- Checked: `uv run pytest -q` 955 passed / 2 skipped (same as before), `npm run build`, `check_links.py`.
+  Not checked: a real Vercel deploy.
+
 ## 2026-10-26 — Location dot back after a reload inside a building
 
-- `frontend/app/src/map/MapLanding.tsx`: the "show my location" step ran only on the map's first mount and skipped
+- `frontend/src/map/MapLanding.tsx`: the "show my location" step ran only on the map's first mount and skipped
   itself when a building was open, so a reload inside a building never showed the dot on the map. It now waits for
   the map to be shown (no open building) and runs once; a run undone before the browser answered (dev double mount)
   asks again. Checked with `npm run build`; not tried in a browser (extension not connected).
 
 ## 2026-10-26 — Living building noted as demo-grade
 
-- Opened [Q-021](open-questions.md#q-021): `backend/live.py` keeps device positions in serverless-instance memory
+- Opened [Q-021](open-questions.md#q-021): `backend/api/live.py` keeps device positions in serverless-instance memory
   (no Supabase), so positions freeze without requests, differ between instances and vanish with the instance.
   Atahan: good enough for now; linked from [project-state.md](project-state.md) small gaps.
 
@@ -26,8 +36,8 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 
 - Atahan: delete `llm_cache/` (done, it was untracked) and, on Claude's recommendation, archive what only the
   benchmark used. The app used just two small parts: the python sandbox of `agent/solver_agent.py` (now
-  `agent/compute.py`, the Guide's `compute` tool; its 5 tests in `tests/test_compute.py`) and `LlmUsage` /
-  `building_vocabulary` of `agent/llm_parser.py` (now in `agent/rewriter.py`). Archived to
+  `backend/agents/compute.py`, the Guide's `compute` tool; its 5 tests in `tests/test_compute.py`) and `LlmUsage` /
+  `building_vocabulary` of `agent/llm_parser.py` (now in `backend/agents/rewriter.py`). Archived to
   [archive/hackathon/benchmark-code/](../archive/hackathon/benchmark-code/README.md): `agent/llm_parser.py`, `agent/solver_agent.py`, `agent/llm_cache.py`,
   `tests/test_llm_route_spec.py`, `tests/test_solver_agent.py`, `tests/fake_llm.py`, `tests/conftest.py`.
   `core/question_parser.py`, `core/basic_parser.py`, `core/formatter.py` (test oracles only) moved to
@@ -40,7 +50,7 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
   `agent/run_benchmark.py`, `agent/run_benchmark_v1.py`, `agent/guide_v1/`, `benchmark/evaluate.py`,
   `scripts/eval_llm_parser.py`, `scripts/eval_sunday_probe.py`, `tests/sunday_probe/` and their 10 tests; the
   benchmark sections of commands.md went into that README. `docs/challenge/` and `docs/kit/starter-agent.md` moved to
-  `archive/hackathon/docs/`. Kept (test oracles for app code): `benchmark/score.py`, `core/formatter.py`,
+  `archive/hackathon/docs/`. Kept (test oracles for app code): `tests/kit_oracles/score.py`, `core/formatter.py`,
   `core/basic_parser.py`. `tests/fake_llm.py` now holds the fake client `tests/test_llm_route_spec.py` needs;
   `pyproject.toml`: `testpaths = ["tests"]`, the `run_benchmark` script entry removed. pytest 978 passed, 2 skipped.
 - Re-score by another session (scratchpad only, UNVERIFIED here): with the right answer format and the bay /
@@ -60,5 +70,5 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
   development; hackathon-only questions closed ([Q-001](open-questions.md#q-001),
   [Q-002](open-questions.md#q-002), [Q-014](open-questions.md#q-014), [Q-017](open-questions.md#q-017),
   [Q-018](open-questions.md#q-018), [Q-019](open-questions.md#q-019)).
-- Removed the unused `frontend/app/src/ui/Chat.tsx`.
+- Removed the unused `frontend/src/ui/Chat.tsx`.
 - Held: removing the benchmark-only code (another session was re-scoring with `agent/run_benchmark_v1.py`).

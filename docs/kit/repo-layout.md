@@ -14,8 +14,9 @@ related: [data-format.md, questions.md, ../../archive/hackathon/docs/kit/starter
 [Docs index](../README.md) · Schemas: [data-format.md](data-format.md)
 
 As of 2026-10-24 `data/` and `benchmark/` live at the **repo root**, `starter_agent/building_map.py` was
-copied to `core/`, and everything else is in `archive/initial-repo/` ([D-004](../../memory-bank/decisions.md#d-004),
-[archive/README.md](../../archive/README.md)). Tree as delivered:
+copied to `core/` (now `backend/core/`), and everything else is in `archive/initial-repo/` ([D-004](../../memory-bank/decisions.md#d-004),
+[archive/README.md](../../archive/README.md)). Since 2026-10-27 the scorer is `tests/kit_oracles/score.py`
+([D-024](../../memory-bank/decisions.md#d-024)). Tree as delivered:
 
 ```
 initial-repo/

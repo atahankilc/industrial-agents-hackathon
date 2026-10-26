@@ -14,8 +14,8 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from core.building_map import OUTSIDE, BuildingMap, MapError
-from core.solvers_v1 import solve
+from backend.core.building_map import OUTSIDE, BuildingMap, MapError
+from backend.core.solvers_v1 import solve
 from tests.test_question_parser import DATA, building, labelled_questions
 
 STARTER = Path(__file__).resolve().parent.parent / "archive/initial-repo/starter_agent/building_map.py"

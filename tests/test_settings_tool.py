@@ -1,10 +1,10 @@
-"""The Guide can open the app's Building settings (agent/tools.py open_building_settings → a `settings` UI event)."""
+"""The Guide can open the app's Building settings (backend/agents/tools.py open_building_settings → a `settings` UI event)."""
 
 from pathlib import Path
 
-from agent.guide import Guide
-from agent.offline_llm import EDIT, SETTINGS, OfflineClient
-from agent.tools import TOOL_DEFINITIONS, BuildingSession
+from backend.agents.guide import Guide
+from backend.agents.offline_llm import EDIT, SETTINGS, OfflineClient
+from backend.agents.tools import TOOL_DEFINITIONS, BuildingSession
 
 BUILDING = Path(__file__).resolve().parents[1] / "data" / "train" / "proc-campus-train-000"
 

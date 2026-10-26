@@ -6,7 +6,7 @@ sources:
   - archive/initial-repo/README-cb51a6f.md §1 "Put yourself in their shoes" (dropped from the 1.1.0 README, Q-017)
   - "archive/hackathon/Hackathon Challenge - Talk to Your Building.pdf p.1-3"
   - docs/kit/data-format.md
-  - "dataset scan of all 280 buildings with core/building_map.py, 2026-10-24 (numbers in routing-profiles.md#dataset-reality-check)"
+  - "dataset scan of all 280 buildings with backend/core/building_map.py, 2026-10-24 (numbers in routing-profiles.md#dataset-reality-check)"
 related: [routing-profiles.md, ../../archive/hackathon/docs/challenge/brief.md, ../kit/data-format.md, ../kit/route-model.md]
 ---
 

@@ -1,4 +1,4 @@
-"""Run the Creator (agent/creator.py) on files or folders from the terminal: prints its steps and token use, writes
+"""Run the Creator (backend/agents/creator.py) on files or folders from the terminal: prints its steps and token use, writes
 the building and the remaining issues as JSON. Uses the real Claude API (ANTHROPIC_API_KEY in .env).
 
     uv run --env-file .env python scripts/live_creator.py <file|folder>... [--out building.json] [--images DIR]
@@ -10,9 +10,9 @@ import json
 import time
 from pathlib import Path
 
-from agent.creator import Creator
-from agent.creator_tools import ImportSession
-from core.plan_import.ingest import load_sources
+from backend.agents.creator import Creator
+from backend.agents.creator_tools import ImportSession
+from backend.core.plan_import.ingest import load_sources
 
 SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".heic", ".heif", ".webp", ".tif", ".tiff", ".bmp"}
 

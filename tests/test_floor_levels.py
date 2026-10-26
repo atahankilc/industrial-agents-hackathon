@@ -5,11 +5,11 @@ import json
 
 import pytest
 
-import backend.app as backend_app
-from agent.creator import Creator
-from agent.creator_tools import CreatorTools, ImportSession
-from core.plan_import.ingest import load_sources
-from core.plan_import.merge import add_floors
+import backend.api.app as backend_app
+from backend.agents.creator import Creator
+from backend.agents.creator_tools import CreatorTools, ImportSession
+from backend.core.plan_import.ingest import load_sources
+from backend.core.plan_import.merge import add_floors
 from tests.plan_fixtures import TWO_ROOMS_AND_CORRIDOR, draw_plan, to_png
 from tests.test_add_floor import TwoCreators, one_floor
 from tests.test_placement import PLAN, api, imported, rotated_ring  # noqa: F401 (api is a fixture)

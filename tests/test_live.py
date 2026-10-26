@@ -1,4 +1,4 @@
-"""Live obstacles on routes (core/live.py): a pallet in the campus ground-floor corridor (Corridor 0.01, 51.8 m × 2.4 m,
+"""Live obstacles on routes (backend/core/live.py): a pallet in the campus ground-floor corridor (Corridor 0.01, 51.8 m × 2.4 m,
 x from 0 to -51.8, y from -6.0 to -8.4; Main lobby door at x ≈ -1.7)."""
 
 import math
@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from core import navigation
-from core.building_map import BuildingMap
-from core.live import WALKER_CLEARANCE_M, Hazard, LiveEffects, Obstacle
+from backend.core import navigation
+from backend.core.building_map import BuildingMap
+from backend.core.live import WALKER_CLEARANCE_M, Hazard, LiveEffects, Obstacle
 
 ROOT = Path(__file__).resolve().parent.parent
 CAMPUS = ROOT / "data" / "train" / "proc-campus-train-000"
@@ -95,12 +95,12 @@ def test_a_wet_floor_is_avoided_when_it_is_cheap(campus):
     assert answer["live"]["passing"][0]["effect"] == "wet_floor"  # no way round worth 6 m here
 
 
-# ---------- backend: the live world, its endpoints and the route on the map (backend/live.py) ----------
+# ---------- backend: the live world, its endpoints and the route on the map (backend/api/live.py) ----------
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from backend.app import app, live as hub, store  # noqa: E402
-from backend.live import LiveWorld, route_walks  # noqa: E402
+from backend.api.app import app, live as hub, store  # noqa: E402
+from backend.api.live import LiveWorld, route_walks  # noqa: E402
 
 BUILDING = "train/proc-campus-train-000"
 
@@ -203,7 +203,7 @@ def test_a_door_beside_the_blockage_is_no_way_through_it(campus):
 
 
 def test_a_door_only_touched_is_taken_out_of_the_path(campus):
-    from core.live import collapse_hops
+    from backend.core.live import collapse_hops
 
     graph = campus.graph(step_free=False)
     prefix = "proc-campus-train-000-F0-"
@@ -273,7 +273,7 @@ def test_routes_from_outside_tours_and_stops_take_the_live_state(campus):
 
 
 def test_preferences_and_the_live_state_together_report_true_metres(campus):
-    from core.preferences import Penalties
+    from backend.core.preferences import Penalties
 
     live = LiveEffects(campus, [pallets(1.6)])
     answer = route(campus, LOBBY, FAR, live, penalties=Penalties(stairs_per_flight_m=20.0))
@@ -284,7 +284,7 @@ def test_preferences_and_the_live_state_together_report_true_metres(campus):
 
 def test_live_routes_have_well_formed_paths_everywhere_in_a_busy_building(campus):
     """Many things at once (standing, moving, wet): every reachable route is one the map can draw and measure."""
-    from core.routeline import route_line
+    from backend.core.routeline import route_line
 
     rng = __import__("random").Random(7)
     corridor = campus.spaces["proc-campus-train-000-F0-S001"]["polygon"]
@@ -312,11 +312,11 @@ def test_a_route_answer_with_live_notes_is_plain_json(campus):
     json.dumps(route(campus, LOBBY, FAR, live))
 
 
-# ---------- the world (backend/live.py) ----------
+# ---------- the world (backend/api/live.py) ----------
 
 
 def test_the_trail_is_the_last_50_metres_and_splits_by_floor():
-    from backend.live import trimmed
+    from backend.api.live import trimmed
 
     trail = [[float(x), 0.0, F0, float(x)] for x in range(0, 100)]  # 1 m apart, 1 s apart
     kept = trimmed(trail, 100.0)
@@ -338,7 +338,7 @@ def test_a_ble_tag_reports_a_steady_position(campus):
 
 
 def test_wet_zones_follow_the_cleaning_robot_and_dry_up(campus):
-    from backend.live import WET_S, wet_zones
+    from backend.api.live import WET_S, wet_zones
 
     world = LiveWorld("test/wet", campus)
     robot = next(d for d in world.devices.values() if d.kind == "cleaning_robot")
@@ -362,7 +362,7 @@ def test_an_idle_world_stops_and_its_things_vanish(campus):
 
 
 def test_every_simulated_kind_moves_and_stays_inside_the_building(campus):
-    from core.fleet import space_at
+    from backend.core.fleet import space_at
 
     world = LiveWorld("test/inside", campus)
     seen = set()
@@ -410,8 +410,8 @@ def test_a_real_device_on_an_unknown_floor_is_refused(client):
 
 
 def test_in_access_mode_only_the_admin_uses_the_controls_and_registers_devices(client, monkeypatch):
-    from backend import app as app_module
-    from backend.access import Access, MemoryAccess
+    from backend.api import app as app_module
+    from backend.api.access import Access, MemoryAccess
     from tests.test_access import FakeAuth, auth
 
     monkeypatch.setattr(app_module, "access", Access(store=MemoryAccess(), auth=FakeAuth(), enabled=True))
@@ -427,7 +427,7 @@ def test_in_access_mode_only_the_admin_uses_the_controls_and_registers_devices(c
 
 def test_the_reroute_follows_the_route_on_the_map_not_an_older_question(client):
     """A route drawn by another tool (here: the arrival from a nearby building) is the one asked again."""
-    from agent.campus import arrive
+    from backend.agents.campus import arrive
 
     session_id = client.post("/sessions", json={"building": BUILDING}).json()["session_id"]
     quiet_world(BUILDING)
@@ -456,7 +456,7 @@ def test_a_route_without_a_request_gets_an_alert_not_a_new_route(client):
 
 
 def test_viewers_never_see_things_in_spaces_hidden_from_them(client, monkeypatch):
-    import backend.app as backend_app
+    import backend.api.app as backend_app
 
     corridor = "proc-campus-train-000-F0-S001"
     quiet_world(BUILDING)
@@ -464,7 +464,7 @@ def test_viewers_never_see_things_in_spaces_hidden_from_them(client, monkeypatch
     assert len(client.get("/live", params={"building": BUILDING}).json()["devices"]) == 1
     monkeypatch.setattr(backend_app, "live_hidden", lambda authorization, building: frozenset({corridor}))
     assert client.get("/live", params={"building": BUILDING}).json()["devices"] == []
-    from backend.live import SessionLive
+    from backend.api.live import SessionLive
 
     assert SessionLive(hub, BUILDING).devices(spaces={"somewhere-else"}) == []
     assert len(SessionLive(hub, BUILDING).devices()) == 1
@@ -476,7 +476,7 @@ def test_the_guide_can_ask_what_is_live(client):
     client.post("/live/control", json={"building": BUILDING, "action": "drop", "floor": 0, "x": -28.0, "y": -7.2})
     client.get("/live", params={"building": BUILDING, "session_id": session_id})
     conversation = store.get(session_id)
-    from backend.app import with_live
+    from backend.api.app import with_live
 
     session = with_live(conversation).session
     assert "live_status" in [tool["name"] for tool in session.tool_definitions()]
@@ -491,7 +491,7 @@ def test_the_guide_can_ask_what_is_live(client):
 def test_sessions_with_live_routes_still_save(client):
     import json
 
-    from backend import persistence
+    from backend.api import persistence
 
     session_id = client.post("/sessions", json={"building": BUILDING}).json()["session_id"]
     quiet_world(BUILDING)

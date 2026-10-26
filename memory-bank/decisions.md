@@ -6,7 +6,7 @@ related: [open-questions.md, project-state.md, ../docs/architecture/overview.md]
 
 # Decisions
 
-[Memory bank](README.md) · Next free id: **D-024**
+[Memory bank](README.md) · Next free id: **D-025**
 
 Template:
 
@@ -41,7 +41,7 @@ Template:
 - **Decision:** Reuse/extend `BuildingMap` (add width filter, reachability, geometry) instead of rewriting.
 - **Consequences:** Must keep anchor = `representative_point()`, MultiGraph, stair/lift costs unchanged.
 - **Evidence:** [route-model.md](../docs/kit/route-model.md). To accept: oracle run on dev matches.
-  2026-10-24: acceptance criterion met — all solvers build on `core.building_map` and match 655/655 train+dev
+  2026-10-24: acceptance criterion met — all solvers build on `backend.core.building_map` and match 655/655 train+dev
   answers (`tests/test_solvers.py`). Status left for the team to flip.
 
 <a id="d-003"></a>
@@ -58,11 +58,11 @@ Template:
 - **Status:** accepted · **Date:** 2026-10-24 · **By:** Atahan
 - **Context:** Resolves [Q-009](open-questions.md#q-009).
 - **Decision:** Root repo is where we build. Extracted to root: `data/` (moved), `benchmark/` (moved, official
-  scorer — never edit `score.py`), `core/building_map.py` (copied from starter), `ATTRIBUTION.md`,
+  scorer — never edit `score.py`), `backend/core/building_map.py` (copied from starter), `ATTRIBUTION.md`,
   `.env.example`. Root `pyproject.toml` (uv, Python ≥3.12). Everything else → `archive/initial-repo/`.
 - **Consequences:** Run everything from the root. Starter agent still runnable via
   `PYTHONPATH=archive/initial-repo`. See [archive/README.md](../archive/README.md).
-- **Evidence:** after the move, oracle on dev 369/369; `core.building_map` reproduces all 120 dev warm-up routes
+- **Evidence:** after the move, oracle on dev 369/369; `backend.core.building_map` reproduces all 120 dev warm-up routes
   to < 1 cm (2026-10-24).
 
 <a id="d-005"></a>
@@ -120,7 +120,7 @@ Template:
 - **Context:** Repo is public. `ATTRIBUTION.md`: data is CC BY 4.0 (Swiss Dwellings, ResPlan), ODbL 1.0 (OSM),
   CC0 (procedural) — all allow redistribution with attribution; ODbL is share-alike. Upstream kit repo
   (`Synera-GmbH/industrial-agents-hackathon-2026`) is public but has **no licence** (GitHub API `license: null`),
-  so kit *code* (`benchmark/`, `archive/initial-repo/`, kit parts of `core/building_map.py`) has no explicit grant.
+  so kit *code* (`benchmark/`, `archive/initial-repo/`, kit parts of `backend/core/building_map.py`) has no explicit grant.
 - **Decision:** `LICENSE` (MIT, our code only), `NOTICE.md` (what is third-party, under which terms, removal on
   request), `data/README.md` (per-source licences + obligations), keep `ATTRIBUTION.md` at root. Ask organisers to
   confirm redistribution of kit code ([Q-013](open-questions.md#q-013)).
@@ -133,7 +133,7 @@ Template:
 - **Context:** The behaviour contract ([ai-agents.md](../docs/architecture/ai-agents.md#building-guide--behaviour-contract))
   needs propose → confirm → apply and D-003 ("every number and id from a tool"). A prompt alone can't guarantee
   either, and the brief scores "shows what it understood before it changes a plan".
-- **Decision:** `agent/guide.py` refuses `apply_change` for a change proposed in the same user turn, and checks
+- **Decision:** `backend/agents/guide.py` refuses `apply_change` for a change proposed in the same user turn, and checks
   every reply: numbers/ids must appear in a tool result, the overview or the user's words (rounding allowed);
   one repair round, then report leftovers in `GuideTurn.ungrounded` instead of blocking the reply.
 - **Consequences:** one extra request when the model invents a number; a confirmation always costs one user turn.
@@ -157,7 +157,7 @@ Template:
 - **Context:** Some buildings repeat a name on the same floor (three "Büro" on the ground floor, OSM rooms
   duplicated with the same ref). The question text then cannot say which room is meant: all 12 train+dev misses
   (2 benchmark, 10 warm-up) are such texts. The floor is usually already in the text, so it does not help.
-- **Decision:** `core/` stays deterministic and never guesses: the parser returns every candidate
+- **Decision:** `backend/core/` stays deterministic and never guesses: the parser returns every candidate
   (`ParsedQuestion.alternatives`). **Guide (chat):** run the solver for each candidate; if the answers agree, answer;
   if they differ, ask one short question naming what tells them apart — ref ("0.10, 0.11 or 0.12?"), else size,
   neighbour or position, or highlight them on the plan. **Benchmark (no user):** as in [D-007](#d-007), run every
@@ -177,7 +177,7 @@ Template:
   keyterms). The Guide receives both the rewritten and the original transcript so a dropped nuance stays visible.
 - **Consequences:** One extra (small, fast) model call per voice turn; text chat stays rewriter-free. Must be
   measured on voice latency in Phase 4.
-- **Implemented (2026-10-24):** `agent/rewriter.py` (`claude-haiku-5-5`, effort low, JSON schema output, vocabulary =
+- **Implemented (2026-10-24):** `backend/agents/rewriter.py` (`claude-haiku-5-5`, effort low, JSON schema output, vocabulary =
   `building_vocabulary` cached as system prompt), hooked into `Guide.reply(..., channel="voice")`. Live: ~1–2 s and
   < $0.001 per voice turn. Falls back to the transcript as heard on API error, refusal, empty answer or a number
   found neither in the transcript nor in the building; ordinal floor words are kept as said.
@@ -191,7 +191,7 @@ Template:
   15 cm off the walls, 30 cm door landings, stairs 2 m per metre climbed, a lift ride 15 m + 1 m per metre, no
   outdoor link ([Q-014](open-questions.md#q-014)). Our `kit` model no longer matched (errand 10/93, what_if_door
   0/4); our own `geodesic` approximation was within 1 m but exact on only 3 of 161 dev routes.
-- **Decision:** Copy the 1.1.0 starter's geometry helpers and `BuildingMap.graph` into `core/building_map.py`
+- **Decision:** Copy the 1.1.0 starter's geometry helpers and `BuildingMap.graph` into `backend/core/building_map.py`
   unchanged (same node/edge order → same Dijkstra tie-breaks) and make it the only route model. `expand` /
   `path_parts` give the 1.1.0 `space_path` / `element_path`. `outside` stays available as a start/end node only.
   Remove `core/geodesic.py` and `scripts/compare_route_models.py`; keep `model=` and `GEODESIC` as aliases so
@@ -211,7 +211,7 @@ Template:
 - **Decision:** Everything behind `ACCESS_MODE=on` (off by default; off = the app exactly as before). Supabase Auth
   (email + password), one admin (`ADMIN_EMAIL`) over every building, members invited by the admin with groups per
   building. Restricted spaces: no defaults; a viewer who may not enter them gets a session on a filtered building
-  copy (`core/access.py`), so every Guide tool — `solve` included — can't see them; plan darkens them. Preferences
+  copy (`backend/core/access.py`), so every Guide tool — `solve` included — can't see them; plan darkens them. Preferences
   belong to the user (browser for anonymous, `user_preferences` when signed in; global ← building override); the
   Guide captures them (`preference` events). Moving objects: only data-backed attributes (width, step-free, lifts,
   stairs, room types), live positions by device token, missions as deterministic machine steps. Multi-object path
@@ -229,7 +229,7 @@ Template:
   The ElevenLabs Agent plan (D-006, Custom LLM) was never wired up and needs agent setup, a public URL and
   per-minute billing. The account is on the Creator tier (131,000 characters/month, `GET /v1/user/subscription`).
 - **Decision:** Step by step. Step 1 keeps the browser's speech recognition and replaces only the voice:
-  `POST /tts` (`backend/tts.py`) proxies ElevenLabs streaming TTS with the key server-side; defaults
+  `POST /tts` (`backend/api/tts.py`) proxies ElevenLabs streaming TTS with the key server-side; defaults
   `eleven_flash_v2_5` (lowest latency, de/tr too) and the premade voice "River" `SAz9YHcvj6GT2YYXdXww` (calm, neutral,
   conversational), overridable with `TTS_MODEL` / `TTS_VOICE_ID`. The frontend (`voice/tts.ts`) fetches sentence
   pieces ahead while playing and falls back to speechSynthesis (no key, failed request — then 60 s pause, locked audio).
@@ -248,7 +248,7 @@ Template:
 - **Status:** accepted · **Date:** 2026-10-25 · **By:** Atahan (asked for voice step 2, "start speaking sooner")
 - **Context:** After D-016 the voice still waited for the whole turn (rewriter, tool rounds, repair) — 5–10 s of
   silence on routing questions. Speaking text before the end-of-turn grounding check could say a made-up number.
-- **Decision:** On voice turns the Guide streams each request and `SpokenStream` (`agent/speech.py`) emits a
+- **Decision:** On voice turns the Guide streams each request and `SpokenStream` (`backend/agents/speech.py`) emits a
   sentence only once it is complete and `ungrounded()` finds nothing in it; an ungrounded sentence, a grounding
   repair or a profile-safety-net redo holds live speech, and `finish` adds only what the final reply says that was
   not said yet. `VOICE_STYLE` asks for one fact-free sentence before the first tool call. `/chat/stream` sends
@@ -288,7 +288,7 @@ Template:
 - **Status:** accepted · **Date:** 2026-10-25 · **By:** Atahan (asked for voice step 4)
 - **Context:** Browser SpeechRecognition misheard building names (hence the D-013 rewriter), fails in Brave
   ("network") and Firefox, and differs per browser.
-- **Decision:** `POST /stt/token` (`backend/stt.py`) mints a single-use Scribe Realtime token and picks ≤ 50
+- **Decision:** `POST /stt/token` (`backend/api/stt.py`) mints a single-use Scribe Realtime token and picks ≤ 50
   keyterms (≤ 20 chars, limits checked live) from the session's building: room / lift / stair / floor names without
   numbers first, then asset names, then types. The browser (`voice/scribe.ts`) streams the mic as 16 kHz PCM straight
   to `wss://api.elevenlabs.io/v1/speech-to-text/realtime` (`commit_strategy=manual`, `keyterms` repeated in the query)
@@ -312,7 +312,7 @@ Template:
 - **Context:** Route answers listed every step in text and voice; the plan jumped to the start floor only.
 - **Decision:** The Guide's directions are an overview: "found it", one echo line, the total (about_m), the floors
   crossed, at most a landmark or two — no step, no "do you want to start?" — ending in "Say start or press Start when
-  you're ready." in the user's language (INSTRUCTIONS + VOICE_STYLE in `agent/guide.py`; amended 2026-10-25, Atahan
+  you're ready." in the user's language (INSTRUCTIONS + VOICE_STYLE in `backend/agents/guide.py`; amended 2026-10-25, Atahan
   asked: the first step plus a start question came before Start). Asked for no steps, the Guide describes the whole
   route in a few sentences instead. The app frames the whole route (all floors stacked when it
   crosses floors); Start (or "start"/"başla") begins the guide: each step is framed, read aloud, and the next one
@@ -325,8 +325,8 @@ Template:
 ### D-021 — Places in nearby buildings: search the neighbours, route with a straight-line outdoor leg
 - **Status:** proposed · **Date:** 2026-10-25 · **By:** Atahan (asked: answers in the next building), built by Claude
 - **Context:** In a building on the map the Guide said "not here" for things in the building next door.
-- **Decision:** Buildings with a real position (backend/locations.json) get `search_nearby_buildings` and
-  `route_to_building` (`agent/campus.py`, pins ≤ 600 m apart). A route picks the entrance pair with the shortest
+- **Decision:** Buildings with a real position (backend/api/locations.json) get `search_nearby_buildings` and
+  `route_to_building` (`backend/agents/campus.py`, pins ≤ 600 m apart). A route picks the entrance pair with the shortest
   inside-here + straight-line outside + inside-there total; the route event carries `next_building` and the app's
   Continue (or "I'm there" at the exit, or the Guide's `open_nearby_building` tool, amended 2026-10-25) opens that
   building, where `POST /sessions/{id}/arrive` places the user at the entrance and draws the rest
@@ -343,12 +343,12 @@ Template:
 - **Context:** A probe of 14 Sunday-style questions on a factory dev building: `regex` answered 1, `hybrid` 11 without
   an error, but only about 7 correctly — the LLM parser had to squeeze every question into one of 15 templates, so
   combined constraints (closure + step-free), item destinations, forklift and new kinds became near-miss kinds
-  (silently wrong). The canonical `core.navigation` already handles closures of any element, item endpoints and
+  (silently wrong). The canonical `backend.core.navigation` already handles closures of any element, item endpoints and
   route rules, and reproduces every warm-up route answer. The organisers may re-run our command, possibly without an
   API key (Utku's question).
 - **Decision:** (1) the LLM schema gets one general `route` spec (places = rooms, room types or items, nearest
   taken; stops; step_free, forklift, min_width, closures) plus `asks_for`; a spec that is exactly a warm-up kind
-  keeps it, anything richer is `route_query` (`core/route_query.py` on `core.navigation`); (2) kind `other`, an
+  keeps it, anything richer is `route_query` (`backend/core/route_query.py` on `backend.core.navigation`); (2) kind `other`, an
   `asks_for` the kind cannot answer, unresolvable slots or a solver error go to a solver agent
   (`agent/solver_agent.py`: Python sandbox over the building + `submit_answer`, 2 runs + tie-break, Answer line by
   code); (3) every model decision is stored in `llm_cache/decisions.json` (committed) and replayed first, so re-runs
@@ -376,3 +376,23 @@ Template:
   turned only by quarter turns of the angle that keeps their walls parallel to the lowest floor's.
 - **Consequences:** only the coordinate goes to Overpass; Overpass outages fall back to the map's tiles. Design:
   [plan-reference-and-location-design.md](../archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md).
+
+<a id="d-024"></a>
+### D-024 — Repo layout: `frontend/` + `backend/{api,agents,core}`, kit scorer under tests
+- **Status:** accepted · **Date:** 2026-10-27 · **By:** Atahan
+- **Context:** The layout had grown during the hackathon: the React app sat one level deep in `frontend/app/`, the
+  three Python layers (`core/`, `agent/`, `backend/`) were siblings at the root, so it was unclear which one is the
+  server, and `benchmark/` held only the kit scorer, which the app never uses.
+- **Decision:** `frontend/` is the React app (was `frontend/app/`). All Python is one package `backend`:
+  `backend/api/` (FastAPI, was `backend/`), `backend/agents/` (LLM layer, was `agent/`), `backend/core/`
+  (deterministic engine, was `core/`): `api → agents → core`, and `core` imports neither of the others. Known
+  exception: the Builder imports `backend/api/drafts.py` / `persistence.py` (draft store), as it did before. The kit
+  scorer moved unmodified to `tests/kit_oracles/score.py` (it is a test oracle); `benchmark/` is gone. `data/`
+  stays at the root (`backend/api/sessions.py` `DATA_DIR`), so Vercel's `api` service keeps root `./` with
+  entrypoint `backend.api.app:app`.
+- **Consequences:** imports read `from backend.core… / backend.agents… / backend.api…`. Docs outside `archive/`
+  and the worklog history were rewritten to the new paths; paths to archived files keep their old names. Branches
+  started before this (`collab-edits`) need a rebase onto the new paths. Supersedes the layout parts of
+  [D-004](#d-004) (scorer location) and the "target" tree in [overview.md](../docs/architecture/overview.md#repo-layout).
+- **Evidence:** `uv run pytest -q` 955 passed / 2 skipped before and after; `npm run build` in `frontend/`;
+  `tests/test_deploy.py` checks `vercel.json` against the new entrypoint.

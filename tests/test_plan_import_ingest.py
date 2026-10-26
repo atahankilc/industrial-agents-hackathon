@@ -1,11 +1,11 @@
-"""Plan import, stage 0: files → sources (core/plan_import/ingest.py)."""
+"""Plan import, stage 0: files → sources (backend/core/plan_import/ingest.py)."""
 
 from io import BytesIO
 
 import numpy as np
 from PIL import Image
 
-from core.plan_import.ingest import contact_sheet, grid_view, load_sources
+from backend.core.plan_import.ingest import contact_sheet, grid_view, load_sources
 from tests.plan_fixtures import TWO_ROOMS_AND_CORRIDOR, draw_plan, to_png
 
 

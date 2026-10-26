@@ -1,4 +1,4 @@
-"""Check that core.building_map reproduces every dev warm-up `route` length to 1 cm.
+"""Check that backend.core.building_map reproduces every dev warm-up `route` length to 1 cm.
 
   uv run python scripts/check_routes.py   # exit 1 on any mismatch
 
@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from core.building_map import BuildingMap  # noqa: E402
+from backend.core.building_map import BuildingMap  # noqa: E402
 
 TOLERANCE_M = 0.01
 

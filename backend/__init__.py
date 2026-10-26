@@ -1,1 +1,1 @@
-"""HTTP backend for Talk to Your Building: sessions, chat, UI events and an OpenAI-compatible endpoint."""
+"""Talk to Your Building, Python side: core (deterministic engine) <- agents (LLM layer) <- api (FastAPI)."""

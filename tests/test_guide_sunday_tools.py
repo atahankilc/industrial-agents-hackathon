@@ -1,10 +1,10 @@
 """The Guide's tools from the Sunday layers: `find_nearest` with closures for one question and a candidate shortlist
-(core/route_query.shortlist), and `compute` (the solver agent's Python sandbox).
+(backend/core/route_query.shortlist), and `compute` (the solver agent's Python sandbox).
 Facts about proc-factory-dev-004: tests/test_route_query.py."""
 
 from pathlib import Path
 
-from agent.tools import BuildingSession
+from backend.agents.tools import BuildingSession
 
 DIRECTORY = Path(__file__).resolve().parent.parent / "data" / "dev" / "proc-factory-dev-004"
 

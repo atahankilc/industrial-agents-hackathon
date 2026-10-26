@@ -2,7 +2,7 @@
 id: arch-solver-plan
 summary: Deterministic algorithm per benchmark question kind — every kind VERIFIED against all train+dev answers (655/655), with the exact rules the data settled and the variants it rejected.
 status: verified 2026-10-24
-sources: [../kit/questions.md, ../kit/route-model.md, ../../archive/hackathon/docs/challenge/scoring.md, ../../core/solvers/, ../../scripts/validate_solvers.py]
+sources: [../kit/questions.md, ../kit/route-model.md, ../../archive/hackathon/docs/challenge/scoring.md, ../../backend/core/solvers/, ../../scripts/validate_solvers.py]
 related: [overview.md, ../kit/questions.md, ../../memory-bank/open-questions.md]
 ---
 
@@ -11,12 +11,12 @@ related: [overview.md, ../kit/questions.md, ../../memory-bank/open-questions.md]
 [Docs index](../README.md) · Definitions: [questions.md](../kit/questions.md#precise-definitions) ·
 Tolerances: [scoring.md](../../archive/hackathon/docs/challenge/scoring.md#tolerances-per-kind)
 
-Code: `core/solvers/` — one `@solver(kind)` function per kind, `fn(building, **inputs) -> SolverResult`
+Code: `backend/core/solvers/` — one `@solver(kind)` function per kind, `fn(building, **inputs) -> SolverResult`
 (`value`, `unit`, `explanation`, JSON `evidence`, `area_m2`). Solvers never mutate the building (what-ifs work
 on a copy). `core/formatter.py` (now `tests/kit_oracles/formatter.py`) writes the reply + `Answer:` line ([D-003](../../memory-bank/decisions.md#d-003)).
 
 Validation: `uv run python scripts/validate_solvers.py [--kinds …] [-v]` runs each solver on the gold `inputs`
-of every train+dev question and scores the formatted reply with the official `benchmark/score.py`.
+of every train+dev question and scores the formatted reply with the official `tests/kit_oracles/score.py`.
 Per-module tests: `tests/test_solvers_{geometry,walls,reachability,routing}.py`.
 
 | Kind | Test share | Status | train+dev (gold inputs) | Module |
@@ -31,7 +31,7 @@ Per-module tests: `tests/test_solvers_{geometry,walls,reachability,routing}.py`.
 | what_if_door | 2% | VERIFIED (4 examples) | 4/4 | routing.py |
 | step_free_reachable_count | 0% (Sunday?) | VERIFIED (2 examples, weak) | 2/2 | reachability.py |
 
-A second implementation, `core/solvers_v1.py` (`solve(bmap, kind, params)` → dict, used by the Guide's tools and, until
+A second implementation, `backend/core/solvers_v1.py` (`solve(bmap, kind, params)` → dict, used by the Guide's tools and, until
 they were archived on 2026-10-26, by `agent/answer.py` and the v1 Guide `agent/guide_v1/`), reaches the same 655/655 on gold inputs (`uv run pytest tests/test_solvers.py -q -s`).
 
 End-to-end from question **text** (`agent/benchmark_agent.py`, regex parser; archived 2026-10-26): dev **138/138**, train **515/517** —
@@ -62,7 +62,7 @@ procedural/OSM buildings — the generator avoids Swiss here, as the kit README 
 misalignment is real (84 of 108 multi-floor Swiss buildings have every floor's space-bbox centre within 2 m of
 the origin on each axis; 82 with a Euclidean 2 m radius), but a gold answer would be computed from the same raw
 coordinates, so no frame correction is the right call either way. The
-Guide's `room_facts` omits "above/below" for Swiss buildings (`UNALIGNED_SOURCES` in `agent/tools.py`).
+Guide's `room_facts` omits "above/below" for Swiss buildings (`UNALIGNED_SOURCES` in `backend/agents/tools.py`).
 
 ## room_stacked
 Next existing `level` up/down (gaps skipped, e.g. swiss-460 levels 0,2,3,4); winner = largest intersection area
@@ -116,9 +116,9 @@ the first candidate. The LLM parser knows these kinds too: 12/12 on reworded dev
 <a id="sunday-routes"></a>
 ## Sunday route questions (Q-014) — one route model since kit 1.1.0, rules open
 Route answers are scored as an ordered space list, re-measured with the organisers' rule — since kit 1.1.0 that rule
-is the route model of every expected answer, ported verbatim into `core/building_map.py`
+is the route model of every expected answer, ported verbatim into `backend/core/building_map.py`
 ([D-014](../../memory-bank/decisions.md#d-014), [route-model.md](../kit/route-model.md)). Our route path
-(`core/basic_parser.run_parsed`, now `tests/kit_oracles/basic_parser.py`, → `core/navigation.find_route` / `tour`) takes `rules`
+(`core/basic_parser.run_parsed`, now `tests/kit_oracles/basic_parser.py`, → `backend/core/navigation.find_route` / `tour`) takes `rules`
 ([route-model.md](../kit/route-model.md#sunday-route-model-and-route-rules-q-014)): none for the kit answers
 (train+dev warm-up 1,338/1,338 exact with gold ids), `SUNDAY_RULES` (+ `forklift=True`) for the organisers' bay /
 forklift rules, which the kit answers don't use. `outside` is never crossed. No route under the rules →

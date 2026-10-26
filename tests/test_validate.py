@@ -1,4 +1,4 @@
-"""core/validate.py: issues for a building dict; pre-existing issues of the base are warnings, new ones errors."""
+"""backend/core/validate.py: issues for a building dict; pre-existing issues of the base are warnings, new ones errors."""
 
 import copy
 import json
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from core.validate import validate
+from backend.core.validate import validate
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 DATASET = sorted(path for split in ("train", "dev", "test") for path in (DATA / split).glob("*/building.json"))

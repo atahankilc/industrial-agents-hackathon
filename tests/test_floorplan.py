@@ -1,12 +1,12 @@
-"""Solid walls of the plan export (core/floorplan.py `wall_solids`)."""
+"""Solid walls of the plan export (backend/core/floorplan.py `wall_solids`)."""
 
 import math
 from pathlib import Path
 
 from shapely.geometry import LineString, Point, Polygon
 
-from core.building_map import BuildingMap
-from core.floorplan import CORE_TYPES, export_plan
+from backend.core.building_map import BuildingMap
+from backend.core.floorplan import CORE_TYPES, export_plan
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 

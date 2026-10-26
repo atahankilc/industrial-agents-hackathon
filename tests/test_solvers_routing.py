@@ -1,4 +1,4 @@
-"""errand + what_if_door solvers against every labelled train/dev question (rules: core/solvers/routing.py).
+"""errand + what_if_door solvers against every labelled train/dev question (rules: backend/core/solvers/routing.py).
 
   uv run pytest tests/test_solvers_routing.py -q"""
 
@@ -10,11 +10,11 @@ from pathlib import Path
 import pytest
 from shapely.geometry import Polygon
 
-from benchmark.score import score_reply
-from core.building_map import BuildingMap
+from tests.kit_oracles.score import score_reply
+from backend.core.building_map import BuildingMap
 from tests.kit_oracles.formatter import format_reply
-from core.solvers import solve
-from core.solvers.routing import shared_wall_midpoint
+from backend.core.solvers import solve
+from backend.core.solvers.routing import shared_wall_midpoint
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 

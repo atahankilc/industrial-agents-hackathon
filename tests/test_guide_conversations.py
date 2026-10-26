@@ -4,8 +4,8 @@ The live run that talks to Claude is scripts/eval_guide.py."""
 import json
 from pathlib import Path
 
-from agent.guide import GuideTurn
-from agent.tools import TOOL_DEFINITIONS, BuildingSession
+from backend.agents.guide import GuideTurn
+from backend.agents.tools import TOOL_DEFINITIONS, BuildingSession
 from scripts.eval_guide import EXPECT_KEYS, check_turn, load_conversation
 
 FILES = sorted(Path("tests/guide_conversations").glob("*.json"))

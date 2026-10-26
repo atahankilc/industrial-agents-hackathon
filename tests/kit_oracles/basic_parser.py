@@ -5,7 +5,7 @@ route_step_free, route_with_closure, tour) plus a few looser phrasings for the s
 question wording is unseen. Name → id resolution reuses `Resolver` from tests/kit_oracles/question_parser.py; anything that
 matches no pattern raises `ParseError` so the caller can fall back to the LLM parser.
 
-Params (ids, ready for core/navigation.py):
+Params (ids, ready for backend/core/navigation.py):
   locate:              query (asset phrase), asset_type (if it resolves), floor_id (optional)
   count:               asset_type, floor_id (None = whole building), asset_type_known=False if no asset has it
   route / route_step_free: start, destination (+ step_free=True when the text asks for it)
@@ -16,11 +16,11 @@ import copy
 import re
 from dataclasses import dataclass, field
 
-from core import navigation
-from core.building_map import BuildingMap, MapError
-from core.navigation import resolve_asset_type
+from backend.core import navigation
+from backend.core.building_map import BuildingMap, MapError
+from backend.core.navigation import resolve_asset_type
 from tests.kit_oracles.question_parser import ANSWER_INSTRUCTION, ParseError, Resolver, normalise
-from core.route_models import KIT, NO_RULES, RouteRules
+from backend.core.route_models import KIT, NO_RULES, RouteRules
 
 FLOOR_NAME = r"Ground floor|Floor -?\d+|Basement \d+"
 # A place: "<name> (<floor name>)" as the generator writes it, or a bare name/ref (looser phrasings).
@@ -152,9 +152,9 @@ def run_parsed(
     model: str = KIT,
     rules: RouteRules = NO_RULES,
 ) -> dict:
-    """Execute a parsed warm-up question with core/navigation.py; returns the tool result as a dict.
+    """Execute a parsed warm-up question with backend/core/navigation.py; returns the tool result as a dict.
 
-    `model`/`rules` (core/route_models.py): the kit 1.1.0 model without rules reproduces the warm-up gold answers;
+    `model`/`rules` (backend/core/route_models.py): the kit 1.1.0 model without rules reproduces the warm-up gold answers;
     `rules=SUNDAY_RULES` (+ `forklift`) adds the organisers' bay/forklift rules (not in the kit answers). No route
     under the rules → `reachable: false` with a reason starting "no route under these rules"."""
     params = parsed.params

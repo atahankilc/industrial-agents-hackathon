@@ -1,4 +1,4 @@
-"""Access mode (backend/access.py, core/access.py): restricted spaces leave the viewer's building copy, tools answer
+"""Access mode (backend/api/access.py, backend/core/access.py): restricted spaces leave the viewer's building copy, tools answer
 "restricted", the plan darkens them, admin-only settings; with access mode off nothing changes."""
 
 import json
@@ -7,12 +7,12 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from agent.guide import INSTRUCTIONS, system_blocks
-from agent.tools import BuildingSession
-from backend import app as app_module
-from backend.access import ANONYMOUS, Access, AuthError, BuildingAccess, MemoryAccess, Viewer
-from core.access import filter_building, restricted_names
-from core.building_map import BuildingMap
+from backend.agents.guide import INSTRUCTIONS, system_blocks
+from backend.agents.tools import BuildingSession
+from backend.api import app as app_module
+from backend.api.access import ANONYMOUS, Access, AuthError, BuildingAccess, MemoryAccess, Viewer
+from backend.core.access import filter_building, restricted_names
+from backend.core.building_map import BuildingMap
 
 BUILDING = "train/proc-campus-train-000"
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / BUILDING
@@ -68,7 +68,7 @@ def test_rules_room_type_space_exception_and_groups():
     assert access.restricted_for(ANONYMOUS, BUILDING, data) == expected
     member = Viewer(user_id="u1", email="m@x.org")
     assert access.restricted_for(member, BUILDING, data) == expected
-    from backend.access import Member
+    from backend.api.access import Member
     store.set_member(Member("u1", "m@x.org", BUILDING, ["staff"]))
     assert access.restricted_for(member, BUILDING, data) == frozenset()
     assert access.restricted_for(Viewer(user_id="a", email="a@x.org", admin=True), BUILDING, data) == frozenset()
@@ -106,7 +106,7 @@ def auth(token: str) -> dict:
 
 def test_restricting_after_the_first_turn_rebuilds_the_system_prompt(monkeypatch):
     monkeypatch.setenv("GUIDE_LLM", "offline")
-    from backend.sessions import SessionStore
+    from backend.api.sessions import SessionStore
     store = SessionStore()
     conversation = store.create(BUILDING)
     names = [conversation.session.building.spaces[space]["name"] for space in STORAGE]
@@ -173,7 +173,7 @@ def test_private_building_hidden_and_drafts_admin_only(client):
 
 
 def test_preferences_off_keep_tool_list_and_routes():
-    from agent.tools import TOOL_DEFINITIONS
+    from backend.agents.tools import TOOL_DEFINITIONS
     session = BuildingSession.load(DATA_DIR)
     assert session.tool_definitions() is TOOL_DEFINITIONS
     assert session.profile.penalties() is None
@@ -245,7 +245,7 @@ def test_dev_panel_uses_the_viewer_token(client):
 
 
 def test_admin_emails_comma_separated(monkeypatch):
-    from backend.access import admin_emails
+    from backend.api.access import admin_emails
     monkeypatch.setenv("ADMIN_EMAIL", " A@x.org, b@y.org ,")
     assert admin_emails() == {"a@x.org", "b@y.org"}
     monkeypatch.delenv("ADMIN_EMAIL")

@@ -1,5 +1,5 @@
 """End-to-end check of the navigation layer on every train/dev warm-up question (questions_basic.jsonl):
-question text → tests/kit_oracles/basic_parser.py → core/navigation.py → compare with the gold answer.
+question text → tests/kit_oracles/basic_parser.py → backend/core/navigation.py → compare with the gold answer.
 
   uv run python scripts/validate_warmup.py            # per-kind table
   uv run python scripts/validate_warmup.py -v         # also list every failure and tie
@@ -30,8 +30,8 @@ sys.path.insert(0, str(ROOT))
 import networkx as nx
 
 from tests.kit_oracles.basic_parser import ParseError, parse_basic
-from core.building_map import BuildingMap, MapError
-from core.navigation import (
+from backend.core.building_map import BuildingMap, MapError
+from backend.core.navigation import (
     RouteAnswer,
     count_assets,
     find_route,

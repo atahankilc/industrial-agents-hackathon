@@ -56,8 +56,8 @@ WITH_STAIR = (
 
 def floor_from(fixture=TWO_ROOMS_AND_CORRIDOR, level: int = 0, offset_px: tuple[int, int] = (0, 0)):
     """A segmented, unlabelled FloorPlan of a fixture (optionally shifted on its sheet)."""
-    from core.plan_import.cells import segment_walls
-    from core.plan_import.model import FloorPlan
+    from backend.core.plan_import.cells import segment_walls
+    from backend.core.plan_import.model import FloorPlan
 
     image = draw_plan(*fixture)
     dx, dy = offset_px
@@ -68,7 +68,7 @@ def floor_from(fixture=TWO_ROOMS_AND_CORRIDOR, level: int = 0, offset_px: tuple[
 
 
 def labelled_floor(level: int = 0, stair: bool = False, offset_px: tuple[int, int] = (0, 0)):
-    from core.plan_import.labels import apply_labels
+    from backend.core.plan_import.labels import apply_labels
 
     floor = floor_from(WITH_STAIR if stair else TWO_ROOMS_AND_CORRIDOR, level, offset_px)
     labels = FIXTURE_LABELS + ([STAIR_LABEL] if stair else [])

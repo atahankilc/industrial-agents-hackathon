@@ -37,7 +37,7 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 
 ### Product (ours)
 - [product/personas.md](product/personas.md) — 18 ranked personas with needs, data feasibility, what to ask / never ask.
-- [product/visualization.md](product/visualization.md) — app visuals: current vector plan view (`core/floorplan.py`, `GET /sessions/{id}/plan`) and the superseded (removed) point-cloud scene; three.js vs react-three-fiber.
+- [product/visualization.md](product/visualization.md) — app visuals: current vector plan view (`backend/core/floorplan.py`, `GET /sessions/{id}/plan`) and the superseded (removed) point-cloud scene; three.js vs react-three-fiber.
 - [product/routing-profiles.md](product/routing-profiles.md) — deterministic profile model (hard filters + soft penalties) on top of the exact route model.
 - [product/living-building.md](product/living-building.md) — connected things (forklifts, robots, tagged pallets) reporting positions; how they cut walks, reroute the route on the map, the plan layer and the demo simulation.
 
@@ -91,4 +91,4 @@ For the benchmark: [brief](../archive/hackathon/docs/challenge/brief.md), [scori
   punctuation dropped). Keep headings stable; if you rename one, grep for its slug and fix links.
 - Memory-bank items are referenced by ID: `D-###` (decision), `Q-###` (open question), e.g.
   [Q-001](../memory-bank/open-questions.md#q-001).
-- Source code is cited as repo-root-relative `path/file.py:line` (e.g. `core/building_map.py:179`).
+- Source code is cited as repo-root-relative `path/file.py:line` (e.g. `backend/core/building_map.py:179`).

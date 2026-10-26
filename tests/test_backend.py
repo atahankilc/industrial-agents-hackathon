@@ -6,7 +6,7 @@ import math
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import app, store
+from backend.api.app import app, store
 
 BUILDING = "train/proc-campus-train-000"
 ROUTE = "from Main lobby to Meeting room 3.07"
@@ -251,7 +251,7 @@ def test_stream_pings_while_quiet(monkeypatch):
     import queue
     import threading
 
-    import backend.app as backend_app
+    import backend.api.app as backend_app
 
     monkeypatch.setattr(backend_app, "PING_S", 0.05)
     lines: queue.Queue = queue.Queue()

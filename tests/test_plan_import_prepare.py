@@ -1,9 +1,9 @@
-"""Plan import, stage 2: rectify a photographed sheet, crop the plan, wall mask (core/plan_import/prepare.py)."""
+"""Plan import, stage 2: rectify a photographed sheet, crop the plan, wall mask (backend/core/plan_import/prepare.py)."""
 
 import cv2
 import numpy as np
 
-from core.plan_import.prepare import crop, rectify, wall_mask
+from backend.core.plan_import.prepare import crop, rectify, wall_mask
 from tests.plan_fixtures import TWO_ROOMS_AND_CORRIDOR, draw_plan
 
 PX_PER_M, MARGIN_M = 20, 2

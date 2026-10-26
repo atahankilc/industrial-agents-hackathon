@@ -1,4 +1,4 @@
-"""core/geoplace.py: building metres ↔ lat/lon with a bearing, and fitting a generated building onto an OSM
+"""backend/core/geoplace.py: building metres ↔ lat/lon with a bearing, and fitting a generated building onto an OSM
 footprint (archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md)."""
 
 import math
@@ -7,7 +7,7 @@ import pytest
 from shapely import affinity
 from shapely.geometry import Polygon
 
-from core.geoplace import fit, footprint, location_for, to_lnglat, to_metres
+from backend.core.geoplace import fit, footprint, location_for, to_lnglat, to_metres
 
 R = 6378137.0
 ORIGIN = {"lat": 48.1497, "lon": 11.5679}

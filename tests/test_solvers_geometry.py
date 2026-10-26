@@ -1,5 +1,5 @@
-"""Geometry solvers (core/solvers/geometry.py) on the gold `inputs` of every train+dev question, scored by
-the official benchmark/score.py via scripts/validate_solvers.py.
+"""Geometry solvers (backend/core/solvers/geometry.py) on the gold `inputs` of every train+dev question, scored by
+the official tests/kit_oracles/score.py via scripts/validate_solvers.py.
 
   uv run pytest tests/test_solvers_geometry.py -q"""
 
@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from tests.kit_oracles.formatter import answer_line
-from core.solvers import solve
+from backend.core.solvers import solve
 
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "validate_solvers.py"
 spec = importlib.util.spec_from_file_location("validate_solvers", SCRIPT)

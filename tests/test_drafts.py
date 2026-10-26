@@ -1,4 +1,4 @@
-"""Edit-mode drafts over HTTP (backend/drafts.py + /drafts endpoints), local store in a temp directory."""
+"""Edit-mode drafts over HTTP (backend/api/drafts.py + /drafts endpoints), local store in a temp directory."""
 
 import hashlib
 import json
@@ -7,10 +7,10 @@ import pytest
 from fastapi.testclient import TestClient
 from shapely.geometry import Polygon
 
-import backend.app as backend_app
-from agent.tools import BuildingSession
-from backend.drafts import DraftStore
-from backend.sessions import DATA_DIR
+import backend.api.app as backend_app
+from backend.agents.tools import BuildingSession
+from backend.api.drafts import DraftStore
+from backend.api.sessions import DATA_DIR
 
 BASE = "train/proc-campus-train-000"
 
@@ -152,7 +152,7 @@ def test_concurrent_ops_on_one_draft_lose_nothing(tmp_path):
     import sys
     import threading
 
-    from core.edits import apply_steps
+    from backend.core.edits import apply_steps
 
     store = DraftStore(tmp_path, dict(backend_app.store.catalogue))
     draft = store.create(BASE)
@@ -210,7 +210,7 @@ def builder_lines(client: TestClient, draft_id: str, text: str) -> list[dict]:
 
 def side_prompt(client: TestClient, draft_id: str) -> str:
     """'make <ref> 1 m wider to the <side>' for an office with a room on that side."""
-    from agent.builder_tools import BuilderTools
+    from backend.agents.builder_tools import BuilderTools
 
     tools = BuilderTools(backend_app.drafts, backend_app.drafts.get(draft_id))
     for space in backend_app.drafts.building(tools.draft)["spaces"]:
@@ -266,7 +266,7 @@ def test_builder_stream_unknown_draft_404(client):
 
 def test_proposal_payload_skips_a_stale_proposal(client):
     """A hand edit while the Builder was thinking: the reply still goes out, the outdated proposal does not."""
-    from agent.builder_tools import Proposal
+    from backend.agents.builder_tools import Proposal
 
     created = new_draft(client)
     draft = backend_app.drafts.get(created["draft"]["id"])

@@ -14,12 +14,12 @@ answer; the LLM handles the language. It started at the Industrial Agents Hackat
 /                                   ← git root (this file)
 ├── CLAUDE.md                       ← you are here
 ├── pyproject.toml                  ← uv project (Python ≥3.12)
-├── core/                           ← deterministic core (route model, geometry, solvers, edits, plan import)
-├── agent/                          ← LLM layer: Guide, Builder, Creator, campus, compute sandbox, voice rewriter
-├── backend/                        ← FastAPI app (backend/app.py), persistence, voice, live/fleet
-├── frontend/app/                   ← React app: map, building search, plan view, Guide, Edit mode
-├── benchmark/                      ← official kit scorer (test oracle for the solvers) — never edit score.py
-├── tests/                          ← pytest; tests/kit_oracles/ = parsers + formatter that check the core against kit answers
+├── frontend/                       ← React app: map, building search, plan view, Guide, Edit mode
+├── backend/                        ← all Python (package `backend`): api → agents → core; core imports neither
+│   ├── api/                        ← FastAPI app (backend/api/app.py): HTTP, sessions, persistence, voice, live/fleet
+│   ├── agents/                     ← LLM layer: Guide, Builder, Creator, campus, compute sandbox, voice rewriter
+│   └── core/                       ← deterministic engine: route model, geometry, solvers, edits, plan import
+├── tests/                          ← pytest; tests/kit_oracles/ = official kit scorer (score.py, never edit) + parsers + formatter
 ├── data/                           ← kit dataset: train/ dev/ test/ + manifest.csv (committed, D-005)
 ├── docs/                           ← curated knowledge base — start at docs/README.md
 ├── memory-bank/                    ← live project state, decisions, open questions, log
@@ -43,7 +43,7 @@ answer; the LLM handles the language. It started at the Industrial Agents Hackat
 
 ## Anti-hallucination rules
 
-- **Source of truth order (kit facts):** `data/`, `benchmark/`, `archive/initial-repo/` code > kit README
+- **Source of truth order (kit facts):** `data/`, `tests/kit_oracles/score.py`, `archive/initial-repo/` code > kit README
   (`archive/initial-repo/README.md`) > the organiser PDF (`archive/hackathon/`) > `docs/`.
   `docs/` summarise; every doc lists its `sources:` in front matter. If a doc and the source disagree, the
   source wins — fix the doc and log it.

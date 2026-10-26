@@ -1,10 +1,10 @@
-"""Plan import, stage 3: rooms as cells (core/plan_import/cells.py)."""
+"""Plan import, stage 3: rooms as cells (backend/core/plan_import/cells.py)."""
 
 import cv2
 import numpy as np
 
-from core.plan_import.cells import cells_from_boxes, render_cells, segment_colours, segment_walls, wall_thickness
-from core.plan_import.prepare import wall_mask
+from backend.core.plan_import.cells import cells_from_boxes, render_cells, segment_colours, segment_walls, wall_thickness
+from backend.core.plan_import.prepare import wall_mask
 from tests.plan_fixtures import TWO_ROOMS_AND_CORRIDOR, draw_plan
 
 PX_PER_M = 20

@@ -1,11 +1,11 @@
 ---
 version: 1
 slug: "frontend-app"
-primary_target: "frontend/app"
+primary_target: "frontend"
 related_targets: []
 ---
 
-# Building screen (frontend/app)
+# Building screen (frontend)
 
 Mode: Operate. Mobile first (390 px), desktop for demos. Visitor (guide-first) and maintainer (whole building + Edit) roles, one app.
 

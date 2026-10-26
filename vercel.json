@@ -2,15 +2,15 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
     "web": {
-      "root": "frontend/app/",
+      "root": "frontend/",
       "framework": "vite"
     },
     "api": {
       "root": "./",
       "framework": "fastapi",
-      "entrypoint": "backend.app:app",
+      "entrypoint": "backend.api.app:app",
       "functions": {
-        "backend/app.py": {
+        "backend/api/app.py": {
           "maxDuration": 300,
           "excludeFiles": "{.claude/**,.idea/**,archive/**,docs/**,frontend/**,memory-bank/**,scripts/**,supabase/**,tests/**,agent_output/**,*.pdf,data/**/*.png,data/**/*.svg,data/**/*.jsonl,data/**/equipment.csv}"
         }

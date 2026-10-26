@@ -1,14 +1,14 @@
-"""Buildings next to each other (agent/campus.py), the "you are here" figure (BuildingSession.user_location) and
+"""Buildings next to each other (backend/agents/campus.py), the "you are here" figure (BuildingSession.user_location) and
 the clearer highlights (items as well as rooms), through the tools and the HTTP backend in offline mode."""
 
 import pytest
 from fastapi.testclient import TestClient
 
-from agent.campus import Campus, arrive, distance_m, heading
-from agent.tools import BuildingSession
-from backend.app import app
-from backend.sessions import load_catalogue
-from core.building_map import MapError
+from backend.agents.campus import Campus, arrive, distance_m, heading
+from backend.agents.tools import BuildingSession
+from backend.api.app import app
+from backend.api.sessions import load_catalogue
+from backend.core.building_map import MapError
 
 HAUPT = "train/osm-way10053349"  # Hauptgebäude, Arcisstraße 21: TUM's main campus, several modelled neighbours
 MENSA = "train/osm-way19183732"  # Mensa Arcisstraße, a canteen in it

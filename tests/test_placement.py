@@ -8,12 +8,12 @@ import pytest
 from fastapi.testclient import TestClient
 from shapely import affinity
 
-import backend.app as backend_app
-from agent.creator import CreatorResult
-from backend.drafts import DraftStore
-from core.edits import apply_op
-from core.geoplace import footprint, to_lnglat, to_metres
-from core.plan_import.assemble import assemble, autofix
+import backend.api.app as backend_app
+from backend.agents.creator import CreatorResult
+from backend.api.drafts import DraftStore
+from backend.core.edits import apply_op
+from backend.core.geoplace import footprint, to_lnglat, to_metres
+from backend.core.plan_import.assemble import assemble, autofix
 from tests.plan_fixtures import TWO_ROOMS_AND_CORRIDOR, draw_plan, labelled_floor, to_png
 
 PLAN = to_png(draw_plan(*TWO_ROOMS_AND_CORRIDOR))
@@ -64,7 +64,7 @@ def test_scale_building_scales_polygons_and_positions() -> None:
 
 
 def test_scale_building_refuses_silly_factors() -> None:
-    from core.edits import EditError
+    from backend.core.edits import EditError
 
     with pytest.raises(EditError):
         apply_op(fake_building(), {"op": "scale_building", "factor": 0})

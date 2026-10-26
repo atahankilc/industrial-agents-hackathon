@@ -16,6 +16,12 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
   the map to be shown (no open building) and runs once; a run undone before the browser answered (dev double mount)
   asks again. Checked with `npm run build`; not tried in a browser (extension not connected).
 
+## 2026-10-26 — Living building noted as demo-grade
+
+- Opened [Q-021](open-questions.md#q-021): `backend/live.py` keeps device positions in serverless-instance memory
+  (no Supabase), so positions freeze without requests, differ between instances and vanish with the instance.
+  Atahan: good enough for now; linked from [project-state.md](project-state.md) small gaps.
+
 ## 2026-10-26 — LLM parser, solver agent and decision cache archived
 
 - Atahan: delete `llm_cache/` (done, it was untracked) and, on Claude's recommendation, archive what only the

@@ -64,6 +64,8 @@ weekend's design specs and plans, the full session log and the last hackathon pr
    backups). Delete once nobody needs them.
 5. **Small gaps:** `BuildingSession.route_model` is not saved by `backend/persistence.py`; live smoke test of the
    deployed app (URL not recorded here).
+   Living building state is in-memory per function instance, not production-ready for real devices
+   ([Q-021](open-questions.md#q-021)).
 6. **Product:** phone-layout check; in-space walk polylines instead of straight door-to-door lines; closure ripple
    for edits; ElevenLabs Custom LLM on `/v1/chat/completions` (ask before creating anything in any account).
 

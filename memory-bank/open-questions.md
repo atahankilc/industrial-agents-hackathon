@@ -6,7 +6,7 @@ related: [decisions.md, project-state.md, ../docs/kit/questions.md]
 
 # Open questions
 
-[Memory bank](README.md) · Next free id: **Q-021**
+[Memory bank](README.md) · Next free id: **Q-022**
 
 Template:
 
@@ -130,6 +130,20 @@ Template:
 - **Options:** (a) keep it for all voice turns; (b) skip it when the transcript came from Scribe (the app would send
   `stt: "scribe"` with `/chat/stream`); (c) keep it only for numbers ("two seventeen" → "2.17").
 - **How to resolve:** a few real spoken questions with room numbers through Scribe, rewriter on vs off.
+
+<a id="q-021"></a>
+### Q-021 — The living building keeps device positions in one function's memory: fix before real devices?
+- **Status:** open · **Priority:** low (fine for demos) · **Resolve by:** Atahan's call when real devices are in scope
+- **Context:** `backend/live.py` holds each building's `LiveWorld` (simulated and real devices) in process memory,
+  stepped by a `threading.Thread`. On Vercel the API is a serverless function (`vercel.json`), so: nothing moves while
+  no request arrives (the process is frozen or stopped; a world also drops itself after `IDLE_S = 90` without a
+  viewer); two instances run two different worlds; a stopped instance loses every position. Real devices post to
+  `POST /live/devices/{device_id}/report`, which also writes only to that instance's memory, never to Supabase.
+  Noted by Atahan on 2026-10-26 as a weak implementation, good enough for now.
+- **Options:** (a) keep as is (demo only); (b) store each device's last report in a Supabase table (like
+  `fleet_objects`, `backend/fleet.py`) and let `/live` read from it; (c) for many devices, an always-on ingest
+  (e.g. MQTT broker + small worker) writing to the database.
+- **How to resolve:** decide when real-device support becomes a product goal.
 
 ## Resolved
 

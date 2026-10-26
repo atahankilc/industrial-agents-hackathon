@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from benchmark.score import score_reply  # noqa: E402
 from core.building_map import BuildingMap  # noqa: E402
-from core.formatter import format_reply  # noqa: E402
+from tests.kit_oracles.formatter import format_reply  # noqa: E402
 from core.solvers import solve  # noqa: E402
 
 DATA = Path(__file__).resolve().parent.parent / "data"

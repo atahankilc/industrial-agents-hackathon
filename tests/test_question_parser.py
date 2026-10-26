@@ -9,7 +9,7 @@ from functools import cache
 from pathlib import Path
 
 from core.building_map import BuildingMap
-from core.question_parser import ParseError, parse_question
+from tests.kit_oracles.question_parser import ParseError, parse_question
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 

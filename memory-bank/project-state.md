@@ -33,8 +33,9 @@ weekend's design specs and plans, the full session log and the last hackathon pr
 - **Core** (`core/`): the kit 1.1.0 route model (`building_map.py`, [D-014](decisions.md#d-014)), solvers,
   directions, edits and validation, access, live obstacles and fleet, geoplacement.
 - **Benchmark:** the runners, kit evaluator and v1 Guide are archived in
-  [archive/hackathon/benchmark-code/](../archive/hackathon/benchmark-code/README.md) (2026-10-26). Kept as test oracles for the solvers the app uses:
-  `benchmark/score.py` (official kit scorer, never edit), `core/formatter.py`, `core/basic_parser.py`.
+  [archive/hackathon/benchmark-code/](../archive/hackathon/benchmark-code/README.md) (2026-10-26). The LLM parser, solver agent and decision cache followed
+  (2026-10-26); the Guide's python sandbox is now `agent/compute.py`. Test oracles for the solvers the app uses:
+  `benchmark/score.py` (official kit scorer, never edit) and `tests/kit_oracles/` (question parsers, formatter).
 - **Deploy:** Vercel (`vercel.json`: services `web` + `api`) + Supabase (`supabase/migrations/`),
   [D-006](decisions.md#d-006).
 - **Data:** kit dataset committed in `data/` ([D-005](decisions.md#d-005)); licences in `NOTICE.md`,
@@ -44,7 +45,7 @@ weekend's design specs and plans, the full session log and the last hackathon pr
 
 ## What works (verified 2026-10-26)
 
-- `uv run pytest -q` → 978 passed, 2 skipped (after archiving the benchmark tests).
+- `uv run pytest -q` → 955 passed, 2 skipped (after archiving the benchmark tests).
 - `python3 scripts/check_links.py` → all links resolve.
 - `main` and `dev` are on the same commit (`25c79b5`) since the 2026-10-26 cleanup.
 

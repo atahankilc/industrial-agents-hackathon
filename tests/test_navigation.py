@@ -1,4 +1,4 @@
-"""Navigation layer (core/navigation.py + core/basic_parser.py) against every train/dev warm-up question.
+"""Navigation layer (core/navigation.py + tests/kit_oracles/basic_parser.py) against every train/dev warm-up question.
 
   uv run pytest tests/test_navigation.py -q
   uv run python scripts/validate_warmup.py -v     # the per-kind table and every miss"""
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from core.basic_parser import answer_basic, parse_basic
+from tests.kit_oracles.basic_parser import answer_basic, parse_basic
 from core.building_map import BuildingMap, MapError
 from core.navigation import count_assets, find_route, locate, path_length, tour
 

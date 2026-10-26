@@ -11,16 +11,16 @@ of it.
 | `agent/parsing.py` | parser modes (`PARSER_MODE` = regex / llm / hybrid / crosscheck) |
 | `agent/guide_v1/` | the v1 terminal Guide (superseded by `agent/guide.py`) |
 | `benchmark/evaluate.py` | the kit's evaluator (`benchmark/score.py` stays in the repo: the solver tests use it) |
+| `agent/llm_parser.py`, `agent/solver_agent.py`, `agent/llm_cache.py` | LLM slot parser, the solver agent and the decision cache (`llm_cache/decisions.json`); archived in a second step the same day. The solver agent's python sandbox moved to `agent/compute.py` (the Guide's `compute` tool), `LlmUsage` / `building_vocabulary` to `agent/rewriter.py` |
 | `scripts/eval_llm_parser.py`, `scripts/eval_sunday_probe.py`, `tests/sunday_probe/` | parser and Sunday probes |
-| `tests/test_*.py` | their tests |
+| `tests/test_*.py`, `tests/fake_llm.py`, `tests/conftest.py` | their tests (the sandbox tests of `test_solver_agent.py` live on in `tests/test_compute.py`); `conftest.py` only switched the decision cache off |
 
-Still in the repo because the app uses them: `core/solvers_v1.py`, `core/question_parser.py`,
-`agent/llm_parser.py`, `agent/solver_agent.py`, `agent/llm_cache.py`. Kept as test oracles (they check the app's
-core against the kit's gold answers): `benchmark/score.py`, `core/formatter.py`, `core/basic_parser.py`.
+Still in the repo because the app uses them: `core/solvers_v1.py` and `core/route_query.py` (the `compute` sandbox).
+Kept as test oracles (they check the app's core against the kit's gold answers): `benchmark/score.py`, and
+`tests/kit_oracles/` (`question_parser.py`, `basic_parser.py`, `formatter.py`, moved there from `core/`).
 
 **To run it again**, restore the files to their old paths (they import `agent.*` and `benchmark.*` from the repo
-root), e.g. `git checkout fd2b50a -- agent/answer.py agent/run_benchmark_v1.py agent/parsing.py benchmark/evaluate.py`,
-or work from commit `fd2b50a`. The commands below are as documented in `docs/guides/commands.md` before the move.
+root and `core.question_parser`), most simply by working from commit `fd2b50a`, where every file is still in place. The commands below are as documented in `docs/guides/commands.md` before the move.
 
 ## Starter agent (archived, still runnable)
 

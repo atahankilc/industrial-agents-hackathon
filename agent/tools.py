@@ -23,7 +23,7 @@ from pathlib import Path
 from shapely.geometry import Point
 
 from agent import places
-from agent.solver_agent import ALLOWED_MODULES, namespace, run_code
+from agent.compute import ALLOWED_MODULES, namespace, run_code
 from core.directions import about_m, guidance, guidance_steps, maneuvers
 from core import navigation, route_models
 from core.building_map import LIFT, OUTSIDE, BuildingMap, MapError

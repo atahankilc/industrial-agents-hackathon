@@ -2,7 +2,7 @@
 id: research-question-parsing
 summary: Evidence for Q-008. Benchmark questions use one fixed template per kind; a regex parser plus a building-aware resolver matches 655/655 train+dev inputs and parses 145/145 test questions. Recommendation is regex first with an LLM fallback that reuses the same resolver.
 sources:
-  - core/question_parser.py
+  - tests/kit_oracles/question_parser.py (was core/question_parser.py)
   - tests/test_question_parser.py
   - "data/{train,dev}/*/questions.jsonl, data/test/questions.csv (scan, 2026-10-24)"
   - archive/hackathon/benchmark-code/benchmark/evaluate.py (PRICE_PER_MILLION, used for the cost estimate; archived 2026-10-26)
@@ -58,7 +58,7 @@ Slots: `{space}` = `<space name> (<floor name>)`, `{floor}` = `the ground floor 
 The test-only values resolve without changes: type phrases are matched against the building's own
 `room_type` / asset `type` vocabulary, not against a hard-coded list.
 
-## How the resolver works (`core/question_parser.py`)
+## How the resolver works (`core/question_parser.py`, now `tests/kit_oracles/`)
 
 1. Strip the answer instruction and try each template regex (`TEMPLATES`).
 2. Floor phrase → the floor whose `name` matches after normalisation ("the floor 1" → `Floor 1`, "the basement 1"

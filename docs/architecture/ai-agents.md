@@ -2,7 +2,7 @@
 id: arch-agents
 summary: PROPOSED design of every AI agent in the system — Building Guide (chat + voice), benchmark pipeline, Builder (plan → building), and how they share one deterministic tool layer.
 status: proposed
-sources: [../research/elevenlabs.md, ../../archive/hackathon/docs/kit/starter-agent.md, ../../archive/hackathon/docs/challenge/brief.md, ../../archive/hackathon/docs/challenge/scoring.md, ../../agent/tools.py, ../../agent/guide.py, ../../agent/offline_llm.py, ../../agent/llm_parser.py, ../../agent/solver_agent.py, ../../agent/llm_cache.py, ../../core/route_query.py]
+sources: [../research/elevenlabs.md, ../../archive/hackathon/docs/kit/starter-agent.md, ../../archive/hackathon/docs/challenge/brief.md, ../../archive/hackathon/docs/challenge/scoring.md, ../../agent/tools.py, ../../agent/guide.py, ../../agent/offline_llm.py, ../../agent/compute.py, ../../archive/hackathon/benchmark-code/agent/llm_parser.py, ../../archive/hackathon/benchmark-code/agent/solver_agent.py, ../../archive/hackathon/benchmark-code/agent/llm_cache.py, ../../core/route_query.py]
 related: [overview.md, solver-plan.md, ../product/routing-profiles.md, ../product/personas.md, ../research/question-parsing.md]
 ---
 
@@ -36,7 +36,7 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 | `room_facts(space)` | area, centre, floor, neighbours (shared walls), above/below (omitted on Swiss Dwellings buildings, floors not aligned — [solver-plan](solver-plan.md#straight_line_3d)), doors + widths | no |
 | `find_route(from, to, via?, profile)` | node path, metres, steps with landmarks, profile used | no |
 | `find_nearest(start, query, floor_id?, closed?)` | the nearest room holding that item kind (or matching room kind/name) by route length under the profile: a `find_route` result plus `nearest` and `next_nearest` (the next 2, with `about_m`); emits one route (to the nearest) + a highlight. `closed`: closures for this question only, used for the ranking and the final route; only the 12 candidates nearest in a straight line are routed to (`core/route_query.shortlist`) | no |
-| `compute(code)` | what the Python prints: code over a copy of the building in the solver agent's sandbox (`agent/solver_agent.py`: restricted builtins, module whitelist, 30 s limit); its `route()` routes as `find_route` does (the Guide's route rules, the user's profile and closures, "here"), so code and tools never disagree; access-mode preference penalties are not applied ([D-022](../../memory-bank/decisions.md#d-022)) | no (works on a copy) |
+| `compute(code)` | what the Python prints: code over a copy of the building in the python sandbox (`agent/compute.py`: restricted builtins, module whitelist, 30 s limit); its `route()` routes as `find_route` does (the Guide's route rules, the user's profile and closures, "here"), so code and tools never disagree; access-mode preference penalties are not applied ([D-022](../../memory-bank/decisions.md#d-022)) | no (works on a copy) |
 | `compare_routes(before/after change)` | diff: rooms that lost access, extra metres | no |
 | `set_profile(...)` | the active [routing profile](../product/routing-profiles.md) for this user | user state only |
 | `propose_change(kind, …)` | a **pending** change (close lift, add door, move asset) + its predicted effect | no — needs confirm |
@@ -122,7 +122,7 @@ every `tool_use` block goes to `BuildingSession.call`, all results return in one
 
 | Aspect | How |
 |---|---|
-| Model | `GUIDE_MODEL` (default `claude-opus-5-5`), `GUIDE_EFFORT` (default `medium`); thinking left at the model default (adaptive); `fallbacks: "default"` with beta `server-side-fallback-2026-07-01`, as in `agent/llm_parser.py` |
+| Model | `GUIDE_MODEL` (default `claude-opus-5-5`), `GUIDE_EFFORT` (default `medium`); thinking left at the model default (adaptive); `fallbacks: "default"` with beta `server-side-fallback-2026-07-01`, as in the archived benchmark parser (`archive/hackathon/benchmark-code/agent/llm_parser.py`) |
 | Caching | system = fixed instructions + building overview (static `BuildingMap.overview()`, no profile/closures) with `cache_control`; tools render before it, so both are cached; top-level `cache_control` also caches the growing history |
 | History | append-only (assistant `response.content` stored unchanged), so the cached prefix and thinking blocks stay valid |
 | Confirm before edit | `apply_change` for a change proposed in the **same user turn** is refused with an error telling the model to show the summary and wait — enforced in code, not only in the prompt |
@@ -256,8 +256,10 @@ tools) — needs the public deploy.
 ## Benchmark pipeline
 
 **Archived 2026-10-26:** the runners (`agent/answer.py`, `agent/run_benchmark*.py`, `agent/benchmark_agent.py`,
-`agent/parsing.py`, `agent/guide_v1/`) moved to [archive/hackathon/benchmark-code/](../../archive/hackathon/benchmark-code/README.md). The parser (`agent/llm_parser.py`),
-the solvers and the solver agent stay: the Guide uses them. This section and its subsections describe the pipeline as
+`agent/parsing.py`, `agent/guide_v1/`) moved to [archive/hackathon/benchmark-code/](../../archive/hackathon/benchmark-code/README.md). The LLM parser, the solver agent and
+the decision cache (`agent/llm_parser.py`, `agent/solver_agent.py`, `agent/llm_cache.py`) followed the same day; the
+solver agent's python sandbox lives on as `agent/compute.py` (the Guide's `compute` tool) and the parsers used as test
+oracles moved to `tests/kit_oracles/`. The solvers (`core/solvers/`, `core/solvers_v1.py`) stay: the Guide uses them. This section and its subsections describe the pipeline as
 it was.
 
 ```

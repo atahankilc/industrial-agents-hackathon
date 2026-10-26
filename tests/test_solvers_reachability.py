@@ -9,7 +9,7 @@ import pytest
 
 from benchmark.score import score_reply
 from core.building_map import BuildingMap
-from core.formatter import format_reply
+from tests.kit_oracles.formatter import format_reply
 from core.solvers import solve
 from core.solvers.reachability import is_room, reachable_spaces, rooms_on_floor
 

@@ -242,7 +242,7 @@ def solve(bmap: BuildingMap, kind: str, inputs: dict) -> dict:
                      closed=inputs.get("closed"))
     if kind == "tour":
         return route(bmap, inputs["stops"][0], inputs["stops"][-1], via=inputs["stops"][1:-1])
-    if kind == "route_query":  # reworded route questions with combined constraints (agent/llm_parser.py)
+    if kind == "route_query":  # reworded route questions with combined constraints (from the archived archive/hackathon/benchmark-code/agent/llm_parser.py)
         return route_query(bmap, inputs["stops"], step_free=inputs.get("step_free", False),
                            forklift=inputs.get("forklift", False), min_width=inputs.get("min_width"),
                            closed=inputs.get("closed", ()))

@@ -2,7 +2,7 @@
 building's vocabulary before the Guide sees it ("lab two seventeen" → "Lab 2.17").
 
 It only normalises names and numbers: no interpretation, no answering. The vocabulary is the building's floors,
-room and asset types, lifts/stairs and space names (agent/llm_parser.py `building_vocabulary`), cached as the system
+room and asset types, lifts/stairs and space names (`building_vocabulary`), cached as the system
 prompt. Any doubt keeps the transcript as heard: an API error, a refusal, an empty answer, or a number that is
 neither in the transcript nor in the building. The Guide gets both versions, so a dropped nuance stays visible.
 
@@ -11,10 +11,10 @@ GUIDE_REWRITER_MODEL (default claude-haiku-5-5), GUIDE_REWRITER=off disables it.
 import json
 import os
 import re
+from dataclasses import dataclass
 
 import anthropic
 
-from agent.llm_parser import LlmUsage, building_vocabulary
 from core.building_map import BuildingMap
 
 DEFAULT_MODEL = "claude-haiku-5-5"
@@ -36,6 +36,26 @@ Change nothing else: keep the person's words, language, order and meaning, inclu
 "somewhere near the kitchen"). Never answer, explain, add or drop information, and never pick one of several rooms \
 the person did not name. If nothing needs normalising, return the transcript unchanged. Reply with the rewritten \
 transcript in the `rewritten` field."""
+
+
+@dataclass
+class LlmUsage:
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+
+
+def building_vocabulary(building_map: BuildingMap) -> str:
+    floors = sorted(building_map.floors.values(), key=lambda floor: floor["level"])
+    lines = ["Floors: " + "; ".join(floor["name"] for floor in floors)]
+    lines.append("Room types: " + ", ".join(sorted({s["room_type"] for s in building_map.spaces.values()})))
+    lines.append("Asset types: " + ", ".join(sorted({a["type"] for a in building_map.assets.values()})))
+    lines.append("Lifts and stairs: " + "; ".join(sorted(c["name"] for c in building_map.connectors.values())))
+    for floor in floors:
+        names = sorted({s["name"] for s in building_map.spaces.values() if s["floor_id"] == floor["id"]})
+        lines.append(f"Spaces on {floor['name']}: " + "; ".join(names))
+    return "\n".join(lines)
 
 
 def invented_numbers(rewritten: str, transcript: str, vocabulary: str) -> list[str]:

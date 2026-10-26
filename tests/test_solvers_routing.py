@@ -12,7 +12,7 @@ from shapely.geometry import Polygon
 
 from benchmark.score import score_reply
 from core.building_map import BuildingMap
-from core.formatter import format_reply
+from tests.kit_oracles.formatter import format_reply
 from core.solvers import solve
 from core.solvers.routing import shared_wall_midpoint
 

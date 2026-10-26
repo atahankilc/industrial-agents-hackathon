@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from core.formatter import answer_line
+from tests.kit_oracles.formatter import answer_line
 from core.solvers import solve
 
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "validate_solvers.py"

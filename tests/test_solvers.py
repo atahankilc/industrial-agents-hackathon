@@ -7,7 +7,7 @@ Two levels: the solver alone on the gold `inputs`, and the full pipeline questio
 from collections import Counter
 from pathlib import Path
 
-from core.question_parser import ParseError, parse_question
+from tests.kit_oracles.question_parser import ParseError, parse_question
 from core.solvers_v1 import solve
 from tests.test_question_parser import building, labelled_questions
 

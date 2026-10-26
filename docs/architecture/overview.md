@@ -71,7 +71,7 @@ The backend is the **only writer**: no conflicting edits, one place for validati
 
 ```
 /
-├── core/            deterministic: building_map, geometry, profiles, question_parser, solvers, formatter
+├── core/            deterministic: building_map, geometry, profiles, solvers (parsers + formatter now in tests/kit_oracles/)
 ├── api/             FastAPI app: chat/SSE, OpenAI-compatible endpoint for ElevenLabs, edits, tokens
 ├── agent/           Claude Guide + Builder: prompts, tool wiring
 ├── benchmark/       official kit scorer/evaluator (unchanged)

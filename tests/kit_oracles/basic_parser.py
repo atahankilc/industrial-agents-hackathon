@@ -2,7 +2,7 @@
 
 Covers the six warm-up templates found in every train/dev `questions_basic.jsonl` (locate, count, route,
 route_step_free, route_with_closure, tour) plus a few looser phrasings for the same intents, since the Sunday
-question wording is unseen. Name → id resolution reuses `Resolver` from core/question_parser.py; anything that
+question wording is unseen. Name → id resolution reuses `Resolver` from tests/kit_oracles/question_parser.py; anything that
 matches no pattern raises `ParseError` so the caller can fall back to the LLM parser.
 
 Params (ids, ready for core/navigation.py):
@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from core import navigation
 from core.building_map import BuildingMap, MapError
 from core.navigation import resolve_asset_type
-from core.question_parser import ANSWER_INSTRUCTION, ParseError, Resolver, normalise
+from tests.kit_oracles.question_parser import ANSWER_INSTRUCTION, ParseError, Resolver, normalise
 from core.route_models import KIT, NO_RULES, RouteRules
 
 FLOOR_NAME = r"Ground floor|Floor -?\d+|Basement \d+"

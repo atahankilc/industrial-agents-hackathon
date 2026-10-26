@@ -15,10 +15,11 @@ answer; the LLM handles the language. It started at the Industrial Agents Hackat
 ├── CLAUDE.md                       ← you are here
 ├── pyproject.toml                  ← uv project (Python ≥3.12)
 ├── core/                           ← deterministic core (route model, geometry, solvers, edits, plan import)
-├── agent/                          ← LLM layer: Guide, Builder, Creator, campus, solver agent
+├── agent/                          ← LLM layer: Guide, Builder, Creator, campus, compute sandbox, voice rewriter
 ├── backend/                        ← FastAPI app (backend/app.py), persistence, voice, live/fleet
 ├── frontend/app/                   ← React app: map, building search, plan view, Guide, Edit mode
 ├── benchmark/                      ← official kit scorer (test oracle for the solvers) — never edit score.py
+├── tests/                          ← pytest; tests/kit_oracles/ = parsers + formatter that check the core against kit answers
 ├── data/                           ← kit dataset: train/ dev/ test/ + manifest.csv (committed, D-005)
 ├── docs/                           ← curated knowledge base — start at docs/README.md
 ├── memory-bank/                    ← live project state, decisions, open questions, log

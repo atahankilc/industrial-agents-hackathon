@@ -1,4 +1,4 @@
-"""One route question with any mix of constraints — for wording no template matches (agent/llm_parser.py `route`).
+"""One route question with any mix of constraints — for wording no template matches (the route spec of archive/hackathon/benchmark-code/agent/llm_parser.py).
 
 Places may be rooms (name, ref or id), room types ("the toilet") or items ("the forklift charging station"); when a
 place fits several rooms the nearest one under the question's constraints is taken, leg by leg (as `errand` takes

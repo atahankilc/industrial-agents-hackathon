@@ -13,7 +13,7 @@ Tolerances: [scoring.md](../../archive/hackathon/docs/challenge/scoring.md#toler
 
 Code: `core/solvers/` — one `@solver(kind)` function per kind, `fn(building, **inputs) -> SolverResult`
 (`value`, `unit`, `explanation`, JSON `evidence`, `area_m2`). Solvers never mutate the building (what-ifs work
-on a copy). `core/formatter.py` writes the reply + `Answer:` line ([D-003](../../memory-bank/decisions.md#d-003)).
+on a copy). `core/formatter.py` (now `tests/kit_oracles/formatter.py`) writes the reply + `Answer:` line ([D-003](../../memory-bank/decisions.md#d-003)).
 
 Validation: `uv run python scripts/validate_solvers.py [--kinds …] [-v]` runs each solver on the gold `inputs`
 of every train+dev question and scores the formatted reply with the official `benchmark/score.py`.
@@ -118,14 +118,14 @@ the first candidate. The LLM parser knows these kinds too: 12/12 on reworded dev
 Route answers are scored as an ordered space list, re-measured with the organisers' rule — since kit 1.1.0 that rule
 is the route model of every expected answer, ported verbatim into `core/building_map.py`
 ([D-014](../../memory-bank/decisions.md#d-014), [route-model.md](../kit/route-model.md)). Our route path
-(`core/basic_parser.run_parsed` → `core/navigation.find_route` / `tour`) takes `rules`
+(`core/basic_parser.run_parsed`, now `tests/kit_oracles/basic_parser.py`, → `core/navigation.find_route` / `tour`) takes `rules`
 ([route-model.md](../kit/route-model.md#sunday-route-model-and-route-rules-q-014)): none for the kit answers
 (train+dev warm-up 1,338/1,338 exact with gold ids), `SUNDAY_RULES` (+ `forklift=True`) for the organisers' bay /
 forklift rules, which the kit answers don't use. `outside` is never crossed. No route under the rules →
 `reachable: false`, reason starts "no route under these rules"; the answer must say so. Open: Q-014 (3), (4).
 
 ## Answer formatting (all kinds)
-`core/formatter.py`: explanation lines, then `Answer: <number>[ unit]` (integers bare, else 2 decimals) or
+`tests/kit_oracles/formatter.py` (was `core/formatter.py`): explanation lines, then `Answer: <number>[ unit]` (integers bare, else 2 decimals) or
 `Answer: <ref> (<name>)[, <area> m²]`. Never a ref on a number line
 ([scoring.md](../../archive/hackathon/docs/challenge/scoring.md#formatting-pitfalls-cost-real-points)).
 

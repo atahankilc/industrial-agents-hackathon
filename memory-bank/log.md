@@ -16,6 +16,17 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
   the map to be shown (no open building) and runs once; a run undone before the browser answered (dev double mount)
   asks again. Checked with `npm run build`; not tried in a browser (extension not connected).
 
+## 2026-10-26 — LLM parser, solver agent and decision cache archived
+
+- Atahan: delete `llm_cache/` (done, it was untracked) and, on Claude's recommendation, archive what only the
+  benchmark used. The app used just two small parts: the python sandbox of `agent/solver_agent.py` (now
+  `agent/compute.py`, the Guide's `compute` tool; its 5 tests in `tests/test_compute.py`) and `LlmUsage` /
+  `building_vocabulary` of `agent/llm_parser.py` (now in `agent/rewriter.py`). Archived to
+  [archive/hackathon/benchmark-code/](../archive/hackathon/benchmark-code/README.md): `agent/llm_parser.py`, `agent/solver_agent.py`, `agent/llm_cache.py`,
+  `tests/test_llm_route_spec.py`, `tests/test_solver_agent.py`, `tests/fake_llm.py`, `tests/conftest.py`.
+  `core/question_parser.py`, `core/basic_parser.py`, `core/formatter.py` (test oracles only) moved to
+  `tests/kit_oracles/`. pytest 955 passed, 2 skipped (978 − 28 archived + 5 moved).
+
 ## 2026-10-26 — Benchmark code archived
 
 - Atahan: move everything about the hackathon that the app does not use to the archive. Moved with `git mv` to

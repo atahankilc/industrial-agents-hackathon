@@ -1,6 +1,6 @@
 """LLM slots for questions no template matches: the general `route` spec (places that may be items or room types,
 stops, combined constraints), the `asks_for` check, kind `other` → the agent, and the decision cache that lets the
-benchmark command reproduce its answers without an API key. Offline, with the fake client of test_parsing_modes.
+benchmark command reproduce its answers without an API key. Offline, with the fake client of tests/fake_llm.py.
 Facts about proc-factory-dev-004: see tests/test_route_query.py."""
 
 import json
@@ -11,7 +11,7 @@ import pytest
 from agent.llm_cache import DecisionCache
 from agent.llm_parser import LlmQuestionParser, NeedsAgent
 from core.building_map import BuildingMap
-from tests.test_parsing_modes import FakeClient, response
+from tests.fake_llm import FakeClient, response
 
 DIRECTORY = Path(__file__).resolve().parent.parent / "data" / "dev" / "proc-factory-dev-004"
 OTHER = DIRECTORY.parent / "proc-campus-dev-001"

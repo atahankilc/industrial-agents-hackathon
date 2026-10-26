@@ -5,12 +5,12 @@ sources:
   - "archive/hackathon/Hackathon Challenge - Talk to Your Building.pdf (3 pages, Synera)"
   - archive/initial-repo/README-cb51a6f.md §1 (story, judging, submission process; dropped from 1.1.0, Q-017)
   - archive/initial-repo/README.md §1, §7 (kit 1.1.0)
-related: [scoring.md, ../../archive/hackathon/technical-explanation.md, ../../archive/hackathon/demo-runbook.md, ../kit/questions.md, ../architecture/overview.md]
+related: [scoring.md, ../../technical-explanation.md, ../../demo-runbook.md, ../../../../docs/kit/questions.md, ../../../../docs/architecture/overview.md]
 ---
 
 # Challenge brief
 
-[Docs index](../README.md) · Next: [scoring.md](scoring.md)
+[Docs index](../../../../docs/README.md) · Next: [scoring.md](scoring.md)
 
 Track 01 of the **Industrial Agents Hackathon 2026** (Synera, with UVC Partners and Anthropic).
 Final pitch at Tacto. Kit repo upstream: `Synera-GmbH/industrial-agents-hackathon-2026` (local copy archived in
@@ -23,7 +23,7 @@ Final pitch at Tacto. Kit repo upstream: `Synera-GmbH/industrial-agents-hackatho
 
 - **Agent** = interaction layer (you say what you want, the system does it).
 - **Core** = mostly deterministic: a graph of rooms, doors, corridors, stairs, lifts + a shortest-path search.
-  Exact model the answers use: [route-model.md](../kit/route-model.md).
+  Exact model the answers use: [route-model.md](../../../../docs/kit/route-model.md).
 - **App** shows 2D or 3D views of buildings/floors, animated routes, and the things inside (rooms, desks,
   machines, equipment). Works for an existing building and can set up a new one from floor plans quickly.
 
@@ -31,7 +31,7 @@ Final pitch at Tacto. Kit repo upstream: `Synera-GmbH/industrial-agents-hackatho
 
 | Verb | Example | Where it is covered |
 |---|---|---|
-| FIND | "Where is the 3D printer?" | `locate` warm-up ([questions.md](../kit/questions.md#warm-up-questions)) |
+| FIND | "Where is the 3D printer?" | `locate` warm-up ([questions.md](../../../../docs/kit/questions.md#warm-up-questions)) |
 | ROUTE | "Lobby → CNC mill on floor 2 without stairs?" | `route`, `route_step_free`, `tour` |
 | EDIT | "Add a door between rooms 2.03 and 2.04." | starter `add_door`; benchmark `what_if_door` |
 | REACT | "The east lift is closed for maintenance. What changes?" | `route_with_closure`, `step_free_reachable_count` |
@@ -71,7 +71,7 @@ These drive the **Interaction** score — see [judging](#judging).
 ## Directions from the organisers
 
 - **Think in a graph** — rooms/junctions = nodes, doors/corridors/stairs/lifts = edges; Dijkstra/A*. Agree on
-  the data model in hour one → [route-model.md](../kit/route-model.md), [D-002](../../memory-bank/decisions.md#d-002).
+  the data model in hour one → [route-model.md](../../../../docs/kit/route-model.md), [D-002](../../../../memory-bank/decisions.md#d-002).
 - **One floor first** — one question end-to-end before 3D / pretty UI. Flat 2D plan + drawn route is fine;
   three.js for extruded floors later.
 - **Spend time on decisions** — what should the agent ask when a request is vague? How does it show what it
@@ -86,19 +86,19 @@ Order of importance: *does it work → is it a pleasure to use → what did you 
 | Does it work | **55** | Sunday benchmark + automatic checks on unseen buildings/questions (levels 1–4): correct answers, valid routes, route length vs best, buildings built correctly from plans. Test-set submission is part of this. Details: [scoring.md](scoring.md) |
 | Interaction | **25** | Short scripted conversation with tricky users, rubric: asks only what it needs, shows what it understood, directions a person can follow. **Voice counts.** |
 | Creativity | **10** | Level 5 and add-ins |
-| Submission demo | **10** | Demo video + technical explanation: clear, convincing, the real product. ⚠ Kit 1.1.0 README says "Pitch and demo: a 3–5 minute live demo that works without a restart" — [Q-017](../../memory-bank/open-questions.md#q-017) |
+| Submission demo | **10** | Demo video + technical explanation: clear, convincing, the real product. ⚠ Kit 1.1.0 README says "Pitch and demo: a 3–5 minute live demo that works without a restart" — [Q-017](../../../../memory-bank/open-questions.md#q-017) |
 
 Credits for Claude, Lovable and ElevenLabs come via the organisers (voice-in/voice-out counts towards Interaction).
 
 ## Submission and finals
 
 Online, by code freeze, via the organisers' platform — no pitch rooms:
-1. Demo video of the app in action — script: [demo-runbook.md](../../archive/hackathon/demo-runbook.md)
-2. Short technical explanation (architecture + tech stack) — ours: [technical-explanation.md](../../archive/hackathon/technical-explanation.md)
+1. Demo video of the app in action — script: [demo-runbook.md](../../demo-runbook.md)
+2. Short technical explanation (architecture + tech stack) — ours: [technical-explanation.md](../../technical-explanation.md)
 3. Repository incl. `BENCHMARK.md` and our answers file ([format: scoring.md](scoring.md#submission-format))
 
 Four finalists → final pitch at Tacto: **3 min + 1 min Q&A**.
-Code-freeze time: **unknown** → [Q-002](../../memory-bank/open-questions.md#q-002).
+Code-freeze time: **unknown** → [Q-002](../../../../memory-bank/open-questions.md#q-002).
 
 ## Rules
 
@@ -111,5 +111,5 @@ Code-freeze time: **unknown** → [Q-002](../../memory-bank/open-questions.md#q-
 ## Related
 
 - [scoring.md](scoring.md) — exact scoring mechanics
-- [questions.md](../kit/questions.md) — what is actually asked
-- [architecture/overview.md](../architecture/overview.md) — how we plan to cover the levels
+- [questions.md](../../../../docs/kit/questions.md) — what is actually asked
+- [architecture/overview.md](../../../../docs/architecture/overview.md) — how we plan to cover the levels

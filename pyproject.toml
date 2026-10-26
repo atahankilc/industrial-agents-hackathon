@@ -20,12 +20,12 @@ dependencies = [
     "uvicorn>=0.54.0",
 ]
 
-[project.scripts]
-run_benchmark = "agent.run_benchmark:main"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["core", "agent", "benchmark", "backend"]

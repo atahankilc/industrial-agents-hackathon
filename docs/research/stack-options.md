@@ -48,7 +48,7 @@ marked **UNVERIFIED**.
 | Python API (core, solvers, Claude agent, ElevenLabs proxy) | **FastAPI on Vercel's Python runtime** (Hobby, free) — fallback Render Free / Modal ([§9](#9-zero-cost-variant-added-2026-10-24)) | Zero cost; same Vercel project as the frontend. Was Railway Hobby ($5/mo) before the zero-cost revision |
 | Frontend hosting | **Vercel** — one project with the Vite frontend and FastAPI backend as *Services* ([§9](#9-zero-cost-variant-added-2026-10-24)), PR previews | One deploy, same origin for frontend and API, a preview URL per PR |
 | CI | **GitHub Actions**: lint, tests, link check, deterministic dev benchmark | Guards the 55 benchmark points on every push |
-| Benchmark CLI | `run_benchmark` in the same Python package, no network needed | Same core, offline, reproducible |
+| Benchmark CLI | `run_benchmark` (archived 2026-10-26) in the same Python package, no network needed | Same core, offline, reproducible |
 
 ## 1. Lovable
 
@@ -220,7 +220,7 @@ jobs:
         └──────────┬─────────────┘   └──────────────────────────┘
                    │ same package
                    ▼
-        run_benchmark <building_dir> <questions> <answers>   (offline CLI, no cloud needed)
+        run_benchmark <building_dir> <questions> <answers>   (offline CLI, no cloud needed; archived 2026-10-26)
 ```
 
 ## 6. Env vars / secrets
@@ -267,14 +267,14 @@ Never paste keys into chat; every key lives in `.env` (git-ignored) or the provi
 | Supabase free project pauses after 1 week idle | Irrelevant during the weekend; unpause before judging if they re-run later |
 | DB-trigger broadcast drops messages before the first client connects | Also broadcast from the backend via REST; clients re-fetch state on (re)connect |
 | Realtime/backend outage during the demo | Frontend can run against a local backend; record the demo video early |
-| Judges re-run the benchmark command | `run_benchmark` is pure local Python and doesn't depend on cloud services |
+| Judges re-run the benchmark command | `run_benchmark` (archived 2026-10-26) is pure local Python and doesn't depend on cloud services |
 | Vercel Hobby commercial-use clause | Netlify / Cloudflare Pages for the frontend; Render Free / Modal for the backend |
 | Big OSM buildings are slow to route in a request | Cache a `BuildingMap` per building and version in the backend process; invalidate on edit events |
 | Secrets leak through `VITE_*` | Only anon/publishable keys go in the frontend; ElevenLabs uses backend-minted tokens |
 
 ## Related
 
-- [overview.md](../architecture/overview.md) · [elevenlabs.md](elevenlabs.md) · [scoring.md](../challenge/scoring.md#sunday-benchmark)
+- [overview.md](../architecture/overview.md) · [elevenlabs.md](elevenlabs.md) · [scoring.md](../../archive/hackathon/docs/challenge/scoring.md#sunday-benchmark)
 
 ## 9. Zero-cost variant (added 2026-10-24)
 

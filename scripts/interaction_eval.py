@@ -1,5 +1,5 @@
 """Interaction eval: a simulated tricky user talks to the Building Guide, then an LLM judge scores the conversation
-with the organisers' Interaction rubric (docs/challenge/brief.md#judging). Calls the Claude API, costs money
+with the organisers' Interaction rubric (archive/hackathon/docs/challenge/brief.md#judging). Calls the Claude API, costs money
 (~$0.1–0.3 per scenario).
 
   uv run --env-file .env python scripts/interaction_eval.py                       # every tests/interaction_scenarios/*.json

@@ -286,7 +286,7 @@ Planned phases (proposal, see [overview.md](../../docs/architecture/overview.md)
     Not ported: the v1 code fallback reply (main's tools have no uniform `summary`).
   - Voice transcript rewriter ([D-013](../../memory-bank/decisions.md#d-013)) built 2026-10-24: `agent/rewriter.py` (Haiku 5.5),
     hooked into `Guide.reply(..., channel="voice")`; `tests/test_rewriter.py`.
-- `benchmark/score.py` parsing behaviour checked ([scoring.md](../../docs/challenge/scoring.md#formatting-pitfalls-cost-real-points)).
+- `benchmark/score.py` parsing behaviour checked ([scoring.md](docs/challenge/scoring.md#formatting-pitfalls-cost-real-points)).
 
 ## Pending decisions (Atahan)
 

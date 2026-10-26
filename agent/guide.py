@@ -134,7 +134,7 @@ PHOTO_NOTE = ("[camera photo attached, not from the building data] The user is s
 PHOTO_KEPT = "[the user sent a camera photo here; it is not kept in the history]"
 PHOTO_TYPES = ("image/jpeg", "image/png", "image/webp")
 
-# A number, also when glued to a unit ("120m", "45m²"); not "3D" or "2nd" (from agent/guide_v1/grounding.py).
+# A number, also when glued to a unit ("120m", "45m²"); not "3D" or "2nd" (from the v1 Guide, now archive/hackathon/benchmark-code/agent/guide_v1/grounding.py).
 UNIT = r"(?:m²|m2|km|cm|mm|min|m|s|%|x)"
 NUMBER = re.compile(rf"(?<![\w.])\d+(?:[.,]\d+)?(?={UNIT}?(?!\w))")
 TIME = re.compile(r"\b\d{1,2}:\d{2}\b")

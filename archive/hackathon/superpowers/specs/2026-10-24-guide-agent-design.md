@@ -24,7 +24,7 @@ At the demo a jury member asks a building questions and asks for directions, by 
 agent behaves like a chatbot: it answers, and when something is unclear in a way that matters (two "3D
 printers", an unknown room) it asks back, then continues. The Interaction score (25 pts) is a short scripted
 conversation with tricky users judged on: *asks only what it needs, shows what it understood, directions a
-person can follow* ([brief.md](../../../../docs/challenge/brief.md#judging)).
+person can follow* ([brief.md](../../docs/challenge/brief.md#judging)).
 
 **Utku's biggest worry: the agent hallucinating in front of the jury.** Every design choice below serves
 "never say a room, number or route that the deterministic core did not return".

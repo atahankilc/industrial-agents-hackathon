@@ -7,7 +7,7 @@ sources:
   - archive/initial-repo/starter_agent/building_map.py:25-115, 271-327 (1.1.0)
   - organisers' Discord note on route scoring (2026-10-24), quoted in § Sunday scoring model
   - core/building_map.py, core/route_models.py, tests/test_routes.py, tests/test_route_models.py
-related: [data-format.md, questions.md, starter-agent.md, ../architecture/solver-plan.md]
+related: [data-format.md, questions.md, ../../archive/hackathon/docs/kit/starter-agent.md, ../architecture/solver-plan.md]
 ---
 
 # Route model (must match to the centimetre)
@@ -128,5 +128,5 @@ answers it reproduces the gold length from the gold `space_path` (`tests/test_ro
 ## Related
 
 - [questions.md](questions.md) — which kinds use routing
-- [starter-agent.md](starter-agent.md) — code walkthrough
+- [starter-agent.md](../../archive/hackathon/docs/kit/starter-agent.md) — code walkthrough
 - [solver-plan.md](../architecture/solver-plan.md)

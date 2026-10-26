@@ -7,12 +7,12 @@ sources:
   - archive/initial-repo/README-cb51a6f.md §1 (Sunday benchmark; dropped from the 1.1.0 README, Q-017)
   - archive/initial-repo/README.md §6
   - "archive/hackathon/Hackathon Challenge - Talk to Your Building.pdf p.3"
-related: [brief.md, ../kit/questions.md, ../architecture/solver-plan.md, ../guides/commands.md]
+related: [brief.md, ../../../../docs/kit/questions.md, ../../../../docs/architecture/solver-plan.md, ../../../../docs/guides/commands.md]
 ---
 
 # Scoring and submission
 
-[Docs index](../README.md) · Prev: [brief.md](brief.md) · Question kinds: [questions.md](../kit/questions.md)
+[Docs index](../../../../docs/README.md) · Prev: [brief.md](brief.md) · Question kinds: [questions.md](../../../../docs/kit/questions.md)
 
 `benchmark/score.py` **is the exact scorer the judges use** (README §6). Everything below is
 derived from it; if in doubt, read the 68 lines.
@@ -68,7 +68,7 @@ Verified by running `numbers_in` / `committed_answer` on 2026-10-24:
 - Each question text ends with the exact required template, e.g. `Finish with a line 'Answer: <number>'`.
 
 Recommended: generate the final `Answer:` line **deterministically in code**, not by the LLM →
-[D-003](../../memory-bank/decisions.md#d-003).
+[D-003](../../../../memory-bank/decisions.md#d-003).
 
 ## Submission format
 
@@ -85,7 +85,7 @@ Answer: Seminar room 0.32, 61.4 m²"
 - Score = share of the **145** test questions correct; judges also see per-kind results.
 - Template with all ids: `data/test/submission_template.csv`; all questions in one table:
   `data/test/questions.csv` (`question_id,building_id,kind,question`).
-- Easiest path: `benchmark.evaluate … --submission-csv team_<name>.csv` → [commands.md](../guides/commands.md#produce-the-test-submission).
+- Easiest path: `benchmark.evaluate … --submission-csv team_<name>.csv` → [benchmark-code/README.md](../../benchmark-code/README.md#produce-the-test-submission).
 
 ### Test-set weight by kind (145 questions)
 
@@ -107,7 +107,7 @@ Answer: Seminar room 0.32, 61.4 m²"
 Shortly before code freeze the organisers release **one unseen building + a question file**.
 
 - **Submission folder (organiser announcement, 2026-10-25):** `SUBMISSION/` with exactly two files, `BENCHMARK.md`
-  and `answers.json` (exact spelling and case) — ours: [SUBMISSION/BENCHMARK.md](../../archive/hackathon/SUBMISSION/BENCHMARK.md).
+  and `answers.json` (exact spelling and case) — ours: [SUBMISSION/BENCHMARK.md](../../SUBMISSION/BENCHMARK.md).
 - **Our run:** a single command, documented in `BENCHMARK.md` in our repo, no manual steps
   (PDF example: `run_benchmark <building_dir> <questions.json> <answers.json>`).
 - We run it ourselves and submit the output; they may re-run the command to verify.
@@ -125,10 +125,10 @@ Shortly before code freeze the organisers release **one unseen building + a ques
 Working assumption: test set = CSV (README, and the kit ships `submission_template.csv`); Sunday format is
 unknown and may need structured route output (node ids). Build the core so it can emit **both** prose replies
 and structured `{item_id, space_id, route_node_ids, length_m}`. Tracked as
-[Q-001](../../memory-bank/open-questions.md#q-001).
+[Q-001](../../../../memory-bank/open-questions.md#q-001).
 
 ## Related
 
-- [questions.md](../kit/questions.md) — definitions behind each kind
-- [solver-plan.md](../architecture/solver-plan.md) — how we compute each answer
-- [commands.md](../guides/commands.md) — running the evaluator and scorer
+- [questions.md](../../../../docs/kit/questions.md) — definitions behind each kind
+- [solver-plan.md](../../../../docs/architecture/solver-plan.md) — how we compute each answer
+- [commands.md](../../../../docs/guides/commands.md) — running the evaluator and scorer

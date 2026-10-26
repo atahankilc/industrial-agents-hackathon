@@ -4,12 +4,12 @@ summary: All warm-up and benchmark question kinds, their answer schemas, precise
 sources:
   - archive/initial-repo/README.md §4
   - "scan of data/{train,dev}/*/questions*.jsonl and data/test/questions.csv, 2026-10-24"
-related: [../challenge/scoring.md, route-model.md, data-format.md, ../architecture/solver-plan.md]
+related: [../../archive/hackathon/docs/challenge/scoring.md, route-model.md, data-format.md, ../architecture/solver-plan.md]
 ---
 
 # Questions
 
-[Docs index](../README.md) · Scoring rules: [scoring.md](../challenge/scoring.md) · How we solve them:
+[Docs index](../README.md) · Scoring rules: [scoring.md](../../archive/hackathon/docs/challenge/scoring.md) · How we solve them:
 [solver-plan.md](../architecture/solver-plan.md)
 
 Two files per building: `questions_basic.jsonl` (warm-up, **not scored**, train/dev only) and
@@ -30,12 +30,12 @@ Dev counts: route 120 · locate 100 · count 40 · route_step_free 40 · tour 40
 | `tour` | "Starting at …, visit … then … in this order." | `stops`, `optimal_length_m`, `legs[]` |
 
 `count` matches `asset.type` exactly on the floor (see oracle in `starter_agent/evaluate.py:66-74`).
-The starter tools reach 100% on these via `--oracle` ([starter-agent.md](starter-agent.md#evaluation)).
+The starter tools reach 100% on these via `--oracle` ([starter-agent.md](../../archive/hackathon/docs/kit/starter-agent.md#evaluation)).
 
 ## Benchmark questions
 
 Ids end `-H##`. Train/dev lines include `skill`, `inputs` (resolved ids behind the question) and `answer`
-(scorer object, see [scoring.md](../challenge/scoring.md#how-a-reply-is-parsed)). Test lines: only `id`,
+(scorer object, see [scoring.md](../../archive/hackathon/docs/challenge/scoring.md#how-a-reply-is-parsed)). Test lines: only `id`,
 `building_id`, `kind`, `question`. **`inputs` is absent in test** — our agent must parse the question text.
 
 Two groups: **plan facts** (room areas, door widths — fields the starter agent never exposes) and **spatial
@@ -109,4 +109,4 @@ actually changes the answer, and the largest room is never simply the room with 
 
 ## Related
 
-- [scoring.md](../challenge/scoring.md) · [route-model.md](route-model.md) · [solver-plan.md](../architecture/solver-plan.md)
+- [scoring.md](../../archive/hackathon/docs/challenge/scoring.md) · [route-model.md](route-model.md) · [solver-plan.md](../architecture/solver-plan.md)

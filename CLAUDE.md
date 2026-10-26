@@ -15,10 +15,10 @@ answer; the LLM handles the language. It started at the Industrial Agents Hackat
 ├── CLAUDE.md                       ← you are here
 ├── pyproject.toml                  ← uv project (Python ≥3.12)
 ├── core/                           ← deterministic core (route model, geometry, solvers, edits, plan import)
-├── agent/                          ← LLM layer: Guide, Builder, Creator, campus; benchmark runners
+├── agent/                          ← LLM layer: Guide, Builder, Creator, campus, solver agent
 ├── backend/                        ← FastAPI app (backend/app.py), persistence, voice, live/fleet
 ├── frontend/app/                   ← React app: map, building search, plan view, Guide, Edit mode
-├── benchmark/                      ← official kit scorer + evaluator — never edit score.py
+├── benchmark/                      ← official kit scorer (test oracle for the solvers) — never edit score.py
 ├── data/                           ← kit dataset: train/ dev/ test/ + manifest.csv (committed, D-005)
 ├── docs/                           ← curated knowledge base — start at docs/README.md
 ├── memory-bank/                    ← live project state, decisions, open questions, log
@@ -26,7 +26,7 @@ answer; the LLM handles the language. It started at the Industrial Agents Hackat
 ├── supabase/, vercel.json          ← deploy (D-006)
 ├── .claude/                        ← agents, /ship skill, commit hook, worklog (dev-workflow.md)
 ├── archive/initial-repo/           ← rest of the organiser kit, read-only reference (D-004)
-├── archive/hackathon/              ← hackathon submission, brief PDF, weekend log and specs, read-only
+├── archive/hackathon/              ← hackathon submission, brief, benchmark runners, weekend log and specs, read-only
 └── LICENSE, NOTICE.md, ATTRIBUTION.md, data/README.md  ← licensing: MIT for our code only (D-009)
 ```
 
@@ -56,14 +56,14 @@ answer; the LLM handles the language. It started at the Industrial Agents Hackat
 | Need | Go to |
 |---|---|
 | System architecture (frontend, backend, DB, voice, deploy) | [docs/architecture/overview.md](docs/architecture/overview.md) |
-| AI agents (Guide, Builder, Creator, benchmark pipeline) | [docs/architecture/ai-agents.md](docs/architecture/ai-agents.md) |
+| AI agents (Guide, Builder, Creator, solver agent) | [docs/architecture/ai-agents.md](docs/architecture/ai-agents.md) |
 | App visuals (vector plan view, map) | [docs/product/visualization.md](docs/product/visualization.md) |
 | Living building (live obstacles, fleet) | [docs/product/living-building.md](docs/product/living-building.md) |
 | Personas / routing profiles | [docs/product/personas.md](docs/product/personas.md), [docs/product/routing-profiles.md](docs/product/routing-profiles.md) |
 | `building.json` / `equipment.csv` / `manifest.csv` schema | [docs/kit/data-format.md](docs/kit/data-format.md) |
 | Exact route graph + costs | [docs/kit/route-model.md](docs/kit/route-model.md) |
 | Benchmark question kinds and solvers | [docs/kit/questions.md](docs/kit/questions.md), [docs/architecture/solver-plan.md](docs/architecture/solver-plan.md) |
-| Original challenge brief and scoring | [docs/challenge/brief.md](docs/challenge/brief.md), [docs/challenge/scoring.md](docs/challenge/scoring.md) |
+| Original challenge brief, scoring, benchmark code (archived) | [brief](archive/hackathon/docs/challenge/brief.md), [scoring](archive/hackathon/docs/challenge/scoring.md), [benchmark code](archive/hackathon/benchmark-code/README.md) |
 | Commands (run app, tests, evaluate, deploy) | [docs/guides/commands.md](docs/guides/commands.md) |
 | How to commit (verified workflow) | [docs/guides/dev-workflow.md](docs/guides/dev-workflow.md) |
 | Terms (anchor, opening, connector, …) | [docs/guides/glossary.md](docs/guides/glossary.md) |

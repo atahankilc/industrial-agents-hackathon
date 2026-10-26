@@ -32,10 +32,9 @@ weekend's design specs and plans, the full session log and the last hackathon pr
   [D-021](decisions.md#d-021)), the transcript rewriter (`rewriter.py`, [Q-020](open-questions.md#q-020)).
 - **Core** (`core/`): the kit 1.1.0 route model (`building_map.py`, [D-014](decisions.md#d-014)), solvers,
   directions, edits and validation, access, live obstacles and fleet, geoplacement.
-- **Benchmark tooling** (kept for re-scoring): `benchmark/` (official kit scorer, never edit `score.py`),
-  `agent/run_benchmark_v1.py` + `agent/answer.py` (the submission pipeline), `agent/run_benchmark.py` +
-  `agent/benchmark_agent.py`, `agent/guide_v1/`, `core/formatter.py`, `llm_cache/`. Commands:
-  [commands.md](../docs/guides/commands.md).
+- **Benchmark:** the runners, kit evaluator and v1 Guide are archived in
+  [archive/hackathon/benchmark-code/](../archive/hackathon/benchmark-code/README.md) (2026-10-26). Kept as test oracles for the solvers the app uses:
+  `benchmark/score.py` (official kit scorer, never edit), `core/formatter.py`, `core/basic_parser.py`.
 - **Deploy:** Vercel (`vercel.json`: services `web` + `api`) + Supabase (`supabase/migrations/`),
   [D-006](decisions.md#d-006).
 - **Data:** kit dataset committed in `data/` ([D-005](decisions.md#d-005)); licences in `NOTICE.md`,
@@ -45,20 +44,17 @@ weekend's design specs and plans, the full session log and the last hackathon pr
 
 ## What works (verified 2026-10-26)
 
-- `uv run pytest -q` → 1088 passed, 2 skipped.
+- `uv run pytest -q` → 978 passed, 2 skipped (after archiving the benchmark tests).
 - `python3 scripts/check_links.py` → all links resolve.
 - `main` and `dev` are on the same commit (`25c79b5`) since the 2026-10-26 cleanup.
 
 ## Next
 
-1. **Decide the fate of the benchmark-only code.** Candidates: `agent/answer.py`, `agent/benchmark_agent.py`,
-   `agent/parsing.py`, `agent/run_benchmark*.py`, `agent/guide_v1/`, `core/formatter.py`, `core/basic_parser.py`
-   (unused, only a script and one test reference it) plus their scripts and tests. None of them is reachable from
-   `backend/app.py`. Held on 2026-10-26 while another session re-scored the jury's eval questions; Atahan to decide:
-   keep for re-scoring, move to `archive/`, or delete. Finding from that re-score (2026-10-26, reported by the
-   other session, UNVERIFIED here): the jury's eval data marks factory bays with `through: false`, our core ignores
-   the flag, and that is the main reason our routes scored 0. Fixing it in `core/` and re-scoring with
-   `agent/run_benchmark_v1.py` is an argument for keeping the runners.
+1. **Bays marked `through: false`.** The jury's eval data marks factory bays with `through: false` and our core
+   ignores the flag; another session's re-score (2026-10-26, UNVERIFIED here) says that is the main reason our routes
+   scored 0, and that with it and the right answer format we would have reached ~0.89 on the 36 sample questions.
+   Worth handling in `core/` for the app too (people should not be routed through a bay). The benchmark runners
+   to re-score are archived in [archive/hackathon/benchmark-code/](../archive/hackathon/benchmark-code/README.md) with how to restore them.
 2. **Slim `data/`?** 208 MB / 3,475 files; `data/train` alone is 122 MB. Only worth it if the app needs fewer
    buildings (the list shows all of them). Keep the licence files in step.
 3. **Branch `collab-edits`** (worktree `../iah-collab-edits`): 1 commit not in `dev` (shared building edits,

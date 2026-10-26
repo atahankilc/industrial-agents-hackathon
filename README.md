@@ -38,17 +38,12 @@ python3 scripts/check_links.py                        # docs and memory-bank lin
 cd frontend/app && npm run build                      # type-check + production bundle
 ```
 
-## Benchmark (kit scorer)
+## Benchmark (archived)
 
-`benchmark/score.py` is the organisers' official scorer; never edit it. To re-score our pipeline:
-
-```bash
-uv run --env-file .env python -m benchmark.evaluate data/dev --agent agent.answer:answer
-uv run python -m agent.run_benchmark_v1 <building_dir> <questions> agent_output/answers.json
-```
-
-The rest of the organiser kit (starter agent) is in `archive/initial-repo/`; run it from the repo root with
-`PYTHONPATH=archive/initial-repo`, see [commands.md](docs/guides/commands.md).
+The hackathon benchmark runners, the kit evaluator and the v1 Guide are in
+[archive/hackathon/benchmark-code/](archive/hackathon/benchmark-code/README.md), with how to restore and run them.
+`benchmark/score.py` (the organisers' official scorer, never edit it) stays: the solver tests use it. The rest of the
+organiser kit (starter agent) is in `archive/initial-repo/`.
 
 ## Licences
 

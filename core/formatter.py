@@ -1,7 +1,7 @@
 """SolverResult → reply text ending in the exact `Answer:` line the benchmark scorer parses (D-003).
 
 Number answer lines carry only the number (and maybe a unit): room refs on the same line are numbers too and
-would break `benchmark/score.py`. See docs/challenge/scoring.md#formatting-pitfalls-cost-real-points."""
+would break `benchmark/score.py`. See archive/hackathon/docs/challenge/scoring.md#formatting-pitfalls-cost-real-points."""
 
 from core.building_map import BuildingMap
 from core.solvers import SolverResult

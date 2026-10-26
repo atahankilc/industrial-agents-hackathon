@@ -6,10 +6,12 @@ Read-only history: don't update these files, link to them.
 
 | File | What it is |
 |---|---|
-| `Hackathon Challenge - Talk to Your Building.pdf` | the organisers' brief (summarised in [docs/challenge/brief.md](../../docs/challenge/brief.md)) |
+| `Hackathon Challenge - Talk to Your Building.pdf` | the organisers' brief (summarised in [docs/challenge/brief.md](docs/challenge/brief.md), also archived) |
 | `SUBMISSION/` | the graded benchmark folder: `BENCHMARK.md` + `answers.json` (145 test answers from `agent.run_benchmark_v1`) |
 | [technical-explanation.md](technical-explanation.md) | the submission form's technical explanation |
 | [demo-runbook.md](demo-runbook.md) | the 2-minute video script and the final pitch run sheet |
+| [benchmark-code/](benchmark-code/README.md) | the benchmark runners, kit evaluator, v1 Guide, their scripts and tests, and the commands to run them (moved 2026-10-26) |
+| `docs/` | `challenge/brief.md`, `challenge/scoring.md`, `kit/starter-agent.md` (moved from `docs/` 2026-10-26) |
 | `superpowers/` | the weekend's design specs and implementation plans (Guide v1, Builder edit mode, access profiles, plan import, plan reference + location) |
 | [log-2026-10-24-to-25.md](log-2026-10-24-to-25.md) | the full session log of the weekend (was `memory-bank/log.md`) |
 | [project-state-2026-10-25.md](project-state-2026-10-25.md) | the last hackathon project state, with the detailed "what exists" list (was `memory-bank/project-state.md`) |

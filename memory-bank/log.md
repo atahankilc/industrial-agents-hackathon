@@ -16,6 +16,19 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
   the map to be shown (no open building) and runs once; a run undone before the browser answered (dev double mount)
   asks again. Checked with `npm run build`; not tried in a browser (extension not connected).
 
+## 2026-10-26 — Benchmark code archived
+
+- Atahan: move everything about the hackathon that the app does not use to the archive. Moved with `git mv` to
+  [archive/hackathon/benchmark-code/](../archive/hackathon/benchmark-code/README.md): `agent/answer.py`, `agent/benchmark_agent.py`, `agent/parsing.py`,
+  `agent/run_benchmark.py`, `agent/run_benchmark_v1.py`, `agent/guide_v1/`, `benchmark/evaluate.py`,
+  `scripts/eval_llm_parser.py`, `scripts/eval_sunday_probe.py`, `tests/sunday_probe/` and their 10 tests; the
+  benchmark sections of commands.md went into that README. `docs/challenge/` and `docs/kit/starter-agent.md` moved to
+  `archive/hackathon/docs/`. Kept (test oracles for app code): `benchmark/score.py`, `core/formatter.py`,
+  `core/basic_parser.py`. `tests/fake_llm.py` now holds the fake client `tests/test_llm_route_spec.py` needs;
+  `pyproject.toml`: `testpaths = ["tests"]`, the `run_benchmark` script entry removed. pytest 978 passed, 2 skipped.
+- Re-score by another session (scratchpad only, UNVERIFIED here): with the right answer format and the bay /
+  forklift rules on, ~0.89 on the jury's 36 sample questions; our submitted answers scored 0.19–0.33.
+
 ## 2026-10-26 — Post-hackathon cleanup
 
 - Git: `main` fast-forwarded into `dev` (same commit `25c79b5`); deleted the merged local branches

@@ -2,14 +2,14 @@
 id: arch-solver-plan
 summary: Deterministic algorithm per benchmark question kind — every kind VERIFIED against all train+dev answers (655/655), with the exact rules the data settled and the variants it rejected.
 status: verified 2026-10-24
-sources: [../kit/questions.md, ../kit/route-model.md, ../challenge/scoring.md, ../../core/solvers/, ../../scripts/validate_solvers.py]
+sources: [../kit/questions.md, ../kit/route-model.md, ../../archive/hackathon/docs/challenge/scoring.md, ../../core/solvers/, ../../scripts/validate_solvers.py]
 related: [overview.md, ../kit/questions.md, ../../memory-bank/open-questions.md]
 ---
 
 # Solver plan per question kind — VERIFIED
 
 [Docs index](../README.md) · Definitions: [questions.md](../kit/questions.md#precise-definitions) ·
-Tolerances: [scoring.md](../challenge/scoring.md#tolerances-per-kind)
+Tolerances: [scoring.md](../../archive/hackathon/docs/challenge/scoring.md#tolerances-per-kind)
 
 Code: `core/solvers/` — one `@solver(kind)` function per kind, `fn(building, **inputs) -> SolverResult`
 (`value`, `unit`, `explanation`, JSON `evidence`, `area_m2`). Solvers never mutate the building (what-ifs work
@@ -31,10 +31,10 @@ Per-module tests: `tests/test_solvers_{geometry,walls,reachability,routing}.py`.
 | what_if_door | 2% | VERIFIED (4 examples) | 4/4 | routing.py |
 | step_free_reachable_count | 0% (Sunday?) | VERIFIED (2 examples, weak) | 2/2 | reachability.py |
 
-A second implementation, `core/solvers_v1.py` (`solve(bmap, kind, params)` → dict, used by `agent/answer.py` and
-the v1 Guide `agent/guide_v1/`), reaches the same 655/655 on gold inputs (`uv run pytest tests/test_solvers.py -q -s`).
+A second implementation, `core/solvers_v1.py` (`solve(bmap, kind, params)` → dict, used by the Guide's tools and, until
+they were archived on 2026-10-26, by `agent/answer.py` and the v1 Guide `agent/guide_v1/`), reaches the same 655/655 on gold inputs (`uv run pytest tests/test_solvers.py -q -s`).
 
-End-to-end from question **text** (`agent/benchmark_agent.py`, regex parser): dev **138/138**, train **515/517** —
+End-to-end from question **text** (`agent/benchmark_agent.py`, regex parser; archived 2026-10-26): dev **138/138**, train **515/517** —
 the 2 misses are inherently ambiguous names ([Q-006](../../memory-bank/open-questions.md#q-006)).
 
 ## Room definition per kind
@@ -101,7 +101,7 @@ midpoint variant changes the count in ≤ 3 pairs; no improvement falls within 0
 ## Warm-up kinds (questions_basic.jsonl)
 In case Sunday asks one-search / one-route questions ([Q-001](../../memory-bank/open-questions.md#q-001)), the
 parser has a template per warm-up kind and `solve()` answers them (VERIFIED 2026-10-24, from the question text,
-`uv run pytest tests/test_warm_up.py -q -s`):
+`tests/test_warm_up.py`, archived 2026-10-26 to `archive/hackathon/benchmark-code/tests/`):
 
 | Kind | Solver | train+dev |
 |---|---|---|
@@ -127,7 +127,7 @@ forklift rules, which the kit answers don't use. `outside` is never crossed. No 
 ## Answer formatting (all kinds)
 `core/formatter.py`: explanation lines, then `Answer: <number>[ unit]` (integers bare, else 2 decimals) or
 `Answer: <ref> (<name>)[, <area> m²]`. Never a ref on a number line
-([scoring.md](../challenge/scoring.md#formatting-pitfalls-cost-real-points)).
+([scoring.md](../../archive/hackathon/docs/challenge/scoring.md#formatting-pitfalls-cost-real-points)).
 
 ## Related
 - [overview.md](overview.md) · [questions.md](../kit/questions.md) · [route-model.md](../kit/route-model.md) ·

@@ -1,8 +1,8 @@
 ---
 id: guide-commands
-summary: Setup and every command for chatting, evaluating on dev, scoring and producing the test submission.
-sources: [archive/initial-repo/README.md §5-6, archive/initial-repo/starter_agent/README.md, benchmark/evaluate.py, backend/app.py, agent/run_benchmark.py, agent/run_benchmark_v1.py, agent/guide_v1/__main__.py, archive/hackathon/SUBMISSION/BENCHMARK.md]
-related: [../kit/starter-agent.md, ../challenge/scoring.md]
+summary: Setup and every command for the backend, the app, tests, evals and deploy.
+sources: [backend/app.py, frontend/app/package.json, vercel.json, scripts/]
+related: [../architecture/overview.md, ../../archive/hackathon/benchmark-code/README.md]
 ---
 
 # Commands
@@ -20,48 +20,17 @@ cp .env.example .env         # add ANTHROPIC_API_KEY
 
 Without syncing, one-off scripts can run with `uv run --no-project --python 3.12 python …` (stdlib only).
 
-## Starter agent (archived, still runnable)
-
-```bash
-PYTHONPATH=archive/initial-repo uv run --env-file .env python -m starter_agent data/dev/proc-factory-dev-003
-```
-
-## Evaluate on dev (do this before touching test)
-
-```bash
-# warm-up questions, tools only, free (verified 369/369 on 2026-10-24 with kit 1.0.0 answers; not re-run on 1.1.0):
-PYTHONPATH=archive/initial-repo uv run python -m starter_agent.evaluate data/dev --oracle
-# benchmark questions with the starter agent (~$0.10–0.25/question):
-PYTHONPATH=archive/initial-repo uv run --env-file .env python -m benchmark.evaluate data/dev --per-kind 3
-# our agent, agent/answer.py (verified 138/138 on 2026-10-24):
-uv run --env-file .env python -m benchmark.evaluate data/dev --agent agent.answer:answer
-# only some kinds:
-uv run --env-file .env python -m benchmark.evaluate data/dev --agent agent.answer:answer --kinds errand what_if_door
-```
-
-Results: `agent_output/benchmark/<--name, default results>.jsonl` (question, expected answer, reply, correct).
-
-## Produce the test submission
-
-The graded hackathon submission (2026-10-25) is archived in `archive/hackathon/SUBMISSION/`. To re-score, write
-new answers outside it, e.g. to `agent_output/` (gitignored):
-
-```bash
-PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 data/test data/test/questions.csv agent_output/answers.json
-uv run --env-file .env python -m agent.run_benchmark_v1 data/test data/test/questions.csv agent_output/team_jaRAG.csv
-# same replies via the kit evaluator (checked identical on 2026-10-24):
-uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answer:answer --submission-csv agent_output/team_jaRAG.csv
-```
-
-Format rules: [scoring.md](../challenge/scoring.md#submission-format).
-
-## Our deterministic pipeline
+## Solvers against the kit's gold answers
 
 ```bash
 uv run python scripts/validate_solvers.py [--kinds errand] [-v]          # solvers on gold inputs, train+dev
-PARSER_MODE=regex uv run python -m benchmark.evaluate data/dev --agent agent.benchmark_agent:answer --name dev
-PARSER_MODE=regex uv run python -m agent.run_benchmark data/test data/test/questions.csv agent_output/test_answers.json --csv team_<name>.csv
 ```
+
+## Benchmark (archived)
+
+The hackathon benchmark runners, the kit evaluator, the v1 Guide and their commands moved to
+[archive/hackathon/benchmark-code/](../../archive/hackathon/benchmark-code/README.md) on 2026-10-26.
+`benchmark/score.py` (the kit scorer) stays: the solver tests use it to check answers against the kit's gold answers.
 
 ## Backend (Guide API)
 
@@ -241,7 +210,7 @@ checks the config locally.
 UNVERIFIED until the first deploy: Services (beta) with a service root of `./` next to `frontend/app/`, the
 exclude globs as Vercel applies them, cold-start time.
 
-## v1 Guide and pipeline (terminal)
+## Guide evals (terminal)
 
 Scripted conversations (`tests/guide_conversations/*.json`) run against the canonical Guide (`agent/guide.py`):
 
@@ -263,30 +232,5 @@ uv run --env-file .env python scripts/interaction_eval.py [tests/interaction_sce
 uv run pytest tests/test_interaction_eval.py -q   # offline (fake client + offline Guide)
 ```
 
-The second Guide (`agent/guide_v1/`, branch `1-agentic-yarag`) and its benchmark pipeline (`agent/answer.py` →
-`core/solvers_v1.py`) sit beside the canonical ones; the backend and UI use `agent/guide.py`.
-
-```bash
-# terminal REPL (multi-turn, remembers position / step-free / closures); --show-tools prints each tool call
-uv run --env-file .env python -m agent.guide_v1 data/dev/proc-campus-dev-001 --show-tools
-# v1 benchmark run: .csv (submission) or .json (reply + ids + solver result + route) out
-uv run --env-file .env python -m agent.run_benchmark_v1 <building_dir> <questions> <answers.csv|answers.json>
-```
-
-Design: [guide-agent spec](../../archive/hackathon/superpowers/specs/2026-10-24-guide-agent-design.md). A full eval run costs about $0.27.
-
-## Sunday benchmark (hackathon, archived)
-
-`uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> <answers.json>` (default `hybrid`:
-templates first, the LLM only for unseen wording; `.env` is read automatically; `--layout dict` keys the .json by
-question id) — documented in [`archive/hackathon/SUBMISSION/BENCHMARK.md`](../../archive/hackathon/SUBMISSION/BENCHMARK.md) (v1 is the submission
-pipeline: it also answers the warm-up kinds, routes included; `agent.run_benchmark` has no solvers for them). Do not
-use `PARSER_MODE=regex` on Sunday: on 14 reworded questions it answered 1 (2026-10-25). A failing question becomes an
-`error` entry and the run goes on; the file is rewritten after every question. Model decisions go to
-`llm_cache/decisions.json` — commit it together with the answers file, so a re-run without a key
-reproduces the answers ([ai-agents.md](../architecture/ai-agents.md#sunday-layers-route-specs-solver-agent-decision-cache-2026-10-25)).
-Probe of the agentic layers: `uv run python scripts/eval_sunday_probe.py` (`tests/sunday_probe/`, calls Claude). Output format was never announced (closed:
-[Q-001](../../memory-bank/open-questions.md#q-001)).
-
 ## Related
-- [starter-agent.md](../kit/starter-agent.md#evaluation) · [scoring.md](../challenge/scoring.md) · [ai-agents.md](../architecture/ai-agents.md)
+- [ai-agents.md](../architecture/ai-agents.md) · [benchmark code (archived)](../../archive/hackathon/benchmark-code/README.md)

@@ -26,7 +26,7 @@ related: [../kit/data-format.md, ../kit/route-model.md]
 | **Synthetic** | added by the dataset, not in the source | [data-format](../kit/data-format.md#conventions) |
 | **Warm-up questions** | `questions_basic.jsonl`, `-Q##`, unscored | [questions](../kit/questions.md#warm-up-questions) |
 | **Benchmark questions** | `questions.jsonl`, `-H##`, scored | [questions](../kit/questions.md#benchmark-questions) |
-| **Committed answer** | last `Answer:` line in a reply — the only part scored | [scoring](../challenge/scoring.md#how-a-reply-is-parsed) |
-| **Sunday building** | unseen building released before code freeze | [scoring](../challenge/scoring.md#sunday-benchmark) |
+| **Committed answer** | last `Answer:` line in a reply — the only part scored | [scoring](../../archive/hackathon/docs/challenge/scoring.md#how-a-reply-is-parsed) |
+| **Sunday building** | unseen building released before code freeze | [scoring](../../archive/hackathon/docs/challenge/scoring.md#sunday-benchmark) |
 | **Solver** | deterministic function answering one question kind | [solver-plan](../architecture/solver-plan.md) |
-| **Oracle** | starter evaluator mode answering with tools directly | [starter-agent](../kit/starter-agent.md#evaluation) |
+| **Oracle** | starter evaluator mode answering with tools directly | [starter-agent](../../archive/hackathon/docs/kit/starter-agent.md#evaluation) |

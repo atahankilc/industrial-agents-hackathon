@@ -9,7 +9,7 @@ room type or an item, the nearest one taken — plus any mix of step-free, forkl
 closures (lifts, stairs, rooms, corridors, doors). A spec that fits a warm-up kind exactly (route, route_step_free,
 route_with_closure, tour) keeps that kind and its solver; anything richer becomes `route_query`
 (core/route_query.py). `asks_for` names what the question wants back: a kind that cannot answer it, or kind
-`other`, raises NeedsAgent and agent/answer.py hands the question to the solver agent.
+`other`, raises NeedsAgent and the caller hands the question to the solver agent (archive/hackathon/benchmark-code/agent/answer.py did).
 
 Every decision is stored in the decision cache (agent/llm_cache.py) before it is used, so a re-run reproduces it
 without the model."""
@@ -157,7 +157,7 @@ def make_client() -> anthropic.Anthropic:
 
 
 class NeedsAgent(ParseError):
-    """The question is understood but no solver kind answers it: agent/answer.py hands it to the solver agent."""
+    """The question is understood but no solver kind answers it: the caller hands it to the solver agent."""
 
 
 @dataclass

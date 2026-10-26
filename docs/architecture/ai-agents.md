@@ -2,7 +2,7 @@
 id: arch-agents
 summary: PROPOSED design of every AI agent in the system — Building Guide (chat + voice), benchmark pipeline, Builder (plan → building), and how they share one deterministic tool layer.
 status: proposed
-sources: [../research/elevenlabs.md, ../kit/starter-agent.md, ../challenge/brief.md, ../challenge/scoring.md, ../../agent/tools.py, ../../agent/guide.py, ../../agent/offline_llm.py, ../../agent/llm_parser.py, ../../agent/solver_agent.py, ../../agent/llm_cache.py, ../../core/route_query.py]
+sources: [../research/elevenlabs.md, ../../archive/hackathon/docs/kit/starter-agent.md, ../../archive/hackathon/docs/challenge/brief.md, ../../archive/hackathon/docs/challenge/scoring.md, ../../agent/tools.py, ../../agent/guide.py, ../../agent/offline_llm.py, ../../agent/llm_parser.py, ../../agent/solver_agent.py, ../../agent/llm_cache.py, ../../core/route_query.py]
 related: [overview.md, solver-plan.md, ../product/routing-profiles.md, ../product/personas.md, ../research/question-parsing.md]
 ---
 
@@ -17,12 +17,12 @@ distance, count or route that did not come from a tool result ([D-003](../../mem
 
 | Agent | Job | Model (start) | Channel | Points |
 |---|---|---|---|---|
-| **Building Guide** | conversation: find, route, react, edit; clarifies; remembers user profile. **v1 implemented** (terminal, `agent/guide_v1/`: 6 tools, grounding check, session; live scripted run 16/16 turns, 9 conversations, [spec](../../archive/hackathon/superpowers/specs/2026-10-24-guide-agent-design.md), [plan](../../archive/hackathon/superpowers/plans/2026-10-24-guide-agent.md)); the v1 Guide has no edit tools, UI or voice — those are in the canonical `agent/guide.py` (below) | Opus 5.5 default (`GUIDE_MODEL`), medium effort | terminal REPL; text chat + voice (via ElevenLabs) planned | Interaction 25, L1–L3 |
-| **Benchmark pipeline** | question text → parse → solver → `Answer:` line; no free-form LLM | none; Haiku/Sonnet only as parse fallback | CLI `run_benchmark`, `benchmark.evaluate --agent` | Does it work 55 |
+| **Building Guide** | conversation: find, route, react, edit; clarifies; remembers user profile. v1 (terminal, 6 tools, grounding check, session; **archived 2026-10-26** to `archive/hackathon/benchmark-code/agent/guide_v1/`; live scripted run 16/16 turns, 9 conversations, [spec](../../archive/hackathon/superpowers/specs/2026-10-24-guide-agent-design.md), [plan](../../archive/hackathon/superpowers/plans/2026-10-24-guide-agent.md)); the v1 Guide has no edit tools, UI or voice — those are in the canonical `agent/guide.py` (below) | Opus 5.5 default (`GUIDE_MODEL`), medium effort | terminal REPL; text chat + voice (via ElevenLabs) planned | Interaction 25, L1–L3 |
+| **Benchmark pipeline** (archived 2026-10-26) | question text → parse → solver → `Answer:` line; no free-form LLM | none; Haiku/Sonnet only as parse fallback | archived CLIs, see [benchmark-code/README.md](../../archive/hackathon/benchmark-code/README.md) | Does it work 55 (hackathon) |
 | **Builder** | floor-plan image → draft `building.json` → validate → user confirms; drafting from plans is the **Creator** ([design](../../archive/hackathon/superpowers/specs/2026-10-25-plan-import-design.md), [plan](../../archive/hackathon/superpowers/plans/2026-10-25-plan-import.md), in progress) | Opus 5.5 (vision) | UI upload + chat | L4 |
 | (dev) **Claude Code subagents** | build the product: research, solvers, tests | — | this repo | — |
 
-Model ids: [claude-api skill / docs]; switch by env var, compare cost/quality with `benchmark.evaluate`.
+Model ids: [claude-api skill / docs]; switch by env var. (The cost/quality comparison via the kit evaluator is archived 2026-10-26, see [benchmark-code/README.md](../../archive/hackathon/benchmark-code/README.md).)
 
 ## Shared tool layer
 
@@ -90,7 +90,7 @@ events — so one call answers "what happens if…", and the model never counts 
 
 `propose_change` → user sees an "I understood: close *Office lift*; 3 routes get 40 m longer. Apply?" card →
 `apply_change`. That is the brief's "show what it understood before it changes a plan"
-([brief.md](../challenge/brief.md#directions-from-the-organisers)).
+([brief.md](../../archive/hackathon/docs/challenge/brief.md#directions-from-the-organisers)).
 
 ## Building Guide — behaviour contract
 
@@ -254,6 +254,11 @@ or markdown in speech. Tests: `tests/test_speech.py`. Still open: ElevenLabs acc
 tools) — needs the public deploy.
 
 ## Benchmark pipeline
+
+**Archived 2026-10-26:** the runners (`agent/answer.py`, `agent/run_benchmark*.py`, `agent/benchmark_agent.py`,
+`agent/parsing.py`, `agent/guide_v1/`) moved to [archive/hackathon/benchmark-code/](../../archive/hackathon/benchmark-code/README.md). The parser (`agent/llm_parser.py`),
+the solvers and the solver agent stay: the Guide uses them. This section and its subsections describe the pipeline as
+it was.
 
 ```
 question text ─► template parser ──ok──► solver(kind, params) ─► formatter ─► reply + "Answer: …"

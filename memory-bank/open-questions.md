@@ -61,7 +61,7 @@ Template:
 <a id="q-010"></a>
 ### Q-010 — Which Level 5 add-in do we pick?
 - **Status:** open · **Priority:** low (decide after Phase 2) · **Resolve by:** team decision
-- **Context:** "Pick one and do it well." Options in [brief.md](../docs/challenge/brief.md#levels).
+- **Context:** "Pick one and do it well." Options in [brief.md](../archive/hackathon/docs/challenge/brief.md#levels).
 
 <a id="q-012"></a>
 ### Q-012 — Model choice and API budget
@@ -111,14 +111,14 @@ Template:
 ### Q-016 — Level 3 "several buildings": what format, and how do walkways link them?
 - **Status:** open · **Priority:** high · **Resolve by:** ask organisers / wait for Sunday building
 - **Context:** Brief: "several floors, then several buildings; stairs, lifts, walkways between buildings"
-  ([brief.md](../docs/challenge/brief.md)). Several floors work end to end (174/280 datasets multi-floor, up to 10;
+  ([brief.md](../archive/hackathon/docs/challenge/brief.md)). Several floors work end to end (174/280 datasets multi-floor, up to 10;
   routes over stairs/lifts verified). Several buildings exist nowhere: every `building.json` holds one `building`,
   every `group_id` in `data/manifest.csv` is unique, no data names a walkway/bridge, `BuildingMap`,
   `BuildingSession`, the backend session and the UI each hold one building, and `no_outside` makes `outside` an
   endpoint only (scan 2026-10-24).
 - **How to resolve:** ask whether Sunday brings one file with several buildings, several files plus links, or
   outdoor travel via `outside`; meanwhile a site layer (several `BuildingMap`s + typed links: walkway / outdoor
-  path with length) is the smallest change (starter README idea, [starter-agent.md](../docs/kit/starter-agent.md)).
+  path with length) is the smallest change (starter README idea, [starter-agent.md](../archive/hackathon/docs/kit/starter-agent.md)).
 
 <a id="q-020"></a>
 ### Q-020 — Keep the voice transcript rewriter now that Scribe hears the building's names?
@@ -140,7 +140,7 @@ Template:
 - **Context:** PDF says `questions.json` in, `answers.json` out with item/room id, **route as ordered node ids**,
   route length. README says CSV `question_id,answer` (full replies) for test; Sunday format "announced with the
   release". No schema/example answer file exists in `data/`. See
-  [scoring.md](../docs/challenge/scoring.md#-conflict-pdf-vs-readme).
+  [scoring.md](../archive/hackathon/docs/challenge/scoring.md#-conflict-pdf-vs-readme).
 - **How to resolve:** ask organisers; meanwhile make solvers return structured results (ids, node path, length)
   *and* prose.
 - **Progress (2026-10-24):** both runners exist ([BENCHMARK.md](../archive/hackathon/SUBMISSION/BENCHMARK.md)): canonical
@@ -252,7 +252,7 @@ Template:
   held. Lost in 1.1.0: "The story", "What you build" (incl. "Directions, not instructions", "Put yourself in their
   shoes"), "Sunday benchmark" (single command, `BENCHMARK.md`), "Submission and judging process" (online
   submission, no pitch rooms). The judging row changed from **"Submission demo — demo video and technical
-  explanation"** (cb51a6f, matches [brief.md](../docs/challenge/brief.md)) to **"Pitch and demo — a 3–5 minute
+  explanation"** (cb51a6f, matches [brief.md](../archive/hackathon/docs/challenge/brief.md)) to **"Pitch and demo — a 3–5 minute
   live demo that works without a restart"** (1.1.0). Probably accidental (the CHANGELOG lists only the route-model
   section as a README change), but UNVERIFIED.
 - **Meanwhile:** `archive/initial-repo/README.md` = 1.1.0 verbatim (route model, data, questions);

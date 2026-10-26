@@ -5,12 +5,12 @@ sources:
   - archive/initial-repo/starter_agent/README.md
   - archive/initial-repo/starter_agent/{agent,tools,building_map,viewer,evaluate}.py
   - benchmark/evaluate.py
-related: [route-model.md, questions.md, ../architecture/overview.md, ../guides/commands.md]
+related: [../../../../docs/kit/route-model.md, ../../../../docs/kit/questions.md, ../../../../docs/architecture/overview.md, ../../../../docs/guides/commands.md]
 ---
 
 # Starter agent
 
-[Docs index](../README.md) · Route model it implements: [route-model.md](route-model.md)
+[Docs index](../../../../docs/README.md) · Route model it implements: [route-model.md](../../../../docs/kit/route-model.md)
 
 Scores **< 5% on benchmark questions by design** (its tools don't expose areas, door widths or reachability),
 but its core is the reference route implementation.
@@ -40,7 +40,7 @@ you ──► agent.py (Claude, tool runner) ──► tools.py ──► buildi
 | `search(query, floor_level)` | all query words must be substrings of name/ref/type/id | 107–144 |
 | `resolve_space(ref)` | space id / asset id / exact ref or name / exact asset name → space id; else `MapError` listing candidates | 146–171 |
 | `anchor(space_id)` | `representative_point()` | 175–177 |
-| `graph(step_free)` | the MultiGraph of [route-model.md](route-model.md) | 179–212 |
+| `graph(step_free)` | the MultiGraph of [route-model.md](../../../../docs/kit/route-model.md) | 179–212 |
 | `route(start, dest, step_free, via)` | Dijkstra per leg, concatenated; stores `last_route` | 214–246 |
 | `directions(...)` | human steps ("Walk about 12 m through the door into …") | 248–275 |
 | `set_closed(ref, closed)` | adds/removes id in `self.closed` | 291–297 |
@@ -48,7 +48,7 @@ you ──► agent.py (Claude, tool runner) ──► tools.py ──► buildi
 | `save(path)` | writes JSON | 322–323 |
 
 Note: `add_door` places the door at the **nearest points** between polygons, not at the **middle of the shared
-wall** that `what_if_door` requires ([questions.md](questions.md#precise-definitions)).
+wall** that `what_if_door` requires ([questions.md](../../../../docs/kit/questions.md#precise-definitions)).
 
 ## `tools.py` — 6 tools (`@beta_tool`)
 
@@ -80,7 +80,7 @@ wall** that `what_if_door` requires ([questions.md](questions.md#precise-definit
 | deterministic `Answer:` line formatting | all ([scoring.md](../challenge/scoring.md#formatting-pitfalls-cost-real-points)) |
 | multi-building, build-from-plan, UI, voice | Levels 3–5, Interaction |
 
-Plan for each: [solver-plan.md](../architecture/solver-plan.md).
+Plan for each: [solver-plan.md](../../../../docs/architecture/solver-plan.md).
 
 ## Ideas from the starter README
 
@@ -91,4 +91,4 @@ three.js stacked by `elevation_m`; cost = lower effort or Sonnet/Haiku and compa
 
 ## Related
 
-- [route-model.md](route-model.md) · [architecture/overview.md](../architecture/overview.md) · [commands.md](../guides/commands.md)
+- [route-model.md](../../../../docs/kit/route-model.md) · [architecture/overview.md](../../../../docs/architecture/overview.md) · [commands.md](../../../../docs/guides/commands.md)

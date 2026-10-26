@@ -13,33 +13,26 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 
 | Folder | Holds | Changes when |
 |---|---|---|
-| `challenge/` | The hackathon brief and benchmark scoring (historical, still the benchmark's rules) | Rarely (the hackathon is over) |
 | `kit/` | Facts about the provided kit: data, route model, questions, starter code | Rarely (the kit is fixed) |
 | `architecture/` | **Our** design: components, agents, solver plan | We make a decision (log it in [decisions.md](../memory-bank/decisions.md)) |
 | `product/` | **Our** users: personas, routing profiles | We learn about users / demo script |
 | `research/` | Dated external research (ElevenLabs, cloud stack, parsing experiment) | Re-research; facts may age |
 | `guides/` | How-to: commands, glossary | Tooling changes |
 
-`challenge/` and `kit/` are **descriptive** (verified against sources). `architecture/` is **prescriptive**
+`kit/` is **descriptive** (verified against sources). `architecture/` is **prescriptive**
 (our proposals/decisions) — check status markers there.
 
 ## All docs
-
-### Challenge
-- [challenge/brief.md](challenge/brief.md) — mission, levels 1–5, add-ins, personas, judging weights, rules.
-- [challenge/scoring.md](challenge/scoring.md) — `Answer:` line parsing, tolerances per kind, submission CSV,
-  Sunday benchmark, format conflicts.
 
 ### Kit (provided by organisers; data + scorer extracted to root, rest in `archive/initial-repo/`)
 - [kit/repo-layout.md](kit/repo-layout.md) — files, splits, sources, dataset statistics.
 - [kit/data-format.md](kit/data-format.md) — `building.json`, `equipment.csv`, `manifest.csv` schemas.
 - [kit/route-model.md](kit/route-model.md) — the exact graph + cost model behind expected route lengths.
 - [kit/questions.md](kit/questions.md) — warm-up and benchmark question kinds, precise definitions, counts.
-- [kit/starter-agent.md](kit/starter-agent.md) — how the starter agent works, its tools, what it lacks.
 
 ### Architecture (ours)
 - [architecture/overview.md](architecture/overview.md) — what we need (frontend, backend, DB, realtime, voice, CI), topology, collaboration flow, build order.
-- [architecture/ai-agents.md](architecture/ai-agents.md) — Building Guide, benchmark pipeline, Builder; shared tools; voice path.
+- [architecture/ai-agents.md](architecture/ai-agents.md) — Building Guide, Builder, Creator; shared tools; voice path; the (archived) benchmark pipeline.
 - [architecture/solver-plan.md](architecture/solver-plan.md) — one deterministic function per benchmark kind — all VERIFIED 655/655, with the rules the data settled.
 
 ### Product (ours)
@@ -62,6 +55,11 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 
 Moved to [archive/hackathon/](../archive/hackathon/README.md) on 2026-10-26; read-only history.
 
+- [challenge/brief.md](../archive/hackathon/docs/challenge/brief.md) — mission, levels 1–5, add-ins, personas, judging weights, rules.
+- [challenge/scoring.md](../archive/hackathon/docs/challenge/scoring.md) — `Answer:` line parsing, tolerances per kind, submission CSV,
+  Sunday benchmark, format conflicts.
+- [kit/starter-agent.md](../archive/hackathon/docs/kit/starter-agent.md) — how the starter agent works, its tools, what it lacks.
+- [benchmark-code/README.md](../archive/hackathon/benchmark-code/README.md) — the benchmark runners, v1 Guide, kit evaluator and their commands.
 - [technical-explanation.md](../archive/hackathon/technical-explanation.md) — the submission form's technical
   explanation (architecture + stack), built facts only.
 - [superpowers/specs/2026-10-24-builder-edit-mode-design.md](../archive/hackathon/superpowers/specs/2026-10-24-builder-edit-mode-design.md) — PROPOSED design of the app's Edit mode (L4 step 1): edit a copy of a building by prompt and drag on a 2D plan with 3D preview; validator; drafts; Builder agent.
@@ -69,7 +67,7 @@ Moved to [archive/hackathon/](../archive/hackathon/README.md) on 2026-10-26; rea
 - [superpowers/plans/2026-10-25-plan-reference-and-location.md](../archive/hackathon/superpowers/plans/2026-10-25-plan-reference-and-location.md) — implementation plan (8 tasks, 3 milestones) for the plan reference in Edit mode and buildings created at a place on the map.
 - [superpowers/specs/2026-10-25-plan-import-design.md](../archive/hackathon/superpowers/specs/2026-10-25-plan-import-design.md) — PROPOSED design of Builder project 2 (L4): the Creator agent turns PDFs / photos of floor plans into a building.json draft (code segments rooms, Claude vision labels them, scale, stacking, validate) and hands it to Edit mode.
 - [superpowers/specs/2026-10-25-plan-reference-and-location-design.md](../archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md) — IMPLEMENTED 2026-10-25: the straightened source plan beside the editor in Edit mode (with a trace underneath), and creating a building at a place on the map, fitted onto its OSM footprint (position with bearing), GPS check, supersede on re-save.
-- [superpowers/specs/2026-10-24-guide-agent-design.md](../archive/hackathon/superpowers/specs/2026-10-24-guide-agent-design.md) — design of the v1 Guide (`agent/guide_v1/`, branch `1-agentic-yarag`): terminal, multi-turn, grounded, clarifies only what matters.
+- [superpowers/specs/2026-10-24-guide-agent-design.md](../archive/hackathon/superpowers/specs/2026-10-24-guide-agent-design.md) — design of the v1 Guide (`agent/guide_v1/`, archived 2026-10-26 to `archive/hackathon/benchmark-code/`, branch `1-agentic-yarag`): terminal, multi-turn, grounded, clarifies only what matters.
 - [superpowers/plans/2026-10-24-builder-edit-mode-m3.md](../archive/hackathon/superpowers/plans/2026-10-24-builder-edit-mode-m3.md) — Builder Edit mode milestone-3 plan: drafts, saved buildings and Builder history in Supabase for the deployed app (6 tasks; Tasks 1–5 done 2026-10-24, deploy pending).
 - [superpowers/plans/2026-10-24-builder-edit-mode-m2.md](../archive/hackathon/superpowers/plans/2026-10-24-builder-edit-mode-m2.md) — Builder Edit mode milestone-2 plan: prompt edits by a Builder agent (5 tasks).
 - [superpowers/plans/2026-10-24-builder-edit-mode-m1.md](../archive/hackathon/superpowers/plans/2026-10-24-builder-edit-mode-m1.md) — Builder Edit mode milestone-1 implementation plan (7 tasks).
@@ -84,7 +82,7 @@ Moved to [archive/hackathon/](../archive/hackathon/README.md) on 2026-10-26; rea
 1. [overview](architecture/overview.md) → 2. [ai-agents](architecture/ai-agents.md) →
 3. [visualization](product/visualization.md) → 4. [data-format](kit/data-format.md) →
 5. [route-model](kit/route-model.md) → 6. [personas](product/personas.md) → 7. [commands](guides/commands.md).
-For the benchmark: [brief](challenge/brief.md), [scoring](challenge/scoring.md), [questions](kit/questions.md),
+For the benchmark: [brief](../archive/hackathon/docs/challenge/brief.md), [scoring](../archive/hackathon/docs/challenge/scoring.md), [questions](kit/questions.md),
 [solver-plan](architecture/solver-plan.md).
 
 ## Linking conventions

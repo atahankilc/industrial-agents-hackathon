@@ -34,7 +34,7 @@ related: [../architecture/overview.md, ../product/personas.md]
 [Docs index](../README.md) · Architecture: [overview.md](../architecture/overview.md) · Personas:
 [personas.md](../product/personas.md)
 
-Voice counts towards the **Interaction** score (25 pts), per [brief.md](../challenge/brief.md#judging). The
+Voice counts towards the **Interaction** score (25 pts), per [brief.md](../../archive/hackathon/docs/challenge/brief.md#judging). The
 team has an ElevenLabs subscription: **Creator** tier, 131,000 characters per month (`GET /v1/user/subscription`,
 2026-10-25); agent minutes and concurrency are still UNVERIFIED.
 

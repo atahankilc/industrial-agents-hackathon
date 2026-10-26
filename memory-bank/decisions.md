@@ -51,7 +51,7 @@ Template:
 - **Decision:** Solvers compute answers; a formatter writes the final `Answer:` line from structured results.
   The LLM may phrase explanations and parse intent, never compute numbers.
 - **Consequences:** Needs a reliable question → (kind, params) step ([Q-008](open-questions.md#q-008)).
-- **Evidence:** [scoring.md](../docs/challenge/scoring.md#how-a-reply-is-parsed).
+- **Evidence:** [scoring.md](../archive/hackathon/docs/challenge/scoring.md#how-a-reply-is-parsed).
 
 <a id="d-004"></a>
 ### D-004 — Build at the repo root; archive the organiser kit

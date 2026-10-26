@@ -16,7 +16,7 @@ related: [personas.md, ../kit/route-model.md, ../architecture/solver-plan.md, ..
 
 [Docs index](../README.md) · Who needs what: [personas.md](personas.md) · Base model:
 [route-model.md](../kit/route-model.md) · Organiser personas:
-[brief.md](../challenge/brief.md#personas-put-yourself-in-their-shoes)
+[brief.md](../../archive/hackathon/docs/challenge/brief.md#personas-put-yourself-in-their-shoes)
 
 ## Principle
 

@@ -6,7 +6,7 @@ BuildingMap, the canonical route and solver functions, shapely, networkx) and re
 submitted value (D-003), never by the model. Self-consistency: two independent runs; when they disagree a third
 decides by majority, so one bad trajectory does not decide a question alone.
 
-  agent.answer.respond → regex templates → LLM slots (agent/llm_parser.py) → this agent (kind `other`, a
+  agent.answer.respond (archived: archive/hackathon/benchmark-code/agent/answer.py) → regex templates → LLM slots (agent/llm_parser.py) → this agent (kind `other`, a
   question/kind mismatch, or slots that never resolve)
 
 The sandbox (restricted builtins, a module whitelist, a time limit, a deep copy of the building per run) guards

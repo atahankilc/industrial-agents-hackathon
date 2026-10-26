@@ -1,4 +1,4 @@
-"""Turn the words a person uses for a place into space ids (ported from the v1 Guide, agent/guide_v1/resolve.py).
+"""Turn the words a person uses for a place into space ids (ported from the v1 Guide, archive/hackathon/benchmark-code/agent/guide_v1/resolve.py).
 
 `candidates` never guesses: a phrase that fits several spaces returns all of them, and `problem` writes the
 MapError text the model repairs from — every candidate with what tells it apart (D-012), or near-miss names

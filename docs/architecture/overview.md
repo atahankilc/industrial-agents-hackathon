@@ -2,7 +2,7 @@
 id: arch-overview
 summary: System architecture (stack accepted in D-006, zero-cost revision; repo layout and build order proposed) — what we need (frontend, backend, DB/realtime, voice, agents, CI, hosting), topology, collaboration flow, repo layout and build order.
 status: accepted (D-006, zero-cost revision, 2026-10-24) — repo layout and build order remain proposals
-sources: [../research/stack-options.md, ../research/elevenlabs.md, ../challenge/brief.md, ../challenge/scoring.md]
+sources: [../research/stack-options.md, ../research/elevenlabs.md, ../../archive/hackathon/docs/challenge/brief.md, ../../archive/hackathon/docs/challenge/scoring.md]
 related: [ai-agents.md, solver-plan.md, ../product/personas.md, ../product/routing-profiles.md, ../../memory-bank/decisions.md]
 ---
 
@@ -32,7 +32,7 @@ explainable; personas change *parameters* of the same router, never the algorith
 | 9 | **Frontend** | Vite + React + TS + Tailwind + shadcn/ui in `frontend/`; 2D SVG plan + react-three-fiber stacked floors | Lovable can't sync a monorepo subfolder → own app; Lovable only for mock-ups | [stack §1](../research/stack-options.md#1-lovable) |
 | 10 | **Frontend hosting** | Vercel Hobby, same project as the backend (Services), preview per PR | zero-config, previews, free | [stack](../research/stack-options.md#frontend-hosting) |
 | 11 | **CI** | GitHub Actions: tests, link check, oracle + solver eval on dev (no API keys) | regressions on the 55-point part caught per push | [stack §4](../research/stack-options.md#4-ci-github-actions) |
-| 12 | **Benchmark CLI** | `run_benchmark_v1 <building_dir> <questions> <answers>` + `archive/hackathon/SUBMISSION/BENCHMARK.md` (archived 2026-10-26) | Sunday requirement; no cloud needed | [scoring.md](../challenge/scoring.md#sunday-benchmark) |
+| 12 | **Benchmark CLI** | `run_benchmark_v1 <building_dir> <questions> <answers>` + `archive/hackathon/SUBMISSION/BENCHMARK.md` (archived 2026-10-26) | Sunday requirement; no cloud needed | [scoring.md](../../archive/hackathon/docs/challenge/scoring.md#sunday-benchmark) |
 
 ## Topology
 
@@ -50,7 +50,7 @@ explainable; personas change *parameters* of the same router, never the algorith
   └──────────┬────────────┘   └─────────────────────────┘
              │ same package, offline
              ▼
-   run_benchmark <building_dir> <questions.json> <answers.json>
+   run_benchmark <building_dir> <questions.json> <answers.json>   (archived 2026-10-26)
 ```
 
 (The stack research sketched ElevenLabs calling us via webhook tools; the voice research recommends Custom LLM

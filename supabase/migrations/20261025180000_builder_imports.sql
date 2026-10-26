@@ -1,4 +1,4 @@
--- Plan import (backend/drafts.py, docs/superpowers/specs/2026-10-25-plan-import-design.md): the building the Creator
+-- Plan import (backend/drafts.py, archive/hackathon/superpowers/specs/2026-10-25-plan-import-design.md): the building the Creator
 -- made from floor plans, the private base `import/<id>` of one draft until the user saves it as a building.
 create table if not exists public.builder_imports (
     id          text        primary key,

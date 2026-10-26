@@ -1,6 +1,6 @@
 """Edit operations on a building dict — the core of the Builder's Edit mode.
 
-Design: docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md §1. A draft is a base building plus an
+Design: archive/hackathon/superpowers/specs/2026-10-24-builder-edit-mode-design.md §1. A draft is a base building plus an
 ordered list of steps, each step a list of ops; `apply_steps` replays them, so undo = drop the last step and
 replay. An op is a small JSON dict `{"op": <name>, ...arguments}`. Every op works on a deep copy and returns it;
 the input is never mutated. Unknown ids, unknown ops and impossible geometry raise `EditError` (its message is

@@ -1,4 +1,4 @@
--- Access mode (backend/access.py, docs/superpowers/specs/2026-10-25-access-profiles-design.md).
+-- Access mode (backend/access.py, archive/hackathon/superpowers/specs/2026-10-25-access-profiles-design.md).
 -- Per building: whether it is public, and rules restricting spaces to groups:
 -- rules = {"room_types": {"server_room": ["it"]}, "spaces": {"<space id>": ["public"]}}.
 create table if not exists public.access_buildings (

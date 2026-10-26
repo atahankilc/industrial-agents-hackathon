@@ -16,7 +16,7 @@ related: [../../architecture/ai-agents.md, ../../challenge/brief.md, ../../produ
 > `python -m agent.guide_v1`) and its solvers at `core/solvers_v1.py`; `agent/guide/` and `core/solvers.py` below
 > are the names at the time of writing. The canonical Guide used by the backend is `agent/guide.py`.
 
-[Docs index](../../README.md) · Agent overview: [ai-agents.md](../../architecture/ai-agents.md)
+[Docs index](../../../../docs/README.md) · Agent overview: [ai-agents.md](../../../../docs/architecture/ai-agents.md)
 
 ## Intent and why
 
@@ -24,7 +24,7 @@ At the demo a jury member asks a building questions and asks for directions, by 
 agent behaves like a chatbot: it answers, and when something is unclear in a way that matters (two "3D
 printers", an unknown room) it asks back, then continues. The Interaction score (25 pts) is a short scripted
 conversation with tricky users judged on: *asks only what it needs, shows what it understood, directions a
-person can follow* ([brief.md](../../challenge/brief.md#judging)).
+person can follow* ([brief.md](../../../../docs/challenge/brief.md#judging)).
 
 **Utku's biggest worry: the agent hallucinating in front of the jury.** Every design choice below serves
 "never say a room, number or route that the deterministic core did not return".
@@ -43,7 +43,7 @@ core.
 3. **Directions:** A→B, step-free, multi-stop tour, across floors, and a one-off closure stated in the request
    ("the lift is out, route me around it") — kept for this session's routes, the building is not changed
    (see session state below).
-4. **Clarify only what changes the answer** (contract in [ai-agents.md](../../architecture/ai-agents.md#building-guide--behaviour-contract), [D-012](../../../memory-bank/decisions.md#d-012)):
+4. **Clarify only what changes the answer** (contract in [ai-agents.md](../../../../docs/architecture/ai-agents.md#building-guide--behaviour-contract), [D-012](../../../../memory-bank/decisions.md#d-012)):
    several candidates → solve for each; same answer → just answer; different answers → one short question
    with ≤ 3 options told apart by ref, floor or neighbour.
 5. **Session context:** pronouns and references ("there", "that room", "the one on floor 1"), the user's
@@ -63,7 +63,7 @@ core.
 - Changing the building (close a lift permanently, move a machine, add a door) — later phase.
 - Chat UI, HTTP API, ElevenLabs voice — Phase 4. The brain must be callable as a plain Python object so those
   can wrap it later.
-- Routing profiles with soft penalties ([routing-profiles.md](../../product/routing-profiles.md)) — v1 only
+- Routing profiles with soft penalties ([routing-profiles.md](../../../../docs/product/routing-profiles.md)) — v1 only
   has the hard filters the core already supports (step-free, closures).
 - Several buildings in one session.
 
@@ -82,10 +82,10 @@ core.
 
 - Anthropic SDK directly, no LangChain/LangGraph (decided in conversation 2026-10-24: one tool-use loop over
   our own functions does not need a framework; we keep control of caching and cost).
-- Deterministic core is the only source of facts ([D-003](../../../memory-bank/decisions.md#d-003)). Solvers in
+- Deterministic core is the only source of facts ([D-003](../../../../memory-bank/decisions.md#d-003)). Solvers in
   `core/solvers.py` and `BuildingMap` in `core/building_map.py` are reused, not re-implemented.
 - Python ≥ 3.12 via `uv`; key in `.env` (`ANTHROPIC_API_KEY`).
-- Budget: $150 Claude credits total for the hackathon ([Q-012](../../../memory-bank/open-questions.md#q-012)).
+- Budget: $150 Claude credits total for the hackathon ([Q-012](../../../../memory-bank/open-questions.md#q-012)).
   Cache the building overview and tool definitions in the system prompt; keep tool results compact.
 - Must work on unseen buildings (Sunday); no hard-coding to train/dev/test buildings or names.
 - Commits only via `/ship`.
@@ -110,7 +110,7 @@ user text ─► Guide.turn(text)
 
 - **One brain object per session**: `Guide(building_dir)` with `turn(text) -> TurnResult`. A terminal REPL
   wraps it; later the HTTP/voice layer wraps the same object.
-- **Tools wrap core**, never new geometry. Starting set (from [ai-agents.md](../../architecture/ai-agents.md#shared-tool-layer),
+- **Tools wrap core**, never new geometry. Starting set (from [ai-agents.md](../../../../docs/architecture/ai-agents.md#shared-tool-layer),
   trimmed to read-only for v1):
   - `find(query, floor?)` → ranked spaces/assets with id, name, ref, type, floor, containing room.
     Backed by `BuildingMap.search` + the `Resolver` type matching (plurals, "air compressor" → `compressor`).

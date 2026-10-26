@@ -1,5 +1,5 @@
 """A building's real position: its metres ↔ lat/lon with a bearing, and fitting a generated building onto an OSM
-footprint (docs/superpowers/specs/2026-10-25-plan-reference-and-location-design.md).
+footprint (archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md).
 
 Position = `origin` (lat/lon of the building's (0, 0)) + `bearing` (degrees, counter-clockwise from east to the
 building's x axis; 0 for every kit building, whose x is east and y north). Local equirectangular projection with

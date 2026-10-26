@@ -219,8 +219,8 @@ Template:
 - **Consequences:** benchmark untouched (dev 138/138 after the change, regex parser); Guide tool list unchanged
   when off; `/drafts` admin-only when on. Needs the migration `20261025200000_access.sql` applied and an admin
   account before a live demo.
-- **Evidence:** [access-profiles-design](../docs/superpowers/specs/2026-10-25-access-profiles-design.md),
-  [plan](../docs/superpowers/plans/2026-10-25-access-profiles.md), `tests/test_access.py`, `tests/test_fleet.py`.
+- **Evidence:** [access-profiles-design](../archive/hackathon/superpowers/specs/2026-10-25-access-profiles-design.md),
+  [plan](../archive/hackathon/superpowers/plans/2026-10-25-access-profiles.md), `tests/test_access.py`, `tests/test_fleet.py`.
 
 <a id="d-016"></a>
 ### D-016 — The Guide speaks with ElevenLabs TTS through our backend; browser voice as fallback
@@ -375,4 +375,4 @@ Template:
   Floors: the user types each file's floor number; more floors are added only in Edit mode, into the open draft,
   turned only by quarter turns of the angle that keeps their walls parallel to the lowest floor's.
 - **Consequences:** only the coordinate goes to Overpass; Overpass outages fall back to the map's tiles. Design:
-  [plan-reference-and-location-design.md](../docs/superpowers/specs/2026-10-25-plan-reference-and-location-design.md).
+  [plan-reference-and-location-design.md](../archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md).

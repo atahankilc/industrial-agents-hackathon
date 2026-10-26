@@ -100,7 +100,7 @@ a settings UI (the Guide may still help). "Manager" = the one admin account (bel
 
 ## Preferences
 
-**Fields** (routing ones from [routing-profiles.md](../../product/routing-profiles.md) — only rows the data
+**Fields** (routing ones from [routing-profiles.md](../../../../docs/product/routing-profiles.md) — only rows the data
 supports):
 
 | Field | Kind | Data it uses | Personas |

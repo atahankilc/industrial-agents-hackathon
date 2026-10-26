@@ -13,13 +13,13 @@ related: [2026-10-25-plan-reference-and-location-design.md, ../plans/2026-10-25-
 
 # Builder · Plan import — design
 
-[Docs index](../../README.md) · Follows [Edit mode](2026-10-24-builder-edit-mode-design.md) (Builder project 1).
+[Docs index](../../../../docs/README.md) · Follows [Edit mode](2026-10-24-builder-edit-mode-design.md) (Builder project 1).
 
 ## Intent
 
 Level 4 of the brief: *create a building from floor plans, by conversation — minutes, not days.* The user uploads
 one or more files (PDF, photo, scan) of a building's floor plans. **Without asking anything**, an agent finds the
-floor plans in them, builds a `building.json` in the dataset's schema ([data-format.md](../../kit/data-format.md))
+floor plans in them, builds a `building.json` in the dataset's schema ([data-format.md](../../../../docs/kit/data-format.md))
 and opens it as a draft in the existing Edit mode. There the user corrects it by text or voice with the existing
 Builder chat (M2) and saves it; the building then opens in 3D and the Guide routes in it like any other.
 
@@ -133,7 +133,7 @@ cross obvious walls or a room-count far from the labels it can read).
 
 The model sees the cleaned plan with **numbered cell overlays** (and the original crop, and the floor's label
 sources) and returns, per cell: keep / outside / merge-with-cell / split-hint; `type` (room | corridor | stair |
-lift | hall | outdoor); `room_type` from the dataset list ([data-format.md](../../kit/data-format.md#room-types));
+lift | hall | outdoor); `room_type` from the dataset list ([data-format.md](../../../../docs/kit/data-format.md#room-types));
 `name` and `ref` read from the plan (or legend); and which **adjacent cell pairs have a door** and which cells have
 an **entrance** to outside. Courtyards are `outdoor` spaces or outside (model's judgement, recorded).
 
@@ -185,7 +185,7 @@ draws coordinates.
 ### Tools / libraries (decided by me — say if you disagree)
 
 - **PDF:** `pypdfium2` (render pages, Apache/BSD) + `pypdf` (embedded images, text). Not PyMuPDF: it is AGPL and
-  this repo is MIT ([D-009](../../../memory-bank/decisions.md#d-009)).
+  this repo is MIT ([D-009](../../../../memory-bank/decisions.md#d-009)).
 - **Images / geometry:** `opencv-python-headless`, `numpy`, `shapely` (already used).
 - **Model:** Claude Opus 5.5 vision (same `BUILDER_MODEL` setting as the Builder); calls cached where possible.
   Expected cost ~$0.2–0.5 per floor (UNVERIFIED until measured).
@@ -193,7 +193,7 @@ draws coordinates.
 ## Evaluation
 
 - `scripts/eval_import.py`: run the import on a sample of dataset `floor_*_plain.png` renders (they are drawings of
-  the matching `building.json`, see [Q-018](../../../memory-bank/open-questions.md#q-018)) and score: room count,
+  the matching `building.json`, see [Q-018](../../../../memory-bank/open-questions.md#q-018)) and score: room count,
   matched-room IoU after alignment, door connectivity (same room pairs), reachability. A fixed sample of ~10
   buildings mixing procedural / OSM / Swiss / ResPlan.
 - Demo inputs: Urban Colab (all floors) and Residenz (both floors) must produce a draft with no validate errors,

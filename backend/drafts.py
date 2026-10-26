@@ -1,4 +1,4 @@
-"""Edit-mode drafts and saved buildings (docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md §3).
+"""Edit-mode drafts and saved buildings (archive/hackathon/superpowers/specs/2026-10-24-builder-edit-mode-design.md §3).
 
 A draft is a base catalogue building + steps of edit ops (core/edits.py), stored after every change, so it survives
 a restart. Saving stores the materialised building as `user/<slug>` and adds it to the shared catalogue, so

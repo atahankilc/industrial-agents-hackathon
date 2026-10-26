@@ -1,16 +1,19 @@
 # Talk to Your Building
 
-Agent-first indoor navigation for the Industrial Agents Hackathon 2026, Track 01 (Synera). Ask a building where
-things are, how to get there, and what changes when a lift closes; a deterministic geometry/graph core computes
-every answer and the LLM handles the language.
+Agent-first indoor navigation. Ask a building where things are, how to get there, and what changes when a lift
+closes or a forklift blocks an aisle; edit the building or create one from floor plans. A deterministic
+geometry/graph core computes every answer and the LLM handles the language.
+
+Started at the Industrial Agents Hackathon 2026, Track 01 (Synera); submitted 2026-10-25, now in ongoing
+development. The submission and the weekend's history are in [archive/hackathon/](archive/hackathon/README.md).
 
 Project knowledge base: [CLAUDE.md](CLAUDE.md) → [docs/README.md](docs/README.md). All commands:
 [docs/guides/commands.md](docs/guides/commands.md).
 
 ## Setup
 
-You need Python ≥ 3.12, [uv](https://docs.astral.sh/uv/) and an Anthropic API key. The organiser kit's dataset
-is committed in `data/`, so one clone is enough.
+You need Python ≥ 3.12, [uv](https://docs.astral.sh/uv/), Node.js for the app, and an Anthropic API key. The
+organiser kit's dataset is committed in `data/`, so one clone is enough.
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh      # if uv is missing
@@ -20,38 +23,32 @@ uv sync
 cp .env.example .env                                  # put ANTHROPIC_API_KEY in .env (never commit it)
 ```
 
-## Running the Synera kit
-
-The rest of the kit (starter agent) lives in `archive/initial-repo/`; run it from the repo root with
-`PYTHONPATH=archive/initial-repo`.
+## Running the app
 
 ```bash
-# Warm-up questions with the kit's tools only (free, no API): expect 369/369
-PYTHONPATH=archive/initial-repo uv run python -m starter_agent.evaluate data/dev --oracle
-
-# Chat with one building using the starter agent (uses API credits)
-PYTHONPATH=archive/initial-repo uv run --env-file .env python -m starter_agent data/dev/proc-factory-dev-003
-
-# Benchmark questions with the starter agent (about $0.10–0.25 per question)
-PYTHONPATH=archive/initial-repo uv run --env-file .env python -m benchmark.evaluate data/dev --per-kind 3
+uv run --env-file .env uvicorn backend.app:app --port 8765     # backend (GUIDE_LLM=offline: no key needed)
+cd frontend/app && npm install && npx vite --port 5181         # app on http://localhost:5181
 ```
 
-## Running our code
+## Tests
 
 ```bash
-uv run pytest                                          # offline tests
+uv run pytest -q                                      # offline tests
+python3 scripts/check_links.py                        # docs and memory-bank links
+cd frontend/app && npm run build                      # type-check + production bundle
+```
 
-# Our agent on dev, then the test submission (function answer(building_directory, question_text) -> str)
+## Benchmark (kit scorer)
+
+`benchmark/score.py` is the organisers' official scorer; never edit it. To re-score our pipeline:
+
+```bash
 uv run --env-file .env python -m benchmark.evaluate data/dev --agent agent.answer:answer
-uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answer:answer --submission-csv submissions/team_jaRAG.csv
-
-# One-command benchmark run (building or split dir, questions file, answers .csv or .json)
-uv run --env-file .env python -m agent.run_benchmark_v1 <building_dir> <questions> <answers>
+uv run python -m agent.run_benchmark_v1 <building_dir> <questions> agent_output/answers.json
 ```
 
-`benchmark/score.py` is the official scorer; never edit it. The benchmark command, formats and current scores are
-in [SUBMISSION/BENCHMARK.md](SUBMISSION/BENCHMARK.md); our answers file is `SUBMISSION/answers.json`. Still open: the
-exact Sunday input/output format ([Q-001](memory-bank/open-questions.md#q-001)).
+The rest of the organiser kit (starter agent) is in `archive/initial-repo/`; run it from the repo root with
+`PYTHONPATH=archive/initial-repo`, see [commands.md](docs/guides/commands.md).
 
 ## Licences
 

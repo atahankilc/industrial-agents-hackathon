@@ -32,7 +32,7 @@ explainable; personas change *parameters* of the same router, never the algorith
 | 9 | **Frontend** | Vite + React + TS + Tailwind + shadcn/ui in `frontend/`; 2D SVG plan + react-three-fiber stacked floors | Lovable can't sync a monorepo subfolder → own app; Lovable only for mock-ups | [stack §1](../research/stack-options.md#1-lovable) |
 | 10 | **Frontend hosting** | Vercel Hobby, same project as the backend (Services), preview per PR | zero-config, previews, free | [stack](../research/stack-options.md#frontend-hosting) |
 | 11 | **CI** | GitHub Actions: tests, link check, oracle + solver eval on dev (no API keys) | regressions on the 55-point part caught per push | [stack §4](../research/stack-options.md#4-ci-github-actions) |
-| 12 | **Benchmark CLI** | `run_benchmark_v1 <building_dir> <questions> <answers>` + `SUBMISSION/BENCHMARK.md` | Sunday requirement; no cloud needed | [scoring.md](../challenge/scoring.md#sunday-benchmark) |
+| 12 | **Benchmark CLI** | `run_benchmark_v1 <building_dir> <questions> <answers>` + `archive/hackathon/SUBMISSION/BENCHMARK.md` (archived 2026-10-26) | Sunday requirement; no cloud needed | [scoring.md](../challenge/scoring.md#sunday-benchmark) |
 
 ## Topology
 
@@ -75,11 +75,10 @@ The backend is the **only writer**: no conflicting edits, one place for validati
 ├── api/             FastAPI app: chat/SSE, OpenAI-compatible endpoint for ElevenLabs, edits, tokens
 ├── agent/           Claude Guide + Builder: prompts, tool wiring
 ├── benchmark/       official kit scorer/evaluator (unchanged)
-├── SUBMISSION/      BENCHMARK.md (Sunday command, run_benchmark_v1) + answers.json
 ├── frontend/        Vite React app
 ├── supabase/        migrations (SQL), seed script
 ├── tests/           pytest: solvers vs train/dev, parser, router profiles
-├── data/ docs/ memory-bank/ scripts/ archive/
+├── data/ docs/ memory-bank/ scripts/ archive/   (hackathon SUBMISSION/ now in archive/hackathon/)
 └── .github/workflows/ci.yml
 ```
 

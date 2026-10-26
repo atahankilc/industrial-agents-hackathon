@@ -6,7 +6,7 @@ sources:
   - benchmark/evaluate.py
   - archive/initial-repo/README-cb51a6f.md §1 (Sunday benchmark; dropped from the 1.1.0 README, Q-017)
   - archive/initial-repo/README.md §6
-  - "Hackathon Challenge - Talk to Your Building.pdf p.3"
+  - "archive/hackathon/Hackathon Challenge - Talk to Your Building.pdf p.3"
 related: [brief.md, ../kit/questions.md, ../architecture/solver-plan.md, ../guides/commands.md]
 ---
 
@@ -107,7 +107,7 @@ Answer: Seminar room 0.32, 61.4 m²"
 Shortly before code freeze the organisers release **one unseen building + a question file**.
 
 - **Submission folder (organiser announcement, 2026-10-25):** `SUBMISSION/` with exactly two files, `BENCHMARK.md`
-  and `answers.json` (exact spelling and case) — ours: [SUBMISSION/BENCHMARK.md](../../SUBMISSION/BENCHMARK.md).
+  and `answers.json` (exact spelling and case) — ours: [SUBMISSION/BENCHMARK.md](../../archive/hackathon/SUBMISSION/BENCHMARK.md).
 - **Our run:** a single command, documented in `BENCHMARK.md` in our repo, no manual steps
   (PDF example: `run_benchmark <building_dir> <questions.json> <answers.json>`).
 - We run it ourselves and submit the output; they may re-run the command to verify.

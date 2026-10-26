@@ -1,4 +1,4 @@
-// A new building on the map, before Edit mode (docs/superpowers/specs/2026-10-25-plan-reference-and-location-design.md):
+// A new building on the map, before Edit mode (archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md):
 // the import fitted it onto the tapped OSM footprint (dashed); here it can be dragged, turned and scaled by hand,
 // then "Looks right" stores the position (PUT /drafts/{id}/location: origin, bearing, scale relative to now).
 import maplibregl, { type GeoJSONSource } from 'maplibre-gl'

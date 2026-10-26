@@ -9,7 +9,7 @@ sources:
   - frontend/app/src/building/RouteHud.tsx, src/dev/StoryLayer.tsx, core/directions.py maneuvers (route following, verified headless 2026-10-25)
   - https://threejs.org/docs/ (three.js r160)
   - https://r3f.docs.pmnd.rs/ (react-three-fiber)
-related: [../superpowers/specs/2026-10-25-plan-reference-and-location-design.md, ../architecture/overview.md, personas.md, routing-profiles.md, ../architecture/ai-agents.md]
+related: [../../archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md, ../architecture/overview.md, personas.md, routing-profiles.md, ../architecture/ai-agents.md]
 ---
 
 # Visualization
@@ -153,7 +153,7 @@ place card) with a floating Guide conversation.
 
 ## Buildings from plans: reference, trace and map position (2026-10-25)
 
-Design: [plan-reference-and-location-design.md](../superpowers/specs/2026-10-25-plan-reference-and-location-design.md).
+Design: [plan-reference-and-location-design.md](../../archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md).
 
 - **Create here:** right-click a building (or a spot) on the map → a card at the cursor ("This building" / "This
   spot"; left click elsewhere or Esc closes it). The building under the cursor is outlined (`src/map/MapLanding.tsx`,
@@ -189,7 +189,7 @@ Verified in Chrome on `train/proc-campus-train-000` and `dev/proc-factory-dev-00
   start / destination / tappable floor-change badges; accent
   outlines on the rooms an answer is about; a dot per item; red hatch on closed rooms, lifts and stairs; dashed
   outlines on rooms that lost access. A new answer switches to its floor and fits it.
-- **Access mode only** (`ACCESS_MODE=on`, [spec](../superpowers/specs/2026-10-25-access-profiles-design.md)):
+- **Access mode only** (`ACCESS_MODE=on`, [spec](../../archive/hackathon/superpowers/specs/2026-10-25-access-profiles-design.md)):
   restricted spaces drawn as a dark neutral fill without label or furniture (`palette.restricted`); moving
   objects as markers with a heading cone, a faint trail and the remaining mission line in violet
   (`palette.object`, `src/plan/ObjectsLayer.tsx`).
@@ -272,9 +272,11 @@ re-route via Lift 2), no console errors. Not tested: phone layout, low-end GPUs.
 
 ## App and data path
 
-- **App:** `frontend/app/` (Vite + React + TypeScript, three.js via react-three-fiber + drei). `src/scene/`
-  (BuildingCloud, RouteFlow, Scene with the camera rig, shaders), `src/ui/Chat.tsx`, `src/App.tsx` (session,
-  events → scene). Run: [commands.md](../guides/commands.md#frontend-app).
+- **App (current, 2026-10-26):** `frontend/app/` (Vite + React + TypeScript), entry `src/Root.tsx`; folders
+  `src/map`, `src/search`, `src/building`, `src/plan`, `src/edit`, `src/import`, `src/access`, `src/live`,
+  `src/voice`, `src/ui`, `src/dev`. The point-cloud files this section was written for (`src/scene/` with
+  BuildingCloud, RouteFlow, Scene, shaders; the old `src/App.tsx`) were removed; see the note at the top of this
+  section. Run: [commands.md](../guides/commands.md#frontend-app).
 - **Points:** `core/pointcloud.py` `export_points(building_map)` (the prototype's sampler as a library, plus
   `connectors`, `openings`, `closed`) served by `GET /sessions/{id}/points` (gzip, cached per building object).
 - **Events:** the app polls `GET /events` with a cursor; the backend adds `vertices` (viewer-frame polyline from

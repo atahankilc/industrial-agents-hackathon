@@ -1,4 +1,4 @@
-// Create a building from floor plans (docs/superpowers/specs/2026-10-25-plan-import-design.md §7): pick PDFs / photos
+// Create a building from floor plans (archive/hackathon/superpowers/specs/2026-10-25-plan-import-design.md §7): pick PDFs / photos
 // → the Creator works (its short sentences stream in) → the building screen opens on the private base `import/<id>`
 // straight into the Edit mode, where the Builder corrects it and Save turns it into a building. The Edit mode resumes
 // the Creator's draft through its localStorage key (`draft:<base>`, edit/useDraft.ts).

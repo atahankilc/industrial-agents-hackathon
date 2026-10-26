@@ -13,7 +13,7 @@ related: [brief.md, scoring.md, ../guides/demo-runbook.md, ../architecture/overv
 
 # Technical explanation (submission)
 
-[Docs index](../README.md) · Brief: [brief.md](brief.md) · Demo: [demo-runbook.md](../guides/demo-runbook.md)
+[Docs index](../../docs/README.md) · Brief: [brief.md](../../docs/challenge/brief.md) · Demo: [demo-runbook.md](demo-runbook.md)
 
 Text for the Hack and More form. Keep it to what is built; the Sunday and Level 4 facts are linked below.
 

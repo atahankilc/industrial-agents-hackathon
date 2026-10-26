@@ -1,5 +1,5 @@
 """The Creator: an agent that turns uploaded floor plans (PDF pages, photos, scans) into a draft building
-(docs/superpowers/specs/2026-10-25-plan-import-design.md). A Claude tool loop over agent/creator_tools.py: the model
+(archive/hackathon/superpowers/specs/2026-10-25-plan-import-design.md). A Claude tool loop over agent/creator_tools.py: the model
 looks at the pages and its own intermediate results (tool results carry PNGs) and decides which page is which floor,
 which segmentation fits, and what every cell is; code does all geometry and checks every answer. It never asks the
 user anything — corrections come afterwards, in Edit mode, from the Builder.

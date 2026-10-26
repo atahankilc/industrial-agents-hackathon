@@ -1,4 +1,4 @@
-"""The Builder agent's tools over an Edit-mode draft (docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md §4).
+"""The Builder agent's tools over an Edit-mode draft (archive/hackathon/superpowers/specs/2026-10-24-builder-edit-mode-design.md §4).
 
 Read-only tools describe the *current* draft building; `propose_edit` dry-runs a list of core/edits.py ops, reports
 their effect and the problems they would add (core/validate.py), and parks a `Proposal`. There is no apply tool: a

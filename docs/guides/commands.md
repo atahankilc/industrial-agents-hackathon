@@ -1,7 +1,7 @@
 ---
 id: guide-commands
 summary: Setup and every command for chatting, evaluating on dev, scoring and producing the test submission.
-sources: [archive/initial-repo/README.md §5-6, archive/initial-repo/starter_agent/README.md, benchmark/evaluate.py, backend/app.py, agent/run_benchmark.py, agent/run_benchmark_v1.py, agent/guide_v1/__main__.py, SUBMISSION/BENCHMARK.md]
+sources: [archive/initial-repo/README.md §5-6, archive/initial-repo/starter_agent/README.md, benchmark/evaluate.py, backend/app.py, agent/run_benchmark.py, agent/run_benchmark_v1.py, agent/guide_v1/__main__.py, archive/hackathon/SUBMISSION/BENCHMARK.md]
 related: [../kit/starter-agent.md, ../challenge/scoring.md]
 ---
 
@@ -43,13 +43,14 @@ Results: `agent_output/benchmark/<--name, default results>.jsonl` (question, exp
 
 ## Produce the test submission
 
-The graded submission is `SUBMISSION/` (exactly `BENCHMARK.md` + `answers.json`):
+The graded hackathon submission (2026-10-25) is archived in `archive/hackathon/SUBMISSION/`. To re-score, write
+new answers outside it, e.g. to `agent_output/` (gitignored):
 
 ```bash
-PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 data/test data/test/questions.csv SUBMISSION/answers.json
-uv run --env-file .env python -m agent.run_benchmark_v1 data/test data/test/questions.csv submissions/team_jaRAG.csv
+PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 data/test data/test/questions.csv agent_output/answers.json
+uv run --env-file .env python -m agent.run_benchmark_v1 data/test data/test/questions.csv agent_output/team_jaRAG.csv
 # same replies via the kit evaluator (checked identical on 2026-10-24):
-uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answer:answer --submission-csv submissions/team_jaRAG.csv
+uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answer:answer --submission-csv agent_output/team_jaRAG.csv
 ```
 
 Format rules: [scoring.md](../challenge/scoring.md#submission-format).
@@ -139,7 +140,7 @@ uv run --env-file .env python -c "import os,sys,psycopg; psycopg.connect(os.envi
 ### Access mode (demo: accounts, restricted spaces, preferences, moving objects)
 
 Off unless `ACCESS_MODE=on`; off = every endpoint as above. Design:
-[access-profiles-design](../superpowers/specs/2026-10-25-access-profiles-design.md). Needs `SUPABASE_URL`,
+[access-profiles-design](../../archive/hackathon/superpowers/specs/2026-10-25-access-profiles-design.md). Needs `SUPABASE_URL`,
 `SUPABASE_ANON_KEY` (sign-in), `SUPABASE_SERVICE_ROLE_KEY` (invite links) and `ADMIN_EMAIL` (admin emails, comma-separated);
 tables in `supabase/migrations/20261025200000_access.sql` (in memory without `SUPABASE_DB_URL`). Requests carry
 the Supabase access token as `Authorization: Bearer …`.
@@ -272,20 +273,20 @@ uv run --env-file .env python -m agent.guide_v1 data/dev/proc-campus-dev-001 --s
 uv run --env-file .env python -m agent.run_benchmark_v1 <building_dir> <questions> <answers.csv|answers.json>
 ```
 
-Design: [guide-agent spec](../superpowers/specs/2026-10-24-guide-agent-design.md). A full eval run costs about $0.27.
+Design: [guide-agent spec](../../archive/hackathon/superpowers/specs/2026-10-24-guide-agent-design.md). A full eval run costs about $0.27.
 
-## Sunday benchmark
+## Sunday benchmark (hackathon, archived)
 
-`uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> SUBMISSION/answers.json` (default `hybrid`:
+`uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> <answers.json>` (default `hybrid`:
 templates first, the LLM only for unseen wording; `.env` is read automatically; `--layout dict` keys the .json by
-question id) — documented in [`SUBMISSION/BENCHMARK.md`](../../SUBMISSION/BENCHMARK.md) (v1 is the submission
+question id) — documented in [`archive/hackathon/SUBMISSION/BENCHMARK.md`](../../archive/hackathon/SUBMISSION/BENCHMARK.md) (v1 is the submission
 pipeline: it also answers the warm-up kinds, routes included; `agent.run_benchmark` has no solvers for them). Do not
 use `PARSER_MODE=regex` on Sunday: on 14 reworded questions it answered 1 (2026-10-25). A failing question becomes an
 `error` entry and the run goes on; the file is rewritten after every question. Model decisions go to
-`llm_cache/decisions.json` — **commit it together with `SUBMISSION/answers.json`**, so a re-run without a key
+`llm_cache/decisions.json` — commit it together with the answers file, so a re-run without a key
 reproduces the answers ([ai-agents.md](../architecture/ai-agents.md#sunday-layers-route-specs-solver-agent-decision-cache-2026-10-25)).
-Probe of the agentic layers: `uv run python scripts/eval_sunday_probe.py` (`tests/sunday_probe/`, calls Claude). Output format still unannounced →
-[Q-001](../../memory-bank/open-questions.md#q-001).
+Probe of the agentic layers: `uv run python scripts/eval_sunday_probe.py` (`tests/sunday_probe/`, calls Claude). Output format was never announced (closed:
+[Q-001](../../memory-bank/open-questions.md#q-001)).
 
 ## Related
 - [starter-agent.md](../kit/starter-agent.md#evaluation) · [scoring.md](../challenge/scoring.md) · [ai-agents.md](../architecture/ai-agents.md)

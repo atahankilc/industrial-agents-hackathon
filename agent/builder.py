@@ -1,6 +1,6 @@
 """The Builder: an agent that edits a draft copy of a building from what the user types (Edit mode, milestone 2).
 
-Design: docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md §4. Same shape as the Guide (agent/guide.py):
+Design: archive/hackathon/superpowers/specs/2026-10-24-builder-edit-mode-design.md §4. Same shape as the Guide (agent/guide.py):
 a Claude tool-use loop with a cached system prompt (instructions + the draft's overview), append-only history, and
 the Guide's grounding check (numbers / ids in a reply must come from a tool result, the overview or the user).
 The tools (agent/builder_tools.py) can only look and *propose*; a proposal enters the draft when the user applies

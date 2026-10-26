@@ -16,7 +16,7 @@ related: [2026-10-25-plan-import-design.md, 2026-10-24-builder-edit-mode-design.
 
 # Plan reference in Edit mode, and buildings created at a place on the map
 
-[Docs index](../../README.md) · Builds on: [plan-import-design](2026-10-25-plan-import-design.md),
+[Docs index](../../../../docs/README.md) · Builds on: [plan-import-design](2026-10-25-plan-import-design.md),
 [builder-edit-mode-design](2026-10-24-builder-edit-mode-design.md)
 
 ## Intent

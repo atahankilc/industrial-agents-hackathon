@@ -245,7 +245,7 @@ def test_dataset_untouched(client)                     # mtime/hash of the base 
   `width_m`), assets (rotated footprint rects) in an SVG with y flipped (building y up), fit-to-floor viewBox,
   wheel zoom + drag pan. Elements in an error issue get the red outline.
 - [ ] **Step 4: Verify** `cd frontend/app && npm run build` — Expected: no TypeScript errors. Run backend +
-  Vite ([commands.md](../../guides/commands.md#frontend-app)) and check in the browser that Edit shows the plan
+  Vite ([commands.md](../../../../docs/guides/commands.md#frontend-app)) and check in the browser that Edit shows the plan
   and the inset for `train/proc-campus-train-000`.
 - [ ] **Step 5: Ship** via `/ship`.
 

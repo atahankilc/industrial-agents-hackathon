@@ -1,5 +1,5 @@
 """The OpenStreetMap building at a point (Overpass API), for placing an import where its photos were taken
-(docs/superpowers/specs/2026-10-25-plan-reference-and-location-design.md). Read-only; only the coordinate is sent.
+(archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md). Read-only; only the coordinate is sent.
 Any network or parse failure returns None — the import is then placed on the point itself."""
 
 import json

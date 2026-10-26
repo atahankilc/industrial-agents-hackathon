@@ -1,4 +1,4 @@
-"""Access mode (docs/superpowers/specs/2026-10-25-access-profiles-design.md): accounts, public / restricted spaces.
+"""Access mode (archive/hackathon/superpowers/specs/2026-10-25-access-profiles-design.md): accounts, public / restricted spaces.
 
 Off unless ACCESS_MODE=on; off = every viewer sees everything, exactly as before. On:
 

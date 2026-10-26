@@ -1,5 +1,5 @@
 // Edit mode's reference: the import's straightened plan of the floor being edited, beside the editor
-// (docs/superpowers/specs/2026-10-25-plan-reference-and-location-design.md). Wheel zooms around the pointer, drag
+// (archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md). Wheel zooms around the pointer, drag
 // pans; the header holds the "trace underneath" switch and its opacity (EditLayer draws the trace).
 import { Minus, Plus, RotateCcw, RotateCw, X } from 'lucide-react'
 import { adjustTrace, traceAt } from './geometry'

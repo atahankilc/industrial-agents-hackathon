@@ -12,7 +12,7 @@ related: [../challenge/brief.md, ../challenge/technical-explanation.md, ../produ
 
 # Demo runbook
 
-[Docs index](../README.md)
+[Docs index](../../docs/README.md)
 
 ## Demo building and the route story (checked 2026-10-25)
 

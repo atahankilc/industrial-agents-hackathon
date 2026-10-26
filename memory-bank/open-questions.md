@@ -6,7 +6,7 @@ related: [decisions.md, project-state.md, ../docs/kit/questions.md]
 
 # Open questions
 
-[Memory bank](README.md) · Next free id: **Q-020**
+[Memory bank](README.md) · Next free id: **Q-021**
 
 Template:
 
@@ -21,16 +21,129 @@ Template:
 
 ## Open
 
+<a id="q-005"></a>
+### Q-005 — Exact semantics of `what_if_door` (and `step_free_reachable_count`)
+- **Status:** open · **Priority:** med · **Resolve by:** experiment (only 4 / 2 labelled examples)
+- **Progress (2026-10-24):** what_if_door 4/4 and step_free_reachable_count 2/2 with the rules in
+  [solver-plan.md](../docs/architecture/solver-plan.md#what_if_door) (full graph, `type == room`, > 1 m, longest
+  shared stretch midpoint; robustness sweep over 1044 pairs). Stays open only because labelled examples are few
+  and the closure never changes the count in the 2 step-free examples.
+- **Context:** New door width/step-free? "Middle of the shared wall" when the shared boundary is multiple
+  segments? Which rooms on the target floor are counted; is improvement measured strictly > 1 m? Unreachable
+  rooms? See [solver-plan.md](../docs/architecture/solver-plan.md#what_if_door).
+- **Progress (2026-10-24):** 0.9 m step-free door at the midpoint of the longest shared-boundary piece, rooms with
+  `type == room`, gain strictly > 1 m → 4/4 `what_if_door`; step-free BFS with the connector closed → 2/2. Too few
+  labels to rule out alternatives; stays open.
+
+<a id="q-006"></a>
+### Q-006 — How to resolve names in question text to space ids robustly
+- **Status:** open · **Priority:** high · **Resolve by:** experiment
+- **Context:** Questions use `"<name> (<floor name>)"`, e.g. "Büro (Ground floor)", "Bedroom 2.10 (apartment 8)
+  (Floor 2)". OSM names repeat ("WC"). Train/dev `inputs` give the gold mapping to test a resolver.
+- **Progress (2026-10-24):** resolver in `core/question_parser.py` handles all train/dev/test; 7 train/dev
+  questions are inherently ambiguous (same OSM name twice on one floor, e.g. "Büro (Ground floor)") — returns all
+  candidates. Solver policy implemented in `agent/benchmark_agent.py`: run every candidate, keep the answer when they
+  agree, else first candidate (sorted id). Costs 2 train questions (osm-way37850565-H02/H03 are identical text
+  with different gold answers, H04) — irreducible without more context. See
+  [question-parsing.md](../docs/research/question-parsing.md).
+
+<a id="q-008"></a>
+### Q-008 — Benchmark question parsing: templates/regex vs LLM extraction vs hybrid
+- **Status:** open · **Priority:** high · **Resolve by:** team decision + experiment
+- **Context:** [ai-agents.md](../docs/architecture/ai-agents.md#benchmark-pipeline).
+  Sunday wording may differ; `kind` may not be provided.
+- **Evidence (2026-10-24):** one template per kind (two for room_stacked); regex parser 655/655 on train+dev,
+  145/145 on test → [D-007](decisions.md#d-007) accepted 2026-10-24 (configurable modes).
+- **Live paraphrase check (2026-10-24):** 31 reworded dev questions, all 9 kinds: regex 0/31, llm 31/31,
+  hybrid 31/31 ([question-parsing.md](../docs/research/question-parsing.md#risks)). Hybrid stays the default;
+  open only for kinds that don't exist yet (new Sunday kinds can only map onto our solvers).
+
+<a id="q-010"></a>
+### Q-010 — Which Level 5 add-in do we pick?
+- **Status:** open · **Priority:** low (decide after Phase 2) · **Resolve by:** team decision
+- **Context:** "Pick one and do it well." Options in [brief.md](../docs/challenge/brief.md#levels).
+
+<a id="q-012"></a>
+### Q-012 — Model choice and API budget
+- **Status:** open · **Priority:** med · **Resolve by:** experiment
+- **Context:** Starter uses `claude-opus-5-5` at medium effort, ~$0.10–0.25/question. With deterministic
+  solvers the LLM only parses/phrases — Sonnet/Haiku may suffice.
+- **Known budget (2026-10-24):** **$150 Claude API credits** from the organisers, usable for the product agent and
+  for agentic dev work. One full test run with the starter-style Opus agent ≈ 145 × $0.10–0.25 ≈ $15–36; with
+  deterministic solvers + template parser the LLM cost of a benchmark run should be near $0. Track spend in
+  [log.md](../archive/hackathon/log-2026-10-24-to-25.md).
+- **Guide (2026-10-24):** `agent/guide.py` defaults to `claude-opus-5-5` at effort `medium`; switch with
+  `GUIDE_MODEL` / `GUIDE_EFFORT` (e.g. `claude-sonnet-5-5`, `low` for voice latency). `guide.usage` counts tokens
+  incl. cache reads.
+- **Live evidence (2026-10-24, `scripts/live_guide.py`, 7 tricky-user turns):** Opus 5.5 medium ~5.9–7.3 s/turn
+  (7.3 pre-fix, 5.9 post-fix), $0.13–0.16; Opus 5.5 low ~6.8 s/turn (one pre-fix run), $0.12; Sonnet 5.5 low
+  ~3.3–3.9 s/turn (3.3 pre-fix, 3.9 post-fix), $0.06 — all correct, 0 ungrounded. Proposal:
+  Opus 5.5 medium for text chat, Sonnet 5.5 low for voice (latency). Needs Atahan's call; default unchanged.
+
+<a id="q-013"></a>
+### Q-013 — May we redistribute the kit's code (scorer, starter agent) in our public repo?
+- **Status:** open · **Priority:** med · **Resolve by:** ask organisers
+- **Context:** Upstream repo publishes no licence; data licences are explicit, code's are not. We include it
+  unmodified for reproducibility and say so in `NOTICE.md` ([D-009](decisions.md#d-009)). Fallback if they say
+  no: delete `archive/initial-repo/starter_agent`, keep `benchmark/` out of git and fetch it from upstream in CI.
+
+<a id="q-015"></a>
+### Q-015 — Factory buildings: forklift aisles, pedestrian walkways, production bays — what is the schema?
+- **Status:** open · **Priority:** high · **Resolve by:** ask organisers / wait for Sunday building
+- **Context:** Organisers' note (2026-10-24): *forklift* routes use forklift aisles and openings **≥ 3 m wide**
+  only (pedestrian walkways don't count); *production bays* are destinations — you may drive into one but not
+  through one; a route to a machine/item ends in the room or bay that holds it. Current `data/` has no space
+  `type`/`room_type` for aisles, walkways or bays (`forklift` / `forklift_charging_station` exist only as
+  equipment types; `production_zone` is a `room_type`) — so the Sunday building likely uses a schema we have not
+  seen. Also: "without stairs" = lifts, ramps and doors only (matches our step-free filter).
+- **Finding (2026-10-24):** with `bays_destination_only` (production + assembly + logistics + warehouse + additive
+  zones) and `no_outside`, **26/26** factory buildings (train/dev/test) cut the office wing off from the hall: the
+  only way in is through a first-row zone (`Hall access → Assembly zone`) or outside. E.g. proc-factory-dev-004:
+  Locker room 0.30 → Production zone H-A2 has no route (61.56 m via Assembly zone H-A1 without rules). Counting only
+  `production_zone` as a bay still leaves 706 spaces cut off. The rule text we have is our own summary of the
+  Discord note ("you may drive into one to deliver, not through one as a shortcut"), not the PDF or kit README; the
+  extra zone types and applying it to pedestrians are our reading. Ask for the original wording.
+- **How to resolve:** ask which fields mark aisles / walkways / bays (and whether `production_zone` is a bay);
+  meanwhile make the router take a rule set (allowed space predicate, min opening width, no-pass-through
+  predicate) so it can be wired to new fields without code changes elsewhere.
+
+<a id="q-016"></a>
+### Q-016 — Level 3 "several buildings": what format, and how do walkways link them?
+- **Status:** open · **Priority:** high · **Resolve by:** ask organisers / wait for Sunday building
+- **Context:** Brief: "several floors, then several buildings; stairs, lifts, walkways between buildings"
+  ([brief.md](../docs/challenge/brief.md)). Several floors work end to end (174/280 datasets multi-floor, up to 10;
+  routes over stairs/lifts verified). Several buildings exist nowhere: every `building.json` holds one `building`,
+  every `group_id` in `data/manifest.csv` is unique, no data names a walkway/bridge, `BuildingMap`,
+  `BuildingSession`, the backend session and the UI each hold one building, and `no_outside` makes `outside` an
+  endpoint only (scan 2026-10-24).
+- **How to resolve:** ask whether Sunday brings one file with several buildings, several files plus links, or
+  outdoor travel via `outside`; meanwhile a site layer (several `BuildingMap`s + typed links: walkway / outdoor
+  path with length) is the smallest change (starter README idea, [starter-agent.md](../docs/kit/starter-agent.md)).
+
+<a id="q-020"></a>
+### Q-020 — Keep the voice transcript rewriter now that Scribe hears the building's names?
+- **Status:** open · **Priority:** medium · **Resolve by:** Atahan's call after a real-mic comparison
+- **Context:** [D-013](decisions.md#d-013) puts a Haiku rewriter before every voice turn (~1–1.1 s, measured
+  2026-10-25 before the first Guide request) because browser transcripts mangle names. With Scribe Realtime and the
+  building's keyterms ([D-019](decisions.md#d-019)) "Where is the CNC mill?" came back exactly; the rewriter may now
+  cost more latency than it saves. Browser recognition (the fallback) still needs it.
+- **Options:** (a) keep it for all voice turns; (b) skip it when the transcript came from Scribe (the app would send
+  `stt: "scribe"` with `/chat/stream`); (c) keep it only for numbers ("two seventeen" → "2.17").
+- **How to resolve:** a few real spoken questions with room numbers through Scribe, rewriter on vs off.
+
+## Resolved
+
 <a id="q-001"></a>
 ### Q-001 — What is the exact Sunday benchmark input/output format?
-- **Status:** open · **Priority:** high · **Resolve by:** ask organisers
+- **Closed 2026-10-26:** the hackathon is over (submitted 2026-10-25), so this no longer needs an answer. Submission material: [archive/hackathon/](../archive/hackathon/README.md).
+- **Status:** closed (hackathon over) · **Priority:** high · **Resolve by:** ask organisers
 - **Context:** PDF says `questions.json` in, `answers.json` out with item/room id, **route as ordered node ids**,
   route length. README says CSV `question_id,answer` (full replies) for test; Sunday format "announced with the
   release". No schema/example answer file exists in `data/`. See
   [scoring.md](../docs/challenge/scoring.md#-conflict-pdf-vs-readme).
 - **How to resolve:** ask organisers; meanwhile make solvers return structured results (ids, node path, length)
   *and* prose.
-- **Progress (2026-10-24):** both runners exist ([BENCHMARK.md](../SUBMISSION/BENCHMARK.md)): canonical
+- **Progress (2026-10-24):** both runners exist ([BENCHMARK.md](../archive/hackathon/SUBMISSION/BENCHMARK.md)): canonical
   `agent.run_benchmark` writes answers.json per id (`kind`, `params`, `answer`, `unit`, `area_m2`, `evidence` with
   route node/element paths, `reply`, `error`); v1 `agent.run_benchmark_v1` .json has reply, `Answer:` text, kind,
   resolved ids, solver result and `route`. Missing: the announced Sunday format itself.
@@ -70,7 +183,8 @@ Template:
 
 <a id="q-014"></a>
 ### Q-014 — Sunday route scoring uses a different distance rule than the kit route model
-- **Status:** partly answered by kit 1.1.0, model ported ([D-014](decisions.md#d-014)) · **Priority:** med ·
+- **Closed 2026-10-26:** the hackathon is over (submitted 2026-10-25), so this no longer needs an answer. Submission material: [archive/hackathon/](../archive/hackathon/README.md).
+- **Status:** closed (hackathon over) · **Priority:** med ·
   **Resolve by:** ask organisers (3), (4)
 - **Source:** organiser message on Discord, pasted by Atahan 2026-10-24 (summary, not verbatim):
   - Distance is measured inside each space **from door to door, ~15 cm off the walls, around corners** (never
@@ -124,101 +238,15 @@ Template:
 
 <a id="q-002"></a>
 ### Q-002 — When is code freeze and when is the Sunday building released?
-- **Status:** open · **Priority:** high · **Resolve by:** ask organisers
-- **Context:** PDF says "TODO: exact time". Drives the whole plan in [project-state.md](project-state.md).
+- **Closed 2026-10-26:** the hackathon is over (submitted 2026-10-25), so this no longer needs an answer. Submission material: [archive/hackathon/](../archive/hackathon/README.md).
+- **Status:** closed (hackathon over) · **Priority:** high · **Resolve by:** ask organisers
+- **Context:** PDF says "TODO: exact time". Drives the whole plan in [project-state.md](../archive/hackathon/project-state-2026-10-25.md).
 - **Owner:** Atahan will provide the times — don't chase this.
-
-
-
-<a id="q-005"></a>
-### Q-005 — Exact semantics of `what_if_door` (and `step_free_reachable_count`)
-- **Status:** open · **Priority:** med · **Resolve by:** experiment (only 4 / 2 labelled examples)
-- **Progress (2026-10-24):** what_if_door 4/4 and step_free_reachable_count 2/2 with the rules in
-  [solver-plan.md](../docs/architecture/solver-plan.md#what_if_door) (full graph, `type == room`, > 1 m, longest
-  shared stretch midpoint; robustness sweep over 1044 pairs). Stays open only because labelled examples are few
-  and the closure never changes the count in the 2 step-free examples.
-- **Context:** New door width/step-free? "Middle of the shared wall" when the shared boundary is multiple
-  segments? Which rooms on the target floor are counted; is improvement measured strictly > 1 m? Unreachable
-  rooms? See [solver-plan.md](../docs/architecture/solver-plan.md#what_if_door).
-- **Progress (2026-10-24):** 0.9 m step-free door at the midpoint of the longest shared-boundary piece, rooms with
-  `type == room`, gain strictly > 1 m → 4/4 `what_if_door`; step-free BFS with the connector closed → 2/2. Too few
-  labels to rule out alternatives; stays open.
-
-<a id="q-006"></a>
-### Q-006 — How to resolve names in question text to space ids robustly
-- **Status:** open · **Priority:** high · **Resolve by:** experiment
-- **Context:** Questions use `"<name> (<floor name>)"`, e.g. "Büro (Ground floor)", "Bedroom 2.10 (apartment 8)
-  (Floor 2)". OSM names repeat ("WC"). Train/dev `inputs` give the gold mapping to test a resolver.
-- **Progress (2026-10-24):** resolver in `core/question_parser.py` handles all train/dev/test; 7 train/dev
-  questions are inherently ambiguous (same OSM name twice on one floor, e.g. "Büro (Ground floor)") — returns all
-  candidates. Solver policy implemented in `agent/benchmark_agent.py`: run every candidate, keep the answer when they
-  agree, else first candidate (sorted id). Costs 2 train questions (osm-way37850565-H02/H03 are identical text
-  with different gold answers, H04) — irreducible without more context. See
-  [question-parsing.md](../docs/research/question-parsing.md).
-
-<a id="q-008"></a>
-### Q-008 — Benchmark question parsing: templates/regex vs LLM extraction vs hybrid
-- **Status:** open · **Priority:** high · **Resolve by:** team decision + experiment
-- **Context:** [ai-agents.md](../docs/architecture/ai-agents.md#benchmark-pipeline).
-  Sunday wording may differ; `kind` may not be provided.
-- **Evidence (2026-10-24):** one template per kind (two for room_stacked); regex parser 655/655 on train+dev,
-  145/145 on test → [D-007](decisions.md#d-007) accepted 2026-10-24 (configurable modes).
-- **Live paraphrase check (2026-10-24):** 31 reworded dev questions, all 9 kinds: regex 0/31, llm 31/31,
-  hybrid 31/31 ([question-parsing.md](../docs/research/question-parsing.md#risks)). Hybrid stays the default;
-  open only for kinds that don't exist yet (new Sunday kinds can only map onto our solvers).
-
-<a id="q-010"></a>
-### Q-010 — Which Level 5 add-in do we pick?
-- **Status:** open · **Priority:** low (decide after Phase 2) · **Resolve by:** team decision
-- **Context:** "Pick one and do it well." Options in [brief.md](../docs/challenge/brief.md#levels).
-
-<a id="q-012"></a>
-### Q-012 — Model choice and API budget
-- **Status:** open · **Priority:** med · **Resolve by:** experiment
-- **Context:** Starter uses `claude-opus-5-5` at medium effort, ~$0.10–0.25/question. With deterministic
-  solvers the LLM only parses/phrases — Sonnet/Haiku may suffice.
-- **Known budget (2026-10-24):** **$150 Claude API credits** from the organisers, usable for the product agent and
-  for agentic dev work. One full test run with the starter-style Opus agent ≈ 145 × $0.10–0.25 ≈ $15–36; with
-  deterministic solvers + template parser the LLM cost of a benchmark run should be near $0. Track spend in
-  [log.md](log.md).
-- **Guide (2026-10-24):** `agent/guide.py` defaults to `claude-opus-5-5` at effort `medium`; switch with
-  `GUIDE_MODEL` / `GUIDE_EFFORT` (e.g. `claude-sonnet-5-5`, `low` for voice latency). `guide.usage` counts tokens
-  incl. cache reads.
-- **Live evidence (2026-10-24, `scripts/live_guide.py`, 7 tricky-user turns):** Opus 5.5 medium ~5.9–7.3 s/turn
-  (7.3 pre-fix, 5.9 post-fix), $0.13–0.16; Opus 5.5 low ~6.8 s/turn (one pre-fix run), $0.12; Sonnet 5.5 low
-  ~3.3–3.9 s/turn (3.3 pre-fix, 3.9 post-fix), $0.06 — all correct, 0 ungrounded. Proposal:
-  Opus 5.5 medium for text chat, Sonnet 5.5 low for voice (latency). Needs Atahan's call; default unchanged.
-
-<a id="q-013"></a>
-### Q-013 — May we redistribute the kit's code (scorer, starter agent) in our public repo?
-- **Status:** open · **Priority:** med · **Resolve by:** ask organisers
-- **Context:** Upstream repo publishes no licence; data licences are explicit, code's are not. We include it
-  unmodified for reproducibility and say so in `NOTICE.md` ([D-009](decisions.md#d-009)). Fallback if they say
-  no: delete `archive/initial-repo/starter_agent`, keep `benchmark/` out of git and fetch it from upstream in CI.
-
-<a id="q-015"></a>
-### Q-015 — Factory buildings: forklift aisles, pedestrian walkways, production bays — what is the schema?
-- **Status:** open · **Priority:** high · **Resolve by:** ask organisers / wait for Sunday building
-- **Context:** Organisers' note (2026-10-24): *forklift* routes use forklift aisles and openings **≥ 3 m wide**
-  only (pedestrian walkways don't count); *production bays* are destinations — you may drive into one but not
-  through one; a route to a machine/item ends in the room or bay that holds it. Current `data/` has no space
-  `type`/`room_type` for aisles, walkways or bays (`forklift` / `forklift_charging_station` exist only as
-  equipment types; `production_zone` is a `room_type`) — so the Sunday building likely uses a schema we have not
-  seen. Also: "without stairs" = lifts, ramps and doors only (matches our step-free filter).
-- **Finding (2026-10-24):** with `bays_destination_only` (production + assembly + logistics + warehouse + additive
-  zones) and `no_outside`, **26/26** factory buildings (train/dev/test) cut the office wing off from the hall: the
-  only way in is through a first-row zone (`Hall access → Assembly zone`) or outside. E.g. proc-factory-dev-004:
-  Locker room 0.30 → Production zone H-A2 has no route (61.56 m via Assembly zone H-A1 without rules). Counting only
-  `production_zone` as a bay still leaves 706 spaces cut off. The rule text we have is our own summary of the
-  Discord note ("you may drive into one to deliver, not through one as a shortcut"), not the PDF or kit README; the
-  extra zone types and applying it to pedestrians are our reading. Ask for the original wording.
-- **How to resolve:** ask which fields mark aisles / walkways / bays (and whether `production_zone` is a bay);
-  meanwhile make the router take a rule set (allowed space predicate, min opening width, no-pass-through
-  predicate) so it can be wired to new fields without code changes elsewhere.
 
 <a id="q-017"></a>
 ### Q-017 — Kit 1.1.0 README dropped the "alignment" text: which judging/submission text is authoritative?
-- **Status:** open · **Priority:** high · **Resolve by:** ask organisers
+- **Closed 2026-10-26:** the hackathon is over (submitted 2026-10-25), so this no longer needs an answer. Submission material: [archive/hackathon/](../archive/hackathon/README.md).
+- **Status:** closed (hackathon over) · **Priority:** high · **Resolve by:** ask organisers
 - **Context:** The organisers' 1.1.0 patch (commit 6a2cdec, merged as dc03c44) rewrote `README.md` from their
   older 721f1b9 text, not from cb51a6f ("Align README with challenge brief and kickoff deck"), which our archive
   held. Lost in 1.1.0: "The story", "What you build" (incl. "Directions, not instructions", "Put yourself in their
@@ -234,7 +262,8 @@ Template:
 
 <a id="q-019"></a>
 ### Q-019 — `SUBMISSION/answers.json`: which questions, which format?
-- **Status:** open · **Priority:** high · **Resolve by:** organisers' Discord image / ask organisers
+- **Closed 2026-10-26:** the hackathon is over (submitted 2026-10-25), so this no longer needs an answer. Submission material: [archive/hackathon/](../archive/hackathon/README.md).
+- **Status:** closed (hackathon over) · **Priority:** high · **Resolve by:** organisers' Discord image / ask organisers
 - **Context:** Organisers' Discord note (pasted by Atahan 2026-10-25 00:10, ~14 h before the deadline): the
   benchmark (55 points) is graded from a repo folder named exactly `SUBMISSION` with exactly two files,
   `BENCHMARK.md` and `answers.json` ("wrong file names = we can't grade your benchmark"); the reference structure
@@ -242,7 +271,7 @@ Template:
   2-minute demo video (YouTube/Luma), a short technical explanation. **Done (8537ca0, Utku, 2026-10-25 01:10):**
   `SUBMISSION/BENCHMARK.md` + `SUBMISSION/answers.json` from `agent.run_benchmark_v1`: a list of 145 objects
   (`question_id`, `reply`, `answer`, `kind`, `inputs`, `result`, `route`, `error`), ids = `data/test/questions.csv`,
-  0 errors (checked 2026-10-25). The schema is our own, see [BENCHMARK.md](../SUBMISSION/BENCHMARK.md).
+  0 errors (checked 2026-10-25). The schema is our own, see [BENCHMARK.md](../archive/hackathon/SUBMISSION/BENCHMARK.md).
   **Since branch `4-sunday-agent` (2026-10-25):** also `parser` and the PDF's top-level ids (`item_id`, `space_id`,
   whole-route `space_path`, `element_path`, `length_m`, `reachable`); `--layout dict` keys it by question id. The 145
   replies are unchanged.
@@ -253,7 +282,8 @@ Template:
 
 <a id="q-018"></a>
 ### Q-018 — Level 4 "Build": what is the input, and how is "built correctly" checked?
-- **Status:** open (question drafted 2026-10-25, not sent yet) · **Priority:** med · **Resolve by:** ask organisers
+- **Closed 2026-10-26:** the hackathon is over (submitted 2026-10-25), so this no longer needs an answer. Submission material: [archive/hackathon/](../archive/hackathon/README.md).
+- **Status:** closed (hackathon over) · **Priority:** med · **Resolve by:** ask organisers
 - **Context:** PDF p.3 and kit README only say "Build: create or update a building from floor plans, by
   conversation" and score "buildings built correctly from plans" under Does it work (55). The kit ships
   "structured plan files plus PNG images" (PDF); the images are Matplotlib renders of `building.json` (floor 0 of
@@ -265,36 +295,10 @@ Template:
 - **Meanwhile:** with ~14 h left, Level 4 Builder is not a priority over the submission ([Q-019](#q-019)). If needed,
   the 797 `floor_*_plain.png` renders across 280 buildings (each with its `building.json`) are a ready eval set
   ([ai-agents.md](../docs/architecture/ai-agents.md#builder-level-4)).
-- **Built anyway (2026-10-25):** the Creator ([plan import design](../docs/superpowers/specs/2026-10-25-plan-import-design.md))
+- **Built anyway (2026-10-25):** the Creator ([plan import design](../archive/hackathon/superpowers/specs/2026-10-25-plan-import-design.md))
   takes PDFs / photos / scans and drafts a kit-schema `building.json` (spaces, openings, connectors; no assets), then
   the Builder corrects it by conversation. Measured on our own renders with `scripts/eval_import.py --full` (count ratio
   0.97, IoU 0.91, doors 89 %); the organisers' input format and check are still unknown, so the question stays open.
-
-<a id="q-016"></a>
-### Q-016 — Level 3 "several buildings": what format, and how do walkways link them?
-- **Status:** open · **Priority:** high · **Resolve by:** ask organisers / wait for Sunday building
-- **Context:** Brief: "several floors, then several buildings; stairs, lifts, walkways between buildings"
-  ([brief.md](../docs/challenge/brief.md)). Several floors work end to end (174/280 datasets multi-floor, up to 10;
-  routes over stairs/lifts verified). Several buildings exist nowhere: every `building.json` holds one `building`,
-  every `group_id` in `data/manifest.csv` is unique, no data names a walkway/bridge, `BuildingMap`,
-  `BuildingSession`, the backend session and the UI each hold one building, and `no_outside` makes `outside` an
-  endpoint only (scan 2026-10-24).
-- **How to resolve:** ask whether Sunday brings one file with several buildings, several files plus links, or
-  outdoor travel via `outside`; meanwhile a site layer (several `BuildingMap`s + typed links: walkway / outdoor
-  path with length) is the smallest change (starter README idea, [starter-agent.md](../docs/kit/starter-agent.md)).
-
-<a id="q-020"></a>
-### Q-020 — Keep the voice transcript rewriter now that Scribe hears the building's names?
-- **Status:** open · **Priority:** medium · **Resolve by:** Atahan's call after a real-mic comparison
-- **Context:** [D-013](decisions.md#d-013) puts a Haiku rewriter before every voice turn (~1–1.1 s, measured
-  2026-10-25 before the first Guide request) because browser transcripts mangle names. With Scribe Realtime and the
-  building's keyterms ([D-019](decisions.md#d-019)) "Where is the CNC mill?" came back exactly; the rewriter may now
-  cost more latency than it saves. Browser recognition (the fallback) still needs it.
-- **Options:** (a) keep it for all voice turns; (b) skip it when the transcript came from Scribe (the app would send
-  `stt: "scribe"` with `/chat/stream`); (c) keep it only for numbers ("two seventeen" → "2.17").
-- **How to resolve:** a few real spoken questions with room numbers through Scribe, rewriter on vs off.
-
-## Resolved
 
 <a id="q-004"></a>
 ### Q-004 — Door-width rule details for `wide_delivery_count`

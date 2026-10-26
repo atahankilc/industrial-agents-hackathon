@@ -1,4 +1,4 @@
-"""core/edits.py: JSON edit operations on building dicts (docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md §1)."""
+"""core/edits.py: JSON edit operations on building dicts (archive/hackathon/superpowers/specs/2026-10-24-builder-edit-mode-design.md §1)."""
 
 import copy
 import math

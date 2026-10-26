@@ -1,4 +1,4 @@
-// Edit mode state for the building screen (docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md §5): the
+// Edit mode state for the building screen (archive/hackathon/superpowers/specs/2026-10-24-builder-edit-mode-design.md §5): the
 // draft copy of the building, its plan (the model the building screen draws while editing), the selection, the
 // tool, the conversation with the Builder (agent/builder.py, shown in the Guide's card: building/Guide.tsx) and its
 // open proposal, undo / redo, start over and save.

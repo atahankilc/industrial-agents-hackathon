@@ -1,5 +1,5 @@
 """Route preferences: soft penalties and avoided room types on top of the exact route model
-(docs/product/routing-profiles.md "Soft penalties", docs/superpowers/specs/2026-10-25-access-profiles-design.md).
+(docs/product/routing-profiles.md "Soft penalties", archive/hackathon/superpowers/specs/2026-10-25-access-profiles-design.md).
 
 Only for the app's Guide when a user has set a preference; benchmark answers never pass any. The search runs on
 the route graph with each edge's metres plus its penalty; the chosen path is then measured on true metres, so a

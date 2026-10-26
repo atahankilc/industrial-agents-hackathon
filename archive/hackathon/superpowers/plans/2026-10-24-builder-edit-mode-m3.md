@@ -133,7 +133,7 @@ version` → no row → `Conflict`.
 - [ ] Step 1: tests run against `MemoryDraftBackend` (same semantics) and, when `SUPABASE_DB_URL` is set, the real
   one (`pytest.mark.skipif`), incl. Review Focus 3 and 5 (`psycopg.OperationalError` → `/drafts` 503).
 - [ ] Step 2–4: implement; apply the migration with the command in
-  [commands.md](../../guides/commands.md#conversation-persistence-supabase-postgres); green. Step 5: ship.
+  [commands.md](../../../../docs/guides/commands.md#conversation-persistence-supabase-postgres); green. Step 5: ship.
 
 ### ✅ Task 3: Catalogue and sessions read saved buildings from the backend
 

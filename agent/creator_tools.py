@@ -1,4 +1,4 @@
-"""The Creator's tools (docs/superpowers/specs/2026-10-25-plan-import-design.md): every plan-import stage behind a
+"""The Creator's tools (archive/hackathon/superpowers/specs/2026-10-25-plan-import-design.md): every plan-import stage behind a
 tool, so the agent decides *what* to do (which page, which segmentation, what each cell is) and code does the
 geometry and checks every answer. Results are tool_result content blocks: one JSON text block, plus a PNG when there
 is something to look at. Errors are a single text block `{"error": …}`.

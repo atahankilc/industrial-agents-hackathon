@@ -22,8 +22,8 @@ related: [../specs/2026-10-25-plan-import-design.md, 2026-10-24-builder-edit-mod
 ## Global Constraints
 
 - Never key anything to the demo files (names, pixel positions, floor words); tune thresholds on the dataset eval set (Task 13), never on `building_plans/`.
-- No PyMuPDF (AGPL); PDF = `pypdfium2` + `pypdf` ([D-009](../../../memory-bank/decisions.md#d-009)).
-- Output schema = [data-format.md](../../kit/data-format.md): ids `<building_id>-F<level>`, `…-F<level>-S###`, `…-F<level>-O####`, `…-V##`; metres, y up; `assets: []`; polygons not closed.
+- No PyMuPDF (AGPL); PDF = `pypdfium2` + `pypdf` ([D-009](../../../../memory-bank/decisions.md#d-009)).
+- Output schema = [data-format.md](../../../../docs/kit/data-format.md): ids `<building_id>-F<level>`, `…-F<level>-S###`, `…-F<level>-O####`, `…-V##`; metres, y up; `assets: []`; polygons not closed.
 - Door default `width_m: 0.9`, `step_free: true`; stairs connector `step_free: false`, lift `true`.
 - The model never draws room geometry except via `coarse_rooms` (recorded `low_confidence`).
 - Scale is always set; `building.source_ref["import"]` records per floor: `scale_method`, `m_per_px`, `segmentation` (`walls`|`colours`|`coarse`), `low_confidence`, and stacking `alignment` (`registered`|`centred`).
@@ -500,7 +500,7 @@ def test_too_many_files_is_413(client): ...
 - Style: follow the existing clay palette / cards of the building screen and Edit mode (`edit/edit.css`, `building/hud.css`).
 
 - [ ] **Step 1:** implement; `cd frontend/app && npx tsc --noEmit` → 0 errors.
-- [ ] **Step 2:** run backend (real key) + Vite (ports per [commands.md](../../guides/commands.md#frontend-app)); in headless Chrome upload one dataset `floor_0_plain.png`: progress lines appear, Edit mode opens with rooms, Save → building opens. Screenshot into the worklog.
+- [ ] **Step 2:** run backend (real key) + Vite (ports per [commands.md](../../../../docs/guides/commands.md#frontend-app)); in headless Chrome upload one dataset `floor_0_plain.png`: progress lines appear, Edit mode opens with rooms, Save → building opens. Screenshot into the worklog.
 - [ ] **Step 3:** `/ship`.
 
 ### Task 13: Eval on the dataset + threshold tuning

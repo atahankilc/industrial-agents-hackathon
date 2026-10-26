@@ -1,5 +1,5 @@
 """Plan-import eval on the dataset's floor renders (`floor_<k>_plain.png` = a drawing of the floor's building.json,
-docs/superpowers/specs/2026-10-25-plan-import-design.md#evaluation).
+archive/hackathon/superpowers/specs/2026-10-25-plan-import-design.md#evaluation).
 
     uv run python scripts/eval_import.py --segment-only [--n 30] [--method walls|colours]
         no model: segmentation cells vs the floor's spaces (count ratio, best IoU per space after fitting bboxes)

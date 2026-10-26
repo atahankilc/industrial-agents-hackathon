@@ -91,7 +91,7 @@ Each milestone is usable on its own; there is time for all three, but this is th
 
 ## Constraints
 
-- Schema stays exactly `building.json` as in [data-format.md](../../kit/data-format.md): top-level keys
+- Schema stays exactly `building.json` as in [data-format.md](../../../../docs/kit/data-format.md): top-level keys
   `building, floors, spaces, openings, vertical_connectors, assets`; polygons not closed; metres; one XY frame.
 - Python ≥ 3.12 via `uv`; frontend is the existing Vite + React + r3f app in `frontend/app/`.
 - The deployed backend runs on Vercel serverless (no shared memory, read-only filesystem) — drafts and saved

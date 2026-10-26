@@ -1,4 +1,4 @@
-"""Each floor's straightened plan, kept for Edit mode (docs/superpowers/specs/2026-10-25-plan-reference-and-location-design.md).
+"""Each floor's straightened plan, kept for Edit mode (archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md).
 
 `reference_for` turns a floor's rectified + cropped image into a capped JPEG data URL plus the 2×3 transform from the
 stored image's pixels to the building's metres (y up — the frame the floor's spaces are assembled in). The import

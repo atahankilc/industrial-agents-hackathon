@@ -30,7 +30,7 @@ related: [../specs/2026-10-24-guide-agent-design.md, ../../architecture/ai-agent
 - Append the full `response.content` as the assistant message every iteration (thinking blocks must be passed back unchanged); all `tool_result` blocks of one response go in a single user message.
 - Session state (position, step_free, closures) lives in code (`Session`), lasts for the conversation, never written to `building.json`.
 - No hard-coding to dataset buildings, names or ids in `agent/guide/` (tests may use dev fixtures).
-- Commit only via `/ship` with `.claude/worklog/PENDING.md` filled ([dev-workflow.md](../../guides/dev-workflow.md)); never `git commit` directly.
+- Commit only via `/ship` with `.claude/worklog/PENDING.md` filled ([dev-workflow.md](../../../../docs/guides/dev-workflow.md)); never `git commit` directly.
 - Docs/memory-bank edits → `uv run python scripts/check_links.py` must print `OK`.
 
 ## Review Focus

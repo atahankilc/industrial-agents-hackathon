@@ -1,4 +1,4 @@
-// Access mode, client side (docs/superpowers/specs/2026-10-25-access-profiles-design.md): GET /config on start; when
+// Access mode, client side (archive/hackathon/superpowers/specs/2026-10-25-access-profiles-design.md): GET /config on start; when
 // the backend has access mode on, a Supabase client (loaded lazily, its own chunk) signs in with email + password and
 // every API request carries the access token (src/api.ts `auth`). Off = one small request, nothing else: no client,
 // no login item, nothing rendered.

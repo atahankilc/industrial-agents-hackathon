@@ -1,4 +1,4 @@
-"""Restricted spaces for the app's access mode (docs/superpowers/specs/2026-10-25-access-profiles-design.md).
+"""Restricted spaces for the app's access mode (archive/hackathon/superpowers/specs/2026-10-25-access-profiles-design.md).
 
 A viewer who may not enter some spaces gets a session on a filtered copy of the building: the restricted spaces,
 the openings into them, the assets inside them and their stops on stairs/lifts are removed. Every Guide tool

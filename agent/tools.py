@@ -61,7 +61,7 @@ PRESETS: dict[str, dict] = {
     "forklift": {"values": {"step_free": True, "min_door_width_m": FORKLIFT_MIN_WIDTH_M, "forklift": True}},
 }
 PROFILE_FIELDS = ("step_free", "min_door_width_m", "avoid_lifts", "forklift")
-# Route preferences (app access mode only, docs/superpowers/specs/2026-10-25-access-profiles-design.md): soft
+# Route preferences (app access mode only, archive/hackathon/superpowers/specs/2026-10-25-access-profiles-design.md): soft
 # penalties in metres-equivalent from the persona table in docs/product/routing-profiles.md, and avoided room types.
 PREFERENCE_FIELDS = ("avoid_room_types", "prefer_lifts", "fewer_doors", "quiet", "avoid_halls", "simple_routes")
 PENALTIES_M = {  # field → Penalties values; several preferences combine by the larger value

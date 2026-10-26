@@ -2,10 +2,10 @@
 id: challenge-brief
 summary: What the organisers ask us to build, the five levels, add-ins, personas, judging weights and rules.
 sources:
-  - "Hackathon Challenge - Talk to Your Building.pdf (3 pages, Synera)"
+  - "archive/hackathon/Hackathon Challenge - Talk to Your Building.pdf (3 pages, Synera)"
   - archive/initial-repo/README-cb51a6f.md §1 (story, judging, submission process; dropped from 1.1.0, Q-017)
   - archive/initial-repo/README.md §1, §7 (kit 1.1.0)
-related: [scoring.md, technical-explanation.md, ../guides/demo-runbook.md, ../kit/questions.md, ../architecture/overview.md]
+related: [scoring.md, ../../archive/hackathon/technical-explanation.md, ../../archive/hackathon/demo-runbook.md, ../kit/questions.md, ../architecture/overview.md]
 ---
 
 # Challenge brief
@@ -93,8 +93,8 @@ Credits for Claude, Lovable and ElevenLabs come via the organisers (voice-in/voi
 ## Submission and finals
 
 Online, by code freeze, via the organisers' platform — no pitch rooms:
-1. Demo video of the app in action — script: [demo-runbook.md](../guides/demo-runbook.md)
-2. Short technical explanation (architecture + tech stack) — ours: [technical-explanation.md](technical-explanation.md)
+1. Demo video of the app in action — script: [demo-runbook.md](../../archive/hackathon/demo-runbook.md)
+2. Short technical explanation (architecture + tech stack) — ours: [technical-explanation.md](../../archive/hackathon/technical-explanation.md)
 3. Repository incl. `BENCHMARK.md` and our answers file ([format: scoring.md](scoring.md#submission-format))
 
 Four finalists → final pitch at Tacto: **3 min + 1 min Q&A**.

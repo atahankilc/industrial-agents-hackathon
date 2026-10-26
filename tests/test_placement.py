@@ -1,6 +1,6 @@
 """A building at a place on the map: edit ops `scale_building` / `set_location`, `place` on POST /imports/stream,
 PUT /drafts/{id}/location, positions in /buildings and supersede on re-save
-(docs/superpowers/specs/2026-10-25-plan-reference-and-location-design.md)."""
+(archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md)."""
 
 import json
 

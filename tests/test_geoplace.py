@@ -1,5 +1,5 @@
 """core/geoplace.py: building metres ↔ lat/lon with a bearing, and fitting a generated building onto an OSM
-footprint (docs/superpowers/specs/2026-10-25-plan-reference-and-location-design.md)."""
+footprint (archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md)."""
 
 import math
 

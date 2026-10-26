@@ -1,5 +1,5 @@
 """Moving objects (forklifts, robots, AGVs): routes that fit their attributes, and missions as machine-readable steps
-(docs/superpowers/specs/2026-10-25-access-profiles-design.md "Moving objects"). App access mode only; deterministic,
+(archive/hackathon/superpowers/specs/2026-10-25-access-profiles-design.md "Moving objects"). App access mode only; deterministic,
 no LLM. Coordinates are building metres, the frame of building.json and the plan view.
 
 Attributes use only what building.json can check: opening `width_m`, `step_free` openings/connectors, connector

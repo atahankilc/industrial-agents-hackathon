@@ -1,4 +1,4 @@
-"""Validator for edited buildings — issues the Edit mode shows in red (docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md §2).
+"""Validator for edited buildings — issues the Edit mode shows in red (archive/hackathon/superpowers/specs/2026-10-24-builder-edit-mode-design.md §2).
 
 `validate(building, base=None)` → issues `{"severity", "code", "message", "ids"}`, errors first. Codes:
 `polygon_invalid`, `duplicate_id`, `dangling_ref`, `overlap`, `opening_off_wall`, `asset_outside`, `unreachable`

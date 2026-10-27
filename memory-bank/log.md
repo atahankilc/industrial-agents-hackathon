@@ -9,6 +9,86 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-27 — Removed the `?view=list` page and the unused Geist-outline brand files
+
+- Atahan: the list view is no longer used. Deleted `frontend/src/search/` (BuildingSearch.tsx, search.css); `Root.tsx`
+  has landings `map | import` only, an old `?view=list` link lands on the map (headless: map canvas + search field,
+  no `.bs`), an import's done / exit go to the map. Comments in AccessLayer.tsx, map.css, import.css updated.
+- Deleted `scripts/brand/steward-outline.json` and `outline.py` (the earlier Geist wordmark; `marks.cjs` no longer
+  reads them). Generator re-run into a scratch dir: all 10 SVGs byte-identical to `frontend/public/brand/`.
+- `tsc -b` 0, `oxlint src` 0 (existing warnings only, none in touched files), links OK.
+
+## 2026-10-27 — Wordmark: finer walls (Atahan's pick)
+
+- Of the five refinements Atahan chose 3, "finer walls": walls 2 → 1.5, clay face 1.5 → 1.3. The letters now live in
+  `frontend/src/brand/wordmark.json`, read by both `Wordmark.tsx` (the landing) and `scripts/brand/marks.cjs`, which
+  now writes `frontend/public/brand/wordmark*.svg` from it (mark + name laid out as on the landing) instead of the
+  outlined Geist name. Run into a scratch dir first: the other 8 brand SVGs came out byte-identical; only the two
+  wordmark files changed. `steward-outline.json` / `outline.py` are no longer used by the generator (kept).
+- Not taken: arrival animation, rooms, live heading, floor stack. `tsc -b`, `oxlint` clean; renders checked.
+- The picked building's solid "Open" button (in the list row and under the closed search) looked bolted on: the row
+  itself now opens it, with a quiet "Open ›" inside on the right (`.ml-go`). Clicking the closed card's row went to
+  `?building=test%2Fosm-way50300147` (headless check).
+
+## 2026-10-27 — Landing round 3: search as a pill, the card only once it opens
+
+- Atahan approved wordmark A ("clay plan") and the logo. The search field no longer starts on a card: closed, it is a
+  glass pill on the map (and the picked building a pill under it); a click brings the card in round it (background,
+  border and blur fade in) while the height opens. The panel keeps its place and size, see-through and click-through
+  when closed, so the field never moves. Opening no longer animates `height` (it laid the 286-row list out again every
+  frame; the design hook flagged it): the panel is always full height, cut to its top by a `clip-path` on wide
+  screens and slid down by a `transform` on narrow ones. Per frame on click (headless): wide, the clip interpolates
+  over ~9 frames; phone, translateY 686 → 583 → 481 → 151 → 33 → 0 px.
+- Five wordmark refinements shown to Atahan on a local page (port 5398, scratchpad, not in the repo): arrival
+  (route to the d's door, once), rooms, finer walls, live heading cone, floor stack. Recommended: finer walls +
+  arrival. He picked finer walls (entry above).
+
+## 2026-10-27 — Landing round 2: logo apart from the search, new wordmark, opening animation
+
+- Atahan: the icon was too small on desktop, the wordmark had no character, no animation when the list opened, and
+  the logo could stand apart from the search. Now: mark (60 px desktop, 42 px phone) + a new wordmark
+  (`frontend/src/brand/Wordmark.tsx`, option A of three shown: "clay plan") alone at the top left; the search card
+  under it. The opening animation was missing because of a `prefers-reduced-motion` block the first round added
+  (the app runs full motion always, `src/motion.ts`); removed. Rows and chips now rise in, staggered 22 ms.
+- Height per frame on click (headless, 1440×900): 70 → 199 → 315 → 414 → 689 → 732 → 784. `tsc -b`, `oxlint` clean.
+- Wordmark options B (flat plan) and C (Geist stacked like floors) are mockups only; awaiting Atahan's pick.
+
+## 2026-10-27 — Landing: Steward card with a search field, the list opens on click
+
+- `frontend/src/map/MapLanding.tsx` + `map.css`: the always-open 400 px list panel is now one card with the
+  Steward wordmark (dark / light by theme) and the search field. Click in the field (or `/`) → the card grows to full
+  height (height animated from the measured top, `--ml-top`) with the kind chips, the grouped list and "New building
+  from floor plans"; Esc (clears the query first), ×, a map tap or picking a building closes it. A building picked from
+  the list stays in the closed card with **Open**. Phone: bottom sheet growing upward, clear of Account; the map
+  controls follow the sheet's height and hide while it is open.
+- Checked in headless Chrome over CDP (1440×900 and 390×844, screenshots): closed, open, typed "arc" (3 on the map,
+  4 with no location), picked (map flies in, row with Open). Real mouse/key events: click field → open (h 868),
+  Esc → closed (h 120), `/` → open, map click → closed. `tsc -b` and `oxlint` clean.
+
+## 2026-10-27 — Local folder moved to `~/Documents/steward`
+
+- Repo folder `~/Documents/industrial-agents-hackathon` → `~/Documents/steward`; worktree `collab-edits` →
+  `~/Documents/steward-collab-edits` (`git worktree list` shows both paths). Claude's project memory copied over.
+- The moved `.venv` broke `npm run dev`: its scripts' shebangs still pointed at the old folder, so `uv run uvicorn`
+  ran Anaconda's Python 3.9 uvicorn and the backend died with `No module named 'anthropic'`. Fixed by recreating it
+  (`rm -rf .venv && uv sync`); `pnpm run dev` then served backend `/docs` 200 on 8390 and the app 200 on 5390.
+- WebStorm (local, `.idea/` is git-ignored): module file renamed to `steward.iml`, `.idea/.name` = `steward`.
+- A `[vite] http proxy error … ECONNREFUSED 127.0.0.1:8390` right after start is the frontend asking before the
+  backend listens (backend start took ~18 s on the fresh `.venv`); it stops once uvicorn is up.
+
+## 2026-10-27 — Steward outside the repo: GitHub, Vercel, Supabase
+
+- GitHub repo renamed `atahankilc/industrial-agents-hackathon` → `atahankilc/steward` (`gh repo rename`); `origin`
+  points at the new URL; `dev` pushed (`9251dd8..b33c47c`); repo homepage → https://steward-io.vercel.app.
+- Vercel project renamed by Atahan; `steward.vercel.app` and `steward-app.vercel.app` were taken, the app is at
+  **https://steward-io.vercel.app** (`/` 200 with title "Steward", `/api/health` 200). The old
+  `industrial-agents-hackathon.vercel.app` first answered 404 `DEPLOYMENT_NOT_FOUND`; later
+  it answers a 308 to https://steward-io.vercel.app/ (`/api/health` → `/api/health` on steward-io).
+- Voice was off on the deployment (`ELEVENLABS_API_KEY` missing in Vercel, so `/api/health` said `tts`/`stt`
+  false and the app fell back to the browser's voice). Atahan added the key and redeployed: `tts`/`stt` true,
+  `POST /api/tts` returns a 20 KB MP3, `POST /api/stt/token` 200.
+- Supabase: Atahan renamed the project and set Site URL / Redirect URLs to steward-io (his report). Local folder: still to move.
+
 ## 2026-10-27 — The app is called Steward
 
 - [D-027](decisions.md#d-027): name chosen with Atahan over several rounds (job titles, architecture terms; Maze

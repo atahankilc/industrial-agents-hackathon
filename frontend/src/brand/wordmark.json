@@ -1,0 +1,22 @@
+{
+  "about": "Steward's wordmark letters, read by Wordmark.tsx and scripts/brand/marks.cjs. Centre lines of plan walls 'wall' thick (square ends) on a grid: x-height top 4, baseline 14, ascender 0; 'xTop' is the x-height walls' centre line. The d's top wall stops short of its stem: the doorway, 'door' from the d's left edge.",
+  "wall": 1.5,
+  "depth": 1.3,
+  "gap": 3,
+  "door": 4.6,
+  "xTop": 4.75,
+  "letters": [
+    { "letter": "s", "width": 8, "d": "M8 4.75H0.75V9H7.25V13.25H0" },
+    { "letter": "t", "width": 6, "d": "M2.4 0V13.25H6M0 4.75H5.4" },
+    { "letter": "e", "width": 8, "d": "M8 13.25H0.75V4.75H7.25V9H0.75" },
+    { "letter": "w", "width": 13, "d": "M0.75 4V13.25H12.25V4M6.5 13.25V7.5" },
+    { "letter": "a", "width": 8, "d": "M0 4.75H7.25V13.25H0.75V9H7.25" },
+    { "letter": "r", "width": 7, "d": "M0.75 14V4.75H7" },
+    { "letter": "d", "width": 8, "d": "M7.25 0V13.25H0.75V4.75H2.2" }
+  ],
+  "colours": {
+    "dark": { "top": "#ECE8E1", "face": "#9E978B" },
+    "light": { "top": "#3A3631", "face": "#9E978B" },
+    "you": "#F2602A"
+  }
+}

@@ -5,18 +5,16 @@ import { api, type Building, type ImportPlace } from './api'
 import { BuildingScreen } from './building/BuildingScreen.tsx'
 import { prefetch } from './building/opening'
 import { MapLanding } from './map/MapLanding.tsx'
-import { BuildingSearch } from './search/BuildingSearch.tsx'
 import { ImportScreen } from './import/ImportScreen.tsx'
 
-// Landing is the map of the buildings that have a real position, its panel listing every building (the ones without
-// a position after them); the list view (?view=list) searches them by id and type too.
-// Picking one opens its twin (?building=<split>/<id>); the pill at the top goes back to the map or the list,
-// whichever it was opened from.
+// Landing is the map of the buildings that have a real position, its search listing every building (the ones without
+// a position after them); ?view=import is the create-from-floor-plans screen.
+// Picking one opens its twin (?building=<split>/<id>); the pill at the top goes back to the map.
 // A building with a position opens on top of the map, which stays mounted: the map flies in, then follows the
 // model's camera, in its city: the neighbours on screen and their pins tappable. Leaving fades the model out while
 // the map flies back.
 
-type Landing = 'map' | 'list' | 'import'
+type Landing = 'map' | 'import'
 
 const LEAVE_MS = 350 // the building screen's fade-out (building/screen.css .screen.leaving)
 
@@ -25,7 +23,7 @@ startAccess() // GET /config; in access mode, the sign-in (src/access/auth.ts)
 const fromUrl = () => {
   const params = new URLSearchParams(location.search)
   const view = params.get('view')
-  const landing: Landing = view === 'list' || view === 'import' ? view : 'map'
+  const landing: Landing = view === 'import' ? view : 'map' // (an old ?view=list link lands on the map)
   // ?edit=1: the building opens in the Edit mode (a building just created from floor plans)
   return { building: params.get('building'), landing, edit: params.get('edit') === '1' }
 }
@@ -40,7 +38,7 @@ export function Root() {
   // access mode: which buildings are listed depends on who is signed in
   const { version } = useAccess()
 
-  // where "Create a building here" was tapped on the map (null: an import started from the list, no place)
+  // where "Create a building here" was tapped on the map (null: an import started from the search panel, no place)
   const [place, setPlace] = useState<ImportPlace | null>(null)
   const [deleted, setDeleted] = useState(0) // a building was deleted on the map: list again
 
@@ -96,14 +94,8 @@ export function Root() {
           go(null, 'import')
         }} onDeleted={() => setDeleted((n) => n + 1)} />
       )}
-      {!view.building && !shown && view.landing === 'list' && (
-        <BuildingSearch onOpen={(id) => go(id, 'list')} onMap={() => go(null, 'map')} onImport={() => {
-          setPlace(null)
-          go(null, 'import')
-        }} />
-      )}
       {!view.building && !shown && view.landing === 'import' && (
-        <ImportScreen place={place} onDone={(base) => go(base, 'list', true)} onExit={() => go(null, place ? 'map' : 'list')} />
+        <ImportScreen place={place} onDone={(base) => go(base, 'map', true)} onExit={() => go(null, 'map')} />
       )}
       {shown && (
         <BuildingScreen

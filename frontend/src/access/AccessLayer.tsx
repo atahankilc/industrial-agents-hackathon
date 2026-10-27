@@ -1,5 +1,5 @@
 // The settings corner over every screen (rendered by Root): a button top right whose menu has the theme and, in
-// access mode, Preferences and the account (sign in, set a password, sign out). On the landing (map / list) it is a
+// access mode, Preferences and the account (sign in, set a password, sign out). On the landing (the map) it is a
 // pill; over a building a round button beside the HUD's top line.
 // Access mode also brings the sign-in, set-a-password and Preferences sheets and the quiet notice line.
 

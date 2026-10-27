@@ -1,4 +1,4 @@
-/* Create from floor plans (ImportScreen). Same tokens and rhythm as the building search (search/search.css). */
+/* Create from floor plans (ImportScreen). Uses the app's theme tokens from styles.css. */
 
 .im { position: fixed; inset: 0; overflow: auto; background: var(--bg); color: var(--ink); }
 .im-inner { max-width: 640px; margin: 0 auto; padding: 12vh 24px 64px; }

@@ -1,7 +1,8 @@
 // Steward's mark: the app's clay cutaway in isometric — floors stacked, the top one opened up, you (orange) standing
 // in a doorway facing into the front room. Large sizes use three floors (A); 32 px and below a single bold floor (C).
 // Writes every SVG from this one drawing:  node scripts/brand/marks.cjs [out-dir]  (default frontend/public/brand)
-// The wordmark's "Steward" is Geist 500 outlined by outline.py into steward-outline.json, so it needs no font.
+// The wordmark's "steward" is drawn as plan walls from frontend/src/brand/wordmark.json, the letters the app's
+// Wordmark component draws too, so it needs no font.
 // PNG app icons are rendered from icon-dark.svg / icon-small-dark.svg at 1024 px (headless Chrome) and downscaled.
 const fs = require('fs'), path = require('path');
 
@@ -75,10 +76,22 @@ write('mark.svg', doc(128, 128, cutaway('d', A)));
 write('mark-light.svg', doc(128, 128, cutaway('l', A)));
 write('mark-small.svg', doc(128, 128, cutaway('d', C)));
 write('mark-small-light.svg', doc(128, 128, cutaway('l', C)));
-// Wordmark: mark + name, the name outlined from Geist 500 (kerned) so it needs no font.
-const name = JSON.parse(fs.readFileSync(path.join(__dirname, 'steward-outline.json'), 'utf8'));
-const W = Math.ceil(140 + name.width + 12);
-const word = (t, ink) => doc(W, 128, cutaway(t, A) + `<path transform="translate(140 85)" d="${name.d}" fill="${ink}"/>`);
-write('wordmark.svg', word('d', '#F3F4F6'));
-write('wordmark-light.svg', word('l', '#111215'));
+// Wordmark: mark + name, laid out as on the map landing (mark 60 px, name 34 px tall, 14 px apart: map.css .ml-logo).
+// The name: plan walls raised as low clay walls (a light top over a darker face), you in the d's doorway.
+const WM = JSON.parse(fs.readFileSync(path.join(__dirname, '../../frontend/src/brand/wordmark.json'), 'utf8'));
+const xs = WM.letters.reduce((all, l, i) => [...all, i ? all[i - 1] + WM.letters[i - 1].width + WM.gap : 0], []);
+const wordW = xs[xs.length - 1] + WM.letters[WM.letters.length - 1].width + 2.4, wordH = 16.4 + WM.depth;
+const K = (128 / 60) * 34 / wordH; // units → px in the 128-tall lockup
+const W = Math.ceil(128 + (128 / 60) * 14 + wordW * K + 4);
+const wordmark = (t) => {
+  const c = WM.colours[t === 'd' ? 'dark' : 'light'], door = xs[xs.length - 1] + WM.door, y = WM.xTop;
+  const walls = (ink, dy) => `<g fill="none" stroke="${ink}" stroke-width="${WM.wall}" stroke-linecap="square" stroke-linejoin="miter">` +
+    WM.letters.map((l, i) => `<path transform="translate(${xs[i]} ${dy})" d="${l.d}"/>`).join('') + '</g>';
+  const you = `<path d="M${door} ${y + 2.4}L${door - 2.2} ${y + 7.4}Q${door} ${y + 8.2} ${door + 2.2} ${y + 7.4}Z" fill="${WM.colours.you}" opacity="0.3"/>` +
+    `<ellipse cx="${door}" cy="${y + WM.depth + 0.2}" rx="1.5" ry="0.7" fill="#000" opacity="0.35"/><circle cx="${door}" cy="${y - 0.1}" r="1.55" fill="${WM.colours.you}"/>`;
+  const at = `translate(${f(128 + (128 / 60) * 14 + 1.2 * K)} ${f((128 - wordH * K) / 2 + 1.2 * K)}) scale(${K.toFixed(4)})`;
+  return doc(W, 128, cutaway(t, A) + `<g transform="${at}">${walls(c.face, WM.depth)}${walls(c.top, 0)}${you}</g>`);
+};
+write('wordmark.svg', wordmark('d'));
+write('wordmark-light.svg', wordmark('l'));
 console.log(fs.readdirSync(out).join('\n'));

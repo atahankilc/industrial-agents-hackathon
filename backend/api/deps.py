@@ -1,7 +1,7 @@
 """What every router shares: the process-wide stores and the request guards built on them.
 
 Routers read the stores as `deps.store`, `deps.drafts`, … (not `from deps import store`), so a test that replaces one
-with monkeypatch reaches every route. `live` (backend/api/live.py) and `fleet` (backend/api/fleet.py) are created
+with monkeypatch reaches every route. `live` (backend/api/live/) and `fleet` (backend/api/fleet.py) are created
 here too, because the session guards attach them to conversations."""
 
 import copy
@@ -26,7 +26,7 @@ store = SessionStore()
 drafts = DraftStore(backend_from_env(Path(os.environ.get("GUIDE_USER_DIR", DATA_DIR / "user"))), store.catalogue)
 store.user_buildings = drafts
 access = Access()  # access mode (ACCESS_MODE=on): accounts, restricted spaces — backend/api/access.py
-live = LiveHub(lambda building: BuildingMap(copy.deepcopy(store.base_data(building))))  # backend/api/live.py
+live = LiveHub(lambda building: BuildingMap(copy.deepcopy(store.base_data(building))))  # backend/api/live/
 fleet = Fleet(fleet_from_env(), store.base_data)  # moving objects (access mode): backend/api/fleet.py
 
 
@@ -56,7 +56,7 @@ def live_hidden(authorization: str | None, building: str) -> frozenset[str] | No
 
 
 def with_live(conversation: Conversation) -> Conversation:
-    """The building's live world (backend/api/live.py) for the session's routes, while one runs; else no live state."""
+    """The building's live world (backend/api/live/) for the session's routes, while one runs; else no live state."""
     world = live.world(conversation.building, start=False)
     conversation.session.live = SessionLive(live, conversation.building) if world is not None else None
     return conversation

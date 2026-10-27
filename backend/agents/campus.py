@@ -181,7 +181,7 @@ class Campus:
                 "type": "route", "space_path": inside_here["space_path"], "element_path": inside_here["element_path"],
                 "length_m": inside_here["length_m"], "profile": session.profile.describe(),
                 **session.start_point(start_id),
-                # what the app may ask again when something live blocks the way (backend/api/live.py)
+                # what the app may ask again when something live blocks the way (backend/api/live/)
                 "request": {"start": start_id, "destination": OUTSIDE, "via": [],
                             "closed": here_closed + only(session.building, exit_door["id"])},
                 "next_building": {

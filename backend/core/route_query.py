@@ -111,7 +111,7 @@ def route_query(
     narrow = [opening["id"] for opening in bmap.openings.values()
               if min_width is not None and opening["width_m"] < min_width]
     view = navigation.routing_view(bmap, [*closures, *narrow])
-    rules = rules or RouteRules(forklift=forklift)  # the Guide's compute passes its own (backend/agents/tools.py)
+    rules = rules or RouteRules(forklift=forklift)  # the Guide's compute passes its own (backend/agents/tools/)
     graph = route_models.route_graph(view, step_free, KIT, rules)
     endpoints = route_models.endpoint_only(view, rules)
 

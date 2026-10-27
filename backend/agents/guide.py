@@ -1,4 +1,4 @@
-"""The Building Guide: a Claude tool-use loop over the deterministic tool layer (backend/agents/tools.py).
+"""The Building Guide: a Claude tool-use loop over the deterministic tool layer (backend/agents/tools/).
 
   guide = Guide(BuildingSession.load(Path("data/train/proc-campus-train-000")))
   turn = guide.reply("I use a wheelchair. How do I get from the main lobby to meeting room 3.07?")
@@ -415,7 +415,7 @@ class Guide:
         self.location_note: str | None = None  # where the app's "you are here" figure stands, sent with the next turn
         self.system_note: str | None = None  # a system prompt change after the first turn, sent with the next turn
         self.seen_overview = self.system[1]["text"]  # the overview the model last got (prompt or settings note)
-        self.live_note: str | None = None  # the app moved the route round something live (backend/api/live.py)
+        self.live_note: str | None = None  # the app moved the route round something live (backend/api/live/)
         # Voice transcripts are normalised first (D-013), only when talking to the real API.
         self.rewriter: TranscriptRewriter | None = (
             TranscriptRewriter(session.building) if isinstance(self.client, anthropic.Anthropic)

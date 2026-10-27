@@ -134,7 +134,7 @@ Template:
 <a id="q-021"></a>
 ### Q-021 — The living building keeps device positions in one function's memory: fix before real devices?
 - **Status:** open · **Priority:** low (fine for demos) · **Resolve by:** Atahan's call when real devices are in scope
-- **Context:** `backend/api/live.py` holds each building's `LiveWorld` (simulated and real devices) in process memory,
+- **Context:** `backend/api/live/` holds each building's `LiveWorld` (simulated and real devices) in process memory,
   stepped by a `threading.Thread`. On Vercel the API is a serverless function (`vercel.json`), so: nothing moves while
   no request arrives (the process is frozen or stopped; a world also drops itself after `IDLE_S = 90` without a
   viewer); two instances run two different worlds; a stopped instance loses every position. Real devices post to

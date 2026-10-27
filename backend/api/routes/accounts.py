@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 class SessionPreferences(BaseModel):
-    values: dict = {}  # effective preferences for this building (global ← building), see backend/agents/tools.py
+    values: dict = {}  # effective preferences for this building (global ← building), see backend/agents/tools/
     auto_capture: bool = True
 
 

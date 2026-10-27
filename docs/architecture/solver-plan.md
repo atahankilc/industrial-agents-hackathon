@@ -65,7 +65,7 @@ procedural/OSM buildings — the generator avoids Swiss here, as the kit README 
 misalignment is real (84 of 108 multi-floor Swiss buildings have every floor's space-bbox centre within 2 m of
 the origin on each axis; 82 with a Euclidean 2 m radius), but a gold answer would be computed from the same raw
 coordinates, so no frame correction is the right call either way. The
-Guide's `room_facts` omits "above/below" for Swiss buildings (`UNALIGNED_SOURCES` in `backend/agents/tools.py`).
+Guide's `room_facts` omits "above/below" for Swiss buildings (`UNALIGNED_SOURCES` in `backend/agents/tools/shared.py`).
 
 ## room_stacked
 Next existing `level` up/down (gaps skipped, e.g. swiss-460 levels 0,2,3,4); winner = largest intersection area

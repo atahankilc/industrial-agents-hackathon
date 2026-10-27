@@ -151,7 +151,7 @@ export type RouteEvent = {
   next_building?: NextBuilding
   /** the living building (backend/core/live.py): what the route goes round or passes right now */
   live?: RouteLive
-  /** the app moved the route round something that blocked it (backend/api/live.py live_check) */
+  /** the app moved the route round something that blocked it (backend/api/live/ live_check) */
   reroute?: { by: LiveRef[]; was_m?: number | null }
 }
 export type LiveRef = { id: string; name: string; kind: string; state?: string; space?: string; effect?: 'blocked' | 'wait' | 'squeeze' | 'wet_floor' }
@@ -179,26 +179,26 @@ export type ElsewhereEvent = {
 }
 export type UserLocation = { space_id: string; name: string; ref?: string | null; floor: string }
 export type ChangeEvent = { type: 'change'; summary: string; targets: string[]; space_ids?: string[] }
-/** Access mode: the Guide heard a preference to remember (backend/agents/tools.py remember_preference / set_preference);
+/** Access mode: the Guide heard a preference to remember (backend/agents/tools/ remember_preference / set_preference);
  * `values` holds the changed fields, or `favourite` (a space id, always per building). */
 export type PreferenceEvent = { type: 'preference'; scope: 'global' | 'building'; values: Record<string, unknown> }
-/** The Guide switched the app to the Edit mode (backend/agents/tools.py open_edit_mode); `request` goes on to the Builder. */
+/** The Guide switched the app to the Edit mode (backend/agents/tools/ open_edit_mode); `request` goes on to the Builder. */
 export type EditModeEvent = { type: 'edit_mode'; request: string | null }
-/** The Guide opened the Building settings (backend/agents/tools.py open_building_settings): the app shows them to the admin. */
+/** The Guide opened the Building settings (backend/agents/tools/ open_building_settings): the app shows them to the admin. */
 export type SettingsEvent = { type: 'settings' }
-/** The user told the Guide where they are (backend/agents/tools.py set_my_location): the "you are here" figure goes there. */
+/** The user told the Guide where they are (backend/agents/tools/ set_my_location): the "you are here" figure goes there. */
 export type LocationEvent = { type: 'location'; space_id: string }
-/** The user's position is needed but not known (backend/agents/tools.py suggest_my_location, or a route from "here"): rooms
+/** The user's position is needed but not known (backend/agents/tools/ suggest_my_location, or a route from "here"): rooms
  * they might be in — the Guide's guesses, else the entrances — marked after the answer; a tap stands them there. */
 export type MaybeHereEvent = { type: 'maybe_here'; space_ids: string[]; source: 'guide' | 'entrances' }
-/** The Guide talked about another step of the route being followed (backend/agents/tools.py show_route_step): the step card
+/** The Guide talked about another step of the route being followed (backend/agents/tools/ show_route_step): the step card
  * goes there. */
 export type RouteStepEvent = { type: 'route_step'; index: number }
-/** The Guide ended the route (backend/agents/tools.py end_route): off the map, the step guide stops; `space_id`: where the
+/** The Guide ended the route (backend/agents/tools/ end_route): off the map, the step guide stops; `space_id`: where the
  * user is now (the destination when `arrived`, or the place they named), the figure goes there. */
 export type RouteEndEvent = { type: 'route_end'; arrived: boolean; space_id?: string }
 
-/** The Guide opened a nearby building (backend/agents/tools.py open_nearby_building): the app goes there, continuing a route
+/** The Guide opened a nearby building (backend/agents/tools/ open_nearby_building): the app goes there, continuing a route
  * to it (route_to_building's `next_building`) when one is on the map. */
 export type OpenBuildingEvent = { type: 'open_building'; building: string; name: string }
 
@@ -424,7 +424,7 @@ export type FleetObject = {
 }
 export type DispatchResult = { reachable: boolean; object: FleetObject; reason?: string; to?: string; length_m?: number }
 
-/** backend/api/live.py `LiveWorld.snapshot`: connected things, as last reported (points are plan metres + floor index). */
+/** backend/api/live/ `LiveWorld.snapshot`: connected things, as last reported (points are plan metres + floor index). */
 export type LiveKind = 'forklift' | 'agv' | 'delivery_robot' | 'cleaning_robot' | 'pallet' | 'cart' | 'pallet_jack' | 'device'
 export type LiveDevice = {
   id: string

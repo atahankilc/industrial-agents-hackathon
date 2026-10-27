@@ -1,5 +1,5 @@
 """The Guide's python tool: model code runs against the open building (the BuildingMap, the canonical route and
-solver helpers, shapely, networkx) and gets back what it printed (backend/agents/tools.py `compute`).
+solver helpers, shapely, networkx) and gets back what it printed (backend/agents/tools/ `compute`).
 
 Moved out of agent/solver_agent.py (archived 2026-10-26 with the benchmark code). The sandbox (restricted builtins, a
 module whitelist, a time limit) guards against accidents, not against a hostile model."""

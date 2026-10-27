@@ -159,7 +159,7 @@ function RoomCard({ space, building, onOps, busy }: CardProps & { space: SpaceJs
   )
 }
 
-const NARROW_M = 0.8 // the wheelchair / pram presets' min_door_width_m (backend/agents/tools.py PROFILES)
+const NARROW_M = 0.8 // the wheelchair / pram presets' min_door_width_m (backend/agents/tools/profile.py PRESETS)
 const access = (opening: OpeningJson) =>
   !opening.step_free ? 'It has a step, so step-free routes avoid it. '
   : opening.width_m < NARROW_M ? 'Under 0.8 m: wheelchair and pram routes avoid it. '

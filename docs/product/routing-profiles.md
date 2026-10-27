@@ -5,7 +5,7 @@ status: partly implemented (presets + cue safety net, 2026-10-24); soft penaltie
 sources:
   - docs/kit/route-model.md
   - backend/core/building_map.py (BuildingMap.graph, route)
-  - backend/agents/tools.py (RoutingProfile, PRESETS, set_profile)
+  - backend/agents/tools/profile.py (RoutingProfile, PRESETS, set_profile)
   - backend/agents/guide.py (profile_cues, profile safety net)
   - "data/*/*/building.json scan 2026-10-24: 576 stairs connectors all step_free false, 136 lifts all true"
   - "dataset scan of all 280 buildings with backend/core/building_map.py, 2026-10-24"
@@ -90,7 +90,7 @@ change trivially-forced segments. Negative penalties allowed only where `cost` s
 | `simple` | [P02](personas.md#p02--first-day-at-work), [P16](personas.md#p16--delivery-courier--visitor) | – | – | – | – | space change 3 m |
 
 <a id="implemented-presets"></a>
-**Implemented presets** (`set_profile(preset=…)` in `backend/agents/tools.py`, 2026-10-24) — only rows the graph can
+**Implemented presets** (`set_profile(preset=…)` in `backend/agents/tools/`, 2026-10-24) — only rows the graph can
 honour today with the existing filters (`step_free`, `min_door_width_m`, `avoid_lifts`):
 
 | `preset` | Sets | Assumed (said to the user) | Source of the number |
@@ -137,11 +137,11 @@ reply ("step-free, quiet route").
 <a id="todo-preference-extraction"></a>
 ### TODO — preference extraction (gap check 2026-10-24)
 
-Today (`backend/agents/tools.py`): `RoutingProfile` has `step_free`, `min_door_width_m`, `avoid_lifts`, `forklift` (+ `preset`, `assumed`);
+Today (`backend/agents/tools/`): `RoutingProfile` has `step_free`, `min_door_width_m`, `avoid_lifts`, `forklift` (+ `preset`, `assumed`);
 it lives in the in-memory session; the model calls `set_profile` (with a preset where one fits), and a
 deterministic safety net catches the cues it misses. Missing:
 
-- [x] **Persona presets in `set_profile`** — implemented in `backend/agents/tools.py` (`PRESETS`, `tool_set_profile`): see
+- [x] **Persona presets in `set_profile`** — implemented in `backend/agents/tools/` (`PRESETS`, `tool_set_profile`): see
   [implemented presets](#implemented-presets). Results carry `changed`, `assumed` and (trolley) `needs`.
   Tests: `tests/test_profiles.py` (preset section).
 - [ ] **Remaining parameters**: `avoid_stairs`, `avoid_room_types`, and the soft penalties (crutches, quiet,

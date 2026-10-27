@@ -1,4 +1,4 @@
-"""The Guide can open the app's Building settings (backend/agents/tools.py open_building_settings → a `settings` UI event)."""
+"""The Guide can open the app's Building settings (backend/agents/tools/ open_building_settings → a `settings` UI event)."""
 
 from pathlib import Path
 

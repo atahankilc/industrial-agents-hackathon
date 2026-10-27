@@ -1,4 +1,4 @@
-// The living building's controls (backend/api/live.py): a round button on top of the plan's button column (a dot that
+// The living building's controls (backend/api/live/): a round button on top of the plan's button column (a dot that
 // turns orange while something blocks a walkway) opens the panel — every connected thing with what it reports and
 // how, and the demo controls of the simulation: its speed, put a pallet or a forklift where you tap, block the
 // route on the map, take away what was left behind. Notices about the route on the map (moved round something,

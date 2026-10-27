@@ -1,4 +1,4 @@
-// The living building on the plan (backend/api/live.py via GET /live, polled by the building screen): each connected
+// The living building on the plan (backend/api/live/ via GET /live, polled by the building screen): each connected
 // thing is its real footprint on the floor — violet while it moves, orange when it stands and cuts a walkway (with
 // the no-pass zone routing uses around it: the footprint grown by half the walker's clearance), grey when it stands
 // out of the way — plus a DOM marker with its kind's icon. Behind it, its trail: the last 50 m of reported positions,

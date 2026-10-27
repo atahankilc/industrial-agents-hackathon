@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../archive/hackathon/README.m
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-27** (repo restructure [D-024](decisions.md#d-024), solvers + API routers [D-025](decisions.md#d-025))
+[Memory bank](README.md) · Last updated: **2026-10-27** (repo restructure [D-024](decisions.md#d-024), solvers + API routers [D-025](decisions.md#d-025), tool layer + live packages [D-026](decisions.md#d-026))
 
 ## Phase
 
@@ -29,7 +29,7 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
   (`src/import/`, [D-023](decisions.md#d-023)).
 - **Backend** (`backend/api/`, FastAPI: `app.py` assembles the routers in `routes/`, shared stores in `deps.py`): sessions, plan, chat and chat/stream, drafts, imports, live/fleet,
   STT/TTS, an OpenAI-compatible `/v1/chat/completions`, Supabase persistence (`backend/api/persistence.py`).
-- **Agents** (`backend/agents/`): the Guide (`guide.py` + `tools.py`), the Builder (`builder.py`), the Creator / plan
+- **Agents** (`backend/agents/`): the Guide (`guide.py` + the `tools/` package), the Builder (`builder.py`), the Creator / plan
   import (`creator.py`, `backend/core/plan_import/`), campus / nearby buildings (`campus.py`,
   [D-021](decisions.md#d-021)), the transcript rewriter (`rewriter.py`, [Q-020](open-questions.md#q-020)).
 - **Core** (`backend/core/`): the kit 1.1.0 route model (`building_map.py`, [D-014](decisions.md#d-014)), solvers,

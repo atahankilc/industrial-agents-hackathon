@@ -1,4 +1,4 @@
-"""The Guide can switch the app to the Edit mode (backend/agents/tools.py open_edit_mode → an `edit_mode` UI event)."""
+"""The Guide can switch the app to the Edit mode (backend/agents/tools/ open_edit_mode → an `edit_mode` UI event)."""
 
 from pathlib import Path
 

@@ -1,4 +1,4 @@
-// The building's live world (backend/api/live.py), polled about once a second while the building screen shows it (slower
+// The building's live world (backend/api/live/), polled about once a second while the building screen shows it (slower
 // after errors). With the session it also re-checks the route on the map: a reroute, an alert or a suggestion comes
 // back with the snapshot and is handed on once.
 

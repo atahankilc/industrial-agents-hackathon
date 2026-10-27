@@ -9,6 +9,15 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-27 — Guide tools and living building split into packages
+
+- [D-026](decisions.md#d-026): `backend/agents/tools.py` → `backend/agents/tools/` (session + 7 mixins + definitions +
+  shared); `backend/api/live.py` → `backend/api/live/` (world, hub, reroute, endpoints). `__init__.py` re-exports
+  keep every import working; code moved verbatim (checked with `inspect.getsource` against the old modules).
+  References to the old paths in code comments, docs and the frontend now point at the packages.
+- Checked: `uv run pytest -q` 955 passed / 2 skipped, `uvx ruff check --select F,E9` clean on both packages,
+  `check_links.py` OK.
+
 ## 2026-10-27 — One solver implementation; API routers
 
 - [D-025](decisions.md#d-025): `core/solvers_v1.py` removed; `compute`'s `solve()` runs `backend/core/solvers/`

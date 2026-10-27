@@ -95,7 +95,7 @@ def test_a_wet_floor_is_avoided_when_it_is_cheap(campus):
     assert answer["live"]["passing"][0]["effect"] == "wet_floor"  # no way round worth 6 m here
 
 
-# ---------- backend: the live world, its endpoints and the route on the map (backend/api/live.py) ----------
+# ---------- backend: the live world, its endpoints and the route on the map (backend/api/live/) ----------
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -314,7 +314,7 @@ def test_a_route_answer_with_live_notes_is_plain_json(campus):
     json.dumps(route(campus, LOBBY, FAR, live))
 
 
-# ---------- the world (backend/api/live.py) ----------
+# ---------- the world (backend/api/live/) ----------
 
 
 def test_the_trail_is_the_last_50_metres_and_splits_by_floor():

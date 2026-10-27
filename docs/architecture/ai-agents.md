@@ -2,7 +2,7 @@
 id: arch-agents
 summary: PROPOSED design of every AI agent in the system — Building Guide (chat + voice), benchmark pipeline, Builder (plan → building), and how they share one deterministic tool layer.
 status: proposed
-sources: [../research/elevenlabs.md, ../../archive/hackathon/docs/kit/starter-agent.md, ../../archive/hackathon/docs/challenge/brief.md, ../../archive/hackathon/docs/challenge/scoring.md, ../../backend/agents/tools.py, ../../backend/agents/guide.py, ../../backend/agents/offline_llm.py, ../../backend/agents/compute.py, ../../archive/hackathon/benchmark-code/agent/llm_parser.py, ../../archive/hackathon/benchmark-code/agent/solver_agent.py, ../../archive/hackathon/benchmark-code/agent/llm_cache.py, ../../backend/core/route_query.py]
+sources: [../research/elevenlabs.md, ../../archive/hackathon/docs/kit/starter-agent.md, ../../archive/hackathon/docs/challenge/brief.md, ../../archive/hackathon/docs/challenge/scoring.md, ../../backend/agents/tools/, ../../backend/agents/guide.py, ../../backend/agents/offline_llm.py, ../../backend/agents/compute.py, ../../archive/hackathon/benchmark-code/agent/llm_parser.py, ../../archive/hackathon/benchmark-code/agent/solver_agent.py, ../../archive/hackathon/benchmark-code/agent/llm_cache.py, ../../backend/core/route_query.py]
 related: [overview.md, solver-plan.md, ../product/routing-profiles.md, ../product/personas.md, ../research/question-parsing.md]
 ---
 
@@ -51,14 +51,14 @@ webhooks if ever needed, and optionally as one MCP server). Proposed tool set fo
 | `search_nearby_buildings(query)` / `route_to_building(start, building, destination)` | matches / a route in the buildings next to this one (only offered when the building has located neighbours) | no |
 | `open_nearby_building(building)` | UI event `open_building`: the app opens that neighbour; a `route_to_building` route to it on the map goes on inside it (same path as its Continue button). Only with located neighbours | no |
 
-**Implemented (2026-10-24):** `backend/agents/tools.py` — `BuildingSession` (private building copy, routing profile,
+**Implemented (2026-10-24):** `backend/agents/tools/` — `BuildingSession` (private building copy, routing profile,
 pending/applied changes, UI events) + `TOOL_DEFINITIONS` (Anthropic tool schemas) for building_overview, search,
 locate, count_assets, room_facts, find_route, tour, reachable_rooms, solve (every benchmark kind), set_profile,
 propose_change, apply_change, compare_routes, show_on_map (`space_ids` and `asset_ids`), set_my_location,
 open_edit_mode, find_nearest, show_route_step, compute; since 2026-10-25 also end_route, open_building_settings and
 open_nearby_building (see the table above). Since 2026-10-25: `set_my_location(place)` makes that space the user's position and emits a
 `location` event (the app moves its "you are here" figure there); every place argument then also accepts "here"
-(`HERE` in `backend/agents/tools.py`: "here", "me", "my location", …; unknown position → an error telling the model to ask). Unknown position also emits a `maybe_here` event (the entrances), and `suggest_my_location(rooms)` marks up to 3 rooms the Guide names (else the entrances): the app shows them as "Here? · room" badges after the answer, and a tap places the user.
+(`HERE` in `backend/agents/tools/shared.py`: "here", "me", "my location", …; unknown position → an error telling the model to ask). Unknown position also emits a `maybe_here` event (the entrances), and `suggest_my_location(rooms)` marks up to 3 rooms the Guide names (else the entrances): the app shows them as "Here? · room" badges after the answer, and a tap places the user.
 `open_edit_mode(request?)` emits an `edit_mode` event and the app switches to its Edit mode, where the Builder
 takes the request. `search_nearby_buildings(query)` and `route_to_building(start, building, destination)`
 (`backend/agents/campus.py`, [D-021](../../memory-bank/decisions.md#d-021)) are added to the tool list only when the building

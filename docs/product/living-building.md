@@ -3,8 +3,9 @@ id: living-building
 summary: The living building — connected things (forklifts, AGVs, robots, pallets/carts with BLE tags) that report positions; what they do to routes (cut walks, waits, wet floors), the reroute of the route on the map, the plan layer and the demo simulation.
 sources:
   - backend/core/live.py
-  - backend/api/live.py
-  - backend/agents/tools.py (live_effects, reroute, live_status)
+  - backend/api/live/
+  - backend/agents/tools/live.py (live_effects, live_status)
+  - backend/agents/tools/routing.py (reroute)
   - frontend/src/live/
   - tests/test_live.py
 related: [routing-profiles.md, visualization.md, ../kit/route-model.md, ../architecture/ai-agents.md]
@@ -19,7 +20,7 @@ Branch `5-living-building` (2026-10-25). App only: benchmark answers never pass 
 
 ## What reports
 
-A live world per building (`backend/api/live.py` `LiveWorld`) holds connected things. Each one has a footprint
+A live world per building (`backend/api/live/world.py` `LiveWorld`) holds connected things. Each one has a footprint
 (length × width, heading), a state and a **report interval**; the app and routing see only the **last reported**
 position, never the simulation's own.
 

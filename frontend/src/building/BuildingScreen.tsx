@@ -3,7 +3,7 @@
 // corner beside it (src/access/AccessLayer.tsx). Bottom right, over the plan's own buttons and only for whoever may
 // change the building: the admin button, which turns the Edit mode on and off, and (the admin in access mode) the
 // Building settings button above it — the Guide opens both too
-// (backend/agents/tools.py open_edit_mode, open_building_settings). Bottom: the
+// (backend/agents/tools/ open_edit_mode, open_building_settings). Bottom: the
 // Guide, voice first — captions and the Core (src/building/Guide.tsx). One backend session per building; the plan comes from
 // GET /sessions/{id}/plan.
 // A building with a place on the map (`origin`) sits on the landing map, which follows the model's camera

@@ -6,7 +6,7 @@ related: [open-questions.md, project-state.md, ../docs/architecture/overview.md]
 
 # Decisions
 
-[Memory bank](README.md) · Next free id: **D-026**
+[Memory bank](README.md) · Next free id: **D-027**
 
 Template:
 
@@ -414,3 +414,22 @@ Template:
 - **Evidence:** `uv run pytest tests/test_solvers.py -q -s` → 655/655 on gold inputs and from text with the canonical
   solvers; the app's OpenAPI paths, methods, parameters and schemas are identical before and after the split (58
   operations); `uv run pytest -q` 955 passed / 2 skipped.
+
+<a id="d-026"></a>
+### D-026 — The Guide's tool layer and the living building become packages
+- **Status:** accepted · **Date:** 2026-10-27 · **By:** Atahan
+- **Context:** After [D-025](#d-025) the two largest modules were `backend/agents/tools.py` (~1175 lines, one
+  `BuildingSession` class with every Guide tool) and `backend/api/live.py` (~1080 lines: simulation, hub, route
+  re-checks and HTTP in one file).
+- **Decision:** `backend/agents/tools/` keeps `BuildingSession` as the one session class but builds it from mixins
+  per area — `lookup`, `routing`, `profile` (also `RoutingProfile`, presets), `live`, `changes` (also `Change`), `map`
+  (app UI tools), `nearby` — plus `session.py` (state, dispatch, place names), `definitions.py` (tool schemas) and
+  `shared.py` (limits, `HERE`). `backend/api/live/` is `world.py` (devices, simulation, obstacles), `hub.py`,
+  `reroute.py` (route re-checks for viewers) and `endpoints.py` (the router factory). Both packages' `__init__.py`
+  re-export the old names, so no importer changed. Code moved verbatim.
+- **Consequences:** a new Guide tool goes into the mixin of its area (or a new one added to `BuildingSession`'s
+  bases) and its schema into `definitions.py`. `live/world.py` (~590 lines, mostly `LiveWorld`) is still the largest
+  file of the two packages.
+- **Evidence:** old vs new compared with `inspect.getsource`: all 62 `BuildingSession` methods + the `load` classmethod
+  and all 27 top-level classes/functions of `live.py` byte-identical apart from updated path comments; tool schemas, presets and constants equal; `uv run pytest -q` 955
+  passed / 2 skipped.

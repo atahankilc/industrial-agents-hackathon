@@ -6,7 +6,7 @@ This module only assembles the app: middleware, error handlers, /health and the 
 backend/api/routes/: guide.py (/buildings, /sessions…, /chat, /chat/stream, /events, plan), voice.py (/tts,
 /stt/token), accounts.py (/config, /me, /access/* — access mode), drafts.py (Edit mode /drafts and the Builder),
 imports.py (/imports/stream — the Creator — and a draft's place on the map), openai_chat.py (/v1/chat/completions
-for ElevenLabs). The living building (/live, backend/api/live.py), moving objects (/objects, backend/api/fleet.py)
+for ElevenLabs). The living building (/live, backend/api/live/), moving objects (/objects, backend/api/fleet.py)
 and the dev panel (/dev, backend/api/devtools.py) bring their own routers. Shared stores and guards: backend/api/deps.py.
 
 Saved buildings appear in /buildings as `user/<slug>`, stored in Postgres with SUPABASE_DB_URL, else under

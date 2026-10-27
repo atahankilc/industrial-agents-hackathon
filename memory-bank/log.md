@@ -9,6 +9,19 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-27 — Steward outside the repo: GitHub, Vercel, Supabase
+
+- GitHub repo renamed `atahankilc/industrial-agents-hackathon` → `atahankilc/steward` (`gh repo rename`); `origin`
+  points at the new URL; `dev` pushed (`9251dd8..b33c47c`); repo homepage → https://steward-io.vercel.app.
+- Vercel project renamed by Atahan; `steward.vercel.app` and `steward-app.vercel.app` were taken, the app is at
+  **https://steward-io.vercel.app** (`/` 200 with title "Steward", `/api/health` 200). The old
+  `industrial-agents-hackathon.vercel.app` first answered 404 `DEPLOYMENT_NOT_FOUND`; later
+  it answers a 308 to https://steward-io.vercel.app/ (`/api/health` → `/api/health` on steward-io).
+- Voice was off on the deployment (`ELEVENLABS_API_KEY` missing in Vercel, so `/api/health` said `tts`/`stt`
+  false and the app fell back to the browser's voice). Atahan added the key and redeployed: `tts`/`stt` true,
+  `POST /api/tts` returns a 20 KB MP3, `POST /api/stt/token` 200.
+- Supabase: Atahan renamed the project and set Site URL / Redirect URLs to steward-io (his report). Local folder: still to move.
+
 ## 2026-10-27 — The app is called Steward
 
 - [D-027](decisions.md#d-027): name chosen with Atahan over several rounds (job titles, architecture terms; Maze

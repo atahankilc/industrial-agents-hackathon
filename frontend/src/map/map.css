@@ -1,4 +1,4 @@
-/* Map landing. Uses the app's theme tokens from styles.css, so it follows light/dark like the search page. */
+/* Map landing. Uses the app's theme tokens from styles.css, so it follows light/dark. */
 
 .ml { position: fixed; inset: 0; overflow: hidden; background: var(--bg); }
 .ml-map { position: absolute; inset: 0; }

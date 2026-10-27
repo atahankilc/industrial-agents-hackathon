@@ -9,6 +9,15 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-27 — Removed the `?view=list` page and the unused Geist-outline brand files
+
+- Atahan: the list view is no longer used. Deleted `frontend/src/search/` (BuildingSearch.tsx, search.css); `Root.tsx`
+  has landings `map | import` only, an old `?view=list` link lands on the map (headless: map canvas + search field,
+  no `.bs`), an import's done / exit go to the map. Comments in AccessLayer.tsx, map.css, import.css updated.
+- Deleted `scripts/brand/steward-outline.json` and `outline.py` (the earlier Geist wordmark; `marks.cjs` no longer
+  reads them). Generator re-run into a scratch dir: all 10 SVGs byte-identical to `frontend/public/brand/`.
+- `tsc -b` 0, `oxlint src` 0 (existing warnings only, none in touched files), links OK.
+
 ## 2026-10-27 — Wordmark: finer walls (Atahan's pick)
 
 - Of the five refinements Atahan chose 3, "finer walls": walls 2 → 1.5, clay face 1.5 → 1.3. The letters now live in

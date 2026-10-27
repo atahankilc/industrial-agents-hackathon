@@ -19,7 +19,8 @@ related: [../../archive/hackathon/superpowers/specs/2026-10-25-plan-reference-an
 ## Current: vector plan view (2026-10-24)
 
 Direction "Drawing Set" (`PRODUCT.md`, `.impeccable/surfaces/frontend-app.md`). Landing is a map of the
-buildings with a real position plus a list view for the rest (see **Landing** below); `Root.tsx` opens `BuildingScreen` (`src/building/`) over an orthographic r3f plan
+buildings with a real position, its search panel listing every building (the ones without a position after them;
+see **Landing** below); `Root.tsx` opens `BuildingScreen` (`src/building/`) over an orthographic r3f plan
 (`src/plan/`: rooms, walls with door gaps, doorway threshold strips, furniture, labels that only show when they fit, tap a room →
 place card) with a floating Guide conversation.
 
@@ -50,8 +51,9 @@ place card) with a floating Guide conversation.
   `BuildingScreen`. Positions come from `GET /buildings` `location` ({lat, lon, address}
   or null), read from `backend/api/locations.json`: the centre of the OSM outline of the 17 `osm-way*` buildings, made
   by the archived twin-lab `georef.py` (OSM API; fit median 0.05–6.6 m). Swiss, ResPlan and procedural buildings
-  have no position; the list view (`?view=list`, `src/search/`) searches all 280 and has a "No location" filter.
-  The building's back pill returns to whichever of the two it was opened from. "All floors" stacks the cutaway
+  have no position; the search panel lists them under "No location". (The separate list view, `?view=list` /
+  `src/search/`, was removed 2026-10-27: the map's search panel replaced it; an old `?view=list` link lands on the
+  map.) The building's back pill returns to the map. "All floors" stacks the cutaway
   floors at their real `elevation_m`. (An outside "shell" view of the closed building was tried and removed the
   same day: the data has no windows, and Atahan preferred the map.)
 - **Map → building (2026-10-24):** the map stays mounted under the building screen (`src/Root.tsx`). A tap flies
@@ -283,7 +285,7 @@ re-route via Lift 2), no console errors. Not tested: phone layout, low-end GPUs.
 ## App and data path
 
 - **App (current, 2026-10-26):** `frontend/` (Vite + React + TypeScript), entry `src/Root.tsx`; folders
-  `src/map`, `src/search`, `src/building`, `src/plan`, `src/edit`, `src/import`, `src/access`, `src/live`,
+  `src/map`, `src/brand`, `src/building`, `src/plan`, `src/edit`, `src/import`, `src/access`, `src/live`,
   `src/voice`, `src/ui`, `src/dev`. The point-cloud files this section was written for (`src/scene/` with
   BuildingCloud, RouteFlow, Scene, shaders; the old `src/App.tsx`) were removed; see the note at the top of this
   section. Run: [commands.md](../guides/commands.md#frontend-app).

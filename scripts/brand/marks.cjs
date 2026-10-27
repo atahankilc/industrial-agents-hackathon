@@ -2,7 +2,7 @@
 // in a doorway facing into the front room. Large sizes use three floors (A); 32 px and below a single bold floor (C).
 // Writes every SVG from this one drawing:  node scripts/brand/marks.cjs [out-dir]  (default frontend/public/brand)
 // The wordmark's "steward" is drawn as plan walls from frontend/src/brand/wordmark.json, the letters the app's
-// Wordmark component draws too, so it needs no font. (steward-outline.json / outline.py: the earlier Geist name.)
+// Wordmark component draws too, so it needs no font.
 // PNG app icons are rendered from icon-dark.svg / icon-small-dark.svg at 1024 px (headless Chrome) and downscaled.
 const fs = require('fs'), path = require('path');
 

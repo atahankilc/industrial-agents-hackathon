@@ -21,7 +21,7 @@ language. It started at the Industrial Agents Hackathon 2026 (Track 01, submitte
 │   ├── agents/                     ← LLM layer: Guide, Builder, Creator, campus, compute sandbox, voice rewriter
 │   └── core/                       ← deterministic engine: route model, geometry, solvers, edits, plan import
 ├── tests/                          ← pytest; tests/kit_oracles/ = official kit scorer (score.py, never edit) + parsers + formatter
-├── data/                           ← kit dataset: train/ dev/ test/ + manifest.csv (committed, D-005)
+├── data/                           ← kit dataset: buildings/<id>/ + manifest.csv (split = a column; D-005, D-028)
 ├── docs/                           ← curated knowledge base — start at docs/README.md
 ├── memory-bank/                    ← live project state, decisions, open questions, log
 ├── scripts/                        ← repo tooling and eval scripts (check_links.py, …)

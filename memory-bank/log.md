@@ -9,6 +9,20 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-27 — One command to run the app; own local ports
+
+- `npm run dev` at the repo root (`package.json` → `scripts/dev.sh`) starts the backend and the Vite app together;
+  Ctrl-C, TERM or either side exiting stops both (only the script's own process trees). It refuses a busy port.
+  Without `.env` the backend runs `GUIDE_LLM=offline`.
+- Default ports moved off 8765 / 5181 (Vite's 5173 when started bare) to **8390** (backend) and **5390** (app), so
+  this project no longer clashes with other local projects (north-star runs on 5288). `frontend/vite.config.ts`:
+  `port: 5390`, `strictPort`, proxy default `127.0.0.1:8390`; `BACKEND_PORT` / `FRONTEND_PORT` override.
+  README, `docs/guides/commands.md`, `backend/api/app.py` docstring and `scripts/sim_object.py` default updated;
+  `vercel.json` leaves the root `package.json` out of the function bundle.
+- Checked: `npm run dev` serves `/api/health` through the app on 5390; a second copy on 8391/5391 stops fully on TERM
+  and when its backend is killed, and leaves the first copy running; a busy port exits 1 with a message;
+  `uv run pytest tests/test_deploy.py -q` 8 passed.
+
 ## 2026-10-27 — Guide tools and living building split into packages
 
 - [D-026](decisions.md#d-026): `backend/agents/tools.py` → `backend/agents/tools/` (session + 7 mixins + definitions +

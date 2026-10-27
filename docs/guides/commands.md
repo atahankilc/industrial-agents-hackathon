@@ -38,14 +38,14 @@ FastAPI app in `backend/api/` wrapping the Building Guide ([ai-agents.md](../arc
 Without `ANTHROPIC_API_KEY` it runs the offline rule-based client; `GUIDE_LLM=offline|anthropic` forces either.
 
 ```bash
-GUIDE_LLM=offline uv run uvicorn backend.api.app:app --port 8765          # no key needed
-uv run --env-file .env uvicorn backend.api.app:app --port 8765            # real Claude once the key is set
+GUIDE_LLM=offline uv run uvicorn backend.api.app:app --port 8390          # no key needed
+uv run --env-file .env uvicorn backend.api.app:app --port 8390            # real Claude once the key is set
 # GUIDE_MODEL (default claude-opus-5-5), GUIDE_EFFORT (default medium), GUIDE_BUILDING (default train/proc-campus-train-000)
 # voice turns: GUIDE_REWRITER=off disables the transcript rewriter (D-013), GUIDE_REWRITER_MODEL (default claude-haiku-5-5)
-curl -s localhost:8765/health
-curl -s -X POST localhost:8765/sessions -H 'content-type: application/json' -d '{"building":"train/proc-campus-train-000"}'
-curl -s -X POST localhost:8765/chat -H 'content-type: application/json' -d '{"session_id":"<id>","message":"Where is the printer?"}'
-curl -sN -X POST localhost:8765/v1/chat/completions -H 'content-type: application/json' -H 'X-Session-Id: demo' \
+curl -s localhost:8390/health
+curl -s -X POST localhost:8390/sessions -H 'content-type: application/json' -d '{"building":"train/proc-campus-train-000"}'
+curl -s -X POST localhost:8390/chat -H 'content-type: application/json' -d '{"session_id":"<id>","message":"Where is the printer?"}'
+curl -sN -X POST localhost:8390/v1/chat/completions -H 'content-type: application/json' -H 'X-Session-Id: demo' \
      -d '{"stream":true,"messages":[{"role":"user","content":"I use a wheelchair"}]}'
 uv run pytest -q tests/test_guide.py tests/test_backend.py                      # offline tests
 uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] [--effort low] [--channel voice]   # live, ~$0.05–0.16
@@ -95,7 +95,7 @@ is saved, so any backend instance can continue it ([backend/api/persistence.py](
 `GUIDE_PERSIST=off` forces in-memory sessions. A save that loses a race to another instance → HTTP 409.
 
 ```bash
-uv run --env-file .env uvicorn backend.api.app:app --port 8765                     # persisted sessions
+uv run --env-file .env uvicorn backend.api.app:app --port 8390                     # persisted sessions
 uv run pytest -q tests/test_persistence.py                                     # offline (two stores, one fake DB)
 PERSIST_LIVE_TEST=1 uv run --env-file .env pytest -q tests/test_persistence.py  # + live round trip on Supabase
 ```
@@ -115,9 +115,9 @@ tables in `supabase/migrations/20261025200000_access.sql` (in memory without `SU
 the Supabase access token as `Authorization: Bearer …`.
 
 ```bash
-ACCESS_MODE=on uv run --env-file .env uvicorn backend.api.app:app --port 8765
+ACCESS_MODE=on uv run --env-file .env uvicorn backend.api.app:app --port 8390
 uv run pytest -q tests/test_access.py tests/test_fleet.py                     # offline, fake sign-in
-uv run python scripts/sim_object.py --api http://localhost:8765 --object <id> --token <device token>
+uv run python scripts/sim_object.py --api http://localhost:8390 --object <id> --token <device token>
 ```
 
 | Method | Path | Who | Does |
@@ -138,8 +138,10 @@ uv run python scripts/sim_object.py --api http://localhost:8765 --object <id> --
 ## Frontend app
 
 ```bash
-GUIDE_LLM=offline uv run uvicorn backend.api.app:app --port 8765    # or: uv run --env-file .env uvicorn … (real Claude)
-cd frontend && npm install && npx vite --port 5181          # open http://localhost:5181 (?building=<id>)
+npm run dev                                                 # repo root: backend :8390 + app :5390 (scripts/dev.sh)
+BACKEND_PORT=8400 FRONTEND_PORT=5400 npm run dev            # other ports when those are taken
+GUIDE_LLM=offline uv run uvicorn backend.api.app:app --port 8390    # backend alone; or: uv run --env-file .env uvicorn … (real Claude)
+cd frontend && npm install && npm run dev                   # app alone: http://localhost:5390 (?building=<id>), strictPort
 cd frontend && npm run build                                # type-check + production bundle in dist/
 ```
 
@@ -158,7 +160,7 @@ under `data/user/`; with it (`uv run --env-file .env uvicorn …`, and on Vercel
 `uv run pytest -q tests/test_draft_backends.py` (two instances, one fake DB); live:
 `PERSIST_LIVE_TEST=1 uv run --env-file .env pytest -q tests/test_draft_backends.py -k live`.
 
-Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8765`). Design and data path:
+Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8390`). Design and data path:
 [visualization.md](../product/visualization.md#app-and-data-path).
 
 ### Plan import (Creator)

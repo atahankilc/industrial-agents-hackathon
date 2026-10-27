@@ -47,6 +47,7 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
 
 ## What works (verified 2026-10-27)
 
+- `npm run dev` (repo root) → backend http://127.0.0.1:8390 + app http://localhost:5390.
 - `uv run pytest -q` → 955 passed, 2 skipped (after archiving the benchmark tests).
 - `python3 scripts/check_links.py` → all links resolve.
 - `main` and `dev` are on the same commit (`25c79b5`) since the 2026-10-26 cleanup.

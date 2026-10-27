@@ -1,6 +1,6 @@
 """FastAPI app: the Building Guide over HTTP.
 
-  GUIDE_LLM=offline uv run uvicorn backend.api.app:app --port 8765
+  GUIDE_LLM=offline uv run uvicorn backend.api.app:app --port 8390
 
 This module only assembles the app: middleware, error handlers, /health and the routers. The routes live per area in
 backend/api/routes/: guide.py (/buildings, /sessions…, /chat, /chat/stream, /events, plan), voice.py (/tts,

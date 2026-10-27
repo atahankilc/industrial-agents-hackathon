@@ -44,8 +44,16 @@ cp .env.example .env                                  # put ANTHROPIC_API_KEY in
 ## Running the app
 
 ```bash
-uv run --env-file .env uvicorn backend.api.app:app --port 8765  # backend (GUIDE_LLM=offline: no key needed)
-cd frontend && npm install && npx vite --port 5181             # app on http://localhost:5181
+npm run dev                                           # backend + app; open http://localhost:5390
+```
+
+`npm run dev` (repo root, `scripts/dev.sh`) starts the backend on **8390** and the app on **5390**, ports picked to
+stay clear of other local projects; Ctrl-C stops both. Move them with `BACKEND_PORT=… FRONTEND_PORT=… npm run dev`.
+Without a `.env` the Guide runs offline (no key needed). Each side on its own:
+
+```bash
+uv run --env-file .env uvicorn backend.api.app:app --port 8390  # backend
+cd frontend && npm install && npm run dev                      # app on http://localhost:5390 (vite.config.ts)
 ```
 
 ## Tests

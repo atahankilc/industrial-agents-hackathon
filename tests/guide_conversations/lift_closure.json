@@ -1,5 +1,5 @@
 {
-  "building": "data/dev/proc-campus-dev-001",
+  "building": "data/buildings/proc-campus-dev-001",
   "turns": [
     {
       "user": "I'm in the main lobby, I use a wheelchair, and Lift 1 is out of order.",

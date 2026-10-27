@@ -6,7 +6,7 @@ from backend.agents.guide import Guide
 from backend.agents.offline_llm import EDIT, SETTINGS, OfflineClient
 from backend.agents.tools import TOOL_DEFINITIONS, BuildingSession
 
-BUILDING = Path(__file__).resolve().parents[1] / "data" / "train" / "proc-campus-train-000"
+BUILDING = Path(__file__).resolve().parents[1] / "data" / "buildings" / "proc-campus-train-000"
 
 
 def test_tool_emits_settings_event_and_changes_nothing():

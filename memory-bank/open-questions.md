@@ -313,6 +313,7 @@ Template:
   takes PDFs / photos / scans and drafts a kit-schema `building.json` (spaces, openings, connectors; no assets), then
   the Builder corrects it by conversation. Measured on our own renders with `scripts/eval_import.py --full` (count ratio
   0.97, IoU 0.91, doors 89 %); the organisers' input format and check are still unknown, so the question stays open.
+  The renders and the eval script were removed on 2026-10-27 ([D-028](decisions.md#d-028)).
 
 <a id="q-004"></a>
 ### Q-004 — Door-width rule details for `wide_delivery_count`

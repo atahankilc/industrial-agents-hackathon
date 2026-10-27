@@ -1,7 +1,7 @@
 """Building catalogue and conversation sessions.
 
-A building id is "<split>/<directory>" (e.g. "train/proc-campus-train-000"), the `path` column of
-data/manifest.csv. Ids are only ever looked up in the catalogue, never joined into a path from user input. Saved
+A kit building's id is its directory in data/buildings/ (e.g. "proc-campus-train-000"), the manifest's
+`building_id`; the kit's train/dev/test split is only the manifest's `split` column (D-028). Ids are only ever looked up in the catalogue, never joined into a path from user input. Saved
 Edit-mode buildings (`user/<slug>`) join the catalogue through `SessionStore.user_buildings` (the DraftStore,
 backend/api/drafts.py); on the deployed app they have no `path` and their data comes from the database.
 
@@ -34,40 +34,40 @@ from backend.core.floorplan import export_plan
 from backend.core.routeline import route_line
 
 DATA_DIR = Path(os.environ.get("GUIDE_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
-SPLITS = ("train", "dev", "test")
+BUILDINGS = "buildings"  # every kit building, one directory each
 DEFAULT_SESSION = "default"
-DEMO_BUILDING = "train/proc-campus-train-000"  # the offline client's example phrasings match this building
+DEMO_BUILDING = "proc-campus-train-000"  # the offline client's example phrasings match this building
 LOCATIONS = Path(__file__).resolve().parent / "locations.json"  # real positions of the OSM buildings (see its "about")
 
 
 def building_kind(row: dict) -> str | None:
     """What the landing list filters by, from the manifest's `source` (and, for procedural buildings, the
-    campus/factory generator in their `path`): "campus", "factory", "home" (resplan, swiss_dwellings) or "real"
+    campus/factory generator in their `building_id`): "campus", "factory", "home" (resplan, swiss_dwellings) or "real"
     (osm_indoor: mapped buildings of any use); None for a source not listed here."""
-    source, path = row.get("source"), row.get("path", "")
+    source, building_id = row.get("source"), row.get("building_id", "")
     if source == "procedural":
-        return "factory" if "/proc-factory-" in path else "campus" if "/proc-campus-" in path else None
+        return ("factory" if building_id.startswith("proc-factory-")
+                else "campus" if building_id.startswith("proc-campus-") else None)
     return {"resplan": "home", "swiss_dwellings": "home", "osm_indoor": "real"}.get(source)
 
 
 def load_catalogue(data_dir: Path = DATA_DIR) -> dict[str, dict]:
-    """building id → {"id", "split", "name", "kind", "path", "location"} for every split directory that holds a
-    building.json; `location` is {"lat", "lon", "address"} plus optional "origin", "outline", "height_m" (see the "about" field
+    """building id → {"id", "split", "name", "kind", "path", "location"} for every data/buildings/ directory that
+    holds a building.json (`split`: the manifest's kit split, None if the manifest has no row); `location` is {"lat", "lon", "address"} plus optional "origin", "outline", "height_m" (see the "about" field
     of backend/api/locations.json) for a building with a known real position, else None."""
     rows: dict[str, dict] = {}
     manifest = data_dir / "manifest.csv"
     if manifest.exists():
         with manifest.open(newline="", encoding="utf-8") as handle:
-            rows = {row["path"]: row for row in csv.DictReader(handle)}
+            rows = {row["building_id"]: row for row in csv.DictReader(handle)}
     located = json.loads(LOCATIONS.read_text(encoding="utf-8"))["buildings"] if LOCATIONS.exists() else {}
     catalogue = {}
-    for split in SPLITS:
-        for file in sorted((data_dir / split).glob("*/building.json")):
-            building_id = f"{split}/{file.parent.name}"
-            row = rows.get(building_id, {})
-            catalogue[building_id] = {"id": building_id, "split": split, "name": row.get("name"),
-                                      "kind": building_kind(row), "path": file.parent,
-                                      "location": located.get(file.parent.name)}
+    for file in sorted((data_dir / BUILDINGS).glob("*/building.json")):
+        building_id = file.parent.name
+        row = rows.get(building_id, {})
+        catalogue[building_id] = {"id": building_id, "split": row.get("split"), "name": row.get("name"),
+                                  "kind": building_kind(row), "path": file.parent,
+                                  "location": located.get(building_id)}
     return catalogue
 
 
@@ -229,7 +229,8 @@ class SessionStore:
         for wanted in (os.environ.get("GUIDE_BUILDING"), DEMO_BUILDING):
             if wanted in self.catalogue:
                 return wanted
-        return next((key for key in self.catalogue if key.startswith("train/")), next(iter(self.catalogue)))
+        return next((key for key, entry in self.catalogue.items() if entry.get("split") == "train"),
+                    next(iter(self.catalogue)))
 
     def build(self, conversation_id: str, building: str | None) -> Conversation:
         building = building or self.default_building()

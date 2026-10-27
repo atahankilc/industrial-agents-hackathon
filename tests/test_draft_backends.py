@@ -24,7 +24,7 @@ from backend.api.persistence import Conflict, StateError, db_url
 from backend.api.sessions import load_catalogue
 from backend.core.edits import EditError, apply_steps
 
-BASE = "train/proc-campus-train-000"
+BASE = "proc-campus-train-000"
 
 
 def a_room(building: dict) -> dict:

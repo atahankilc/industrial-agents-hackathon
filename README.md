@@ -19,7 +19,7 @@ backend/           all Python, one package `backend`
   agents/          LLM layer: the Guide, Builder and Creator agents and their tools
   core/            deterministic engine: route graph, geometry, solvers, edits, plan import (no LLM, no HTTP)
 tests/             pytest; tests/kit_oracles/ holds the official kit scorer and question parsers used as oracles
-data/              the kit's buildings (train/ dev/ test/)
+data/              the kit's buildings, one folder each (data/buildings/<id>/) + manifest.csv
 scripts/           repo tooling and eval scripts
 docs/ memory-bank/ knowledge base and project state; archive/ is read-only history
 ```

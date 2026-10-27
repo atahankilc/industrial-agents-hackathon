@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.app import app
 
-BUILDING = "train/proc-campus-train-000"
+BUILDING = "proc-campus-train-000"
 
 
 @pytest.fixture

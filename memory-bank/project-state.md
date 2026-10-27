@@ -42,7 +42,8 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
   `tests/kit_oracles/score.py` (official kit scorer, never edit) and `tests/kit_oracles/` (question parsers, formatter).
 - **Deploy:** Vercel (`vercel.json`: services `web` + `api`) + Supabase (`supabase/migrations/`),
   [D-006](decisions.md#d-006).
-- **Data:** kit dataset committed in `data/` ([D-005](decisions.md#d-005)); licences in `NOTICE.md`,
+- **Data:** kit dataset committed in `data/buildings/<id>/` ([D-005](decisions.md#d-005), [D-028](decisions.md#d-028):
+  one folder, split only in `manifest.csv`, no floor renders, 65 MB); licences in `NOTICE.md`,
   `ATTRIBUTION.md`, `data/README.md` ([D-009](decisions.md#d-009)).
 - **Workflow:** verified commits via `/ship` ([D-008](decisions.md#d-008),
   [dev-workflow.md](../docs/guides/dev-workflow.md)); work on `dev`, never on `main`.
@@ -72,8 +73,8 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
    scored 0, and that with it and the right answer format we would have reached ~0.89 on the 36 sample questions.
    Worth handling in `backend/core/` for the app too (people should not be routed through a bay). The benchmark runners
    to re-score are archived in [archive/hackathon/benchmark-code/](../archive/hackathon/benchmark-code/README.md) with how to restore them.
-2. **Slim `data/`?** 208 MB / 3,475 files; `data/train` alone is 122 MB. Only worth it if the app needs fewer
-   buildings (the list shows all of them). Keep the licence files in step.
+2. **Apply the building-id migration** ([D-028](decisions.md#d-028)): `supabase/migrations/20261027120000_building_ids.sql`
+   on Supabase when `dev` with the merged `data/buildings/` is deployed (not applied yet).
 3. **Branch `collab-edits`** (worktree `../steward-collab-edits`, started before the D-024 restructure, so it needs a
    rebase onto the new paths): 1 commit not in `dev` (shared building edits,
    collaboration phase 1) plus uncommitted changes. Finish or drop.

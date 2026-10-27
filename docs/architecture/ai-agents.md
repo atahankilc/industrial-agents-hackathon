@@ -391,7 +391,8 @@ with cell 0), coarse boxes per room (marked `low_confidence`). Stairs / lifts jo
 floors that would stay unconnected get their nearest pair (`synthetic: true`). Import notes (scale method, segmentation,
 alignment, carved rooms) are kept in `building.source_ref.import`.
 
-Measured (live, Opus 5.5 medium, 2026-10-25): `eval_import.py --full --n 8` on dataset renders — median room-count
+Measured (live, Opus 5.5 medium, 2026-10-25): `eval_import.py --full --n 8` on dataset renders (script and renders
+removed 2026-10-27, [D-028](../../memory-bank/decisions.md#d-028)) — median room-count
 ratio 0.97, median IoU 0.91, median door pairs found 89 %, 6/8 runs without errors, ≈ $1.09 for all 8 (16–152 s each;
 weakest: a 71-room OSM basement, 21 % of doors). Urban Colab escape-plan photos (11 HEIC originals): 5 floors / 104
 spaces, all floors joined by real stairs + lift, 23 errors left (13 doors off a shared wall, 7 unreachable, 3 overlaps)

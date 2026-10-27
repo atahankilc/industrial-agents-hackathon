@@ -2,9 +2,10 @@
 
   uv run python scripts/check_routes.py   # exit 1 on any mismatch
 
-Loads each data/dev/*/questions_basic.jsonl question with kind == "route" and compares
+Loads the questions_basic.jsonl of each dev building (manifest `split`) with kind == "route" and compares
 BuildingMap.load(dir).route(from_space_id, to_space_id).length_m with optimal_length_m (tolerance 0.01)."""
 
+import csv
 import json
 import sys
 from pathlib import Path
@@ -19,7 +20,9 @@ TOLERANCE_M = 0.01
 
 def main() -> int:
     total, mismatches = 0, []
-    for questions in sorted((ROOT / "data" / "dev").glob("*/questions_basic.jsonl")):
+    with (ROOT / "data" / "manifest.csv").open(newline="", encoding="utf-8") as handle:
+        dev = sorted(row["building_id"] for row in csv.DictReader(handle) if row["split"] == "dev")
+    for questions in (ROOT / "data" / "buildings" / building_id / "questions_basic.jsonl" for building_id in dev):
         building = BuildingMap.load(questions.parent)
         for line in questions.read_text(encoding="utf-8").splitlines():
             if not line.strip():

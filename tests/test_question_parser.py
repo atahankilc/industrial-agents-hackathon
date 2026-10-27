@@ -2,7 +2,6 @@
 
   uv run pytest tests/test_question_parser.py -q -s     # -s prints the per-kind table"""
 
-import csv
 import json
 from collections import Counter
 from functools import cache
@@ -21,15 +20,19 @@ def building(directory: Path) -> BuildingMap:
 
 def labelled_questions() -> list[tuple[Path, dict]]:
     questions = []
-    for split in ("train", "dev"):
-        for path in sorted((DATA / split).glob("*/questions.jsonl")):
-            questions += [(path.parent, json.loads(line)) for line in path.open(encoding="utf-8") if line.strip()]
-    return questions
+    return [(directory, question) for directory, question in all_questions() if "answer" in question]
 
 
 def unlabelled_test_questions() -> list[tuple[Path, dict]]:
-    with (DATA / "test" / "questions.csv").open(encoding="utf-8") as handle:
-        return [(DATA / "test" / row["building_id"], row) for row in csv.DictReader(handle)]
+    """The kit's test split: its questions.jsonl rows carry no answer."""
+    return [(directory, question) for directory, question in all_questions() if "answer" not in question]
+
+
+def all_questions() -> list[tuple[Path, dict]]:
+    questions = []
+    for path in sorted((DATA / "buildings").glob("*/questions.jsonl")):
+        questions += [(path.parent, json.loads(line)) for line in path.open(encoding="utf-8") if line.strip()]
+    return questions
 
 
 def outcome(directory: Path, question: dict) -> tuple[bool, str]:

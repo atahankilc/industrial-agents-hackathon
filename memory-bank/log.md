@@ -9,6 +9,23 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-27 — Dataset in one `data/buildings/` folder, floor renders removed ([D-028](decisions.md#d-028))
+
+- Atahan: merge train/dev/test and drop the PNG/SVG renders (only `building.json` builds a building). Before: the API
+  function on Vercel bundles `data/` with the code (no separate storage; `excludeFiles` already dropped png/svg/jsonl/
+  equipment.csv); Supabase holds only saved buildings, drafts, conversations, access and fleet rows.
+- `git mv` of all 280 building folders into `data/buildings/`; 1,594 PNG + 797 SVG deleted (208 MB → 65 MB);
+  `manifest.csv` `path` → `buildings/<id>`; test `questions.csv` / `submission_template.csv` →
+  `archive/hackathon/test-set/`; `scripts/eval_import.py` deleted (Atahan's choice).
+- Ids: kit buildings are now their directory name (Atahan chose a DB migration over aliases):
+  `backend/api/sessions.py` catalogue, `DEMO_BUILDING`, default building; tests, scripts, docstrings and
+  `tests/*_scenarios` JSON follow. Labelled-question tests filter on `answer` instead of the folder.
+  `supabase/migrations/20261027120000_building_ids.sql` written, **not applied**. Local `data/user/.drafts` (8 files,
+  gitignored) rewritten the same way.
+- `uv run pytest -q` 955 passed / 2 skipped; `validate_solvers.py --kinds shared_walls_count` 143/143. Found, not
+  fixed: `scripts/check_routes.py` already crashed at HEAD (MapError, no route in dev `osm-way360544293`, Lufthansa
+  Lounge → Deutsches Museum); it now reads the dev buildings from the manifest.
+
 ## 2026-10-27 — Removed the `?view=list` page and the unused Geist-outline brand files
 
 - Atahan: the list view is no longer used. Deleted `frontend/src/search/` (BuildingSearch.tsx, search.css); `Root.tsx`

@@ -101,7 +101,8 @@ space/floor info.
 
 Columns: `building_id, split, source, group_id, name, license, floors, levels, spaces, rooms, openings,
 connectors, assets, has_stairs, has_lift, has_step_free_entrance, questions, path`. `levels` is `;`-separated
-(e.g. `-1;0;1;2`); `path` is relative to `data/`.
+(e.g. `-1;0;1;2`); `path` is relative to `data/`. In this repo every building is in `data/buildings/<building_id>/`
+(`path` = `buildings/<building_id>`); `split` keeps the kit's train/dev/test ([D-028](../../memory-bank/decisions.md#d-028)).
 
 ## Related
 

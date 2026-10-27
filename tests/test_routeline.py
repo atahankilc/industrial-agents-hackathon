@@ -12,7 +12,7 @@ from backend.core.routeline import route_line
 from backend.core.solvers.geometry import polygon
 
 DATA = Path(__file__).resolve().parent.parent / "data"
-BUILDING = DATA / "train" / "proc-campus-train-000"
+BUILDING = DATA / "buildings" / "proc-campus-train-000"
 
 
 @pytest.fixture(scope="module")
@@ -87,7 +87,7 @@ def test_line_starts_where_the_user_stands(building: BuildingMap) -> None:
 def test_a_door_between_overlapping_spaces_is_not_drawn_as_a_dip() -> None:
     # dev OSM building: the lecture hall's outline takes in Lobby 0.22; their door O0008 sits on the wall of the
     # Regieraum both of them border, so the line used to dip into that doorway and turn back
-    osm = BuildingMap.load(DATA / "dev" / "osm-way27917482")
+    osm = BuildingMap.load(DATA / "buildings" / "osm-way27917482")
     hall, lobby, beyond = "osm-way27917482-F0-S036", "osm-way27917482-F0-S022", "osm-way27917482-F0-S026"
     door, onward = "osm-way27917482-F0-O0008", "osm-way27917482-F0-O0002"
     line = route_line(osm, [hall, lobby, beyond], [door, onward])

@@ -12,7 +12,7 @@ from backend.agents import places
 from backend.agents.tools import BuildingSession
 from backend.core.building_map import MapError
 
-BUILDING = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000"
+BUILDING = Path(__file__).resolve().parent.parent / "data" / "buildings" / "proc-campus-train-000"
 PREFIX = "proc-campus-train-000"
 
 

@@ -6,7 +6,7 @@ from backend.api import deps
 from backend.agents.builder_tools import BUILDER_TOOLS, BuilderTools
 from backend.api.drafts import DraftStore
 
-BASE = "train/proc-campus-train-000"
+BASE = "proc-campus-train-000"
 
 
 @pytest.fixture

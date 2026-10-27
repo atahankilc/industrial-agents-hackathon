@@ -9,7 +9,7 @@ from backend.agents import compute
 from backend.agents.compute import namespace, run_code
 from backend.core.building_map import BuildingMap
 
-DIRECTORY = Path(__file__).resolve().parent.parent / "data" / "dev" / "proc-factory-dev-004"
+DIRECTORY = Path(__file__).resolve().parent.parent / "data" / "buildings" / "proc-factory-dev-004"
 
 
 @pytest.fixture(scope="module")

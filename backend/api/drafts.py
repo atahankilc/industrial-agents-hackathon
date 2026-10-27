@@ -15,7 +15,7 @@ Every change is *reload if the stored version moved → apply → save if the ve
 then raises `Conflict` (HTTP 409). Saved slugs are claimed atomically (`insert_building` returns False when taken → `-2`, `-3`, …). The
 catalogue picks up buildings saved by other instances on `refresh` (at most CATALOGUE_TTL_S old, forced when an
 unknown id is asked for). Draft ids are uuid4 hex checked against a regex; slugs are built from the name by us; both
-are only ever SQL parameters or path parts after those checks. The dataset under `data/train|dev|test` is only read."""
+are only ever SQL parameters or path parts after those checks. The dataset under `data/buildings/` is only read."""
 
 import copy
 import json

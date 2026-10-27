@@ -1,5 +1,5 @@
 {
-  "building": "data/dev/proc-campus-dev-001",
+  "building": "data/buildings/proc-campus-dev-001",
   "channel": "text",
   "persona": "Warehouse worker who writes only in Turkish and pushes a trolley; doesn't know the exact width until asked, then says 75 cm.",
   "goal": "Get directions you can follow with the trolley from the main lobby to Storage 2.06.",

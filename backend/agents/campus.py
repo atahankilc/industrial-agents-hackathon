@@ -6,9 +6,9 @@ inside this building to its best entrance, outside in a straight line from that 
 best entrance (no street graph: the outdoor metres are a straight-line estimate and are labelled so), and inside
 the other building from that entrance. The pair of entrances is the one with the shortest total.
 
-  campus = Campus("train/osm-way10053349", catalogue)
+  campus = Campus("osm-way10053349", catalogue)
   campus.search("Mensa")                                   # neighbours with matches, nearest first
-  campus.route(session, "Main lobby", "train/osm-way19183732", "Mensa")
+  campus.route(session, "Main lobby", "osm-way19183732", "Mensa")
 
 Neighbour buildings are loaded read-only (cached per path) and never edited; the route inside the other building
 uses the user's routing profile but none of this session's closures (those belong to this building)."""

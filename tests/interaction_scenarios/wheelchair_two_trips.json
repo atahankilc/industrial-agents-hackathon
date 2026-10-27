@@ -1,5 +1,5 @@
 {
-  "building": "data/dev/proc-campus-dev-001",
+  "building": "data/buildings/proc-campus-dev-001",
   "channel": "text",
   "persona": "Wheelchair user, visiting for the day. Mentions the wheelchair only once, in the first message, and gets annoyed if asked again.",
   "goal": "First get step-free directions to the library, then (in a later message) to Lecture hall 0.21.",

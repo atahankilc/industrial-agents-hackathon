@@ -12,7 +12,7 @@ from backend.core.building_map import BuildingMap
 from backend.core.edits import EditError, apply_op, apply_steps, edge_sides, space_at
 from backend.core.solvers.walls import WALL_TOLERANCE_M, shared_wall_neighbours
 
-FIXTURE = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000" / "building.json"
+FIXTURE = Path(__file__).resolve().parent.parent / "data" / "buildings" / "proc-campus-train-000" / "building.json"
 
 
 @pytest.fixture

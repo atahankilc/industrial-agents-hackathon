@@ -72,6 +72,7 @@ Template:
   ODbL attribution kept via `ATTRIBUTION.md` at root.
 - **Decision:** `data/` (~209 MB) is committed as normal files.
 - **Consequences:** Clone size ~200 MB+; keep `ATTRIBUTION.md`; the repo stays ODbL-compliant for OSM-derived parts.
+- **Update 2026-10-27:** layout and size changed by [D-028](#d-028) (one `data/buildings/` folder, no floor renders, 65 MB).
 
 <a id="d-006"></a>
 ### D-006 — Cloud stack: FastAPI on Vercel's Python runtime + Supabase + own React app (Vercel) + ElevenLabs Custom LLM
@@ -451,3 +452,24 @@ Template:
   the local folder, the Vercel project and the Supabase project are renamed outside the repo, step by step.
 - **Evidence:** marks rendered and checked in headless Chrome; `node scripts/brand/marks.cjs` reproduces the
   committed SVGs byte for byte.
+
+<a id="d-028"></a>
+### D-028 — One `data/buildings/` folder, kit ids without the split, no floor renders
+- **Status:** accepted · **Date:** 2026-10-27 · **By:** Atahan
+- **Context:** The kit's train/dev/test folders only mattered for the benchmark, which is over; the app lists every
+  building. The `floor_*.png` / `_plain.png` / `.svg` renders (2,391 files, ~140 MB) are drawings of `building.json`
+  ([Q-003](open-questions.md#q-003)); the app never read them and `vercel.json` already left them out of the deploy.
+  Their only user was `scripts/eval_import.py` (the Creator on dataset renders).
+- **Decision:** Every kit building lives in `data/buildings/<building_id>/` (`building.json`, `equipment.csv`,
+  `questions*.jsonl`); the split survives only as the manifest's `split` column (`path` = `buildings/<id>`). A kit
+  building's id is its directory name (`proc-campus-train-000`, was `train/proc-campus-train-000`); saved buildings
+  stay `user/<slug>`. Stored ids are rewritten by `supabase/migrations/20261027120000_building_ids.sql`, with no alias
+  for old ids. The renders and `scripts/eval_import.py` are deleted; the test set's `questions.csv` and
+  `submission_template.csv` moved to `archive/hackathon/test-set/`. Tests that need labelled questions pick the rows
+  with an `answer` (the test split's have none).
+- **Consequences:** `data/` is 65 MB / 1,082 files. Old links `?building=train/…` no longer open a building. The
+  migration has to run on Supabase together with the deploy of this change, or stored conversations, drafts, access
+  rules and fleet objects point at unknown ids. The archived benchmark code still expects the old layout (run it from
+  commit `fd2b50a`).
+- **Evidence:** `uv run pytest -q` green after the move; `git ls-files data` → 280 `building.json`, 281 csv,
+  520 jsonl, 1 md.

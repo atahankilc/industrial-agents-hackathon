@@ -12,12 +12,12 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 
 
 def solids(building: str, floor: int) -> list[tuple[str, Polygon]]:
-    plan = export_plan(BuildingMap.load(DATA / building), [0, 0])
+    plan = export_plan(BuildingMap.load(DATA / "buildings" / building), [0, 0])
     return [(wall["kind"], Polygon(wall["rings"][0], wall["rings"][1:])) for wall in plan["wall_solids"][floor]], plan
 
 
 def test_drawn_source_wall_fills_the_gap_without_covering_rooms():
-    walls, plan = solids("train/swiss-1075", 0)
+    walls, plan = solids("swiss-1075", 0)
     assert {kind for kind, _ in walls} >= {"exterior", "partition"}
     rooms = [Polygon(space["polygon"]) for space in plan["spaces"] if space["floor"] == 0]
     for _, wall in walls:
@@ -26,7 +26,7 @@ def test_drawn_source_wall_fills_the_gap_without_covering_rooms():
 
 
 def test_touching_rooms_get_a_partition_and_doorways_stay_open():
-    walls, plan = solids("dev/proc-campus-dev-001", 0)
+    walls, plan = solids("proc-campus-dev-001", 0)
     shapes = [wall for _, wall in walls]
     # a corridor/room edge with no gap in the data still gets a wall ...
     corridor = next(s for s in plan["spaces"] if s["floor"] == 0 and s["type"] == "corridor")
@@ -40,14 +40,14 @@ def test_touching_rooms_get_a_partition_and_doorways_stay_open():
 
 
 def test_stair_and_lift_cores_are_structural():
-    walls, plan = solids("dev/proc-campus-dev-001", 0)
+    walls, plan = solids("proc-campus-dev-001", 0)
     structural = [wall for kind, wall in walls if kind == "structural"]
     cores = [Polygon(s["polygon"]) for s in plan["spaces"] if s["floor"] == 0 and s["type"] in CORE_TYPES]
     assert cores and all(any(wall.distance(core) < 0.01 for wall in structural) for core in cores)
 
 
 def test_outline_covers_every_room_and_the_exterior_wall_wraps_it():
-    plan = export_plan(BuildingMap.load(DATA / "dev/proc-campus-dev-001"), [0, 0])
+    plan = export_plan(BuildingMap.load(DATA / "buildings/proc-campus-dev-001"), [0, 0])
     assert len(plan["outlines"]) == len(plan["floors"])
     for index in range(len(plan["floors"])):
         outline = [Polygon(rings[0], rings[1:]) for rings in plan["outlines"][index]]
@@ -62,7 +62,7 @@ def test_outline_covers_every_room_and_the_exterior_wall_wraps_it():
 
 def test_open_space_inside_a_bigger_one_gets_no_wall_through_it():
     # OSM maps Lobby 0.22 as a zone inside the Friedrich L. Bauer Hörsaal: its curved outline is no wall
-    walls, plan = solids("dev/osm-way27917482", 1)
+    walls, plan = solids("osm-way27917482", 1)
     lobby = next(s for s in plan["spaces"] if s["floor"] == 1 and s["name"] == "Lobby 0.22")
     hall = next(s for s in plan["spaces"] if s["floor"] == 1 and s["ref"] == "00.02.001")
     # the lobby's outline away from the hall's own edge (and from the walls along it)
@@ -73,7 +73,7 @@ def test_open_space_inside_a_bigger_one_gets_no_wall_through_it():
 
 
 def test_nested_lifts_and_stairwells_with_a_door_keep_their_walls_open_stairs_lose_them():
-    walls, plan = solids("train/osm-way13507441", 1)
+    walls, plan = solids("osm-way13507441", 1)
     space = {s["name"]: s for s in plan["spaces"] if s["floor"] == 1}
 
     def wall_along(name: str, holder: str) -> float:
@@ -88,7 +88,7 @@ def test_nested_lifts_and_stairwells_with_a_door_keep_their_walls_open_stairs_lo
 
 
 def test_overlap_of_two_spaces_is_striped_in_both():
-    plan = export_plan(BuildingMap.load(DATA / "dev/osm-way27917482"), [0, 0])
+    plan = export_plan(BuildingMap.load(DATA / "buildings/osm-way27917482"), [0, 0])
     lobby = next(s for s in plan["spaces"] if s["floor"] == 1 and s["name"] == "Lobby 0.22")
     hall = next(s for s in plan["spaces"] if s["floor"] == 1 and s["ref"] == "00.02.001")
     stripes = [(o["space"], Polygon(o["rings"][0], o["rings"][1:])) for o in plan["overlaps"][1]]
@@ -97,14 +97,14 @@ def test_overlap_of_two_spaces_is_striped_in_both():
     overlap = Polygon(lobby["polygon"]).intersection(Polygon(hall["polygon"]))
     assert abs(sum(shape.area for shape in mine) - overlap.area) < 0.01 * overlap.area  # covered once, no gaps
     # stairwells and lifts inside a corridor are shafts, not overlaps
-    plan = export_plan(BuildingMap.load(DATA / "dev/osm-way22744230"), [0, 0])
+    plan = export_plan(BuildingMap.load(DATA / "buildings/osm-way22744230"), [0, 0])
     cores = {s["id"] for s in plan["spaces"] if s["type"] in CORE_TYPES}
     assert not any(o["space"] in cores for floor in plan["overlaps"] for o in floor)
 
 
 def test_rooms_that_almost_touch_keep_a_full_partition():
     # OSM draws the FMI Bistro's edge to the Magistrale up to 1.9 cm off the hall's: the wall stays >= 10 cm all along
-    walls, plan = solids("dev/osm-way27917482", 1)
+    walls, plan = solids("osm-way27917482", 1)
     bistro = next(s for s in plan["spaces"] if s["floor"] == 1 and s["name"] == "FMI Bistro")
     ring = bistro["polygon"] + bistro["polygon"][:1]
     a, b = (0.039, -9.893), (12.097, -13.22)  # the hall side, across the 2 cm-off vertex between

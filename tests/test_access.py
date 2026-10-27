@@ -15,8 +15,8 @@ from backend.api.access import ANONYMOUS, Access, AuthError, BuildingAccess, Mem
 from backend.core.access import filter_building, restricted_names
 from backend.core.building_map import BuildingMap
 
-BUILDING = "train/proc-campus-train-000"
-DATA_DIR = Path(__file__).resolve().parent.parent / "data" / BUILDING
+BUILDING = "proc-campus-train-000"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "buildings" / BUILDING
 STORAGE = {"proc-campus-train-000-F1-S014", "proc-campus-train-000-F1-S020", "proc-campus-train-000-F3-S017"}
 
 

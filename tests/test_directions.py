@@ -7,7 +7,7 @@ import pytest
 from backend.agents.tools import BuildingSession
 from backend.core.directions import about_m, guidance, guidance_steps, heading_change, landmark, maneuvers, route_legs, turn_word
 
-BUILDING = Path("data/train/proc-campus-train-000")
+BUILDING = Path("data/buildings/proc-campus-train-000")
 
 
 @pytest.fixture(scope="module")
@@ -52,7 +52,7 @@ def test_route_event_carries_legs():
 
     from backend.api.app import app
     client = TestClient(app)
-    session_id = client.post("/sessions", json={"building": "train/proc-campus-train-000"}).json()["session_id"]
+    session_id = client.post("/sessions", json={"building": "proc-campus-train-000"}).json()["session_id"]
     client.post("/chat", json={"session_id": session_id, "message": "from Main lobby to Meeting room 3.07"})
     route = [e for e in client.get("/events", params={"session_id": session_id}).json()["events"] if e["type"] == "route"]
     assert route and route[-1]["legs"][-1]["kind"] == "arrive"

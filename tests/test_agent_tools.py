@@ -8,7 +8,7 @@ import pytest
 from backend.agents.tools import TOOL_DEFINITIONS, BuildingSession
 from backend.core.building_map import BuildingMap
 
-BUILDING = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000"
+BUILDING = Path(__file__).resolve().parent.parent / "data" / "buildings" / "proc-campus-train-000"
 
 
 @pytest.fixture
@@ -106,7 +106,7 @@ def test_proposal_reports_who_loses_access(session):
 
 
 def test_room_facts_skips_stacking_on_unaligned_buildings():
-    swiss = next(Path(__file__).resolve().parent.parent.glob("data/train/swiss-1075"))
+    swiss = next(Path(__file__).resolve().parent.parent.glob("data/buildings/swiss-1075"))
     session = BuildingSession.load(swiss)
     room = next(space for space in session.building.spaces.values() if space["type"] == "room")
     facts = session.call("room_facts", {"space": room["id"]})

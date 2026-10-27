@@ -1,6 +1,6 @@
 """The Guide agent's tool layer: one building session + Anthropic tool definitions over the deterministic core.
 
-  session = BuildingSession.load(Path("data/dev/proc-campus-dev-000"))
+  session = BuildingSession.load(Path("data/buildings/proc-campus-dev-000"))
   session.call("find_route", {"start": "Main lobby", "destination": "Meeting room 3.07"})
   client.messages.create(..., tools=TOOL_DEFINITIONS)   # then route every tool_use block to session.call
 

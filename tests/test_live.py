@@ -11,7 +11,7 @@ from backend.core.building_map import BuildingMap
 from backend.core.live import WALKER_CLEARANCE_M, Hazard, LiveEffects, Obstacle
 
 ROOT = Path(__file__).resolve().parent.parent
-CAMPUS = ROOT / "data" / "train" / "proc-campus-train-000"
+CAMPUS = ROOT / "data" / "buildings" / "proc-campus-train-000"
 LOBBY, FAR, NEAR = "Main lobby", "Office 0.10", "Canteen 0.20"  # Office 0.10 at x ≈ -44.9, Canteen at x ≈ -24.8
 
 
@@ -104,7 +104,7 @@ from backend.api.app import app
 from backend.api.deps import live as hub, store  # noqa: E402
 from backend.api.live import LiveWorld, route_walks  # noqa: E402
 
-BUILDING = "train/proc-campus-train-000"
+BUILDING = "proc-campus-train-000"
 
 
 @pytest.fixture

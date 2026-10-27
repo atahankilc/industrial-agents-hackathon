@@ -8,6 +8,10 @@ from fastapi.testclient import TestClient
 from shapely.geometry import Polygon
 
 import backend.api.app as backend_app
+
+from backend.api import deps
+
+from backend.api.routes import drafts as draft_routes
 from backend.agents.tools import BuildingSession
 from backend.api.drafts import DraftStore
 from backend.api.sessions import DATA_DIR
@@ -18,9 +22,9 @@ BASE = "train/proc-campus-train-000"
 @pytest.fixture
 def client(monkeypatch, tmp_path) -> TestClient:
     monkeypatch.setenv("GUIDE_LLM", "offline")
-    catalogue = dict(backend_app.store.catalogue)
-    monkeypatch.setattr(backend_app.store, "catalogue", catalogue)
-    monkeypatch.setattr(backend_app, "drafts", DraftStore(tmp_path, catalogue))
+    catalogue = dict(deps.store.catalogue)
+    monkeypatch.setattr(deps.store, "catalogue", catalogue)
+    monkeypatch.setattr(deps, "drafts", DraftStore(tmp_path, catalogue))
     return TestClient(backend_app.app)
 
 
@@ -101,7 +105,7 @@ def test_save_lists_building_and_guide_routes(client):
     assert building_id in [item["id"] for item in client.get("/buildings").json()]
     session = client.post("/sessions", json={"building": building_id})
     assert session.status_code == 200
-    loaded = BuildingSession.load(backend_app.store.catalogue[building_id]["path"])
+    loaded = BuildingSession.load(deps.store.catalogue[building_id]["path"])
     data = loaded.building.data
     assert data["building"]["source"] == "edited"
     assert data["building"]["source_ref"] == {"base": BASE}
@@ -129,7 +133,7 @@ def test_draft_of_saved_building(client):
 
 def test_draft_survives_a_new_store(client, tmp_path):
     draft_id = new_draft(client)["draft"]["id"]
-    fresh = DraftStore(tmp_path, dict(backend_app.store.catalogue))
+    fresh = DraftStore(tmp_path, dict(deps.store.catalogue))
     assert fresh.get(draft_id) is not None
 
 
@@ -154,7 +158,7 @@ def test_concurrent_ops_on_one_draft_lose_nothing(tmp_path):
 
     from backend.core.edits import apply_steps
 
-    store = DraftStore(tmp_path, dict(backend_app.store.catalogue))
+    store = DraftStore(tmp_path, dict(deps.store.catalogue))
     draft = store.create(BASE)
     room = a_room(store.building(draft))["id"]
     centre = Polygon(next(space for space in store.building(draft)["spaces"] if space["id"] == room)["polygon"])
@@ -212,8 +216,8 @@ def side_prompt(client: TestClient, draft_id: str) -> str:
     """'make <ref> 1 m wider to the <side>' for an office with a room on that side."""
     from backend.agents.builder_tools import BuilderTools
 
-    tools = BuilderTools(backend_app.drafts, backend_app.drafts.get(draft_id))
-    for space in backend_app.drafts.building(tools.draft)["spaces"]:
+    tools = BuilderTools(deps.drafts, deps.drafts.get(draft_id))
+    for space in deps.drafts.building(tools.draft)["spaces"]:
         if space["room_type"] == "office" and len(space["polygon"]) == 4:
             info = tools.call("space_info", {"space": space["id"]})
             sides = [n["side"] for n in info["neighbours"] if n["side"] in ("east", "west") and n["shared_m"] >= 2]
@@ -269,13 +273,13 @@ def test_proposal_payload_skips_a_stale_proposal(client):
     from backend.agents.builder_tools import Proposal
 
     created = new_draft(client)
-    draft = backend_app.drafts.get(created["draft"]["id"])
+    draft = deps.drafts.get(created["draft"]["id"])
     room = a_room(created["building"])
     proposal = Proposal("P1", "rename", [{"op": "delete_space", "space_id": room["id"]}], draft.version,
-                        preview=backend_app.drafts.building(draft))
-    assert backend_app.proposal_payload(draft, proposal)["building"] is proposal.preview
-    backend_app.drafts.apply(draft, [{"op": "delete_space", "space_id": room["id"]}])
-    assert backend_app.proposal_payload(draft, proposal) is None
+                        preview=deps.drafts.building(draft))
+    assert draft_routes.proposal_payload(draft, proposal)["building"] is proposal.preview
+    deps.drafts.apply(draft, [{"op": "delete_space", "space_id": room["id"]}])
+    assert draft_routes.proposal_payload(draft, proposal) is None
 
 
 def test_hand_edit_drops_the_builders_open_proposal(client):

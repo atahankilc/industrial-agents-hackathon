@@ -2,7 +2,7 @@
 
 import pytest
 
-import backend.api.app as backend_app
+from backend.api import deps
 from backend.agents.builder_tools import BUILDER_TOOLS, BuilderTools
 from backend.api.drafts import DraftStore
 
@@ -11,7 +11,7 @@ BASE = "train/proc-campus-train-000"
 
 @pytest.fixture
 def store(tmp_path) -> DraftStore:
-    return DraftStore(tmp_path, dict(backend_app.store.catalogue))
+    return DraftStore(tmp_path, dict(deps.store.catalogue))
 
 
 @pytest.fixture

@@ -13,6 +13,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 import backend.api.app as backend_app
+
+from backend.api import deps
+
+from backend.api.routes import drafts as draft_routes
 from backend.agents.builder import Builder
 from backend.api.drafts import (SAVE_ATTEMPTS, Draft, DraftStore, FileDraftBackend, MemoryDraftBackend,
                             PostgresDraftBackend)
@@ -178,11 +182,11 @@ def two_instances(monkeypatch):
     pair = [Instance(instance(shared)), Instance(instance(shared))]
 
     def use(which: Instance) -> TestClient:
-        monkeypatch.setattr(backend_app, "drafts", which.store)
-        monkeypatch.setattr(backend_app.store, "catalogue", which.store.catalogue)
-        monkeypatch.setattr(backend_app.store, "user_buildings", which.store)
-        monkeypatch.setattr(backend_app, "builders", which.builders)
-        monkeypatch.setattr(backend_app, "builder_locks", which.locks)
+        monkeypatch.setattr(deps, "drafts", which.store)
+        monkeypatch.setattr(deps.store, "catalogue", which.store.catalogue)
+        monkeypatch.setattr(deps.store, "user_buildings", which.store)
+        monkeypatch.setattr(draft_routes, "builders", which.builders)
+        monkeypatch.setattr(draft_routes, "builder_locks", which.locks)
         return TestClient(backend_app.app)
 
     return pair, use
@@ -249,12 +253,12 @@ def test_builder_turn_that_lost_a_race_asks_to_resend(two_instances):
     stored_version = a.store.backend.builder_version(draft_id)
     a.store.backend.save_builder(draft_id, a.builders[draft_id].dump(), stored_version)  # "B" stored meanwhile
     a.builders[draft_id].version = stored_version  # A still thinks it has the latest; force a stale save
-    original = backend_app.load_builder
-    backend_app.load_builder = lambda draft: a.builders[draft.id]
+    original = draft_routes.load_builder
+    draft_routes.load_builder = lambda draft: a.builders[draft.id]
     try:
         reply = builder_reply(client, draft_id, "hello again")
     finally:
-        backend_app.load_builder = original
+        draft_routes.load_builder = original
     assert reply["type"] == "error" and "send the message again" in reply["detail"]
 
 

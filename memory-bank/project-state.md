@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../archive/hackathon/README.m
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-27** (repo restructure, [D-024](decisions.md#d-024))
+[Memory bank](README.md) · Last updated: **2026-10-27** (repo restructure [D-024](decisions.md#d-024), solvers + API routers [D-025](decisions.md#d-025))
 
 ## Phase
 
@@ -27,7 +27,7 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
   following ([D-020](decisions.md#d-020)), Edit mode (`src/edit/`), access mode (`src/access/`,
   [D-015](decisions.md#d-015)), the living building (`src/live/`) and buildings created from floor plans
   (`src/import/`, [D-023](decisions.md#d-023)).
-- **Backend** (`backend/api/app.py`, FastAPI): sessions, plan, chat and chat/stream, drafts, imports, live/fleet,
+- **Backend** (`backend/api/`, FastAPI: `app.py` assembles the routers in `routes/`, shared stores in `deps.py`): sessions, plan, chat and chat/stream, drafts, imports, live/fleet,
   STT/TTS, an OpenAI-compatible `/v1/chat/completions`, Supabase persistence (`backend/api/persistence.py`).
 - **Agents** (`backend/agents/`): the Guide (`guide.py` + `tools.py`), the Builder (`builder.py`), the Creator / plan
   import (`creator.py`, `backend/core/plan_import/`), campus / nearby buildings (`campus.py`,

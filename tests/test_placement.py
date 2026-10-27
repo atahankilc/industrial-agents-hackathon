@@ -9,6 +9,10 @@ from fastapi.testclient import TestClient
 from shapely import affinity
 
 import backend.api.app as backend_app
+
+from backend.api import deps
+
+from backend.api.routes import imports as import_routes
 from backend.agents.creator import CreatorResult
 from backend.api.drafts import DraftStore
 from backend.core.edits import apply_op
@@ -34,12 +38,12 @@ class FakeCreator:
 
 @pytest.fixture
 def api(monkeypatch, tmp_path) -> TestClient:
-    catalogue = dict(backend_app.store.catalogue)
-    monkeypatch.setattr(backend_app.store, "catalogue", catalogue)
+    catalogue = dict(deps.store.catalogue)
+    monkeypatch.setattr(deps.store, "catalogue", catalogue)
     store = DraftStore(tmp_path, catalogue)
-    monkeypatch.setattr(backend_app, "drafts", store)
-    monkeypatch.setattr(backend_app.store, "user_buildings", store)
-    monkeypatch.setattr(backend_app, "make_creator", FakeCreator)
+    monkeypatch.setattr(deps, "drafts", store)
+    monkeypatch.setattr(deps.store, "user_buildings", store)
+    monkeypatch.setattr(import_routes, "make_creator", FakeCreator)
     return TestClient(backend_app.app)
 
 
@@ -124,7 +128,7 @@ def test_saved_positioned_building_is_on_the_map_and_resave_supersedes(api: Test
 
 
 def test_kit_building_second_version_keeps_both(api: TestClient) -> None:
-    kit_id, kit = next((key, entry) for key, entry in backend_app.store.catalogue.items()
+    kit_id, kit = next((key, entry) for key, entry in deps.store.catalogue.items()
                        if (entry.get("location") or {}).get("outline"))
     done = imported(api, {"ring": kit["location"]["outline"][0]})
     saved = api.post(f"/drafts/{done['draft_id']}/save", json={"name": "Second version"}).json()["building"]

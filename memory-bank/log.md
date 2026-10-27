@@ -9,6 +9,17 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-27 — One solver implementation; API routers
+
+- [D-025](decisions.md#d-025): `core/solvers_v1.py` removed; `compute`'s `solve()` runs `backend/core/solvers/`
+  (`SolverResult.to_dict()`, shared with the `solve` tool). `tests/test_solvers.py` now checks the canonical solvers
+  (655/655 on gold inputs and from text); the errand-walkability check moved from `tests/test_routes.py` to
+  `tests/test_solvers_routing.py` (all 93 errands); `tests/test_compute.py` gained a `solve()` check.
+- `backend/api/app.py` (1164 lines) split: `app.py` assembles (~120), `deps.py` shared stores + guards,
+  `routes/{guide,voice,accounts,drafts,imports,openai_chat}.py`. Code moved verbatim except stores read as `deps.X`.
+  Checked: identical OpenAPI (58 operations), `uv run pytest -q` 955 passed / 2 skipped, uvicorn boots and answers
+  `/api/health`, `/sessions`, `/buildings`.
+
 ## 2026-10-27 — Repo restructure: frontend/ + backend/{api,agents,core}
 
 - [D-024](decisions.md#d-024): `frontend/app/` → `frontend/`; `backend/` → `backend/api/`, `agent/` →

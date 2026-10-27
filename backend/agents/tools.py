@@ -515,9 +515,7 @@ class BuildingSession:
 
     def tool_solve(self, kind: str, params: dict) -> dict:
         """Run one of the benchmark solvers (areas, largest room, walls, stacking, deliveries, what-ifs...)."""
-        result = solve(self.building, kind, params)
-        return {"value": result.value, "unit": result.unit, "area_m2": result.area_m2,
-                "explanation": result.explanation, "evidence": result.evidence}
+        return solve(self.building, kind, params).to_dict()
 
     # ---------- profile ----------
 
@@ -1037,7 +1035,7 @@ TOOL_DEFINITIONS: list[dict] = [
      "b.connectors, b.assets, dicts by id), spaces(floor=None, room_type=None, type=None), floor_id(name_or_level), "
      "area(space_id) m², polygon(space_id), place(phrase, floor=None, item=False), route(start, destination, "
      "stops=(), step_free=None, forklift=None, min_width=None, closed=()) — routes exactly as find_route (your route "
-     "rules, the user's profile) —, solve(kind, **inputs), describe(space_id), "
+     "rules, the user's profile) —, solve(kind, **inputs) (kinds and inputs as the solve tool), describe(space_id), "
      "math, Counter, Polygon, Point, nx; importable: " + ", ".join(sorted(ALLOWED_MODULES)) + ". \"Rooms\" = spaces "
      "with type room. Print only what you need; state only numbers it printed.", "input_schema": {
          "type": "object", "properties": {"code": {"type": "string"}}, "required": ["code"]}},

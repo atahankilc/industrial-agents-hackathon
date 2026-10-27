@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-import backend.api.app as backend_app
+from backend.api.routes import imports as import_routes
 from backend.agents.creator import Creator
 from backend.agents.creator_tools import CreatorTools, ImportSession
 from backend.core.plan_import.ingest import load_sources
@@ -49,7 +49,7 @@ def test_levels_must_match_the_files_and_differ(api) -> None:
 
 def test_a_floor_the_draft_has_is_refused_before_the_creator_runs(api, monkeypatch) -> None:
     TwoCreators.count = 0
-    monkeypatch.setattr(backend_app, "make_creator", TwoCreators)
+    monkeypatch.setattr(import_routes, "make_creator", TwoCreators)
     draft = imported(api, {"ring": rotated_ring(0.0)})["draft_id"]  # has floor 0
     response = api.post("/imports/stream", files=[("files", ("a.png", PLAN))],
                         data={"draft": draft, "levels": json.dumps([0])})

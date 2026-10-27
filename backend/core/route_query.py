@@ -6,7 +6,7 @@ the nearest item). Stops are visited in order, one leg each. Constraints combine
 rooms, corridors, doors — names or ids), step-free, forklift (backend/core/route_models.py) and a minimum door width.
 
 Built on backend.core.navigation, which reproduces every warm-up route answer (tests/test_navigation.py), so lengths are
-the kit 1.1.0 route model the judges use. The result has the v1 solver shape (backend/core/solvers_v1.py `route`): legs in
+the kit 1.1.0 route model the judges use. The result has the shape of the old v1 solver's `route` (removed 2026-10-27, D-025): legs in
 the warm-up answer format, the whole `space_path` / `element_path`, `steps` for the reply."""
 
 from backend.core import navigation, route_models

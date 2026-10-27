@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from backend.agents.guide import INSTRUCTIONS, system_blocks
 from backend.agents.tools import BuildingSession
 from backend.api import app as app_module
+from backend.api import deps
 from backend.api.access import ANONYMOUS, Access, AuthError, BuildingAccess, MemoryAccess, Viewer
 from backend.core.access import filter_building, restricted_names
 from backend.core.building_map import BuildingMap
@@ -96,7 +97,7 @@ class FakeAuth:
 @pytest.fixture
 def client(monkeypatch) -> TestClient:
     monkeypatch.setenv("GUIDE_LLM", "offline")
-    monkeypatch.setattr(app_module, "access", Access(store=MemoryAccess(), auth=FakeAuth(), enabled=True))
+    monkeypatch.setattr(deps, "access", Access(store=MemoryAccess(), auth=FakeAuth(), enabled=True))
     return TestClient(app_module.app)
 
 
@@ -119,7 +120,7 @@ def test_restricting_after_the_first_turn_rebuilds_the_system_prompt(monkeypatch
 
 
 def test_access_off_config(monkeypatch):
-    monkeypatch.setattr(app_module, "access", Access(store=MemoryAccess(), enabled=False))
+    monkeypatch.setattr(deps, "access", Access(store=MemoryAccess(), enabled=False))
     client = TestClient(app_module.app)
     assert client.get("/config").json() == {"access_mode": False}
     session_id = client.post("/sessions", json={"building": BUILDING}).json()["session_id"]
@@ -143,7 +144,7 @@ def test_admin_rules_reach_anonymous_and_members(client):
     plan = client.get(f"/sessions/{session_id}/plan").json()
     assert {shape["id"] for shape in plan["restricted"]} == STORAGE
     assert not STORAGE & {space["id"] for space in plan["spaces"]}
-    conversation = app_module.store.get(session_id)
+    conversation = deps.store.get(session_id)
     assert conversation.session.call("locate", {"query": "Shelf 1.14-A"})["error"] == "restricted"
 
     # the staff member is invited into the group: the same building, nothing restricted
@@ -222,7 +223,7 @@ def test_session_preferences_endpoint(client):
     assert response.status_code == 200
     profile = response.json()["profile"]
     assert profile["step_free"] and profile["prefer_lifts"]
-    conversation = app_module.store.get(session_id)
+    conversation = deps.store.get(session_id)
     assert conversation.session.auto_capture is False
     assert "German" in conversation.guide.system[1]["text"]
     assert client.get("/me/preferences").status_code == 404  # anonymous: kept in the browser
@@ -236,7 +237,7 @@ def test_dev_panel_uses_the_viewer_token(client):
     response = client.post(f"/dev/sessions/{session_id}/tool", headers=auth("admin"),
                            json={"name": "locate", "arguments": {"query": "Shelf 1.14-A"}})
     assert response.status_code == 200 and response.json()["result"].get("error") != "restricted"
-    assert not app_module.store.get(session_id).restricted
+    assert not deps.store.get(session_id).restricted
     assert client.get(f"/dev/sessions/{session_id}/state", headers=auth("admin")).status_code == 200
     # without a token the dev panel is anonymous: the restricted copy
     anonymous = client.post(f"/dev/sessions/{session_id}/tool",

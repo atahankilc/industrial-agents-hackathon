@@ -12,9 +12,9 @@ import threading
 import traceback
 from collections import Counter
 
-from backend.core import solvers_v1
 from backend.core.building_map import BuildingMap
 from backend.core.route_query import resolve_place, route_query
+from backend.core.solvers import solve as run_solver
 
 CODE_TIME_LIMIT_S = 30
 MAX_OUTPUT_CHARS = 6000
@@ -62,7 +62,7 @@ def namespace(bmap: BuildingMap) -> dict:
                            include_steps=False)
 
     def solve(kind: str, **inputs: object) -> dict:
-        return solvers_v1.solve(bmap, kind, inputs)
+        return run_solver(bmap, kind, inputs).to_dict()
 
     def polygon(space_id: str) -> Polygon:
         return Polygon(bmap.spaces[space_id]["polygon"])

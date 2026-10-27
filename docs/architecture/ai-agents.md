@@ -74,7 +74,7 @@ plus `closed` (closures for this question only, e.g. "the lift is out of order";
 highlights it; the result is a `find_route` result with `nearest` and `next_nearest` (the next 2, each with
 `about_m`). The system prompt sends "nearest/closest X" to it without asking which; it is in `PROFILE_TOOLS`
 (`backend/agents/guide.py`). While a route is followed the app sends `route_step` (the card's 0-based step) with `/chat`
-and `/chat/stream` (`backend/api/app.py`); `Guide.route_note` turns it into a `[route note]` listing the card's steps
+and `/chat/stream` (`backend/api/routes/guide.py`); `Guide.route_note` turns it into a `[route note]` listing the card's steps
 (`BuildingSession.route_card`) and the current one. `show_route_step(step)` (1-based, card numbering) emits a
 `route_step` event `{index: step - 1}` and the app moves the card there; the prompt tells the Guide to call it
 whenever it talks about another step. `end_route(arrived?, place?)` emits `route_end` (with `space_id` when the position changed): the app clears the route, stops the step guide, tracking and camera walk, and moves the figure; the prompt calls it on arrival and when the user wants to stop the directions. When the app ends a route itself (End directions, "stop"/"iptal", or the arrival) it calls `DELETE /sessions/{id}/route` and places the figure (destination, else tracking's position, else the last step reached) via the location endpoint; after a `route_end` `route_card` is empty. Test: `tests/test_route_step.py`.
@@ -259,7 +259,7 @@ tools) — needs the public deploy.
 `agent/parsing.py`, `agent/guide_v1/`) moved to [archive/hackathon/benchmark-code/](../../archive/hackathon/benchmark-code/README.md). The LLM parser, the solver agent and
 the decision cache (`agent/llm_parser.py`, `agent/solver_agent.py`, `agent/llm_cache.py`) followed the same day; the
 solver agent's python sandbox lives on as `backend/agents/compute.py` (the Guide's `compute` tool) and the parsers used as test
-oracles moved to `tests/kit_oracles/`. The solvers (`backend/core/solvers/`, `backend/core/solvers_v1.py`) stay: the Guide uses them. This section and its subsections describe the pipeline as
+oracles moved to `tests/kit_oracles/`. The solvers (`backend/core/solvers/`) stay: the Guide uses them (`core/solvers_v1.py` was removed 2026-10-27, [D-025](../../memory-bank/decisions.md#d-025)). This section and its subsections describe the pipeline as
 it was.
 
 ```

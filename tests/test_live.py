@@ -99,7 +99,9 @@ def test_a_wet_floor_is_avoided_when_it_is_cheap(campus):
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from backend.api.app import app, live as hub, store  # noqa: E402
+from backend.api.app import app
+
+from backend.api.deps import live as hub, store  # noqa: E402
 from backend.api.live import LiveWorld, route_walks  # noqa: E402
 
 BUILDING = "train/proc-campus-train-000"
@@ -410,11 +412,11 @@ def test_a_real_device_on_an_unknown_floor_is_refused(client):
 
 
 def test_in_access_mode_only_the_admin_uses_the_controls_and_registers_devices(client, monkeypatch):
-    from backend.api import app as app_module
+    from backend.api import deps
     from backend.api.access import Access, MemoryAccess
     from tests.test_access import FakeAuth, auth
 
-    monkeypatch.setattr(app_module, "access", Access(store=MemoryAccess(), auth=FakeAuth(), enabled=True))
+    monkeypatch.setattr(deps, "access", Access(store=MemoryAccess(), auth=FakeAuth(), enabled=True))
     quiet_world(BUILDING)
     pause = {"building": BUILDING, "action": "pause"}
     device = {"building": BUILDING, "name": "Tag"}
@@ -456,13 +458,12 @@ def test_a_route_without_a_request_gets_an_alert_not_a_new_route(client):
 
 
 def test_viewers_never_see_things_in_spaces_hidden_from_them(client, monkeypatch):
-    import backend.api.app as backend_app
-
+    from backend.api import deps
     corridor = "proc-campus-train-000-F0-S001"
     quiet_world(BUILDING)
     client.post("/live/control", json={"building": BUILDING, "action": "drop", "floor": 0, "x": -28.0, "y": -7.2})
     assert len(client.get("/live", params={"building": BUILDING}).json()["devices"]) == 1
-    monkeypatch.setattr(backend_app, "live_hidden", lambda authorization, building: frozenset({corridor}))
+    monkeypatch.setattr(deps, "live_hidden", lambda authorization, building: frozenset({corridor}))
     assert client.get("/live", params={"building": BUILDING}).json()["devices"] == []
     from backend.api.live import SessionLive
 
@@ -476,7 +477,7 @@ def test_the_guide_can_ask_what_is_live(client):
     client.post("/live/control", json={"building": BUILDING, "action": "drop", "floor": 0, "x": -28.0, "y": -7.2})
     client.get("/live", params={"building": BUILDING, "session_id": session_id})
     conversation = store.get(session_id)
-    from backend.api.app import with_live
+    from backend.api.deps import with_live
 
     session = with_live(conversation).session
     assert "live_status" in [tool["name"] for tool in session.tool_definitions()]

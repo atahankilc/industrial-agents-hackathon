@@ -6,7 +6,7 @@ related: [open-questions.md, project-state.md, ../docs/architecture/overview.md]
 
 # Decisions
 
-[Memory bank](README.md) · Next free id: **D-025**
+[Memory bank](README.md) · Next free id: **D-026**
 
 Template:
 
@@ -396,3 +396,21 @@ Template:
   [D-004](#d-004) (scorer location) and the "target" tree in [overview.md](../docs/architecture/overview.md#repo-layout).
 - **Evidence:** `uv run pytest -q` 955 passed / 2 skipped before and after; `npm run build` in `frontend/`;
   `tests/test_deploy.py` checks `vercel.json` against the new entrypoint.
+
+<a id="d-025"></a>
+### D-025 — One solver implementation; the API split into routers
+- **Status:** accepted · **Date:** 2026-10-27 · **By:** Atahan
+- **Context:** After [D-024](#d-024) two code-level tangles remained: `backend/api/app.py` held every endpoint
+  (~1160 lines), and the benchmark kinds were solved twice — `backend/core/solvers/` (`SolverResult`, used by the
+  Guide's `solve` tool) and `core/solvers_v1.py` (dicts, used only by `compute`'s `solve()` and two tests).
+- **Decision:** `core/solvers_v1.py` is removed; `compute`'s `solve()` runs `backend/core/solvers/` and returns
+  `SolverResult.to_dict()`, the same as the `solve` tool. `app.py` only assembles the app (middleware, error
+  handlers, `/health`, routers); routes live in `backend/api/routes/` (`guide`, `voice`, `accounts`, `drafts`,
+  `imports`, `openai_chat`), the shared stores and guards in `backend/api/deps.py`. Routers read the stores as
+  `deps.store` / `deps.drafts` / … so a monkeypatched store reaches every route.
+- **Consequences:** `compute`'s `solve()` no longer offers the v1-only kinds (`locate`, `count`, `route*`, `tour`,
+  `route_query`); `compute` has `route()` and the Guide has its own locate / count / route tools. Tests patch
+  `backend.api.deps`, `backend.api.routes.drafts` and `backend.api.routes.imports` instead of `backend.api.app`.
+- **Evidence:** `uv run pytest tests/test_solvers.py -q -s` → 655/655 on gold inputs and from text with the canonical
+  solvers; the app's OpenAPI paths, methods, parameters and schemas are identical before and after the split (58
+  operations); `uv run pytest -q` 955 passed / 2 skipped.

@@ -31,8 +31,11 @@ Per-module tests: `tests/test_solvers_{geometry,walls,reachability,routing}.py`.
 | what_if_door | 2% | VERIFIED (4 examples) | 4/4 | routing.py |
 | step_free_reachable_count | 0% (Sunday?) | VERIFIED (2 examples, weak) | 2/2 | reachability.py |
 
-A second implementation, `backend/core/solvers_v1.py` (`solve(bmap, kind, params)` → dict, used by the Guide's tools and, until
-they were archived on 2026-10-26, by `agent/answer.py` and the v1 Guide `agent/guide_v1/`), reaches the same 655/655 on gold inputs (`uv run pytest tests/test_solvers.py -q -s`).
+`uv run pytest tests/test_solvers.py -q -s` checks all 655 on gold inputs and from the question text (via
+`tests/kit_oracles/question_parser.py`). A second implementation, `core/solvers_v1.py` (dicts instead of
+`SolverResult`, used by the `compute` sandbox's `solve()`), reached the same 655/655 and was removed on 2026-10-27
+([D-025](../../memory-bank/decisions.md#d-025)): `compute`'s `solve()` now runs these solvers and returns
+`SolverResult.to_dict()`, the same as the Guide's `solve` tool.
 
 End-to-end from question **text** (`agent/benchmark_agent.py`, regex parser; archived 2026-10-26): dev **138/138**, train **515/517** —
 the 2 misses are inherently ambiguous names ([Q-006](../../memory-bank/open-questions.md#q-006)).

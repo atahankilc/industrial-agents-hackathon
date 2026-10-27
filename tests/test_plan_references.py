@@ -11,6 +11,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 import backend.api.app as backend_app
+
+from backend.api import deps
+
+from backend.api.routes import imports as import_routes
 from backend.agents.creator import CreatorResult
 from backend.api.drafts import DraftStore
 from backend.core.plan_import.assemble import assemble, autofix
@@ -76,7 +80,7 @@ def has_reference(value: object) -> bool:
 
 @pytest.fixture
 def drafts(tmp_path) -> DraftStore:
-    return DraftStore(tmp_path, dict(backend_app.store.catalogue))
+    return DraftStore(tmp_path, dict(deps.store.catalogue))
 
 
 def test_state_never_carries_reference_images(drafts: DraftStore) -> None:
@@ -118,12 +122,12 @@ class FloorsCreator:
 
 
 def test_import_stream_keeps_references_and_the_endpoint_serves_them(tmp_path, monkeypatch) -> None:
-    catalogue = dict(backend_app.store.catalogue)
-    monkeypatch.setattr(backend_app.store, "catalogue", catalogue)
+    catalogue = dict(deps.store.catalogue)
+    monkeypatch.setattr(deps.store, "catalogue", catalogue)
     store = DraftStore(tmp_path, catalogue)
-    monkeypatch.setattr(backend_app, "drafts", store)
-    monkeypatch.setattr(backend_app.store, "user_buildings", store)
-    monkeypatch.setattr(backend_app, "make_creator", FloorsCreator)
+    monkeypatch.setattr(deps, "drafts", store)
+    monkeypatch.setattr(deps.store, "user_buildings", store)
+    monkeypatch.setattr(import_routes, "make_creator", FloorsCreator)
     api = TestClient(backend_app.app)
     lines = [json.loads(line) for line in
              api.post("/imports/stream", files=[("files", ("plan.png", PLAN))]).text.splitlines() if line.strip()]

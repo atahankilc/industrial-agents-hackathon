@@ -1,4 +1,4 @@
-// Typed client for the FastAPI backend (backend/api/app.py), reached through the Vite proxy at /api.
+// Typed client for the FastAPI backend (backend/api/, routes in backend/api/routes/), reached through the Vite proxy at /api.
 
 const BASE = import.meta.env.VITE_API_BASE ?? '/api'
 /** the API base as an absolute URL (for commands shown to the admin, e.g. the object simulator) */

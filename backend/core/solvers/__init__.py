@@ -25,6 +25,11 @@ class SolverResult:
     # largest_room only: the winning room's area in m².
     area_m2: float | None = None
 
+    def to_dict(self) -> dict:
+        """What the Guide's `solve` tool and `compute`'s solve() hand the model."""
+        return {"value": self.value, "unit": self.unit, "area_m2": self.area_m2, "explanation": self.explanation,
+                "evidence": self.evidence}
+
 
 Solver = Callable[..., SolverResult]
 SOLVERS: dict[str, Solver] = {}

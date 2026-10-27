@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from backend.agents.builder import Builder
 from backend.api import app as backend_app
+from backend.api import deps
 from backend.api.drafts import DraftStore
 from backend.api.service_errors import friendly
 
@@ -44,9 +45,9 @@ def test_each_failure_gets_a_code_and_a_sentence_without_the_raw_error(error: Ex
 @pytest.fixture
 def client(monkeypatch, tmp_path) -> TestClient:
     monkeypatch.setenv("GUIDE_LLM", "offline")
-    catalogue = dict(backend_app.store.catalogue)
-    monkeypatch.setattr(backend_app.store, "catalogue", catalogue)
-    monkeypatch.setattr(backend_app, "drafts", DraftStore(tmp_path, catalogue))
+    catalogue = dict(deps.store.catalogue)
+    monkeypatch.setattr(deps.store, "catalogue", catalogue)
+    monkeypatch.setattr(deps, "drafts", DraftStore(tmp_path, catalogue))
     return TestClient(backend_app.app)
 
 
@@ -56,7 +57,7 @@ def out_of_credit(*_, **__):
 
 def session_with_failing_guide(client: TestClient, monkeypatch) -> str:
     session_id = client.post("/sessions", json={"building": BUILDING}).json()["session_id"]
-    monkeypatch.setattr(backend_app.store.get(session_id).guide, "reply", out_of_credit)
+    monkeypatch.setattr(deps.store.get(session_id).guide, "reply", out_of_credit)
     return session_id
 
 

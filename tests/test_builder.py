@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-import backend.api.app as backend_app
+from backend.api import deps
 from backend.agents.builder import Builder
 from backend.agents.builder_offline import BuilderOfflineClient
 from backend.agents.builder_tools import BuilderTools
@@ -32,7 +32,7 @@ class ScriptedClient:
 
 @pytest.fixture
 def store(tmp_path) -> DraftStore:
-    return DraftStore(tmp_path, dict(backend_app.store.catalogue))
+    return DraftStore(tmp_path, dict(deps.store.catalogue))
 
 
 @pytest.fixture

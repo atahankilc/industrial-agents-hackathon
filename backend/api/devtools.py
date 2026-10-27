@@ -10,7 +10,7 @@ inspected by hand.
   POST /dev/sessions/{id}/reset        a fresh session on the same building (profile, changes and events cleared)
 
 The tools are the same ones the Guide calls in a conversation; a tool call is saved like a Guide turn.
-`router(...)` takes the app's store and helpers so this module does not import backend.api.app. Session endpoints
+`router(...)` takes the app's store and helpers so this module does not import backend.api.deps. Session endpoints
 pass the request's Authorization header to `lookup`, so in access mode the dev panel sees the same building copy
 as the signed-in viewer (`/dev/tools` has no session and lists TOOL_DEFINITIONS)."""
 

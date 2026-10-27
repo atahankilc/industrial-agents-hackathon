@@ -9,7 +9,7 @@ from shapely import affinity
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 
-import backend.api.app as backend_app
+from backend.api.routes import imports as import_routes
 from backend.agents.creator import CreatorResult
 from backend.core.plan_import.assemble import assemble, autofix
 from backend.core.plan_import.merge import add_floors
@@ -110,7 +110,7 @@ def test_only_saved_buildings_can_be_deleted(api) -> None:
 
 def test_import_into_an_open_draft_adds_the_floor_as_one_undo_step(api, monkeypatch) -> None:
     TwoCreators.count = 0
-    monkeypatch.setattr(backend_app, "make_creator", TwoCreators)
+    monkeypatch.setattr(import_routes, "make_creator", TwoCreators)
     first = imported(api, {"ring": rotated_ring(0.0)})
     draft = first["draft_id"]
     space = api.get(f"/drafts/{draft}").json()["building"]["spaces"][0]["id"]

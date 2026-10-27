@@ -1,4 +1,4 @@
-"""ElevenLabs Scribe Realtime for the user's words (POST /stt/token in backend/api/app.py).
+"""ElevenLabs Scribe Realtime for the user's words (POST /stt/token in backend/api/routes/voice.py).
 
 The browser streams its microphone straight to ElevenLabs (frontend/src/voice/scribe.ts); the backend only mints a
 single-use token (valid 15 minutes, consumed on connect), so the API key never leaves it, and picks the building's

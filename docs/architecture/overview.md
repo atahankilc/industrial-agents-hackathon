@@ -78,7 +78,8 @@ the Builder (`backend/agents/builder.py`, `builder_tools.py`) using `backend/api
 /
 ├── frontend/        Vite React app (map, search, plan view, Guide, Edit mode)
 ├── backend/         all Python, one package `backend`
-│   ├── api/         FastAPI app: HTTP endpoints, sessions, Supabase persistence, voice (STT/TTS), live/fleet
+│   ├── api/         FastAPI: app.py (assembly), routes/ (one router per area), deps.py (shared stores, guards),
+│   │                sessions, Supabase persistence, voice (STT/TTS), live/fleet
 │   ├── agents/      LLM layer: Guide, Builder, Creator, campus, compute sandbox, transcript rewriter
 │   └── core/        deterministic engine: route model, geometry, solvers, edits, validation, plan import
 ├── tests/           pytest; tests/kit_oracles/ = official kit scorer + question parsers + formatter

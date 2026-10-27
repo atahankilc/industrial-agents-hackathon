@@ -1,7 +1,7 @@
 ---
 id: guide-commands
 summary: Setup and every command for the backend, the app, tests, evals and deploy.
-sources: [backend/api/app.py, frontend/package.json, vercel.json, scripts/]
+sources: [backend/api/app.py, backend/api/routes/, frontend/package.json, vercel.json, scripts/]
 related: [../architecture/overview.md, ../../archive/hackathon/benchmark-code/README.md]
 ---
 

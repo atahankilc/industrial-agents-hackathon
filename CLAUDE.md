@@ -16,7 +16,7 @@ answer; the LLM handles the language. It started at the Industrial Agents Hackat
 ├── pyproject.toml                  ← uv project (Python ≥3.12)
 ├── frontend/                       ← React app: map, building search, plan view, Guide, Edit mode
 ├── backend/                        ← all Python (package `backend`): api → agents → core; core imports neither
-│   ├── api/                        ← FastAPI app (backend/api/app.py): HTTP, sessions, persistence, voice, live/fleet
+│   ├── api/                        ← FastAPI: app.py assembles, routes/ per area, deps.py shared stores; sessions, persistence, voice, live/fleet
 │   ├── agents/                     ← LLM layer: Guide, Builder, Creator, campus, compute sandbox, voice rewriter
 │   └── core/                       ← deterministic engine: route model, geometry, solvers, edits, plan import
 ├── tests/                          ← pytest; tests/kit_oracles/ = official kit scorer (score.py, never edit) + parsers + formatter

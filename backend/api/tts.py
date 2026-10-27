@@ -1,4 +1,4 @@
-"""ElevenLabs text-to-speech for the Guide's voice (POST /tts in backend/api/app.py).
+"""ElevenLabs text-to-speech for the Guide's voice (POST /tts in backend/api/routes/voice.py).
 
 The browser asks for one piece of a spoken reply at a time and plays the MP3 (frontend/src/voice/tts.ts); without
 ELEVENLABS_API_KEY, or when a request fails, it falls back to the browser's own voice. The key never leaves the

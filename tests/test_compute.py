@@ -45,3 +45,12 @@ def test_helpers_route_and_place_use_the_canonical_core(bmap: BuildingMap) -> No
     output = run_code("r = route('Kitchen 1.12', 'Office 0.31')\nprint(r['optimal_length_m'])", scope)["output"]
     assert output == "92.01\n"  # warm-up answer proc-factory-dev-004-Q05
     assert run_code("print(sorted(describe(s) for s in place('toilet')))", scope)["output"].count("Toilet") == 2
+
+
+def test_solve_helper_runs_the_canonical_solvers(bmap: BuildingMap) -> None:
+    from backend.core.solvers import solve
+
+    floor = next(iter(bmap.floors))
+    expected = solve(bmap, "floor_area_total", {"floor_id": floor, "room_type": "office"}).to_dict()
+    code = f"print(solve('floor_area_total', floor_id={floor!r}, room_type='office') == {expected!r})"
+    assert run_code(code, namespace(bmap)) == {"output": "True\n"}

@@ -1,35 +1,79 @@
 /* Map landing. Uses the app's theme tokens from styles.css, so it follows light/dark like the search page. */
 
-.ml { position: fixed; inset: 0; background: var(--bg); }
+.ml { position: fixed; inset: 0; overflow: hidden; background: var(--bg); }
 .ml-map { position: absolute; inset: 0; }
 
-/* the list panel: the HUD's glass card (building/hud.css tokens, carried on .ml), a mono micro-label header, a round
-   search field, rows as round buttons */
+/* Steward's mark and wordmark, alone on the map at the top left; a soft shade of the ground colour behind keeps them
+   readable over a busy map */
+.ml-logo {
+  position: absolute; top: 22px; left: 22px; z-index: 1; display: flex; align-items: center; gap: 14px; margin: 0;
+  pointer-events: none;
+}
+.ml-logo::before {
+  content: ''; position: absolute; inset: -56px -96px -48px -72px; z-index: -1;
+  background: radial-gradient(closest-side, var(--hud-scrim), transparent); opacity: 0.7;
+}
+.ml-logo img { display: block; width: 60px; height: 60px; }
+.ml-wordmark { display: block; height: 34px; width: auto; }
+
+/* the panel, under the logo. Closed, it is only its top and has no card: the search field is a glass pill of its own
+   on the map (and the building picked on the map one under it, with Open). A click in the field brings the HUD's
+   glass card (building/hud.css tokens, carried on .ml) in round it and opens it to full height, the kind chips and
+   the list under the field. The panel keeps one place and size either way (closed, it is see-through and lets clicks
+   through to the map), so the field never moves. It is always full height: closed, it is cut to its measured top
+   (--ml-top, set on .ml by MapLanding) with a clip-path (on narrow screens it slides down instead, see below), and
+   opening animates the clip, not the height, so the long list is not laid out again every frame; the rows come in
+   one after another */
 .ml {
   --font-ui: Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 .ml-panel {
-  position: absolute; top: 16px; left: 16px; bottom: 16px; width: 400px;
+  position: absolute; top: 88px; left: 12px; width: 400px; height: calc(100dvh - 104px);
+  clip-path: inset(0 0 calc(100% - var(--ml-top, 68px) - 2px) 0 round 24px);
   display: flex; flex-direction: column; min-height: 0;
-  border: 1px solid var(--hud-line); border-radius: 24px; background: var(--hud-glass);
-  -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4);
-  box-shadow: var(--hud-shadow); color: var(--hud-ink); font-family: var(--font-ui);
-  overflow: hidden;
+  border: 1px solid transparent; border-radius: 24px; background: transparent;
+  color: var(--hud-ink); font-family: var(--font-ui);
+  overflow: hidden; pointer-events: none;
 }
-.ml-panel header, .ml-list h2 {
+.ml-top > *, .ml-body { pointer-events: auto; } /* (not the top's margin round the field: that is map) */
+.ml-panel.open {
+  clip-path: inset(0 round 24px); pointer-events: auto;
+  border-color: var(--hud-line); background: var(--hud-glass); box-shadow: var(--hud-shadow);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4);
+}
+.ml-top { flex: none; padding: 12px; }
+/* the building picked on the map, under the field while the list is closed: one button that opens it */
+.ml-picked {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; margin-top: 8px; padding: 8px 18px 8px 16px;
+  color: var(--hud-ink); font: inherit; text-align: left; cursor: pointer;
+  border: 1px solid var(--hud-line); border-radius: 999px; background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4);
+  animation: ml-picked-in 0.25s var(--ease-out);
+}
+@keyframes ml-picked-in { from { opacity: 0; } }
+/* the open panel's lower part; faded out while closed (it is inert then, MapLanding) */
+.ml-body { display: flex; flex-direction: column; flex: 1; min-height: 0; opacity: 0; transition: opacity 0.15s var(--ease); }
+.ml-panel.open .ml-body { opacity: 1; transition: opacity 0.25s var(--ease) 0.1s; }
+/* opening: the chips, then the first rows, rise in one after another (--i: the row's place, MapLanding) */
+.ml-panel.open .ml-kinds { animation: ml-rise 0.35s var(--ease-out) 0.08s backwards; }
+.ml-panel.open .ml-list li { animation: ml-rise 0.4s var(--ease-out) calc(0.12s + var(--i, 12) * 22ms) backwards; }
+@keyframes ml-rise { from { opacity: 0; transform: translateY(10px); } }
+.ml-list h2 {
   display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0;
   font: 500 10.5px var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hud-ink-3);
 }
-.ml-panel header { padding: 16px 20px 10px; }
 
+/* closed: a glass pill on the map, as tall as the map's big buttons and a little taller than inside the card */
 .ml-field {
-  display: flex; align-items: center; gap: 10px; flex: none; margin: 0 12px 8px; height: var(--btn-lg); padding: 0 6px 0 16px;
-  border: 1px solid transparent; border-radius: 999px; background: var(--hud-fill);
-  transition: border-color 0.15s, background-color 0.15s;
+  display: flex; align-items: center; gap: 10px; flex: none; margin: 0; height: var(--btn-lg); padding: 0 6px 0 16px;
+  border: 1px solid var(--hud-line); border-radius: 999px; background: var(--hud-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4);
+  transition: border-color 0.25s, background-color 0.25s;
 }
-.ml-field:focus-within { border-color: var(--hud-line-2); background: var(--hud-glass-2); }
+.ml-panel.open .ml-field { border-color: transparent; background: var(--hud-fill); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.ml-panel.open .ml-field:focus-within { border-color: var(--hud-line-2); background: var(--hud-glass-2); }
 .ml-field svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .ml-field > svg { color: var(--hud-ink-3); }
 .ml-field input {
@@ -44,7 +88,7 @@
 
 /* kind chips: one row under the search field, scrolling sideways on a narrow panel; the picked one solid */
 .ml-kinds {
-  display: flex; gap: 6px; flex: none; padding: 0 12px 10px; overflow-x: auto; scrollbar-width: none;
+  display: flex; gap: 6px; flex: none; padding: 0 12px 12px; overflow-x: auto; scrollbar-width: none;
 }
 .ml-kinds::-webkit-scrollbar { display: none; }
 .ml-kinds button {
@@ -69,20 +113,21 @@
 .ml-list h2 { padding: 14px 14px 6px; }
 .ml-list section + section { margin-top: 4px; border-top: 1px solid var(--hud-line); }
 .ml-list ol { list-style: none; margin: 0; padding: 0; }
-/* a row picked in the list: filled, with Open on its right (a tap on the building on the map opens it too) */
-.ml-list li { position: relative; display: flex; align-items: center; border-radius: 999px; }
+/* a row picked in the list: filled, and the row itself opens it, "Open ›" on its right (a tap on the building on
+   the map opens it too) */
+.ml-list li { border-radius: 999px; }
 .ml-list li.on { background: var(--hud-fill-2); }
-.ml-list li.on .ml-row { padding-right: 84px; }
-.ml-list .ml-enter {
-  position: absolute; right: 6px; top: 50%; translate: 0 -50%;
-  display: inline-flex; align-items: center; justify-content: center; width: auto; min-height: 0; height: var(--btn-sm); padding: 0 14px;
-  border: 0; border-radius: 999px; cursor: pointer; background: var(--hud-solid); color: var(--hud-solid-ink); font-size: 13px; font-weight: 600;
-}
 .ml-list .ml-row {
-  display: grid; width: 100%; min-height: var(--btn-lg); padding: 8px 14px; align-content: center;
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--btn-lg); padding: 8px 14px;
   border: 0; border-radius: 999px; background: transparent; color: var(--hud-ink); text-align: left; cursor: pointer;
 }
-.ml-list .ml-row:focus-visible, .ml-list .ml-enter:focus-visible { background: var(--hud-fill); outline: 2px solid var(--hud-route); outline-offset: -2px; }
+.ml-row-text { display: grid; flex: 1; min-width: 0; }
+.ml-go {
+  display: inline-flex; align-items: center; gap: 2px; flex: none; margin-right: -4px;
+  color: var(--hud-ink-2); font-size: 13px; font-weight: 600; transition: color 0.15s, translate 0.2s var(--ease-out);
+}
+.ml-go svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ml-list .ml-row:focus-visible, .ml-picked:focus-visible { background: var(--hud-fill); outline: 2px solid var(--hud-route); outline-offset: -2px; }
 .ml-name { font-size: 14.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ml-address { font-size: 12.5px; color: var(--hud-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ml-empty { margin: 0; padding: 18px 14px; font-size: 13.5px; color: var(--hud-ink-2); }
@@ -99,7 +144,8 @@
 .ml-panel button:active { scale: 0.98; }
 @media (hover: hover) {
   .ml-list li:not(.on) .ml-row:hover { background: var(--hud-fill); }
-  .ml-list .ml-enter:hover { opacity: 0.88; }
+  .ml-list li.on .ml-row:hover .ml-go, .ml-picked:hover .ml-go { color: var(--hud-ink); translate: 2px 0; }
+  .ml-picked:hover { background: var(--hud-glass-2); }
   .ml-kinds button[aria-pressed='false']:hover { background: var(--hud-fill-2); color: var(--hud-ink); }
   .ml-clear:hover { background: var(--hud-fill-2); color: var(--hud-ink); }
   .ml-more:hover { background: var(--hud-fill); }
@@ -195,17 +241,30 @@
 .ml .maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button:focus { box-shadow: none; }
 
 /* a building open on top: the panel and controls step aside, the map stays as its city */
-.ml-panel, .ml .maplibregl-ctrl-bottom-right { transition: opacity 0.45s var(--ease), transform 0.45s var(--ease); }
+.ml .maplibregl-ctrl-bottom-right { transition: opacity 0.45s var(--ease), transform 0.45s var(--ease); }
+.ml-panel {
+  transition: clip-path 0.4s var(--ease-out), transform 0.4s var(--ease-out), background-color 0.3s var(--ease), border-color 0.3s var(--ease),
+    box-shadow 0.3s var(--ease), opacity 0.45s var(--ease);
+}
+.ml-logo { transition: opacity 0.45s var(--ease); }
+.ml-open .ml-logo { opacity: 0; }
 /* hidden, not only see-through, once it has faded: a blurred panel over the moving map costs a re-blur every frame */
 .ml-open .ml-panel { opacity: 0; transform: translateX(-12px); pointer-events: none; visibility: hidden; transition: opacity 0.45s var(--ease), transform 0.45s var(--ease), visibility 0s linear 0.45s; }
 .ml-open .maplibregl-ctrl-bottom-right { opacity: 0; pointer-events: none; }
 
-/* narrow screens: a bottom sheet, the list capped so the map stays the main thing */
+/* narrow screens: a bottom sheet, growing upward when the list opens (clear of the account button at the top); the
+   map's controls sit above the closed sheet and step aside while it is open */
 @media (max-width: 899px) {
-  .ml-panel { top: auto; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); width: auto; max-height: 42dvh; }
-  .ml-open .ml-panel { transform: translateY(12px); }
-  .ml-panel header { padding: 14px 18px 8px; }
-  .ml .maplibregl-ctrl-bottom-right { bottom: calc(42dvh + 16px + env(safe-area-inset-bottom)); }
+  .ml-logo { top: calc(16px + env(safe-area-inset-top)); left: 18px; gap: 10px; }
+  .ml-logo img { width: 42px; height: 42px; }
+  .ml-wordmark { height: 24px; }
+  .ml-panel { top: auto; left: 4px; right: 4px; bottom: calc(4px + env(safe-area-inset-bottom)); width: auto; }
+  /* the sheet: always its open height, slid down so only its top shows while closed (the rest is below the screen) */
+  .ml-panel { height: calc(100dvh - 88px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); clip-path: none; transform: translateY(calc(100% - var(--ml-top, 68px) - 2px)); }
+  .ml-panel.open { clip-path: none; transform: none; }
+  .ml-open .ml-panel { transform: translateY(calc(100% - var(--ml-top, 68px) + 10px)); }
+  .ml .maplibregl-ctrl-bottom-right { bottom: calc(var(--ml-top, 68px) + 2px + 4px + env(safe-area-inset-bottom)); }
+  .ml-listing .maplibregl-ctrl-bottom-right { opacity: 0; pointer-events: none; }
 }
 
 /* "Create a building here" / "Which version?": a sheet over the map after a tap, in the panel's material, centred in

@@ -21,7 +21,8 @@ weekend's design specs and plans, the full session log and the last hackathon pr
 Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Python: `api/` → `agents/` → `core/`).
 
 - **App** (`frontend/`, React + Vite, [D-011](decisions.md#d-011)): a map landing with buildings at real
-  positions (`src/map/`, `backend/api/locations.json`) and a list of all kit buildings (`src/search/`). The building
+  positions (`src/map/`, `backend/api/locations.json`) under Steward's mark and wordmark (`src/brand/`, plan-wall
+  letters) and a search pill; a click opens the list in a card round it (2026-10-27), and a list of all kit buildings (`src/search/`). The building
   screen has a vector plan view (`src/plan/`, data from `backend/core/floorplan.py`), a floating Guide with voice
   (`src/voice/`, [D-016](decisions.md#d-016)–[D-019](decisions.md#d-019)), route overview then step-by-step
   following ([D-020](decisions.md#d-020)), Edit mode (`src/edit/`), access mode (`src/access/`,

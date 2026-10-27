@@ -9,6 +9,53 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-27 — Wordmark: finer walls (Atahan's pick)
+
+- Of the five refinements Atahan chose 3, "finer walls": walls 2 → 1.5, clay face 1.5 → 1.3. The letters now live in
+  `frontend/src/brand/wordmark.json`, read by both `Wordmark.tsx` (the landing) and `scripts/brand/marks.cjs`, which
+  now writes `frontend/public/brand/wordmark*.svg` from it (mark + name laid out as on the landing) instead of the
+  outlined Geist name. Run into a scratch dir first: the other 8 brand SVGs came out byte-identical; only the two
+  wordmark files changed. `steward-outline.json` / `outline.py` are no longer used by the generator (kept).
+- Not taken: arrival animation, rooms, live heading, floor stack. `tsc -b`, `oxlint` clean; renders checked.
+- The picked building's solid "Open" button (in the list row and under the closed search) looked bolted on: the row
+  itself now opens it, with a quiet "Open ›" inside on the right (`.ml-go`). Clicking the closed card's row went to
+  `?building=test%2Fosm-way50300147` (headless check).
+
+## 2026-10-27 — Landing round 3: search as a pill, the card only once it opens
+
+- Atahan approved wordmark A ("clay plan") and the logo. The search field no longer starts on a card: closed, it is a
+  glass pill on the map (and the picked building a pill under it); a click brings the card in round it (background,
+  border and blur fade in) while the height opens. The panel keeps its place and size, see-through and click-through
+  when closed, so the field never moves. Opening no longer animates `height` (it laid the 286-row list out again every
+  frame; the design hook flagged it): the panel is always full height, cut to its top by a `clip-path` on wide
+  screens and slid down by a `transform` on narrow ones. Per frame on click (headless): wide, the clip interpolates
+  over ~9 frames; phone, translateY 686 → 583 → 481 → 151 → 33 → 0 px.
+- Five wordmark refinements shown to Atahan on a local page (port 5398, scratchpad, not in the repo): arrival
+  (route to the d's door, once), rooms, finer walls, live heading cone, floor stack. Recommended: finer walls +
+  arrival. He picked finer walls (entry above).
+
+## 2026-10-27 — Landing round 2: logo apart from the search, new wordmark, opening animation
+
+- Atahan: the icon was too small on desktop, the wordmark had no character, no animation when the list opened, and
+  the logo could stand apart from the search. Now: mark (60 px desktop, 42 px phone) + a new wordmark
+  (`frontend/src/brand/Wordmark.tsx`, option A of three shown: "clay plan") alone at the top left; the search card
+  under it. The opening animation was missing because of a `prefers-reduced-motion` block the first round added
+  (the app runs full motion always, `src/motion.ts`); removed. Rows and chips now rise in, staggered 22 ms.
+- Height per frame on click (headless, 1440×900): 70 → 199 → 315 → 414 → 689 → 732 → 784. `tsc -b`, `oxlint` clean.
+- Wordmark options B (flat plan) and C (Geist stacked like floors) are mockups only; awaiting Atahan's pick.
+
+## 2026-10-27 — Landing: Steward card with a search field, the list opens on click
+
+- `frontend/src/map/MapLanding.tsx` + `map.css`: the always-open 400 px list panel is now one card with the
+  Steward wordmark (dark / light by theme) and the search field. Click in the field (or `/`) → the card grows to full
+  height (height animated from the measured top, `--ml-top`) with the kind chips, the grouped list and "New building
+  from floor plans"; Esc (clears the query first), ×, a map tap or picking a building closes it. A building picked from
+  the list stays in the closed card with **Open**. Phone: bottom sheet growing upward, clear of Account; the map
+  controls follow the sheet's height and hide while it is open.
+- Checked in headless Chrome over CDP (1440×900 and 390×844, screenshots): closed, open, typed "arc" (3 on the map,
+  4 with no location), picked (map flies in, row with Open). Real mouse/key events: click field → open (h 868),
+  Esc → closed (h 120), `/` → open, map click → closed. `tsc -b` and `oxlint` clean.
+
 ## 2026-10-27 — Local folder moved to `~/Documents/steward`
 
 - Repo folder `~/Documents/industrial-agents-hackathon` → `~/Documents/steward`; worktree `collab-edits` →

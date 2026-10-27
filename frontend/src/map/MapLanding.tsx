@@ -1,6 +1,7 @@
 // Landing: the buildings with a real position (GET /buildings `location`, the kit's OpenStreetMap buildings) as pins
-// on a city map; tap a pin or a row to open the building. The panel lists every building, the ones on the map first,
-// then the ones with no position; a field narrows it by name and chips by kind (campus, factory, home, …). Map: MapLibre with our own base style on OpenFreeMap's tiles (./style.ts), light or dark with
+// on a city map; tap a pin or a row to open the building. Over the map: Steward's mark and wordmark (top left), and
+// under it the search field, a pill (the card only appears once the list opens). A click in the field opens the list under it: every building, the ones on the map first, then the ones with
+// no position; typing narrows it by name and chips by kind (campus, factory, home, …). Map: MapLibre with our own base style on OpenFreeMap's tiles (./style.ts), light or dark with
 // the app theme, tilted, buildings extruded to their OSM height (streamed with the tiles, nothing stored). Pins and names are map layers drawn above, so names that would collide
 // are dropped by the map itself.
 // With a building open the map stays mounted under its screen (src/Root.tsx): it flies in to the building and then
@@ -10,10 +11,11 @@
 
 import maplibregl, { type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useAccess } from '../access/auth'
 import { api, type Building, type BuildingKind, type ImportPlace } from '../api'
 import { useTheme } from '../theme'
+import { Wordmark } from '../brand/Wordmark'
 import { outerRing, ringContains, TILE_BUILDINGS } from './geo'
 import { applyBlocks, attachMap, FLAT_FOV, osmHeights, setTheme, toLngLat, type Origin } from './bridge'
 import '../building/hud.css' // the HUD tokens (--hud-*) the panel shares with the building screen
@@ -74,6 +76,14 @@ const LIT: maplibregl.ExpressionSpecification = [
   ['boolean', ['feature-state', 'selected'], false],
 ]
 
+// the picked building's row opens it: "Open ›" inside the row, not a button of its own
+const GO = (
+  <span className="ml-go" aria-hidden>
+    Open
+    <svg viewBox="0 0 24 24" width="14" height="14"><path d="M9 6l6 6-6 6" /></svg>
+  </span>
+)
+
 const nameOf = (b: Building) => b.name ?? b.id.split('/')[1]
 const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 /** the building open on top of the map */
@@ -131,6 +141,40 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport, onDelete
   const cardOpenRef = useRef(false)
   cardOpenRef.current = card !== null
   const [askLocation, setAskLocation] = useState(false)
+  // the panel: the search field; a click in the field opens the list under it, the map, Esc, × or
+  // picking a building closes it again. The closed card's height (its top part) is measured: the panel animates
+  // between it and the full height, and on narrow screens the map's controls sit above it.
+  const [listOpen, setListOpen] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
+  const top = useRef<HTMLDivElement>(null)
+  const [topHeight, setTopHeight] = useState<number | null>(null)
+  useEffect(() => {
+    const element = top.current
+    if (!element) return
+    const observer = new ResizeObserver(() => setTopHeight(element.offsetHeight))
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  const closeList = () => {
+    setListOpen(false)
+    input.current?.blur()
+  }
+  // "/" puts the cursor in the search field (not while a building is open over the map)
+  useEffect(() => {
+    if (focus) return
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (event.key !== '/' || target?.closest('input, textarea, [contenteditable="true"]')) return
+      event.preventDefault()
+      input.current?.focus()
+    }
+    addEventListener('keydown', onKey)
+    return () => removeEventListener('keydown', onKey)
+  }, [focus])
+  // back from a building: the card closed, the map in front
+  useEffect(() => {
+    if (focus) setListOpen(false)
+  }, [focus])
 
   const located = useMemo(
     () =>
@@ -212,6 +256,8 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport, onDelete
     }
     // left click: an open card just closes; else a pin or a model opens (a choice when versions share the place)
     map.on('click', (event) => {
+      setListOpen(false) // a tap on the map closes the list first
+      input.current?.blur()
       if (cardOpenRef.current) return setCard(null)
       const at: [number, number] = [event.lngLat.lng, event.lngLat.lat]
       const ours = oursAt(event.point)
@@ -598,6 +644,7 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport, onDelete
     const map = mapRef.current
     if (!b.location || !map) return onOpen(b.id)
     setPicked(b.id)
+    closeList() // the map flies to it; the closed card keeps it with Open
     const outline = (b.location.outline ?? []).flat()
     const bounds = new maplibregl.LngLatBounds()
     for (const point of outline.length ? outline : [[b.location.lon, b.location.lat] as [number, number]]) bounds.extend(point)
@@ -612,7 +659,11 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport, onDelete
   }
 
   return (
-    <main className={`ml${focus ? ' ml-open' : ''}`} inert={focus ? true : undefined}>
+    <main
+      className={`ml${focus ? ' ml-open' : ''}${listOpen ? ' ml-listing' : ''}`}
+      inert={focus ? true : undefined}
+      style={topHeight ? ({ '--ml-top': `${topHeight}px` } as CSSProperties) : undefined}
+    >
       <div ref={container} className="ml-map" />
       {askLocation && !focus && (
         <div className="ml-locate-scrim" onKeyDown={(e) => e.key === 'Escape' && answerLocation(false)}>
@@ -718,90 +769,117 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport, onDelete
           </div>
         </div>
       )}
-      <aside className="ml-panel">
-        <header>
-          <span>Buildings</span>
-          <span>{buildings ? (words.length || kind ? `${shown.length} of ${buildings.length}` : buildings.length) : error ? 'Could not load' : 'Loading…'}</span>
-        </header>
-        <label className="ml-field">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && shown[0]) pick(shown[0])
-              else if (e.key === 'Escape') setQuery('')
-            }}
-            placeholder="Search by name"
-            aria-label="Search buildings by name"
-            spellCheck={false}
-            disabled={!buildings}
-          />
-          {query && (
-            <button className="ml-clear" onClick={() => setQuery('')} aria-label="Clear search">
-              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
+      <h1 className="ml-logo">
+        <img src={dark ? '/brand/mark.svg' : '/brand/mark-light.svg'} alt="" />
+        <Wordmark dark={dark} className="ml-wordmark" />
+      </h1>
+      <aside className={`ml-panel${listOpen ? ' open' : ''}`} onKeyDown={(e) => {
+        if (e.key !== 'Escape') return
+        if (query) setQuery('')
+        else closeList()
+      }}>
+        <div className="ml-top" ref={top}>
+          <label className="ml-field">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
+            <input
+              ref={input}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setListOpen(true)
+              }}
+              onFocus={() => setListOpen(true)}
+              onClick={() => setListOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && shown[0]) pick(shown[0])
+              }}
+              placeholder={buildings ? `Search ${buildings.length} buildings` : error ? 'Could not load buildings' : 'Loading buildings…'}
+              aria-label="Search buildings by name"
+              aria-expanded={listOpen}
+              aria-controls="ml-list"
+              spellCheck={false}
+              disabled={!buildings}
+            />
+            {/* typed: clear it; the list open and nothing typed: close the list */}
+            {(query || listOpen) && (
+              <button
+                className="ml-clear"
+                onClick={() => (query ? setQuery('') : closeList())}
+                aria-label={query ? 'Clear search' : 'Close the list'}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
+              </button>
+            )}
+          </label>
+          {!listOpen && picked && buildings?.some((b) => b.id === picked) && (
+            <button className="ml-picked" onClick={() => onOpen(picked)}>
+              <span className="ml-row-text">
+                <span className="ml-name">{nameOfId(picked)}</span>
+                {addressOf(picked) && <span className="ml-address">{addressOf(picked)}</span>}
+              </span>
+              {GO}
             </button>
           )}
-        </label>
-        {kinds.length > 1 && (
-          <div className="ml-kinds" role="group" aria-label="Filter by kind">
-            {[{ kind: null, label: 'All' }, ...kinds].map((k) => (
-              <button key={k.kind ?? 'all'} aria-pressed={kind === k.kind} onClick={() => setKind(k.kind)}>
-                {k.label}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="ml-list">
-          {[
-            { key: 'map', label: 'On the map', items: shownLocated },
-            { key: 'none', label: 'No location', items: shownElsewhere },
-          ].map(
-            (group) =>
-              group.items.length > 0 && (
-                <section key={group.key}>
-                  <h2>
-                    <span>{group.label}</span>
-                    <span>{group.items.length}</span>
-                  </h2>
-                  <ol>
-                    {group.items.map((b) => (
-                      <li key={b.id} className={picked === b.id ? 'on' : undefined}>
-                        <button
-                          className="ml-row"
-                          aria-current={picked === b.id || undefined}
-                          onClick={() => pick(b)}
-                          onMouseEnter={() => mark(b.id, true)}
-                          onMouseLeave={() => mark(b.id, false)}
-                          onFocus={() => mark(b.id, true)}
-                          onBlur={() => mark(b.id, false)}
-                        >
-                          <span className="ml-name">{nameOf(b)}</span>
-                          {b.location?.address && <span className="ml-address">{b.location.address}</span>}
-                        </button>
-                        {picked === b.id && (
-                          <button className="ml-enter" onClick={() => onOpen(b.id)}>
-                            Open
-                          </button>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-              ),
+        </div>
+        <div className="ml-body" id="ml-list" inert={listOpen ? undefined : true}>
+          {kinds.length > 1 && (
+            <div className="ml-kinds" role="group" aria-label="Filter by kind">
+              {[{ kind: null, label: 'All' }, ...kinds].map((k) => (
+                <button key={k.kind ?? 'all'} aria-pressed={kind === k.kind} onClick={() => setKind(k.kind)}>
+                  {k.label}
+                </button>
+              ))}
+            </div>
           )}
-          {buildings && !shown.length && (words.length > 0 || kind) && (
-            <p className="ml-empty">
-              {words.length ? `No ${kind ? `${KINDS.find((k) => k.kind === kind)!.label.toLowerCase()} building` : 'building'} is called “${query.trim()}”.` : 'No building of this kind.'}
-            </p>
+          <div className="ml-list">
+            {[
+              { key: 'map', label: 'On the map', items: shownLocated },
+              { key: 'none', label: 'No location', items: shownElsewhere },
+            ].map(
+              (group) =>
+                group.items.length > 0 && (
+                  <section key={group.key}>
+                    <h2>
+                      <span>{group.label}</span>
+                      <span>{group.items.length}</span>
+                    </h2>
+                    <ol>
+                      {group.items.map((b, i) => (
+                        <li key={b.id} className={picked === b.id ? 'on' : undefined} style={i < 12 ? ({ '--i': i } as CSSProperties) : undefined}>
+                          <button
+                            className="ml-row"
+                            aria-current={picked === b.id || undefined}
+                            onClick={() => (picked === b.id ? onOpen(b.id) : pick(b))}
+                            onMouseEnter={() => mark(b.id, true)}
+                            onMouseLeave={() => mark(b.id, false)}
+                            onFocus={() => mark(b.id, true)}
+                            onBlur={() => mark(b.id, false)}
+                          >
+                            <span className="ml-row-text">
+                              <span className="ml-name">{nameOf(b)}</span>
+                              {b.location?.address && <span className="ml-address">{b.location.address}</span>}
+                            </span>
+                            {picked === b.id && GO}
+                          </button>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                ),
+            )}
+            {buildings && !shown.length && (words.length > 0 || kind) && (
+              <p className="ml-empty">
+                {words.length ? `No ${kind ? `${KINDS.find((k) => k.kind === kind)!.label.toLowerCase()} building` : 'building'} is called “${query.trim()}”.` : 'No building of this kind.'}
+              </p>
+            )}
+          </div>
+          {(!access.mode || access.admin) && (
+            <button className="ml-more" onClick={() => onImport()}>
+              <span>New building from floor plans</span>
+              <span aria-hidden>Create →</span>
+            </button>
           )}
         </div>
-        {(!access.mode || access.admin) && (
-          <button className="ml-more" onClick={() => onImport()}>
-            <span>New building from floor plans</span>
-            <span aria-hidden>Create →</span>
-          </button>
-        )}
       </aside>
     </main>
   )

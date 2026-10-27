@@ -37,7 +37,17 @@ place card) with a floating Guide conversation.
 - **Landing:** a city map (`frontend/src/map/MapLanding.tsx`; MapLibre GL JS on OpenFreeMap's hosted
   `positron` / `dark` styles, free, no key), tilted 50°, every building in the tiles extruded from zoom 14 to its
   OSM height (`render_height` / `render_min_height`, streamed with the tiles), a pin per building that has a real
-  position, and a panel listing them; tap a pin or a row → `BuildingScreen`. Positions come from `GET /buildings` `location` ({lat, lon, address}
+  position (2026-10-27): Steward's mark (`frontend/public/brand/mark*.svg`) and wordmark (`frontend/src/brand/Wordmark.tsx`,
+  letters in `wordmark.json`, shared with `scripts/brand/marks.cjs`: the name drawn as 1.5-thick plan walls raised as
+  low clay walls, you as the orange ball in the d's doorway) alone at the top
+  left, and under them the search field, a glass pill of its own on the map. A click in the field (or `/`) brings a
+  glass card in round it with the list (on the map first, then no location). The panel is always full height, cut to
+  its measured top (`--ml-top`); opening animates a `clip-path` on wide screens and a `transform` (slide up) on narrow
+  ones, never the height, and the chips and the first 12 rows rise in, staggered. Esc, ×, a tap on the map or picking
+  a building closes it. Closed there is no card: a building picked on the map is its own glass pill under the search
+  pill, and tapping that row opens the building (**Open ›**). On a phone the card is a bottom sheet that grows upward, stopping clear of the logo and
+  Account, and the map's controls sit above it (its measured height, `--ml-top`). Tap a pin or a row →
+  `BuildingScreen`. Positions come from `GET /buildings` `location` ({lat, lon, address}
   or null), read from `backend/api/locations.json`: the centre of the OSM outline of the 17 `osm-way*` buildings, made
   by the archived twin-lab `georef.py` (OSM API; fit median 0.05–6.6 m). Swiss, ResPlan and procedural buildings
   have no position; the list view (`?view=list`, `src/search/`) searches all 280 and has a "No location" filter.

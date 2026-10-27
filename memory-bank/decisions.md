@@ -433,3 +433,21 @@ Template:
 - **Evidence:** old vs new compared with `inspect.getsource`: all 62 `BuildingSession` methods + the `load` classmethod
   and all 27 top-level classes/functions of `live.py` byte-identical apart from updated path comments; tool schemas, presets and constants equal; `uv run pytest -q` 955
   passed / 2 skipped.
+
+<a id="d-027"></a>
+### D-027 — The app is called Steward
+- **Status:** accepted · **Date:** 2026-10-27 · **By:** Atahan
+- **Context:** After the hackathon the repo was still `industrial-agents-hackathon` and the app "Talk to Your
+  Building", which reads as a slogan, not a name. The app does wayfinding and building management.
+- **Decision:** The app is **Steward** (the one who looks after a place and knows every corner); "talk to your
+  building" stays as the tagline. Rejected: Maze (names the problem, not the fix; maze.co is a known UX product) and
+  generic or made-up names. Mark: the app's clay cutaway in isometric (three floors, the top one opened, you as an
+  orange ball in a doorway facing the front room); a single bold floor at 32 px and below. Icons sit on `#060606`
+  (dark is the default; a light set exists too). That black is for the icon only, the app keeps its own dark tones.
+  Package names: `steward` (uv, root npm), `steward-app` (frontend). Browser-storage keys keep their `ttyb-` prefix
+  so saved preferences survive.
+- **Consequences:** every icon comes from `scripts/brand/marks.cjs` into `frontend/public/brand/` (plus
+  `favicon.svg`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` in `frontend/public/`). The GitHub repo,
+  the local folder, the Vercel project and the Supabase project are renamed outside the repo, step by step.
+- **Evidence:** marks rendered and checked in headless Chrome; `node scripts/brand/marks.cjs` reproduces the
+  committed SVGs byte for byte.

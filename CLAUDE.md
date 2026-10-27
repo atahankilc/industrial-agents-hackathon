@@ -1,12 +1,13 @@
-# CLAUDE.md — Talk to Your Building
+# CLAUDE.md — Steward
 
 Entry point for every agent session. Read this file fully, then follow the **Session protocol** below.
 
 ## What this repo is
 
-An app you can *talk to* about a building: find things, get routed step by step, edit the building, create one
-from floor plans, react to closures and moving machines. A deterministic geometry/graph core computes every
-answer; the LLM handles the language. It started at the Industrial Agents Hackathon 2026 (Track 01, submitted
+**Steward** ([D-027](memory-bank/decisions.md#d-027), formerly "Talk to Your Building"): an app you can *talk to*
+about a building: find things, get routed step by step, edit the building, create one from floor plans, react to
+closures and moving machines. A deterministic geometry/graph core computes every answer; the LLM handles the
+language. It started at the Industrial Agents Hackathon 2026 (Track 01, submitted
 2026-10-25) and is now in ongoing development. Hackathon material is in
 [archive/hackathon/](archive/hackathon/README.md).
 

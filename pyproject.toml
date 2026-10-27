@@ -1,7 +1,7 @@
 [project]
-name = "talk-to-your-building"
+name = "steward"
 version = "0.1.0"
-description = "Talk to Your Building: agent-first indoor navigation (Industrial Agents Hackathon 2026, Track 01)"
+description = "Steward: talk to your building. Agent-first indoor navigation and building management"
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=2.1.0",

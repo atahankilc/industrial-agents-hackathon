@@ -19,7 +19,7 @@ Mobile-first web app (phone in hand, inside or in front of a building); must als
 
 ## Product Purpose
 
-"Talk to your building": ask in plain words (typed, spoken, or by showing the phone camera) and get a correct,
+Steward: "talk to your building". Ask in plain words (typed, spoken, or by showing the phone camera) and get a correct,
 grounded answer — where something is, how to get there for *you*, what changed. Every place, route and number
 comes from a deterministic geometry/graph core; the language model only talks. Success: a first-time visitor
 finds their way without reading a map legend; a maintainer changes the building and every visitor's next route

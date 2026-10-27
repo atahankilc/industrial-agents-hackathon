@@ -1,6 +1,6 @@
-# Talk to Your Building
+# Steward
 
-Agent-first indoor navigation. Ask a building where things are, how to get there, and what changes when a lift
+Talk to your building. Agent-first indoor navigation and building management. Ask a building where things are, how to get there, and what changes when a lift
 closes or a forklift blocks an aisle; edit the building or create one from floor plans. A deterministic
 geometry/graph core computes every answer and the LLM handles the language.
 
@@ -35,8 +35,8 @@ organiser kit's dataset is committed in `data/`, so one clone is enough.
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh      # if uv is missing
-git clone https://github.com/atahankilc/industrial-agents-hackathon.git
-cd industrial-agents-hackathon
+git clone https://github.com/atahankilc/steward.git
+cd steward
 uv sync
 cp .env.example .env                                  # put ANTHROPIC_API_KEY in .env (never commit it)
 ```

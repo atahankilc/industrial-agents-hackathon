@@ -9,6 +9,18 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-27 — The app is called Steward
+
+- [D-027](decisions.md#d-027): name chosen with Atahan over several rounds (job titles, architecture terms; Maze
+  rejected). Mark = the clay cutaway (three floors, you in a doorway); a single bold floor at 32 px and below; icon
+  ground `#060606`. Moving the app's own dark HUD to that black was tried and reverted at his request.
+- Renamed in README, CLAUDE.md, PRODUCT.md, `pyproject.toml` / `uv.lock`, both `package.json` (+ lock), `index.html`
+  title and home-screen title, the web manifest (now also 192/512 icons), the FastAPI title, backend docstrings and
+  the two OSM User-Agent strings. History (archive, hackathon references, research notes) keeps the old name.
+- `scripts/brand/marks.cjs` draws every icon; `outline.py` turned "Steward" in Geist 500 (kerned) into
+  `steward-outline.json` so the wordmark needs no font.
+- Not done yet: GitHub, local folder, Vercel, Supabase (see project-state Next 0).
+
 ## 2026-10-27 — One command to run the app; own local ports
 
 - `npm run dev` at the repo root (`package.json` → `scripts/dev.sh`) starts the backend and the Vite app together;

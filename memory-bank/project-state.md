@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../archive/hackathon/README.m
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-27** (repo restructure [D-024](decisions.md#d-024), solvers + API routers [D-025](decisions.md#d-025), tool layer + live packages [D-026](decisions.md#d-026))
+[Memory bank](README.md) · Last updated: **2026-10-27** (rename to Steward [D-027](decisions.md#d-027), repo restructure [D-024](decisions.md#d-024), solvers + API routers [D-025](decisions.md#d-025), tool layer + live packages [D-026](decisions.md#d-026))
 
 ## Phase
 
@@ -54,6 +54,10 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
 
 ## Next
 
+0. **Rename to Steward outside the repo** ([D-027](decisions.md#d-027)): the repo content is renamed; still to do,
+   each confirmed with Atahan first: GitHub repo → `atahankilc/steward` (then `git remote set-url`), local folder →
+   `~/Documents/steward` (then `git worktree repair` for `../iah-collab-edits`), Vercel project → `steward` (try
+   `steward.vercel.app`), Supabase project display name.
 1. **Bays marked `through: false`.** The jury's eval data marks factory bays with `through: false` and our core
    ignores the flag; another session's re-score (2026-10-26, UNVERIFIED here) says that is the main reason our routes
    scored 0, and that with it and the right answer format we would have reached ~0.89 on the 36 sample questions.

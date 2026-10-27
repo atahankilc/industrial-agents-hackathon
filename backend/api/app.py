@@ -53,7 +53,7 @@ class StripPrefix:
 
 
 origins = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "*").split(",") if origin.strip()]
-app = FastAPI(title="Talk to Your Building")
+app = FastAPI(title="Steward")
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
 # the floor plan export is up to ~0.5 MB of JSON; NDJSON streams stay uncompressed: gzip held a Guide turn's lines
 # back until the turn ended (browsers ask for gzip), so the app saw no steps and a phone's connection sat idle

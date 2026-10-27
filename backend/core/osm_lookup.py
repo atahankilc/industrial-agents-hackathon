@@ -15,7 +15,7 @@ RADIUS_M = 40  # photos taken inside a building: phone GPS is often 10–30 m of
 
 def overpass(query: str) -> dict:
     data = urllib.parse.urlencode({"data": query}).encode()
-    request = urllib.request.Request(ENDPOINT, data=data, headers={"User-Agent": "talk-to-your-building/1.0"})
+    request = urllib.request.Request(ENDPOINT, data=data, headers={"User-Agent": "steward/1.0"})
     with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:  # noqa: S310 (fixed https endpoint)
         return json.loads(response.read())
 

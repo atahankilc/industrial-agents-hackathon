@@ -1259,7 +1259,7 @@ wheels = [
 ]
 
 [[package]]
-name = "talk-to-your-building"
+name = "steward"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

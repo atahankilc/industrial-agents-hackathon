@@ -1,18 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1B2230"/>
-      <stop offset="1" stop-color="#0B0F16"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
-  <!-- floor plates, bottom to top -->
-  <path d="M10 41 32 29.5 54 41 32 52.5Z" fill="#3A4556"/>
-  <path d="M10 33 32 21.5 54 33 32 44.5Z" fill="#7C8A9E"/>
-  <path d="M10 25 32 13.5 54 25 32 36.5Z" fill="#E9EEF4"/>
-  <!-- route on the top floor -->
-  <path d="M19 25.5 29 20.3 41 26.5" fill="none" stroke="#0A84FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="19" cy="25.5" r="2.4" fill="#0A84FF"/>
-  <circle cx="41" cy="26.5" r="4.2" fill="#FFFFFF"/>
-  <circle cx="41" cy="26.5" r="2.8" fill="#0A84FF"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="32" height="32"><rect width="128" height="128" rx="28" fill="#060606"/><polygon points="120.00,76.93 64.00,109.27 64.00,98.92 120.00,66.59" fill="#9E978B" /><polygon points="8.00,76.93 64.00,109.27 64.00,98.92 8.00,66.59" fill="#BDB6AA" /><polygon points="64.00,34.25 120.00,66.59 64.00,98.92 8.00,66.59" fill="#ECE8E1" /><polygon points="120.00,66.59 113.28,70.47 113.28,54.95 120.00,51.07" fill="#9E978B" /><polygon points="57.28,38.13 113.28,70.47 113.28,54.95 57.28,22.61" fill="#BDB6AA" /><polygon points="64.00,18.73 120.00,51.07 113.28,54.95 57.28,22.61" fill="#ECE8E1" /><polygon points="64.00,42.01 14.72,70.47 14.72,54.95 64.00,26.49" fill="#9E978B" /><polygon points="8.00,66.59 14.72,70.47 14.72,54.95 8.00,51.07" fill="#BDB6AA" /><polygon points="57.28,22.61 64.00,26.49 14.72,54.95 8.00,51.07" fill="#ECE8E1" /><polygon points="52.80,60.12 46.08,64.00 46.08,48.48 52.80,44.60" fill="#9E978B" /><polygon points="36.00,58.18 46.08,64.00 46.08,48.48 36.00,42.66" fill="#BDB6AA" /><polygon points="42.72,38.78 52.80,44.60 46.08,48.48 36.00,42.66" fill="#ECE8E1" /><polygon points="92.00,82.75 85.28,86.63 85.28,71.11 92.00,67.23" fill="#9E978B" /><polygon points="64.00,74.35 85.28,86.63 85.28,71.11 64.00,58.83" fill="#BDB6AA" /><polygon points="70.72,54.95 92.00,67.23 85.28,71.11 64.00,58.83" fill="#ECE8E1" /><ellipse cx="58.40" cy="67.23" rx="9.47" ry="5.51" fill="#8F887D"/><circle cx="58.40" cy="59.47" r="7.76" fill="#F2602A"/></svg>

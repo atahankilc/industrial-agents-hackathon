@@ -32,7 +32,7 @@ def way(key: str) -> dict:
     cached = CACHE / f"{key}.json"
     if not cached.exists():
         url = f"https://api.openstreetmap.org/api/0.6/way/{key.removeprefix('osm-way')}/full.json"
-        request = urllib.request.Request(url, headers={"User-Agent": "talk-to-your-building-hackathon/0.1"})
+        request = urllib.request.Request(url, headers={"User-Agent": "steward/0.1"})
         with urllib.request.urlopen(request, timeout=30) as response:
             cached.write_bytes(response.read())
         time.sleep(1)  # OSM API usage policy

@@ -1,9 +1,9 @@
-"""The Creator's tools (agent/creator_tools.py): each stage behind a tool, checked by code."""
+"""The Creator's tools (backend/agents/creator_tools.py): each stage behind a tool, checked by code."""
 
 import json
 
-from agent.creator_tools import CREATOR_TOOLS, CreatorTools, ImportSession
-from core.plan_import.ingest import load_sources
+from backend.agents.creator_tools import CREATOR_TOOLS, CreatorTools, ImportSession
+from backend.core.plan_import.ingest import load_sources
 from tests.plan_fixtures import FIXTURE_LABELS, STAIR_LABEL, TWO_ROOMS_AND_CORRIDOR, WITH_STAIR, draw_plan, to_png
 
 WHOLE = {"bbox": [0, 0, 1, 1], "photo": False}
@@ -133,7 +133,7 @@ def test_add_rooms_from_outside_adds_an_open_room():  # a foyer the walls did no
 
 
 def test_an_unexpected_failure_is_an_error_not_a_crash(monkeypatch):
-    import agent.creator_tools as module
+    import backend.agents.creator_tools as module
 
     tools = tools_for(TWO_ROOMS_AND_CORRIDOR)
     tools.call("register_plan", {"source_id": "s1", "level": 0, "floor_name": "EG", **WHOLE})

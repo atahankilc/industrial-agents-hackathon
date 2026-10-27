@@ -13,3 +13,6 @@ We do **not** build here. Extracted to the repo root:
 Still only here: `starter_agent/` (agent, tools, viewer, evaluator), kit `README.md`, `pyproject.toml`.
 Run the starter oracle against the moved data from the repo root:
 `PYTHONPATH=archive/initial-repo uv run python -m starter_agent.evaluate data/dev --oracle`
+
+`hackathon/` holds what the hackathon weekend left behind (submission, brief PDF, demo runbook, specs, weekend log),
+moved here on 2026-10-26: see [hackathon/README.md](hackathon/README.md).

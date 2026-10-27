@@ -1,16 +1,16 @@
-"""agent/builder.py: the Builder's tool loop (propose, never apply), "yes" → apply, grounding, and its offline client."""
+"""backend/agents/builder.py: the Builder's tool loop (propose, never apply), "yes" → apply, grounding, and its offline client."""
 
 import json
 
 import pytest
 
-import backend.app as backend_app
-from agent.builder import Builder
-from agent.builder_offline import BuilderOfflineClient
-from agent.builder_tools import BuilderTools
-from agent.offline_llm import message, text_block, tool_use
-from backend.drafts import DraftStore
-from core.edits import EditError
+from backend.api import deps
+from backend.agents.builder import Builder
+from backend.agents.builder_offline import BuilderOfflineClient
+from backend.agents.builder_tools import BuilderTools
+from backend.agents.offline_llm import message, text_block, tool_use
+from backend.api.drafts import DraftStore
+from backend.core.edits import EditError
 
 BASE = "train/proc-campus-train-000"
 
@@ -32,7 +32,7 @@ class ScriptedClient:
 
 @pytest.fixture
 def store(tmp_path) -> DraftStore:
-    return DraftStore(tmp_path, dict(backend_app.store.catalogue))
+    return DraftStore(tmp_path, dict(deps.store.catalogue))
 
 
 @pytest.fixture

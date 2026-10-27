@@ -17,8 +17,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from agent.guide import DEFAULT_MODEL, Guide, Usage, make_client  # noqa: E402
-from agent.tools import BuildingSession  # noqa: E402
+from backend.agents.guide import DEFAULT_MODEL, Guide, Usage, make_client  # noqa: E402
+from backend.agents.tools import BuildingSession  # noqa: E402
 
 # $ per million tokens: input, output, cache read, cache write (5-minute TTL = 1.25 × input). From the claude-api
 # skill's model table (cached 2026-10-06); estimates only.

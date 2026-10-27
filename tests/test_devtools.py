@@ -1,9 +1,9 @@
-"""The dev panel's endpoints (backend/devtools.py): Guide tools run by hand, session state, reset."""
+"""The dev panel's endpoints (backend/api/devtools.py): Guide tools run by hand, session state, reset."""
 
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import app
+from backend.api.app import app
 
 BUILDING = "train/proc-campus-train-000"
 

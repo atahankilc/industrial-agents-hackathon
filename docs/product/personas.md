@@ -4,20 +4,20 @@ summary: 17 personas with special needs, ranked for the Interaction score and de
 status: proposed (product thinking; no code yet)
 sources:
   - archive/initial-repo/README-cb51a6f.md §1 "Put yourself in their shoes" (dropped from the 1.1.0 README, Q-017)
-  - "Hackathon Challenge - Talk to Your Building.pdf p.1-3"
+  - "archive/hackathon/Hackathon Challenge - Talk to Your Building.pdf p.1-3"
   - docs/kit/data-format.md
-  - "dataset scan of all 280 buildings with core/building_map.py, 2026-10-24 (numbers in routing-profiles.md#dataset-reality-check)"
-related: [routing-profiles.md, ../challenge/brief.md, ../kit/data-format.md, ../kit/route-model.md]
+  - "dataset scan of all 280 buildings with backend/core/building_map.py, 2026-10-24 (numbers in routing-profiles.md#dataset-reality-check)"
+related: [routing-profiles.md, ../../archive/hackathon/docs/challenge/brief.md, ../kit/data-format.md, ../kit/route-model.md]
 ---
 
 # Personas
 
 [Docs index](../README.md) · Routing per persona: [routing-profiles.md](routing-profiles.md) · Organiser
-personas: [brief.md](../challenge/brief.md#personas-put-yourself-in-their-shoes)
+personas: [brief.md](../../archive/hackathon/docs/challenge/brief.md#personas-put-yourself-in-their-shoes)
 
 Why this exists: **Interaction = 25 pts**, judged by "a short scripted conversation with tricky users" on three
 rubric points: *asks only what it needs · shows what it understood · gives directions a person can follow*
-([brief.md](../challenge/brief.md#judging)). Each persona below is a likely tricky user. Everything the agent
+([brief.md](../../archive/hackathon/docs/challenge/brief.md#judging)). Each persona below is a likely tricky user. Everything the agent
 says about places and routes must come from the deterministic core; personas only change **which profile**
 the core routes with and **how** the result is phrased.
 
@@ -268,4 +268,4 @@ test *whose* profile applies and how profiles combine, not new graph filters.
 ## Related
 
 - [routing-profiles.md](routing-profiles.md) — parameters per persona
-- [brief.md](../challenge/brief.md#personas-put-yourself-in-their-shoes) · [route-model.md](../kit/route-model.md)
+- [brief.md](../../archive/hackathon/docs/challenge/brief.md#personas-put-yourself-in-their-shoes) · [route-model.md](../kit/route-model.md)

@@ -1,4 +1,4 @@
-"""Edit-mode storage (backend/drafts.py, milestone 3): the backends' contract, and two serverless instances sharing one
+"""Edit-mode storage (backend/api/drafts.py, milestone 3): the backends' contract, and two serverless instances sharing one
 database — two DraftStores (each with its own catalogue, caches and Builders) on one MemoryDraftBackend. A live
 Postgres check runs only with PERSIST_LIVE_TEST=1 and SUPABASE_DB_URL."""
 
@@ -12,13 +12,17 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
-import backend.app as backend_app
-from agent.builder import Builder
-from backend.drafts import (SAVE_ATTEMPTS, Draft, DraftStore, FileDraftBackend, MemoryDraftBackend,
+import backend.api.app as backend_app
+
+from backend.api import deps
+
+from backend.api.routes import drafts as draft_routes
+from backend.agents.builder import Builder
+from backend.api.drafts import (SAVE_ATTEMPTS, Draft, DraftStore, FileDraftBackend, MemoryDraftBackend,
                             PostgresDraftBackend)
-from backend.persistence import Conflict, StateError, db_url
-from backend.sessions import load_catalogue
-from core.edits import EditError, apply_steps
+from backend.api.persistence import Conflict, StateError, db_url
+from backend.api.sessions import load_catalogue
+from backend.core.edits import EditError, apply_steps
 
 BASE = "train/proc-campus-train-000"
 
@@ -178,11 +182,11 @@ def two_instances(monkeypatch):
     pair = [Instance(instance(shared)), Instance(instance(shared))]
 
     def use(which: Instance) -> TestClient:
-        monkeypatch.setattr(backend_app, "drafts", which.store)
-        monkeypatch.setattr(backend_app.store, "catalogue", which.store.catalogue)
-        monkeypatch.setattr(backend_app.store, "user_buildings", which.store)
-        monkeypatch.setattr(backend_app, "builders", which.builders)
-        monkeypatch.setattr(backend_app, "builder_locks", which.locks)
+        monkeypatch.setattr(deps, "drafts", which.store)
+        monkeypatch.setattr(deps.store, "catalogue", which.store.catalogue)
+        monkeypatch.setattr(deps.store, "user_buildings", which.store)
+        monkeypatch.setattr(draft_routes, "builders", which.builders)
+        monkeypatch.setattr(draft_routes, "builder_locks", which.locks)
         return TestClient(backend_app.app)
 
     return pair, use
@@ -194,7 +198,7 @@ def builder_reply(client: TestClient, draft_id: str, text: str) -> dict:
 
 
 def side_prompt(store: DraftStore, draft: Draft) -> str:
-    from agent.builder_tools import BuilderTools
+    from backend.agents.builder_tools import BuilderTools
 
     tools = BuilderTools(store, draft)
     for space in store.building(draft)["spaces"]:
@@ -249,12 +253,12 @@ def test_builder_turn_that_lost_a_race_asks_to_resend(two_instances):
     stored_version = a.store.backend.builder_version(draft_id)
     a.store.backend.save_builder(draft_id, a.builders[draft_id].dump(), stored_version)  # "B" stored meanwhile
     a.builders[draft_id].version = stored_version  # A still thinks it has the latest; force a stale save
-    original = backend_app.load_builder
-    backend_app.load_builder = lambda draft: a.builders[draft.id]
+    original = draft_routes.load_builder
+    draft_routes.load_builder = lambda draft: a.builders[draft.id]
     try:
         reply = builder_reply(client, draft_id, "hello again")
     finally:
-        backend_app.load_builder = original
+        draft_routes.load_builder = original
     assert reply["type"] == "error" and "send the message again" in reply["detail"]
 
 

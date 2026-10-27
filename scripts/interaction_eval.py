@@ -1,5 +1,5 @@
 """Interaction eval: a simulated tricky user talks to the Building Guide, then an LLM judge scores the conversation
-with the organisers' Interaction rubric (docs/challenge/brief.md#judging). Calls the Claude API, costs money
+with the organisers' Interaction rubric (archive/hackathon/docs/challenge/brief.md#judging). Calls the Claude API, costs money
 (~$0.1–0.3 per scenario).
 
   uv run --env-file .env python scripts/interaction_eval.py                       # every tests/interaction_scenarios/*.json
@@ -28,8 +28,8 @@ import anthropic
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from agent.guide import Guide, GuideTurn, Usage, make_client  # noqa: E402
-from agent.tools import BuildingSession  # noqa: E402
+from backend.agents.guide import Guide, GuideTurn, Usage, make_client  # noqa: E402
+from backend.agents.tools import BuildingSession  # noqa: E402
 from scripts.live_guide import cost  # noqa: E402
 
 SCENARIOS = ROOT / "tests" / "interaction_scenarios"
@@ -252,8 +252,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Simulated tricky users + LLM judge for the Guide (live API).")
     parser.add_argument("files", nargs="*", type=Path)
     parser.add_argument("--repeat", type=int, default=1, help="runs per scenario (the simulated user varies)")
-    parser.add_argument("--model", default=None, help="Guide model (default GUIDE_MODEL / agent.guide)")
-    parser.add_argument("--effort", default=None, help="Guide effort (default GUIDE_EFFORT / agent.guide)")
+    parser.add_argument("--model", default=None, help="Guide model (default GUIDE_MODEL / backend.agents.guide)")
+    parser.add_argument("--effort", default=None, help="Guide effort (default GUIDE_EFFORT / backend.agents.guide)")
     parser.add_argument("--user-model", default=DEFAULT_MODEL)
     parser.add_argument("--judge-model", default=DEFAULT_MODEL)
     parser.add_argument("--judge-effort", default="medium")

@@ -24,5 +24,5 @@ You are the **commit fixer**. You receive a `commit-verifier` report with `VERDI
    - <fix 1>: implemented | claim corrected — <what changed, files>
    ```
 6. Stage your changes with `git add <specific paths>` (never `git add -A` blindly; never stage `.env`).
-7. **Never** run `git commit`, `git push`, `git reset --hard`, or rewrite history. Never edit `benchmark/score.py`.
+7. **Never** run `git commit`, `git push`, `git reset --hard`, or rewrite history. Never edit `tests/kit_oracles/score.py`.
 8. Finish with a short report: what you fixed, what you reduced to a known gap, what you could not fix and why.

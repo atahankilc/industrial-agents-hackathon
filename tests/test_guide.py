@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from agent.guide import Guide, ungrounded
-from agent.offline_llm import OfflineClient, message, text_block, tool_use
-from agent.tools import TOOL_DEFINITIONS, BuildingSession
+from backend.agents.guide import Guide, ungrounded
+from backend.agents.offline_llm import OfflineClient, message, text_block, tool_use
+from backend.agents.tools import TOOL_DEFINITIONS, BuildingSession
 
 BUILDING = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000"
 LIFT_1 = "proc-campus-train-000-V02"

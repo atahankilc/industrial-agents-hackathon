@@ -11,7 +11,7 @@ Every promise the verifier must check. One row per claim; be specific and checka
 
 | # | Claim | Where (files/functions) | How to verify (command or what to read) |
 |---|---|---|---|
-| C1 | e.g. `largest_room` solver matches all train+dev answers | `core/solvers.py:largest_room` | `uv run pytest tests/test_solvers.py -k largest_room` → 96/96 |
+| C1 | e.g. `largest_room` solver matches all train+dev answers | `backend/core/solvers.py:largest_room` | `uv run pytest tests/test_solvers.py -k largest_room` → 96/96 |
 | C2 | e.g. docs updated: solver-plan status row = VERIFIED | `docs/architecture/solver-plan.md` | read the table |
 
 ## Checks I ran

@@ -1,4 +1,4 @@
-"""Place resolution in the Guide's tool layer (agent/places.py via BuildingSession) and the grounding additions
+"""Place resolution in the Guide's tool layer (backend/agents/places.py via BuildingSession) and the grounding additions
 ported from the v1 Guide: articles, asset types, typo suggestions, described candidates, route fan-out."""
 
 import json
@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from agent.guide import ungrounded
-from agent.offline_llm import CANDIDATES
-from agent import places
-from agent.tools import BuildingSession
-from core.building_map import MapError
+from backend.agents.guide import ungrounded
+from backend.agents.offline_llm import CANDIDATES
+from backend.agents import places
+from backend.agents.tools import BuildingSession
+from backend.core.building_map import MapError
 
 BUILDING = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000"
 PREFIX = "proc-campus-train-000"

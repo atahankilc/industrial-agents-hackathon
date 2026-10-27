@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from agent.guide import Guide
-from agent.tools import BuildingSession
+from backend.agents.guide import Guide
+from backend.agents.tools import BuildingSession
 from tests.test_guide import ScriptedClient, say
 
 DATA = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000"
@@ -67,7 +67,7 @@ def test_end_route_cancelled_keeps_the_position_unless_told(session):
 
 def test_directions_are_an_overview_that_ends_in_the_start_line():
     """D-020: no first step and no "do you want to start?"; the app reads the steps after Start."""
-    from agent.guide import INSTRUCTIONS, VOICE_STYLE
+    from backend.agents.guide import INSTRUCTIONS, VOICE_STYLE
 
     for text in (INSTRUCTIONS, VOICE_STYLE):
         assert "Say start or press Start" in text and "first step only" not in text

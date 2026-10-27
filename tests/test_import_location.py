@@ -1,5 +1,5 @@
 """Where an import stands when the photos know it: EXIF GPS (or the browser's position), the OSM building there
-(core/osm_lookup.py, Overpass — faked here, no network), placement without a map tap, the "did you mean" suggestion
+(backend/core/osm_lookup.py, Overpass — faked here, no network), placement without a map tap, the "did you mean" suggestion
 when the tapped building is elsewhere, and re-fitting a draft onto another footprint (POST /drafts/{id}/fit)."""
 
 import io
@@ -8,8 +8,8 @@ import json
 import pytest
 from PIL import Image
 
-from core import osm_lookup
-from core.plan_import.ingest import median_gps, photo_gps
+from backend.core import osm_lookup
+from backend.core.plan_import.ingest import median_gps, photo_gps
 from tests.test_placement import PLAN, SPOT, api, imported, rotated_ring  # noqa: F401 (api is a fixture)
 
 FAR = {"lat": SPOT["lat"] + 0.002, "lon": SPOT["lon"]}  # about 220 m north

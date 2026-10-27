@@ -1,4 +1,4 @@
-"""Adding floors to the building being edited from new plans (core/plan_import/merge.py, edit op `add_floors`,
+"""Adding floors to the building being edited from new plans (backend/core/plan_import/merge.py, edit op `add_floors`,
 `draft` on POST /imports/stream) and deleting a saved building (DELETE /buildings/user/{slug})."""
 
 import copy
@@ -9,11 +9,11 @@ from shapely import affinity
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 
-import backend.app as backend_app
-from agent.creator import CreatorResult
-from core.plan_import.assemble import assemble, autofix
-from core.plan_import.merge import add_floors
-from core.plan_import.reference import reference_for
+from backend.api.routes import imports as import_routes
+from backend.agents.creator import CreatorResult
+from backend.core.plan_import.assemble import assemble, autofix
+from backend.core.plan_import.merge import add_floors
+from backend.core.plan_import.reference import reference_for
 from tests.plan_fixtures import labelled_floor
 from tests.test_placement import PLAN, SPOT, api, imported, rotated_ring  # noqa: F401 (api is a fixture)
 
@@ -110,7 +110,7 @@ def test_only_saved_buildings_can_be_deleted(api) -> None:
 
 def test_import_into_an_open_draft_adds_the_floor_as_one_undo_step(api, monkeypatch) -> None:
     TwoCreators.count = 0
-    monkeypatch.setattr(backend_app, "make_creator", TwoCreators)
+    monkeypatch.setattr(import_routes, "make_creator", TwoCreators)
     first = imported(api, {"ring": rotated_ring(0.0)})
     draft = first["draft_id"]
     space = api.get(f"/drafts/{draft}").json()["building"]["spaces"][0]["id"]
@@ -134,7 +134,7 @@ def test_import_into_an_unknown_draft_is_refused(api) -> None:
 
 
 def wall_angle_of(building: dict, floor_id: str) -> float:
-    from core.plan_import.merge import wall_angle
+    from backend.core.plan_import.merge import wall_angle
 
     return wall_angle([space for space in building["spaces"] if space["floor_id"] == floor_id])
 
@@ -149,7 +149,7 @@ def test_an_added_floor_keeps_its_walls_parallel_to_the_building() -> None:
 
 
 def test_straighten_floor_turns_it_parallel_to_the_lowest_floor() -> None:
-    from core.edits import apply_op
+    from backend.core.edits import apply_op
 
     building = add_floors(one_floor("import-aaaa", 0), one_floor("import-bbbb", 1))
     upper = next(floor["id"] for floor in building["floors"] if floor["level"] == 1)

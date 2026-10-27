@@ -1,17 +1,17 @@
-"""agent/builder_tools.py: what the Builder agent can look at, and propose_edit (dry run, never applies)."""
+"""backend/agents/builder_tools.py: what the Builder agent can look at, and propose_edit (dry run, never applies)."""
 
 import pytest
 
-import backend.app as backend_app
-from agent.builder_tools import BUILDER_TOOLS, BuilderTools
-from backend.drafts import DraftStore
+from backend.api import deps
+from backend.agents.builder_tools import BUILDER_TOOLS, BuilderTools
+from backend.api.drafts import DraftStore
 
 BASE = "train/proc-campus-train-000"
 
 
 @pytest.fixture
 def store(tmp_path) -> DraftStore:
-    return DraftStore(tmp_path, dict(backend_app.store.catalogue))
+    return DraftStore(tmp_path, dict(deps.store.catalogue))
 
 
 @pytest.fixture

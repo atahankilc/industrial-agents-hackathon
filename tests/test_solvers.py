@@ -7,13 +7,9 @@ Two levels: the solver alone on the gold `inputs`, and the full pipeline questio
 from collections import Counter
 from pathlib import Path
 
-from core.question_parser import ParseError, parse_question
-from core.solvers_v1 import solve
+from tests.kit_oracles.question_parser import ParseError, parse_question
+from backend.core.solvers import SolverResult, solve
 from tests.test_question_parser import building, labelled_questions
-
-# kind -> result field holding the number the answer is compared with
-NUMBER_FIELD = {"floor_area_total": "total_m2", "errand": "total_m", "straight_line_3d": "distance_m"}
-
 
 def within(value: float, answer: dict) -> bool:
     expected = float(answer["value"])
@@ -21,12 +17,12 @@ def within(value: float, answer: dict) -> bool:
     return abs(value - expected) <= tolerance
 
 
-def correct(kind: str, answer: dict, result: dict) -> bool:
+def correct(answer: dict, result: SolverResult) -> bool:
     if answer["type"] == "space":
-        return result["space_id"] == answer["space_id"] and (
-            "area" not in answer or within(result["area_m2"], answer["area"])
+        return result.value == answer["space_id"] and (
+            "area" not in answer or within(result.area_m2, answer["area"])
         )
-    return within(result[NUMBER_FIELD.get(kind, "count")], answer)
+    return within(result.value, answer)
 
 
 def outcome(directory: Path, question: dict, from_text: bool) -> tuple[bool, str]:
@@ -43,9 +39,9 @@ def outcome(directory: Path, question: dict, from_text: bool) -> tuple[bool, str
         kind, params = question["kind"], question["inputs"]
     try:
         result = solve(bmap, kind, params)
-    except ValueError as error:
+    except (ValueError, KeyError) as error:
         return False, f"{type(error).__name__}: {error}"
-    return correct(question["kind"], question["answer"], result), f"got {result}"
+    return correct(question["answer"], result), f"got {result.value} {result.unit or ''}"
 
 
 def report(label: str, from_text: bool) -> list[str]:

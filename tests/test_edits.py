@@ -1,4 +1,4 @@
-"""core/edits.py: JSON edit operations on building dicts (docs/superpowers/specs/2026-10-24-builder-edit-mode-design.md §1)."""
+"""backend/core/edits.py: JSON edit operations on building dicts (archive/hackathon/superpowers/specs/2026-10-24-builder-edit-mode-design.md §1)."""
 
 import copy
 import math
@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 from shapely.geometry import Point, Polygon
 
-from core.building_map import BuildingMap
-from core.edits import EditError, apply_op, apply_steps, edge_sides, space_at
-from core.solvers.walls import WALL_TOLERANCE_M, shared_wall_neighbours
+from backend.core.building_map import BuildingMap
+from backend.core.edits import EditError, apply_op, apply_steps, edge_sides, space_at
+from backend.core.solvers.walls import WALL_TOLERANCE_M, shared_wall_neighbours
 
 FIXTURE = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000" / "building.json"
 
@@ -297,7 +297,7 @@ def toward(building: dict, space_id: str, corner: list[float], metres: float) ->
 
 
 def test_shared_corner_into_corridor_leaves_no_overlap(base):
-    from core.validate import validate
+    from backend.core.validate import validate
     corridor, corner, rooms = corner_on_corridor(base)
     floor = by_id(base, "spaces", corridor)["floor_id"]
     changed = apply_op(base, {"op": "move_vertex", "floor_id": floor, "from_xy": corner,

@@ -1,10 +1,10 @@
-"""The Guide can switch the app to the Edit mode (agent/tools.py open_edit_mode → an `edit_mode` UI event)."""
+"""The Guide can switch the app to the Edit mode (backend/agents/tools/ open_edit_mode → an `edit_mode` UI event)."""
 
 from pathlib import Path
 
-from agent.guide import Guide
-from agent.offline_llm import EDIT, OfflineClient
-from agent.tools import TOOL_DEFINITIONS, BuildingSession
+from backend.agents.guide import Guide
+from backend.agents.offline_llm import EDIT, OfflineClient
+from backend.agents.tools import TOOL_DEFINITIONS, BuildingSession
 
 BUILDING = Path(__file__).resolve().parents[1] / "data" / "train" / "proc-campus-train-000"
 

@@ -1,8 +1,8 @@
 ---
 id: guide-commands
-summary: Setup and every command for chatting, evaluating on dev, scoring and producing the test submission.
-sources: [archive/initial-repo/README.md §5-6, archive/initial-repo/starter_agent/README.md, benchmark/evaluate.py, backend/app.py, agent/run_benchmark.py, agent/run_benchmark_v1.py, agent/guide_v1/__main__.py, SUBMISSION/BENCHMARK.md]
-related: [../kit/starter-agent.md, ../challenge/scoring.md]
+summary: Setup and every command for the backend, the app, tests, evals and deploy.
+sources: [backend/api/app.py, backend/api/routes/, frontend/package.json, vercel.json, scripts/]
+related: [../architecture/overview.md, ../../archive/hackathon/benchmark-code/README.md]
 ---
 
 # Commands
@@ -20,62 +20,32 @@ cp .env.example .env         # add ANTHROPIC_API_KEY
 
 Without syncing, one-off scripts can run with `uv run --no-project --python 3.12 python …` (stdlib only).
 
-## Starter agent (archived, still runnable)
-
-```bash
-PYTHONPATH=archive/initial-repo uv run --env-file .env python -m starter_agent data/dev/proc-factory-dev-003
-```
-
-## Evaluate on dev (do this before touching test)
-
-```bash
-# warm-up questions, tools only, free (verified 369/369 on 2026-10-24 with kit 1.0.0 answers; not re-run on 1.1.0):
-PYTHONPATH=archive/initial-repo uv run python -m starter_agent.evaluate data/dev --oracle
-# benchmark questions with the starter agent (~$0.10–0.25/question):
-PYTHONPATH=archive/initial-repo uv run --env-file .env python -m benchmark.evaluate data/dev --per-kind 3
-# our agent, agent/answer.py (verified 138/138 on 2026-10-24):
-uv run --env-file .env python -m benchmark.evaluate data/dev --agent agent.answer:answer
-# only some kinds:
-uv run --env-file .env python -m benchmark.evaluate data/dev --agent agent.answer:answer --kinds errand what_if_door
-```
-
-Results: `agent_output/benchmark/<--name, default results>.jsonl` (question, expected answer, reply, correct).
-
-## Produce the test submission
-
-The graded submission is `SUBMISSION/` (exactly `BENCHMARK.md` + `answers.json`):
-
-```bash
-PARSER_MODE=regex uv run python -m agent.run_benchmark_v1 data/test data/test/questions.csv SUBMISSION/answers.json
-uv run --env-file .env python -m agent.run_benchmark_v1 data/test data/test/questions.csv submissions/team_jaRAG.csv
-# same replies via the kit evaluator (checked identical on 2026-10-24):
-uv run --env-file .env python -m benchmark.evaluate data/test --agent agent.answer:answer --submission-csv submissions/team_jaRAG.csv
-```
-
-Format rules: [scoring.md](../challenge/scoring.md#submission-format).
-
-## Our deterministic pipeline
+## Solvers against the kit's gold answers
 
 ```bash
 uv run python scripts/validate_solvers.py [--kinds errand] [-v]          # solvers on gold inputs, train+dev
-PARSER_MODE=regex uv run python -m benchmark.evaluate data/dev --agent agent.benchmark_agent:answer --name dev
-PARSER_MODE=regex uv run python -m agent.run_benchmark data/test data/test/questions.csv agent_output/test_answers.json --csv team_<name>.csv
 ```
+
+## Benchmark (archived)
+
+The hackathon benchmark runners, the kit evaluator, the v1 Guide and their commands moved to
+[archive/hackathon/benchmark-code/](../../archive/hackathon/benchmark-code/README.md) on 2026-10-26.
+`tests/kit_oracles/score.py` (the kit scorer) stays: the solver tests use it to check answers against the kit's gold answers.
 
 ## Backend (Guide API)
 
-FastAPI app in `backend/` wrapping the Building Guide ([ai-agents.md](../architecture/ai-agents.md#implementation--agentguidepy-2026-10-24)).
+FastAPI app in `backend/api/` wrapping the Building Guide ([ai-agents.md](../architecture/ai-agents.md#implementation--backendagentsguidepy-2026-10-24)).
 Without `ANTHROPIC_API_KEY` it runs the offline rule-based client; `GUIDE_LLM=offline|anthropic` forces either.
 
 ```bash
-GUIDE_LLM=offline uv run uvicorn backend.app:app --port 8765          # no key needed
-uv run --env-file .env uvicorn backend.app:app --port 8765            # real Claude once the key is set
+GUIDE_LLM=offline uv run uvicorn backend.api.app:app --port 8390          # no key needed
+uv run --env-file .env uvicorn backend.api.app:app --port 8390            # real Claude once the key is set
 # GUIDE_MODEL (default claude-opus-5-5), GUIDE_EFFORT (default medium), GUIDE_BUILDING (default train/proc-campus-train-000)
 # voice turns: GUIDE_REWRITER=off disables the transcript rewriter (D-013), GUIDE_REWRITER_MODEL (default claude-haiku-5-5)
-curl -s localhost:8765/health
-curl -s -X POST localhost:8765/sessions -H 'content-type: application/json' -d '{"building":"train/proc-campus-train-000"}'
-curl -s -X POST localhost:8765/chat -H 'content-type: application/json' -d '{"session_id":"<id>","message":"Where is the printer?"}'
-curl -sN -X POST localhost:8765/v1/chat/completions -H 'content-type: application/json' -H 'X-Session-Id: demo' \
+curl -s localhost:8390/health
+curl -s -X POST localhost:8390/sessions -H 'content-type: application/json' -d '{"building":"train/proc-campus-train-000"}'
+curl -s -X POST localhost:8390/chat -H 'content-type: application/json' -d '{"session_id":"<id>","message":"Where is the printer?"}'
+curl -sN -X POST localhost:8390/v1/chat/completions -H 'content-type: application/json' -H 'X-Session-Id: demo' \
      -d '{"stream":true,"messages":[{"role":"user","content":"I use a wheelchair"}]}'
 uv run pytest -q tests/test_guide.py tests/test_backend.py                      # offline tests
 uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] [--effort low] [--channel voice]   # live, ~$0.05–0.16
@@ -90,26 +60,26 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | PUT | `/sessions/{id}/building` | `{"building"}` | fresh session on another building, same id |
 | PUT | `/sessions/{id}/location` | `{"space_id"}` (or `null` = figure taken away) | `{"location"}` — the app's "you are here" figure; the Guide routes from there ("here") and stops asking where the user is; unknown space → 422 |
 | POST | `/sessions/{id}/arrive` | `{"entrance", "destination", "from_session"?}` | `{"route": {reachable, reason, about_m, length_m}, "location", "events"}` — coming over from a nearby building (`route_to_building` → Continue): the user stands at opening `entrance`, the route to space `destination` comes back as events; bad entrance / destination → 422; `from_session`'s routing profile carries over only if this viewer may see that session (same access check), else it is ignored |
-| GET | `/sessions/{id}/plan` | – | vector floor plan of the current building (`core/floorplan.py`, gzip) |
+| GET | `/sessions/{id}/plan` | – | vector floor plan of the current building (`backend/core/floorplan.py`, gzip) |
 | POST | `/chat` | `{"session_id", "message", "channel"?, "photo"?, "heard"?, "selected"?}` | `{"reply", "tool_calls", "events", "ungrounded", "spoken"}` — `channel: "voice"` fills `spoken`; `heard: false` = a tapped button's text on the voice channel: spoken, not rewritten as a transcript (default true); `selected` = the space or asset id tapped on the plan while asking → a selection note for the Guide; `photo` = base64 data URL (jpeg/png/webp, ≤1.5 M chars), shown to the Guide for this turn only |
-| POST | `/chat/stream` | same as `/chat` | NDJSON: `{"type":"step","kind":"tool"\|"tool_done"\|"check",…}` while the Guide works, then `{"type":"reply",…/chat payload}` or `{"type":"error","code","message","detail"}` (`message`: a sentence to show — e.g. the Claude API credit ran out; `code` ∈ credits, auth, busy, unavailable, offline, internal, conflict; `backend/service_errors.py`; plain `/chat` answers 503/429 with `{"detail": message, "code"}`); voice turns also send `{"type":"say","text"}` per sentence as soon as it may be spoken (grounding-checked, all before `reply`, together the whole spoken reply — `agent/speech.py` `SpokenStream`) |
-| GET | `/events` | `?session_id=&after=N` | `{"events": [...since N], "next"}` — UI highlights, routes (with turn-by-turn `legs` and the Guide's followable `steps` — turn, rounded metres, door, landmark, text — both `core/directions.py`), changes |
+| POST | `/chat/stream` | same as `/chat` | NDJSON: `{"type":"step","kind":"tool"\|"tool_done"\|"check",…}` while the Guide works, then `{"type":"reply",…/chat payload}` or `{"type":"error","code","message","detail"}` (`message`: a sentence to show — e.g. the Claude API credit ran out; `code` ∈ credits, auth, busy, unavailable, offline, internal, conflict; `backend/api/service_errors.py`; plain `/chat` answers 503/429 with `{"detail": message, "code"}`); voice turns also send `{"type":"say","text"}` per sentence as soon as it may be spoken (grounding-checked, all before `reply`, together the whole spoken reply — `backend/agents/speech.py` `SpokenStream`) |
+| GET | `/events` | `?session_id=&after=N` | `{"events": [...since N], "next"}` — UI highlights, routes (with turn-by-turn `legs` and the Guide's followable `steps` — turn, rounded metres, door, landmark, text — both `backend/core/directions.py`), changes |
 | POST | `/drafts` | `{"base"}` (catalogue id) | Edit mode: new draft copy → `{"draft": {id, base, name, steps}, "building", "issues"}` (unknown base → 422) |
 | GET | `/drafts/{id}` | – | same shape (unknown / malformed id → 404) |
-| GET | `/drafts/{id}/plan` | – | vector plan of the draft (`core/floorplan.py`, what `PlanView` draws), centred on the base building |
-| POST | `/drafts/{id}/ops` | `{"ops": [{"op": …}]}` (`core/edits.py`) | applied as one undo step → same shape; bad op → 422 with the reason |
+| GET | `/drafts/{id}/plan` | – | vector plan of the draft (`backend/core/floorplan.py`, what `PlanView` draws), centred on the base building |
+| POST | `/drafts/{id}/ops` | `{"ops": [{"op": …}]}` (`backend/core/edits.py`) | applied as one undo step → same shape; bad op → 422 with the reason |
 | POST | `/drafts/{id}/chat/stream` | `{"message"}` | Builder agent turn (prompt edits) as NDJSON: `step` lines, then `{"type":"reply","reply","tool_calls","proposal" (id, summary, ops, new_problems, effect, `building` = draft after the ops) or null,"applied","state"}`; a plain "yes" applies the one open proposal; offline (`GUIDE_LLM=offline` / no key) a rule-based client understands rename / "make X N m wider to the east" / "add a door between X and Y"; model `BUILDER_MODEL` (default `claude-opus-5-5`), `BUILDER_EFFORT` |
 | POST | `/drafts/{id}/proposals/{pid}/apply` | – | apply an open proposal → draft state; unknown or made against an older draft → 409 |
 | POST | `/drafts/{id}/undo` | – | drops the last step (nothing to undo → 409) |
 | POST | `/drafts/{id}/save` | `{"name"}` | `{"building": "user/<slug>", "issues"}` — written to `GUIDE_USER_DIR` (default `data/user/`, gitignored), listed in `/buildings`; name clash → `-2` |
-| POST | `/imports/stream` | multipart `files` (PDF / images incl. HEIC; ≤ 20 files, ≤ 25 MB each, else 413; at most 40 pages / images read, the rest named in a `warning`; access mode: admin only, like `/drafts`; closing the stream stops the Creator; optional form fields `place` = JSON `{"ring": [[lon, lat], …]}` (the tapped OSM building) or `{"point": [lon, lat]}`, `device` = JSON `{"lat", "lon"}` (the browser's position, used when no photo carries EXIF GPS), `levels` = JSON list, the floor of each file as the user typed it (one per file, all different; a PDF's later pages count up; else 422) and `draft` = an open draft's id (Edit mode's "Add a floor": the new floors go into it as one undo step, edit op `add_floors`, walls kept parallel; a level it already has → 422 before the Creator runs)) | the Creator (`agent/creator.py`, `CREATOR_MODEL` default `claude-opus-5-5`, `CREATOR_EFFORT`) builds a building from floor plans, as NDJSON: `warning` per unreadable file, `step` lines (`say` / `tool` / `tool_done`), then `{"type":"done","draft_id","base":"import/<id>","name","issues","notes","location","located_by" ("tap" / "photos" / "device" / null),"suggestion" (the photos point > 50 m from the tapped building: `{ring?, name, point?}`)}` / `no_plan` / `error`; the draft opens in the Edit mode, the base is private until saved |
+| POST | `/imports/stream` | multipart `files` (PDF / images incl. HEIC; ≤ 20 files, ≤ 25 MB each, else 413; at most 40 pages / images read, the rest named in a `warning`; access mode: admin only, like `/drafts`; closing the stream stops the Creator; optional form fields `place` = JSON `{"ring": [[lon, lat], …]}` (the tapped OSM building) or `{"point": [lon, lat]}`, `device` = JSON `{"lat", "lon"}` (the browser's position, used when no photo carries EXIF GPS), `levels` = JSON list, the floor of each file as the user typed it (one per file, all different; a PDF's later pages count up; else 422) and `draft` = an open draft's id (Edit mode's "Add a floor": the new floors go into it as one undo step, edit op `add_floors`, walls kept parallel; a level it already has → 422 before the Creator runs)) | the Creator (`backend/agents/creator.py`, `CREATOR_MODEL` default `claude-opus-5-5`, `CREATOR_EFFORT`) builds a building from floor plans, as NDJSON: `warning` per unreadable file, `step` lines (`say` / `tool` / `tool_done`), then `{"type":"done","draft_id","base":"import/<id>","name","issues","notes","location","located_by" ("tap" / "photos" / "device" / null),"suggestion" (the photos point > 50 m from the tapped building: `{ring?, name, point?}`)}` / `no_plan` / `error`; the draft opens in the Edit mode, the base is private until saved |
 | DELETE | `/buildings/user/{slug}` | – | delete a saved building (access mode: admin only); the file store moves it to `GUIDE_USER_DIR/.deleted/`; a version it superseded comes back to the map; dataset buildings / unknown → 404 |
 | GET | `/drafts/{id}/references` | – | the import's straightened plan per floor for Edit mode's reference panel / trace: `{"floors": [{"floor_id","level","image" (JPEG data URL ≤ 1600 px),"transform" (2×3 px → building metres, y up)}]}` (`[]` for kit buildings); never inside other payloads |
-| PUT | `/drafts/{id}/location` | `{"origin": {"lat","lon"},"bearing_deg","scale"}` (scale 0.75–1.25, else 422) | the building's map position by hand (`core/geoplace.py`): `scale_building` (if ≠ 1) + `set_location` as one undo step → draft state; `fit = {"scale","by_hand": true}` |
+| PUT | `/drafts/{id}/location` | `{"origin": {"lat","lon"},"bearing_deg","scale"}` (scale 0.75–1.25, else 422) | the building's map position by hand (`backend/core/geoplace.py`): `scale_building` (if ≠ 1) + `set_location` as one undo step → draft state; `fit = {"scale","by_hand": true}` |
 | POST | `/drafts/{id}/fit` | `{"ring": [[lon, lat], …],"name"}` | fit the draft onto an OSM footprint (principal axes + IoU descent, scale clamped 0.75–1.25, `low_confidence` when IoU < 0.5 or at a bound) → draft state |
 | POST | `/v1/chat/completions` | OpenAI body, `stream` | OpenAI-compatible (SSE: `"... "` first, then sentences, `data: [DONE]`) for an ElevenLabs Custom LLM |
-| POST | `/tts` | `{"text", "lang"?}` (≤ 1,000 chars after `speakable()`) | the Guide's voice: ElevenLabs MP3 (`audio/mpeg`, `backend/tts.py`); no `ELEVENLABS_API_KEY` → 503, ElevenLabs refused → 502, empty → 422, too long → 413 — the app then uses the browser voice. `/health` says `"tts": true` when the key is set. `TTS_VOICE_ID` / `TTS_MODEL` override voice "River" / `eleven_flash_v2_5` |
-| POST | `/stt/token` | `{"session_id"?}` | `{"token", "keyterms"}`: a single-use ElevenLabs Scribe Realtime token (15 min, one connection) and ≤ 50 keyterms (≤ 20 chars) from the session's building (`backend/stt.py`); the browser then streams the mic to Scribe itself (`voice/scribe.ts`). Scribe off (`STT_MODE=browser` or no key) → 503, ElevenLabs refused → 502, unknown session → 404 — the app then uses browser recognition. `/health` says `"stt": true` when it is on |
+| POST | `/tts` | `{"text", "lang"?}` (≤ 1,000 chars after `speakable()`) | the Guide's voice: ElevenLabs MP3 (`audio/mpeg`, `backend/api/tts.py`); no `ELEVENLABS_API_KEY` → 503, ElevenLabs refused → 502, empty → 422, too long → 413 — the app then uses the browser voice. `/health` says `"tts": true` when the key is set. `TTS_VOICE_ID` / `TTS_MODEL` override voice "River" / `eleven_flash_v2_5` |
+| POST | `/stt/token` | `{"session_id"?}` | `{"token", "keyterms"}`: a single-use ElevenLabs Scribe Realtime token (15 min, one connection) and ≤ 50 keyterms (≤ 20 chars) from the session's building (`backend/api/stt.py`); the browser then streams the mic to Scribe itself (`voice/scribe.ts`). Scribe off (`STT_MODE=browser` or no key) → 503, ElevenLabs refused → 502, unknown session → 404 — the app then uses browser recognition. `/health` says `"stt": true` when it is on |
 
 `/v1/chat/completions` uses only the last user message (the Guide keeps its own history). Session id, first
 match wins: body `session_id`, `elevenlabs_extra_body.session_id`, header `X-Session-Id`, body `user`; none → a
@@ -121,11 +91,11 @@ shared `default` session. How ElevenLabs actually sends it, and its system `tool
 
 With `SUPABASE_DB_URL` in `.env` (the **Transaction pooler** URI, port 6543; the direct `db.<project>.supabase.co`
 host is IPv6-only and doesn't resolve here) every conversation is stored in the `conversations` table and every turn
-is saved, so any backend instance can continue it ([backend/persistence.py](../../backend/persistence.py)).
+is saved, so any backend instance can continue it ([backend/api/persistence.py](../../backend/api/persistence.py)).
 `GUIDE_PERSIST=off` forces in-memory sessions. A save that loses a race to another instance → HTTP 409.
 
 ```bash
-uv run --env-file .env uvicorn backend.app:app --port 8765                     # persisted sessions
+uv run --env-file .env uvicorn backend.api.app:app --port 8390                     # persisted sessions
 uv run pytest -q tests/test_persistence.py                                     # offline (two stores, one fake DB)
 PERSIST_LIVE_TEST=1 uv run --env-file .env pytest -q tests/test_persistence.py  # + live round trip on Supabase
 ```
@@ -139,15 +109,15 @@ uv run --env-file .env python -c "import os,sys,psycopg; psycopg.connect(os.envi
 ### Access mode (demo: accounts, restricted spaces, preferences, moving objects)
 
 Off unless `ACCESS_MODE=on`; off = every endpoint as above. Design:
-[access-profiles-design](../superpowers/specs/2026-10-25-access-profiles-design.md). Needs `SUPABASE_URL`,
+[access-profiles-design](../../archive/hackathon/superpowers/specs/2026-10-25-access-profiles-design.md). Needs `SUPABASE_URL`,
 `SUPABASE_ANON_KEY` (sign-in), `SUPABASE_SERVICE_ROLE_KEY` (invite links) and `ADMIN_EMAIL` (admin emails, comma-separated);
 tables in `supabase/migrations/20261025200000_access.sql` (in memory without `SUPABASE_DB_URL`). Requests carry
 the Supabase access token as `Authorization: Bearer …`.
 
 ```bash
-ACCESS_MODE=on uv run --env-file .env uvicorn backend.app:app --port 8765
+ACCESS_MODE=on uv run --env-file .env uvicorn backend.api.app:app --port 8390
 uv run pytest -q tests/test_access.py tests/test_fleet.py                     # offline, fake sign-in
-uv run python scripts/sim_object.py --api http://localhost:8765 --object <id> --token <device token>
+uv run python scripts/sim_object.py --api http://localhost:8390 --object <id> --token <device token>
 ```
 
 | Method | Path | Who | Does |
@@ -168,9 +138,11 @@ uv run python scripts/sim_object.py --api http://localhost:8765 --object <id> --
 ## Frontend app
 
 ```bash
-GUIDE_LLM=offline uv run uvicorn backend.app:app --port 8765    # or: uv run --env-file .env uvicorn … (real Claude)
-cd frontend/app && npm install && npx vite --port 5181          # open http://localhost:5181 (?building=<id>)
-cd frontend/app && npm run build                                # type-check + production bundle in dist/
+npm run dev                                                 # repo root: backend :8390 + app :5390 (scripts/dev.sh)
+BACKEND_PORT=8400 FRONTEND_PORT=5400 npm run dev            # other ports when those are taken
+GUIDE_LLM=offline uv run uvicorn backend.api.app:app --port 8390    # backend alone; or: uv run --env-file .env uvicorn … (real Claude)
+cd frontend && npm install && npm run dev                   # app alone: http://localhost:5390 (?building=<id>), strictPort
+cd frontend && npm run build                                # type-check + production bundle in dist/
 ```
 
 **Edit mode** (ruler-pencil button in the building screen's right-hand controls): edits a draft copy of the current
@@ -188,7 +160,7 @@ under `data/user/`; with it (`uv run --env-file .env uvicorn …`, and on Vercel
 `uv run pytest -q tests/test_draft_backends.py` (two instances, one fake DB); live:
 `PERSIST_LIVE_TEST=1 uv run --env-file .env pytest -q tests/test_draft_backends.py -k live`.
 
-Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8765`). Design and data path:
+Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8390`). Design and data path:
 [visualization.md](../product/visualization.md#app-and-data-path).
 
 ### Plan import (Creator)
@@ -206,15 +178,15 @@ from `supabase/migrations/20261025180000_builder_imports.sql` must be applied be
 
 ## Dev endpoints
 
-The app's dev tools panel was removed 2026-10-25. The backend's `/dev/*` endpoints (`backend/devtools.py`: run one
+The app's dev tools panel was removed 2026-10-25. The backend's `/dev/*` endpoints (`backend/api/devtools.py`: run one
 Guide tool directly, read or reset a session's routing state) remain for tests (`tests/test_devtools.py`) and
 scripts; no UI calls them.
 
 ## Deploy (Vercel)
 
 One Vercel project, two [Services](https://vercel.com/docs/services) in [`vercel.json`](../../vercel.json) (D-006):
-`web` = the Vite app in `frontend/app/`, `api` = FastAPI `backend.app:app` from the repo root. The rewrite
-`/api/(.*)` → `api` keeps the `/api` prefix in the path, so `backend/app.py` strips it (`StripPrefix`); everything
+`web` = the Vite app in `frontend/`, `api` = FastAPI `backend.api.app:app` from the repo root. The rewrite
+`/api/(.*)` → `api` keeps the `/api` prefix in the path, so `backend/api/app.py` strips it (`StripPrefix`); everything
 else goes to `web`. The function excludes everything the backend doesn't read (kept: code, `data/**/building.json`,
 `data/manifest.csv`, about 49 MB plus packages). `maxDuration` is 300 s, the Hobby maximum.
 
@@ -237,12 +209,12 @@ that persistence works across instances). Edit mode: open a building → Edit �
 resumes) → prompt "make <room> 1 m wider to the <side>" → Apply → Save → the saved building opens and the Guide
 routes in it; `/drafts` needs the database on Vercel (read-only filesystem). `uv run pytest -q tests/test_deploy.py`
 checks the config locally.
-UNVERIFIED until the first deploy: Services (beta) with a service root of `./` next to `frontend/app/`, the
+UNVERIFIED until the first deploy: Services (beta) with a service root of `./` next to `frontend/`, the
 exclude globs as Vercel applies them, cold-start time.
 
-## v1 Guide and pipeline (terminal)
+## Guide evals (terminal)
 
-Scripted conversations (`tests/guide_conversations/*.json`) run against the canonical Guide (`agent/guide.py`):
+Scripted conversations (`tests/guide_conversations/*.json`) run against the canonical Guide (`backend/agents/guide.py`):
 
 ```bash
 # live API: PASS/FAIL per turn + seconds + cost, exit 1 on a failure; --model / --effort override GUIDE_MODEL / GUIDE_EFFORT
@@ -262,30 +234,5 @@ uv run --env-file .env python scripts/interaction_eval.py [tests/interaction_sce
 uv run pytest tests/test_interaction_eval.py -q   # offline (fake client + offline Guide)
 ```
 
-The second Guide (`agent/guide_v1/`, branch `1-agentic-yarag`) and its benchmark pipeline (`agent/answer.py` →
-`core/solvers_v1.py`) sit beside the canonical ones; the backend and UI use `agent/guide.py`.
-
-```bash
-# terminal REPL (multi-turn, remembers position / step-free / closures); --show-tools prints each tool call
-uv run --env-file .env python -m agent.guide_v1 data/dev/proc-campus-dev-001 --show-tools
-# v1 benchmark run: .csv (submission) or .json (reply + ids + solver result + route) out
-uv run --env-file .env python -m agent.run_benchmark_v1 <building_dir> <questions> <answers.csv|answers.json>
-```
-
-Design: [guide-agent spec](../superpowers/specs/2026-10-24-guide-agent-design.md). A full eval run costs about $0.27.
-
-## Sunday benchmark
-
-`uv run python -m agent.run_benchmark_v1 <building_dir> <questions file> SUBMISSION/answers.json` (default `hybrid`:
-templates first, the LLM only for unseen wording; `.env` is read automatically; `--layout dict` keys the .json by
-question id) — documented in [`SUBMISSION/BENCHMARK.md`](../../SUBMISSION/BENCHMARK.md) (v1 is the submission
-pipeline: it also answers the warm-up kinds, routes included; `agent.run_benchmark` has no solvers for them). Do not
-use `PARSER_MODE=regex` on Sunday: on 14 reworded questions it answered 1 (2026-10-25). A failing question becomes an
-`error` entry and the run goes on; the file is rewritten after every question. Model decisions go to
-`llm_cache/decisions.json` — **commit it together with `SUBMISSION/answers.json`**, so a re-run without a key
-reproduces the answers ([ai-agents.md](../architecture/ai-agents.md#sunday-layers-route-specs-solver-agent-decision-cache-2026-10-25)).
-Probe of the agentic layers: `uv run python scripts/eval_sunday_probe.py` (`tests/sunday_probe/`, calls Claude). Output format still unannounced →
-[Q-001](../../memory-bank/open-questions.md#q-001).
-
 ## Related
-- [starter-agent.md](../kit/starter-agent.md#evaluation) · [scoring.md](../challenge/scoring.md) · [ai-agents.md](../architecture/ai-agents.md)
+- [ai-agents.md](../architecture/ai-agents.md) · [benchmark code (archived)](../../archive/hackathon/benchmark-code/README.md)

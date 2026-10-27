@@ -1,4 +1,4 @@
-"""Moving objects (core/fleet.py, backend/fleet.py): attributes → closures, mission steps, device positions, the
+"""Moving objects (backend/core/fleet.py, backend/api/fleet.py): attributes → closures, mission steps, device positions, the
 admin's dispatch (API and the Guide's send_object), access mode only."""
 
 from pathlib import Path
@@ -6,11 +6,13 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import app as app_module
-from backend.access import ANONYMOUS, Access, MemoryAccess, Viewer
-from backend.fleet import MemoryFleet
-from core.building_map import BuildingMap
-from core.fleet import Attributes, closures, mission
+from backend.api import app as app_module
+
+from backend.api import deps
+from backend.api.access import ANONYMOUS, Access, MemoryAccess, Viewer
+from backend.api.fleet import MemoryFleet
+from backend.core.building_map import BuildingMap
+from backend.core.fleet import Attributes, closures, mission
 
 CAMPUS = "train/proc-campus-train-000"
 FACTORY = "train/proc-factory-train-008"
@@ -55,8 +57,8 @@ class FakeAuth:
 @pytest.fixture
 def client(monkeypatch) -> TestClient:
     monkeypatch.setenv("GUIDE_LLM", "offline")
-    monkeypatch.setattr(app_module, "access", Access(store=MemoryAccess(), auth=FakeAuth(), enabled=True))
-    monkeypatch.setattr(app_module.fleet, "store", MemoryFleet())
+    monkeypatch.setattr(deps, "access", Access(store=MemoryAccess(), auth=FakeAuth(), enabled=True))
+    monkeypatch.setattr(deps.fleet, "store", MemoryFleet())
     return TestClient(app_module.app)
 
 
@@ -64,7 +66,7 @@ ADMIN = {"Authorization": "Bearer admin"}
 
 
 def test_off_means_404(monkeypatch):
-    monkeypatch.setattr(app_module, "access", Access(store=MemoryAccess(), enabled=False))
+    monkeypatch.setattr(deps, "access", Access(store=MemoryAccess(), enabled=False))
     assert TestClient(app_module.app).get("/objects", params={"building": CAMPUS}).status_code == 404
 
 
@@ -101,10 +103,10 @@ def test_import_forklifts_and_guide_send_object(client):
     assert client.post("/objects/import-forklifts", json={"building": FACTORY}, headers=ADMIN).json() == []
 
     session_id = client.post("/sessions", json={"building": FACTORY}, headers=ADMIN).json()["session_id"]
-    conversation = app_module.conversation_or_404(session_id, "Bearer admin")
+    conversation = deps.conversation_or_404(session_id, "Bearer admin")
     names = [tool["name"] for tool in conversation.session.tool_definitions()]
     assert "send_object" in names
     unknown = conversation.session.call("send_object", {"object": "nobody", "destination": "Locker room 0.30"})
     assert unknown["error"] and imported[0]["name"] in unknown["objects"]
-    anonymous = app_module.conversation_or_404(session_id, None)
+    anonymous = deps.conversation_or_404(session_id, None)
     assert "send_object" not in [tool["name"] for tool in anonymous.session.tool_definitions()]

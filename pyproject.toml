@@ -1,7 +1,7 @@
 [project]
-name = "talk-to-your-building"
+name = "steward"
 version = "0.1.0"
-description = "Talk to Your Building: agent-first indoor navigation (Industrial Agents Hackathon 2026, Track 01)"
+description = "Steward: talk to your building. Agent-first indoor navigation and building management"
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=2.1.0",
@@ -20,15 +20,15 @@ dependencies = [
     "uvicorn>=0.54.0",
 ]
 
-[project.scripts]
-run_benchmark = "agent.run_benchmark:main"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.hatch.build.targets.wheel]
-packages = ["core", "agent", "benchmark", "backend"]
+packages = ["backend"]
 
 [dependency-groups]
 dev = [

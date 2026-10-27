@@ -8,8 +8,8 @@ from collections import Counter
 from functools import cache
 from pathlib import Path
 
-from core.building_map import BuildingMap
-from core.question_parser import ParseError, parse_question
+from backend.core.building_map import BuildingMap
+from tests.kit_oracles.question_parser import ParseError, parse_question
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 

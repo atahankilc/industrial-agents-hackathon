@@ -1,4 +1,4 @@
-"""Conversation persistence (backend/persistence.py): two SessionStores sharing one backend act like two serverless
+"""Conversation persistence (backend/api/persistence.py): two SessionStores sharing one backend act like two serverless
 instances sharing one database. Offline client; a live Postgres check runs only with PERSIST_LIVE_TEST=1."""
 
 import os
@@ -6,8 +6,8 @@ import uuid
 
 import pytest
 
-from backend import persistence
-from backend.sessions import SessionStore, summary
+from backend.api import persistence
+from backend.api.sessions import SessionStore, summary
 
 BUILDING = "train/proc-campus-train-000"
 ROUTE = "from Main lobby to Meeting room 3.07"

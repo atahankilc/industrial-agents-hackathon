@@ -1,0 +1,8 @@
+{
+  "name": "steward",
+  "private": true,
+  "description": "Repo-root shortcuts; the app's own package is frontend/package.json.",
+  "scripts": {
+    "dev": "bash scripts/dev.sh"
+  }
+}

@@ -17,11 +17,11 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from agent.builder import DEFAULT_EFFORT, DEFAULT_MODEL, Builder  # noqa: E402
-from agent.builder_tools import BuilderTools  # noqa: E402
-from agent.guide import llm_mode  # noqa: E402
-from backend.drafts import DraftStore  # noqa: E402
-from backend.sessions import load_catalogue  # noqa: E402
+from backend.agents.builder import DEFAULT_EFFORT, DEFAULT_MODEL, Builder  # noqa: E402
+from backend.agents.builder_tools import BuilderTools  # noqa: E402
+from backend.agents.guide import llm_mode  # noqa: E402
+from backend.api.drafts import DraftStore  # noqa: E402
+from backend.api.sessions import load_catalogue  # noqa: E402
 from live_guide import cost  # noqa: E402
 
 

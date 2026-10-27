@@ -1,33 +1,36 @@
-# CLAUDE.md — Talk to Your Building (Industrial Agents Hackathon 2026, Track 01)
+# CLAUDE.md — Steward
 
 Entry point for every agent session. Read this file fully, then follow the **Session protocol** below.
 
 ## What this repo is
 
-A hackathon project: build an agent you can *talk to* about a building (find things, route, edit, react to
-closures), backed by a deterministic geometry/graph core. Scored mostly (55/100) by an automatic benchmark.
-Full brief: [docs/challenge/brief.md](docs/challenge/brief.md).
+**Steward** ([D-027](memory-bank/decisions.md#d-027), formerly "Talk to Your Building"): an app you can *talk to*
+about a building: find things, get routed step by step, edit the building, create one from floor plans, react to
+closures and moving machines. A deterministic geometry/graph core computes every answer; the LLM handles the
+language. It started at the Industrial Agents Hackathon 2026 (Track 01, submitted
+2026-10-25) and is now in ongoing development. Hackathon material is in
+[archive/hackathon/](archive/hackathon/README.md).
 
 ```
 /                                   ← git root (this file)
 ├── CLAUDE.md                       ← you are here
-├── Hackathon Challenge - Talk to Your Building.pdf   ← organiser brief (original)
-├── pyproject.toml                  ← uv project (Python ≥3.12) for core + benchmark
-├── core/                           ← OUR deterministic core (route model, geometry, parsing, solvers)
-├── agent/                          ← OUR LLM layer (llm_parser, parsing modes; later Guide + Builder)
-├── frontend/app/                   ← React app: building search + plan view + Guide (docs/product/visualization.md)
-├── benchmark/                      ← official scorer + evaluator from the kit — never edit score.py
+├── pyproject.toml                  ← uv project (Python ≥3.12)
+├── frontend/                       ← React app: map, building search, plan view, Guide, Edit mode
+├── backend/                        ← all Python (package `backend`): api → agents → core; core imports neither
+│   ├── api/                        ← FastAPI: app.py assembles, routes/ per area, deps.py shared stores; sessions, persistence, voice, live/fleet
+│   ├── agents/                     ← LLM layer: Guide, Builder, Creator, campus, compute sandbox, voice rewriter
+│   └── core/                       ← deterministic engine: route model, geometry, solvers, edits, plan import
+├── tests/                          ← pytest; tests/kit_oracles/ = official kit scorer (score.py, never edit) + parsers + formatter
 ├── data/                           ← kit dataset: train/ dev/ test/ + manifest.csv (committed, D-005)
 ├── docs/                           ← curated knowledge base — start at docs/README.md
-├── memory-bank/                    ← live project state, decisions, open questions
-├── scripts/                        ← repo tooling (check_links.py)
+├── memory-bank/                    ← live project state, decisions, open questions, log
+├── scripts/                        ← repo tooling and eval scripts (check_links.py, …)
+├── supabase/, vercel.json          ← deploy (D-006)
 ├── .claude/                        ← agents, /ship skill, commit hook, worklog (dev-workflow.md)
 ├── archive/initial-repo/           ← rest of the organiser kit, read-only reference (D-004)
+├── archive/hackathon/              ← hackathon submission, brief, benchmark runners, weekend log and specs, read-only
 └── LICENSE, NOTICE.md, ATTRIBUTION.md, data/README.md  ← licensing: MIT for our code only (D-009)
 ```
-
-We build at the repo root; `archive/` is reference only
-([D-004](memory-bank/decisions.md#d-004)).
 
 ## Session protocol (do this every time)
 
@@ -35,59 +38,53 @@ We build at the repo root; `archive/` is reference only
 2. Skim [memory-bank/open-questions.md](memory-bank/open-questions.md) and
    [memory-bank/decisions.md](memory-bank/decisions.md) — never re-decide an `accepted` decision silently.
 3. Use [docs/README.md](docs/README.md) to find the doc for your task. Follow links; do not guess.
-4. At the end of a work chunk: update `project-state.md`, append to
-   [memory-bank/log.md](memory-bank/log.md), and record new decisions / questions.
+4. At the end of a work chunk: update `project-state.md`, add an entry to
+   [memory-bank/log.md](memory-bank/log.md) (newest on top), and record new decisions / questions.
    Rules for this: [memory-bank/README.md](memory-bank/README.md).
 
 ## Anti-hallucination rules
 
-- **Source of truth order (kit facts):** `data/`, `benchmark/`, `archive/initial-repo/` code > kit README
-  (`archive/initial-repo/README.md`) > the PDF > `docs/`.
+- **Source of truth order (kit facts):** `data/`, `tests/kit_oracles/score.py`, `archive/initial-repo/` code > kit README
+  (`archive/initial-repo/README.md`) > the organiser PDF (`archive/hackathon/`) > `docs/`.
   `docs/` summarise; every doc lists its `sources:` in front matter. If a doc and the source disagree, the
   source wins — fix the doc and log it.
 - **Never state a number, field name, tolerance or file path you have not seen** in a source or doc. If unsure,
   open the cited source. If still unknown, add it to `open-questions.md` instead of inventing it.
 - Mark anything not yet verified as `UNVERIFIED` in docs.
-- Don't hard-code to test buildings or question ids; the Sunday building is unseen
-  ([docs/challenge/scoring.md#sunday-benchmark](docs/challenge/scoring.md#sunday-benchmark)).
-- Answers submitted must be generated by our agent, not hand-labelled
-  ([docs/challenge/brief.md#rules](docs/challenge/brief.md#rules)).
+- Don't hard-code to specific buildings or question ids; the core must work on any kit-schema building.
 
 ## Doc map (quick links)
 
 | Need | Go to |
 |---|---|
-| What we must build, levels, judging | [docs/challenge/brief.md](docs/challenge/brief.md) |
-| How answers are scored, submission format | [docs/challenge/scoring.md](docs/challenge/scoring.md) |
-| `building.json` / `equipment.csv` / `manifest.csv` schema | [docs/kit/data-format.md](docs/kit/data-format.md) |
-| Exact route graph + costs (must match to the cm) | [docs/kit/route-model.md](docs/kit/route-model.md) |
-| Every question kind, definitions, how to solve | [docs/kit/questions.md](docs/kit/questions.md) |
-| Starter agent internals and its gaps | [docs/kit/starter-agent.md](docs/kit/starter-agent.md) |
-| Kit file layout and dataset stats | [docs/kit/repo-layout.md](docs/kit/repo-layout.md) |
-| System architecture (frontend, backend, DB, voice, CI) | [docs/architecture/overview.md](docs/architecture/overview.md) |
-| AI agents (Guide, benchmark pipeline, Builder) | [docs/architecture/ai-agents.md](docs/architecture/ai-agents.md) |
-| App visuals (vector plan view) | [docs/product/visualization.md](docs/product/visualization.md) |
+| System architecture (frontend, backend, DB, voice, deploy) | [docs/architecture/overview.md](docs/architecture/overview.md) |
+| AI agents (Guide, Builder, Creator, solver agent) | [docs/architecture/ai-agents.md](docs/architecture/ai-agents.md) |
+| App visuals (vector plan view, map) | [docs/product/visualization.md](docs/product/visualization.md) |
+| Living building (live obstacles, fleet) | [docs/product/living-building.md](docs/product/living-building.md) |
 | Personas / routing profiles | [docs/product/personas.md](docs/product/personas.md), [docs/product/routing-profiles.md](docs/product/routing-profiles.md) |
-| ElevenLabs, cloud stack, question parsing research | [docs/research/](docs/README.md#research-dated-2026-10-24) |
-| Per-kind solver plan (benchmark) | [docs/architecture/solver-plan.md](docs/architecture/solver-plan.md) |
-| Commands (run, evaluate, submit) | [docs/guides/commands.md](docs/guides/commands.md) |
+| `building.json` / `equipment.csv` / `manifest.csv` schema | [docs/kit/data-format.md](docs/kit/data-format.md) |
+| Exact route graph + costs | [docs/kit/route-model.md](docs/kit/route-model.md) |
+| Benchmark question kinds and solvers | [docs/kit/questions.md](docs/kit/questions.md), [docs/architecture/solver-plan.md](docs/architecture/solver-plan.md) |
+| Original challenge brief, scoring, benchmark code (archived) | [brief](archive/hackathon/docs/challenge/brief.md), [scoring](archive/hackathon/docs/challenge/scoring.md), [benchmark code](archive/hackathon/benchmark-code/README.md) |
+| Commands (run app, tests, evaluate, deploy) | [docs/guides/commands.md](docs/guides/commands.md) |
 | How to commit (verified workflow) | [docs/guides/dev-workflow.md](docs/guides/dev-workflow.md) |
 | Terms (anchor, opening, connector, …) | [docs/guides/glossary.md](docs/guides/glossary.md) |
+| ElevenLabs, cloud stack, parsing research | [docs/research/](docs/README.md#research-dated-2026-10-24) |
 
 ## Commit workflow (mandatory)
 
-Never run `git commit` directly — a hook blocks it. While working, keep `.claude/worklog/PENDING.md` (from
-`.claude/worklog/TEMPLATE.md`) listing every claim and the checks you ran; then use the **`/ship`** skill: an
-independent `commit-verifier` agent checks the claims against the staged diff, `commit-fixer` repairs failures,
-and only a PASS is committed. Details: [docs/guides/dev-workflow.md](docs/guides/dev-workflow.md),
-[D-008](memory-bank/decisions.md#d-008).
+Work on `dev`, never on `main`. Never run `git commit` directly — a hook blocks it. While working, keep
+`.claude/worklog/PENDING.md` (from `.claude/worklog/TEMPLATE.md`) listing every claim and the checks you ran;
+then use the **`/ship`** skill: an independent `commit-verifier` agent checks the claims against the staged diff,
+`commit-fixer` repairs failures, and only a PASS is committed. Details:
+[docs/guides/dev-workflow.md](docs/guides/dev-workflow.md), [D-008](memory-bank/decisions.md#d-008).
 
 ## Working conventions
 
 - Python ≥ 3.12 via `uv` from the repo root: `uv sync`, `uv run python …` (system `python3` is 3.9). See
   [docs/guides/commands.md](docs/guides/commands.md).
 - Secrets live in `.env` (from `.env.example`); never commit `.env`.
-- Keep tool results compact and cache the building context (cost: ~$0.10–0.25/question with the starter agent).
+- Keep tool results compact and cache the building context.
 - When you add or change a doc: give it front matter (`id`, `summary`, `sources`, `related`), link it from
   [docs/README.md](docs/README.md), and add backlinks in the docs it relates to.
 - After editing any doc or memory-bank file run `python3 scripts/check_links.py` — it fails on any broken

@@ -1,4 +1,4 @@
-"""Claude API failures reach the user as a short, readable sentence (backend/service_errors.py), not as a raw
+"""Claude API failures reach the user as a short, readable sentence (backend/api/service_errors.py), not as a raw
 `BadRequestError: Error code: 400 - {...}`: in the Guide and Builder streams, and as a status code on plain requests."""
 
 import json
@@ -8,10 +8,11 @@ import httpx2
 import pytest
 from fastapi.testclient import TestClient
 
-from agent.builder import Builder
-from backend import app as backend_app
-from backend.drafts import DraftStore
-from backend.service_errors import friendly
+from backend.agents.builder import Builder
+from backend.api import app as backend_app
+from backend.api import deps
+from backend.api.drafts import DraftStore
+from backend.api.service_errors import friendly
 
 BUILDING = "train/proc-campus-train-000"
 REQUEST = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
@@ -44,9 +45,9 @@ def test_each_failure_gets_a_code_and_a_sentence_without_the_raw_error(error: Ex
 @pytest.fixture
 def client(monkeypatch, tmp_path) -> TestClient:
     monkeypatch.setenv("GUIDE_LLM", "offline")
-    catalogue = dict(backend_app.store.catalogue)
-    monkeypatch.setattr(backend_app.store, "catalogue", catalogue)
-    monkeypatch.setattr(backend_app, "drafts", DraftStore(tmp_path, catalogue))
+    catalogue = dict(deps.store.catalogue)
+    monkeypatch.setattr(deps.store, "catalogue", catalogue)
+    monkeypatch.setattr(deps, "drafts", DraftStore(tmp_path, catalogue))
     return TestClient(backend_app.app)
 
 
@@ -56,7 +57,7 @@ def out_of_credit(*_, **__):
 
 def session_with_failing_guide(client: TestClient, monkeypatch) -> str:
     session_id = client.post("/sessions", json={"building": BUILDING}).json()["session_id"]
-    monkeypatch.setattr(backend_app.store.get(session_id).guide, "reply", out_of_credit)
+    monkeypatch.setattr(deps.store.get(session_id).guide, "reply", out_of_credit)
     return session_id
 
 

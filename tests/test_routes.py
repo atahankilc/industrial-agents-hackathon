@@ -6,17 +6,15 @@ For route, route_step_free, route_with_closure and tour, BuildingMap.route must 
 optimal_length_m (1 cm), space_path and element_path exactly, and raise MapError where the answer says
 `reachable: false`. The one exception: a leg where our length equals the organisers' own 1.1.0 starter
 (archive/initial-repo/starter_agent/building_map.py) but not the gold (resplan-12462, 10 cm — the gold was made with
-a different geometry build); such legs are listed, not failed. Also checks that errand legs are real paths that add up to the scored total."""
+a different geometry build); such legs are listed, not failed."""
 
 import importlib.util
-import itertools
 import json
 from collections import Counter
 from pathlib import Path
 
-from core.building_map import OUTSIDE, BuildingMap, MapError
-from core.solvers_v1 import solve
-from tests.test_question_parser import DATA, building, labelled_questions
+from backend.core.building_map import BuildingMap, MapError
+from tests.test_question_parser import DATA, building
 
 STARTER = Path(__file__).resolve().parent.parent / "archive/initial-repo/starter_agent/building_map.py"
 ROUTE_KINDS = ("route", "route_step_free", "route_with_closure", "tour")
@@ -80,24 +78,3 @@ def test_warm_up_route_paths() -> None:
         print(f"  {kind:20s} {good[kind]:4d} / {totals[kind]}")
     print(f"  {'all':20s} {sum(good.values()):4d} / {sum(totals.values())}")
     assert failures == []
-
-
-def test_errand_legs_are_walkable_paths() -> None:
-    for directory, question in labelled_questions():
-        if question["kind"] != "errand":
-            continue
-        bmap = building(directory)
-        result = solve(bmap, "errand", question["inputs"])
-        first, second = result["legs"]
-        assert first["from_space_id"] == question["inputs"]["start"]
-        assert first["to_space_id"] == second["from_space_id"] == result["via"]["space_id"]
-        assert second["to_space_id"] == result["target"]["space_id"]
-        assert abs(first["optimal_length_m"] + second["optimal_length_m"] - result["total_m"]) <= 2 * TOLERANCE_M  # each leg rounded
-        for leg in result["legs"]:
-            assert len(leg["element_path"]) >= len(leg["space_path"]) - 1
-            for space in leg["space_path"]:
-                assert space == OUTSIDE or space in bmap.spaces
-            for element in leg["element_path"]:
-                assert element in bmap.openings or element in bmap.connectors
-            for first_space, second_space in itertools.pairwise(leg["space_path"]):
-                assert first_space != second_space

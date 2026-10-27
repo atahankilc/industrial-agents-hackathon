@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from agent.offline_llm import OfflineClient
+from backend.agents.offline_llm import OfflineClient
 from scripts.interaction_eval import (CRITERIA, SCENARIOS, SimulatedUser, load_scenario, run_scenario,
                                       transcript_text)
 

@@ -5,9 +5,9 @@ mobility cue the model's turn left unhonoured (docs/product/routing-profiles.md#
 
 import pytest
 
-from agent.guide import profile_cues
-from agent.offline_llm import message, text_block
-from agent.tools import BuildingSession, RoutingProfile
+from backend.agents.guide import profile_cues
+from backend.agents.offline_llm import message, text_block
+from backend.agents.tools import BuildingSession, RoutingProfile
 from tests.test_guide import BUILDING, LIFT_1, call, give_directions, run, say
 
 ROUTE = {"start": "Main lobby", "destination": "Meeting room 3.07"}

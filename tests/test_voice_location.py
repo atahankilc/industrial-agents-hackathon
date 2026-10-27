@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from agent.guide import Guide
-from agent import places
-from agent.tools import BuildingSession
+from backend.agents.guide import Guide
+from backend.agents import places
+from backend.agents.tools import BuildingSession
 from tests.test_backend import BUILDING, client, new_session  # noqa: F401  (client is a fixture)
 from tests.test_guide import ScriptedClient, say
 

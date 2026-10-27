@@ -16,7 +16,7 @@ live state, decisions, unknowns, history. Small, frequently edited, always curre
 | [project-state.md](project-state.md) | current phase, what works, what's next, blockers | end of every work chunk |
 | [decisions.md](decisions.md) | decision records `D-###` (proposed → accepted / rejected / superseded) | a choice is made or changed |
 | [open-questions.md](open-questions.md) | unknowns `Q-###` with how to resolve; resolved ones keep their answer | something is unclear / gets answered |
-| [log.md](log.md) | append-only, dated session log (newest on top) | end of every session |
+| [log.md](log.md) | append-only, dated session log (newest on top); the hackathon weekend is in [archive/hackathon/](../archive/hackathon/README.md) | end of every session |
 
 ## Rules
 

@@ -1,6 +1,6 @@
 """A building at a place on the map: edit ops `scale_building` / `set_location`, `place` on POST /imports/stream,
 PUT /drafts/{id}/location, positions in /buildings and supersede on re-save
-(docs/superpowers/specs/2026-10-25-plan-reference-and-location-design.md)."""
+(archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md)."""
 
 import json
 
@@ -8,12 +8,16 @@ import pytest
 from fastapi.testclient import TestClient
 from shapely import affinity
 
-import backend.app as backend_app
-from agent.creator import CreatorResult
-from backend.drafts import DraftStore
-from core.edits import apply_op
-from core.geoplace import footprint, to_lnglat, to_metres
-from core.plan_import.assemble import assemble, autofix
+import backend.api.app as backend_app
+
+from backend.api import deps
+
+from backend.api.routes import imports as import_routes
+from backend.agents.creator import CreatorResult
+from backend.api.drafts import DraftStore
+from backend.core.edits import apply_op
+from backend.core.geoplace import footprint, to_lnglat, to_metres
+from backend.core.plan_import.assemble import assemble, autofix
 from tests.plan_fixtures import TWO_ROOMS_AND_CORRIDOR, draw_plan, labelled_floor, to_png
 
 PLAN = to_png(draw_plan(*TWO_ROOMS_AND_CORRIDOR))
@@ -34,12 +38,12 @@ class FakeCreator:
 
 @pytest.fixture
 def api(monkeypatch, tmp_path) -> TestClient:
-    catalogue = dict(backend_app.store.catalogue)
-    monkeypatch.setattr(backend_app.store, "catalogue", catalogue)
+    catalogue = dict(deps.store.catalogue)
+    monkeypatch.setattr(deps.store, "catalogue", catalogue)
     store = DraftStore(tmp_path, catalogue)
-    monkeypatch.setattr(backend_app, "drafts", store)
-    monkeypatch.setattr(backend_app.store, "user_buildings", store)
-    monkeypatch.setattr(backend_app, "make_creator", FakeCreator)
+    monkeypatch.setattr(deps, "drafts", store)
+    monkeypatch.setattr(deps.store, "user_buildings", store)
+    monkeypatch.setattr(import_routes, "make_creator", FakeCreator)
     return TestClient(backend_app.app)
 
 
@@ -64,7 +68,7 @@ def test_scale_building_scales_polygons_and_positions() -> None:
 
 
 def test_scale_building_refuses_silly_factors() -> None:
-    from core.edits import EditError
+    from backend.core.edits import EditError
 
     with pytest.raises(EditError):
         apply_op(fake_building(), {"op": "scale_building", "factor": 0})
@@ -124,7 +128,7 @@ def test_saved_positioned_building_is_on_the_map_and_resave_supersedes(api: Test
 
 
 def test_kit_building_second_version_keeps_both(api: TestClient) -> None:
-    kit_id, kit = next((key, entry) for key, entry in backend_app.store.catalogue.items()
+    kit_id, kit = next((key, entry) for key, entry in deps.store.catalogue.items()
                        if (entry.get("location") or {}).get("outline"))
     done = imported(api, {"ring": kit["location"]["outline"][0]})
     saved = api.post(f"/drafts/{done['draft_id']}/save", json={"name": "Second version"}).json()["building"]

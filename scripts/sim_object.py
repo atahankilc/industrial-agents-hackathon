@@ -1,6 +1,6 @@
-"""Drive a fake moving object along its missions (demo for access mode, backend/fleet.py).
+"""Drive a fake moving object along its missions (demo for access mode, backend/api/fleet.py).
 
-  uv run python scripts/sim_object.py --api http://localhost:8765 --object obj-… --token … [--speed 1.2]
+  uv run python scripts/sim_object.py --api http://localhost:8390 --object obj-… --token … [--speed 1.2]
 
 Polls GET /objects/{id}/mission; for an active mission it walks the `move` waypoints at --speed m/s, posting
 POST /objects/{id}/position twice a second, waits at lifts and stairs, then posts /mission/done. A new mission
@@ -64,7 +64,7 @@ def run(device: Device, mission: dict, speed: float) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--api", default="http://localhost:8765")
+    parser.add_argument("--api", default="http://localhost:8390")
     parser.add_argument("--object", required=True)
     parser.add_argument("--token", required=True)
     parser.add_argument("--speed", type=float, default=1.2, help="metres per second")

@@ -4,11 +4,11 @@ summary: Deterministic, explainable routing profiles (hard filters + soft penalt
 status: partly implemented (presets + cue safety net, 2026-10-24); soft penalties and the remaining filters are a design sketch
 sources:
   - docs/kit/route-model.md
-  - core/building_map.py (BuildingMap.graph, route)
-  - agent/tools.py (RoutingProfile, PRESETS, set_profile)
-  - agent/guide.py (profile_cues, profile safety net)
+  - backend/core/building_map.py (BuildingMap.graph, route)
+  - backend/agents/tools/profile.py (RoutingProfile, PRESETS, set_profile)
+  - backend/agents/guide.py (profile_cues, profile safety net)
   - "data/*/*/building.json scan 2026-10-24: 576 stairs connectors all step_free false, 136 lifts all true"
-  - "dataset scan of all 280 buildings with core/building_map.py, 2026-10-24"
+  - "dataset scan of all 280 buildings with backend/core/building_map.py, 2026-10-24"
 related: [personas.md, ../kit/route-model.md, ../architecture/solver-plan.md, ../architecture/overview.md, living-building.md]
 ---
 
@@ -16,7 +16,7 @@ related: [personas.md, ../kit/route-model.md, ../architecture/solver-plan.md, ..
 
 [Docs index](../README.md) · Who needs what: [personas.md](personas.md) · Base model:
 [route-model.md](../kit/route-model.md) · Organiser personas:
-[brief.md](../challenge/brief.md#personas-put-yourself-in-their-shoes)
+[brief.md](../../archive/hackathon/docs/challenge/brief.md#personas-put-yourself-in-their-shoes)
 
 ## Principle
 
@@ -90,7 +90,7 @@ change trivially-forced segments. Negative penalties allowed only where `cost` s
 | `simple` | [P02](personas.md#p02--first-day-at-work), [P16](personas.md#p16--delivery-courier--visitor) | – | – | – | – | space change 3 m |
 
 <a id="implemented-presets"></a>
-**Implemented presets** (`set_profile(preset=…)` in `agent/tools.py`, 2026-10-24) — only rows the graph can
+**Implemented presets** (`set_profile(preset=…)` in `backend/agents/tools/`, 2026-10-24) — only rows the graph can
 honour today with the existing filters (`step_free`, `min_door_width_m`, `avoid_lifts`):
 
 | `preset` | Sets | Assumed (said to the user) | Source of the number |
@@ -105,7 +105,7 @@ honour today with the existing filters (`step_free`, `min_door_width_m`, `avoid_
 A preset changes only its own fields (so `no_lifts` then `wheelchair` composes); explicit fields in the same call
 override it and are no longer marked assumed. `avoid_stairs` is not a separate field: every stairs connector in
 the data is `step_free: false`, so `step_free` already excludes stairs (it also blocks the 30 stepped entrances).
-Every Guide route also obeys the organisers' route rules (`BuildingSession.route_rules`, `core/route_models.py`):
+Every Guide route also obeys the organisers' route rules (`BuildingSession.route_rules`, `backend/core/route_models.py`):
 production bays are destinations only and there is no shortcut outside the building
 ([route-model.md](../kit/route-model.md#sunday-route-model-and-route-rules-q-014)).
 Not presets yet: `crutches`, `low_stamina`, `quiet`, `low_vision`, `evacuation`, `simple` (they need
@@ -137,18 +137,18 @@ reply ("step-free, quiet route").
 <a id="todo-preference-extraction"></a>
 ### TODO — preference extraction (gap check 2026-10-24)
 
-Today (`agent/tools.py`): `RoutingProfile` has `step_free`, `min_door_width_m`, `avoid_lifts`, `forklift` (+ `preset`, `assumed`);
+Today (`backend/agents/tools/`): `RoutingProfile` has `step_free`, `min_door_width_m`, `avoid_lifts`, `forklift` (+ `preset`, `assumed`);
 it lives in the in-memory session; the model calls `set_profile` (with a preset where one fits), and a
 deterministic safety net catches the cues it misses. Missing:
 
-- [x] **Persona presets in `set_profile`** — implemented in `agent/tools.py` (`PRESETS`, `tool_set_profile`): see
+- [x] **Persona presets in `set_profile`** — implemented in `backend/agents/tools/` (`PRESETS`, `tool_set_profile`): see
   [implemented presets](#implemented-presets). Results carry `changed`, `assumed` and (trolley) `needs`.
   Tests: `tests/test_profiles.py` (preset section).
 - [ ] **Remaining parameters**: `avoid_stairs`, `avoid_room_types`, and the soft penalties (crutches, quiet,
   low_vision, low_stamina need them).
 - [x] **Safety net**: a deterministic cue detector runs on every user message alongside the LLM (same idea as
   `PARSER_MODE=hybrid`, D-007). If it finds a cue the model didn't act on, the Guide applies it and confirms it.
-  That way a forgotten `set_profile` never costs a "without asking twice" point. Implemented in `agent/guide.py`
+  That way a forgotten `set_profile` never costs a "without asking twice" point. Implemented in `backend/agents/guide.py`
   (`profile_cues`, `profile_satisfies`, `Guide.profile_safety_net`): after the model's turn, if the profile doesn't
   already satisfy the cue, the Guide calls `set_profile` itself (recorded in `GuideTurn.auto_profile` and as a
   `tool_calls` entry with `"auto": true`), appends one "(Noted: …)" line built from the result (added to the
@@ -214,7 +214,7 @@ class RoutingProfile:
 DEFAULT = RoutingProfile()
 ```
 
-Mapping onto `BuildingMap.graph(step_free)` (`core/building_map.py:179-212`):
+Mapping onto `BuildingMap.graph(step_free)` (`backend/core/building_map.py:179-212`):
 
 - Signature becomes `graph(profile, endpoints)`; `step_free=profile.step_free` keeps today's behaviour.
 - In the opening loop: also `continue` if `width_m < min_door_width_m`; add `cost = weight + door/space
@@ -227,7 +227,7 @@ Mapping onto `BuildingMap.graph(step_free)` (`core/building_map.py:179-212`):
 
 ## Dataset reality check
 
-From a scan of all 280 buildings (all splits) with `core/building_map.py`, counting spaces with `type == "room"`
+From a scan of all 280 buildings (all splits) with `backend/core/building_map.py`, counting spaces with `type == "room"`
 reachable from `"outside"` (2026-10-24):
 
 | Fact | Number | Implication |
@@ -249,7 +249,7 @@ aisles inside halls, door opening direction or automatic doors.
 
 ## Related
 
-- [Access roles design](../superpowers/specs/2026-10-24-access-roles-design.md) — roles (who may enter which rooms, physical limits) set by the facility manager; extends these profiles (draft, not built)
+- [Access roles design](../../archive/hackathon/superpowers/specs/2026-10-24-access-roles-design.md) — roles (who may enter which rooms, physical limits) set by the facility manager; extends these profiles (draft, not built)
 
 - [personas.md](personas.md) · [route-model.md](../kit/route-model.md) ·
   [solver-plan.md](../architecture/solver-plan.md) · [overview.md](../architecture/overview.md)

@@ -1,8 +1,8 @@
-"""Plan import, stage 6: building.json assembly + auto-fixes (core/plan_import/assemble.py)."""
+"""Plan import, stage 6: building.json assembly + auto-fixes (backend/core/plan_import/assemble.py)."""
 
 from shapely.geometry import Polygon
 
-from core.plan_import.assemble import assemble, autofix, check
+from backend.core.plan_import.assemble import assemble, autofix, check
 from tests.plan_fixtures import labelled_floor
 
 

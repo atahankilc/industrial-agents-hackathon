@@ -1,4 +1,4 @@
-"""core.route_query: one route question with any mix of constraints, places that may be items or room types (the
+"""backend.core.route_query: one route question with any mix of constraints, places that may be items or room types (the
 nearest one is taken), and stops. Facts about proc-factory-dev-004 used below (checked by hand on its building.json
 and warm-up answers): floors are joined only by "Office staircase" and "Office lift"; the offices open through
 doors narrower than 3 m; forklift charging stations stand in Logistics zone H-C1 (next to Main aisle H-B1) and
@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from core.building_map import BuildingMap
-from core.route_query import resolve_place, route_query
+from backend.core.building_map import BuildingMap
+from backend.core.route_query import resolve_place, route_query
 
 DIRECTORY = Path(__file__).resolve().parent.parent / "data" / "dev" / "proc-factory-dev-004"
 

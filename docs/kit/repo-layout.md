@@ -6,7 +6,7 @@ sources:
   - data/manifest.csv
   - ATTRIBUTION.md
   - "dataset scan of all 280 building.json files, 2026-10-24"
-related: [data-format.md, questions.md, starter-agent.md, ../guides/commands.md]
+related: [data-format.md, questions.md, ../../archive/hackathon/docs/kit/starter-agent.md, ../guides/commands.md]
 ---
 
 # Kit layout (as delivered)
@@ -14,8 +14,9 @@ related: [data-format.md, questions.md, starter-agent.md, ../guides/commands.md]
 [Docs index](../README.md) · Schemas: [data-format.md](data-format.md)
 
 As of 2026-10-24 `data/` and `benchmark/` live at the **repo root**, `starter_agent/building_map.py` was
-copied to `core/`, and everything else is in `archive/initial-repo/` ([D-004](../../memory-bank/decisions.md#d-004),
-[archive/README.md](../../archive/README.md)). Tree as delivered:
+copied to `core/` (now `backend/core/`), and everything else is in `archive/initial-repo/` ([D-004](../../memory-bank/decisions.md#d-004),
+[archive/README.md](../../archive/README.md)). Since 2026-10-27 the scorer is `tests/kit_oracles/score.py`
+([D-024](../../memory-bank/decisions.md#d-024)). Tree as delivered:
 
 ```
 initial-repo/
@@ -24,7 +25,7 @@ initial-repo/
 ├── pyproject.toml            python ≥3.12; deps: anthropic≥2.1.0, matplotlib, networkx≥3.7, shapely≥2.2.0
 ├── .env.example              ANTHROPIC_API_KEY=
 ├── .student-kit              marker file ("built by benchmark.student_kit")
-├── starter_agent/            example agent → see starter-agent.md
+├── starter_agent/            example agent → see archive/hackathon/docs/kit/starter-agent.md
 │   ├── agent.py              Claude tool-runner loop + system prompt
 │   ├── tools.py              6 tools wrapping BuildingMap
 │   ├── building_map.py       deterministic core: load, search, route, close, add door
@@ -32,7 +33,7 @@ initial-repo/
 │   ├── evaluate.py           warm-up evaluator (questions_basic.jsonl), --oracle mode
 │   └── __main__.py           `python -m starter_agent <building_dir>`
 ├── benchmark/
-│   ├── score.py              official scorer → ../challenge/scoring.md
+│   ├── score.py              official scorer → archive/hackathon/docs/challenge/scoring.md
 │   └── evaluate.py           runs an agent on questions.jsonl, writes submission CSV
 └── data/                     ~209 MB
     ├── manifest.csv          one row per building
@@ -93,4 +94,4 @@ living_room, storage. Full list: [data-format.md](data-format.md#room-types).
 
 ## Related
 
-- [data-format.md](data-format.md) · [questions.md](questions.md) · [starter-agent.md](starter-agent.md)
+- [data-format.md](data-format.md) · [questions.md](questions.md) · [starter-agent.md](../../archive/hackathon/docs/kit/starter-agent.md)

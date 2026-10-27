@@ -1,8 +1,8 @@
 ---
 id: arch-overview
-summary: System architecture (stack accepted in D-006, zero-cost revision; repo layout and build order proposed) — what we need (frontend, backend, DB/realtime, voice, agents, CI, hosting), topology, collaboration flow, repo layout and build order.
-status: accepted (D-006, zero-cost revision, 2026-10-24) — repo layout and build order remain proposals
-sources: [../research/stack-options.md, ../research/elevenlabs.md, ../challenge/brief.md, ../challenge/scoring.md]
+summary: System architecture (stack accepted in D-006, zero-cost revision; repo layout accepted in D-024; build order proposed) — what we need (frontend, backend, DB/realtime, voice, agents, CI, hosting), topology, collaboration flow, repo layout and build order.
+status: accepted (D-006, zero-cost revision, 2026-10-24); repo layout accepted (D-024, 2026-10-27) — only the build order remains a proposal
+sources: [../research/stack-options.md, ../research/elevenlabs.md, ../../archive/hackathon/docs/challenge/brief.md, ../../archive/hackathon/docs/challenge/scoring.md]
 related: [ai-agents.md, solver-plan.md, ../product/personas.md, ../product/routing-profiles.md, ../../memory-bank/decisions.md]
 ---
 
@@ -21,7 +21,7 @@ explainable; personas change *parameters* of the same router, never the algorith
 
 | # | Component | Choice (accepted, D-006) | Why | Details |
 |---|---|---|---|---|
-| 1 | **Deterministic core** | Python package `core/` (shapely, networkx) | exact route model, geometry, solvers, profiles; shared by API + CLI | [solver-plan.md](solver-plan.md) |
+| 1 | **Deterministic core** | Python package `backend/core/` (shapely, networkx) | exact route model, geometry, solvers, profiles; shared by API + CLI | [solver-plan.md](solver-plan.md) |
 | 2 | **Backend API** | FastAPI on **Vercel's Python runtime** (zero cost; Render Free / Modal fallback) — was Railway | Python needed for core + Claude SDK; same project as the frontend; streaming OK, no WebSockets (Supabase does push) | [stack §9](../research/stack-options.md#9-zero-cost-variant-added-2026-10-24) |
 | 3 | **AI agents** | Claude (Anthropic API) in the backend: Guide, Builder; benchmark pipeline | one brain for text + voice | [ai-agents.md](ai-agents.md) |
 | 4 | **Voice** | ElevenLabs Agents with **Custom LLM** → our backend; client tools drive the map | turn-taking/interruptions/TTS for free, logic stays ours | [elevenlabs.md](../research/elevenlabs.md#tldr-recommendation) |
@@ -32,7 +32,7 @@ explainable; personas change *parameters* of the same router, never the algorith
 | 9 | **Frontend** | Vite + React + TS + Tailwind + shadcn/ui in `frontend/`; 2D SVG plan + react-three-fiber stacked floors | Lovable can't sync a monorepo subfolder → own app; Lovable only for mock-ups | [stack §1](../research/stack-options.md#1-lovable) |
 | 10 | **Frontend hosting** | Vercel Hobby, same project as the backend (Services), preview per PR | zero-config, previews, free | [stack](../research/stack-options.md#frontend-hosting) |
 | 11 | **CI** | GitHub Actions: tests, link check, oracle + solver eval on dev (no API keys) | regressions on the 55-point part caught per push | [stack §4](../research/stack-options.md#4-ci-github-actions) |
-| 12 | **Benchmark CLI** | `run_benchmark_v1 <building_dir> <questions> <answers>` + `SUBMISSION/BENCHMARK.md` | Sunday requirement; no cloud needed | [scoring.md](../challenge/scoring.md#sunday-benchmark) |
+| 12 | **Benchmark CLI** | `run_benchmark_v1 <building_dir> <questions> <answers>` + `archive/hackathon/SUBMISSION/BENCHMARK.md` (archived 2026-10-26) | Sunday requirement; no cloud needed | [scoring.md](../../archive/hackathon/docs/challenge/scoring.md#sunday-benchmark) |
 
 ## Topology
 
@@ -42,7 +42,7 @@ explainable; personas change *parameters* of the same router, never the algorith
         ▼                          ▼                                ▼
   ┌───────────────────────┐   ┌─────────────────────────┐   ┌────────────────────────────┐
   │ FastAPI  (Vercel fn)  │──►│ Supabase                │   │ ElevenLabs Agent           │
-  │  core/ router+solvers │   │  Postgres: buildings,   │   │  STT · turn-taking · TTS   │
+  │  core: router+solvers │   │  Postgres: buildings,   │   │  STT · turn-taking · TTS   │
   │  Guide agent (Claude) │◄──┤  building_edits, convos │   │  Custom LLM ───────────────┼─► FastAPI
   │  /v1/chat/completions │   │  Realtime broadcast +   │   │  client tools ─► browser   │   /v1/chat/completions
   │  ElevenLabs token mint│   │  presence · Storage     │   └────────────────────────────┘
@@ -50,7 +50,7 @@ explainable; personas change *parameters* of the same router, never the algorith
   └──────────┬────────────┘   └─────────────────────────┘
              │ same package, offline
              ▼
-   run_benchmark <building_dir> <questions.json> <answers.json>
+   run_benchmark <building_dir> <questions.json> <answers.json>   (archived 2026-10-26)
 ```
 
 (The stack research sketched ElevenLabs calling us via webhook tools; the voice research recommends Custom LLM
@@ -67,20 +67,26 @@ instead so there is one agent brain. Webhooks remain the fallback.)
 
 The backend is the **only writer**: no conflicting edits, one place for validation.
 
-## Repo layout (target)
+## Repo layout
+
+Since 2026-10-27 ([D-024](../../memory-bank/decisions.md#d-024)): one folder per side, the Python layers inside
+`backend/` (`api → agents → core`). `core` imports neither `agents` nor `api`; the only upward imports are
+the Builder (`backend/agents/builder.py`, `builder_tools.py`) using `backend/api/drafts.py` and
+`backend/api/persistence.py`.
 
 ```
 /
-├── core/            deterministic: building_map, geometry, profiles, question_parser, solvers, formatter
-├── api/             FastAPI app: chat/SSE, OpenAI-compatible endpoint for ElevenLabs, edits, tokens
-├── agent/           Claude Guide + Builder: prompts, tool wiring
-├── benchmark/       official kit scorer/evaluator (unchanged)
-├── SUBMISSION/      BENCHMARK.md (Sunday command, run_benchmark_v1) + answers.json
-├── frontend/        Vite React app
-├── supabase/        migrations (SQL), seed script
-├── tests/           pytest: solvers vs train/dev, parser, router profiles
-├── data/ docs/ memory-bank/ scripts/ archive/
-└── .github/workflows/ci.yml
+├── frontend/        Vite React app (map, search, plan view, Guide, Edit mode)
+├── backend/         all Python, one package `backend`
+│   ├── api/         FastAPI: app.py (assembly), routes/ (one router per area), deps.py (shared stores, guards),
+│   │                sessions, Supabase persistence, voice (STT/TTS), live/fleet
+│   ├── agents/      LLM layer: Guide, Builder, Creator, campus, compute sandbox, transcript rewriter
+│   └── core/        deterministic engine: route model, geometry, solvers, edits, validation, plan import
+├── tests/           pytest; tests/kit_oracles/ = official kit scorer + question parsers + formatter
+├── data/            kit dataset (read by backend/api/sessions.py)
+├── scripts/         repo tooling and eval scripts
+├── supabase/        migrations (SQL)
+└── docs/ memory-bank/ archive/
 ```
 
 ## Build order (each step leaves something demoable)

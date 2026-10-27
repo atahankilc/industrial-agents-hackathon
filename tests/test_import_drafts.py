@@ -1,11 +1,11 @@
-"""Drafts on an imported building (backend/drafts.py, plan import Task 8): a private base `import/<id>` that is not
+"""Drafts on an imported building (backend/api/drafts.py, plan import Task 8): a private base `import/<id>` that is not
 in the catalogue until saved, validated without a base (its own errors stay errors), import notes kept on save."""
 
 import pytest
 
-from backend.drafts import IMPORT_PREFIX, DraftStore, FileDraftBackend, MemoryDraftBackend
-from backend.sessions import load_catalogue
-from core.plan_import.assemble import assemble, autofix
+from backend.api.drafts import IMPORT_PREFIX, DraftStore, FileDraftBackend, MemoryDraftBackend
+from backend.api.sessions import load_catalogue
+from backend.core.plan_import.assemble import assemble, autofix
 from tests.plan_fixtures import labelled_floor
 
 

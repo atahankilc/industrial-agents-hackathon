@@ -2,11 +2,11 @@
 id: research-question-parsing
 summary: Evidence for Q-008. Benchmark questions use one fixed template per kind; a regex parser plus a building-aware resolver matches 655/655 train+dev inputs and parses 145/145 test questions. Recommendation is regex first with an LLM fallback that reuses the same resolver.
 sources:
-  - core/question_parser.py
+  - tests/kit_oracles/question_parser.py (was core/question_parser.py)
   - tests/test_question_parser.py
   - "data/{train,dev}/*/questions.jsonl, data/test/questions.csv (scan, 2026-10-24)"
-  - benchmark/evaluate.py (PRICE_PER_MILLION, used for the cost estimate)
-related: [../kit/questions.md, ../challenge/scoring.md, ../architecture/overview.md, ../architecture/solver-plan.md]
+  - archive/hackathon/benchmark-code/benchmark/evaluate.py (PRICE_PER_MILLION, used for the cost estimate; archived 2026-10-26)
+related: [../kit/questions.md, ../../archive/hackathon/docs/challenge/scoring.md, ../architecture/overview.md, ../architecture/solver-plan.md]
 ---
 
 # Question parsing (evidence for Q-008)
@@ -58,7 +58,7 @@ Slots: `{space}` = `<space name> (<floor name>)`, `{floor}` = `the ground floor 
 The test-only values resolve without changes: type phrases are matched against the building's own
 `room_type` / asset `type` vocabulary, not against a hard-coded list.
 
-## How the resolver works (`core/question_parser.py`)
+## How the resolver works (`core/question_parser.py`, now `tests/kit_oracles/`)
 
 1. Strip the answer instruction and try each template regex (`TEMPLATES`).
 2. Floor phrase → the floor whose `name` matches after normalisation ("the floor 1" → `Floor 1`, "the basement 1"
@@ -129,7 +129,7 @@ LLM cannot resolve either.
 
 Per fallback call: about 1,000 input tokens (instructions + tool schema + the building's floor names and type
 vocabulary; space names are not needed because the resolver checks them) and about 150 output tokens. With the
-Opus prices in `benchmark/evaluate.py` ($4 / M input, $20 / M output):
+Opus prices in `benchmark/evaluate.py` (archived 2026-10-26 to `archive/hackathon/benchmark-code/`) ($4 / M input, $20 / M output):
 1,000 × 4/1M + 150 × 20/1M ≈ **$0.007 per question**, under $1.10 even if all 145 test questions fell back.
 A Sonnet- or Haiku-class model would be cheaper (prices UNVERIFIED). This is negligible against the $150 credit
 budget ([Q-012](../../memory-bank/open-questions.md#q-012)).
@@ -137,10 +137,10 @@ budget ([Q-012](../../memory-bank/open-questions.md#q-012)).
 ## Risks
 
 - **Sunday paraphrasing:** the templates are exact, so any rewording sends the question to the LLM fallback.
-  **Measured live (2026-10-24):** `scripts/eval_llm_parser.py --per-kind 4 --paraphrase` (Claude rewords each
+  **Measured live (2026-10-24):** `scripts/eval_llm_parser.py --per-kind 4 --paraphrase` (archived 2026-10-26 to `archive/hackathon/benchmark-code/`; Claude rewords each
   dev question, names and numbers kept): regex **0/31**, llm **31/31**, hybrid **31/31** across all 9 kinds
   (kind + every `inputs` slot). Parser tokens: 4,970 in, 7,820 out, 328,984 cache read, 69,620 cache write on
-  Opus 5.5 ≈ $0.59 (+ the paraphrasing calls). Re-run after any change to the parser or its vocabulary.
+  Opus 5.5 ≈ $0.59 (+ the paraphrasing calls). Re-run (from the archive) after any change to the parser or its vocabulary.
 - **New kinds on Sunday:** the regex can't cover them; the LLM can only map them onto kinds we have solvers for.
 - **Name normalisation:** exact matching relies on the question text copying `space.name` verbatim. This holds
   in all 800 questions, but unicode such as "Büro" must stay NFC. Add `unicodedata.normalize` if a mismatch shows up.
@@ -149,4 +149,4 @@ budget ([Q-012](../../memory-bank/open-questions.md#q-012)).
 
 - [questions.md](../kit/questions.md): definitions behind each kind
 - [solver-plan.md](../architecture/solver-plan.md): what consumes `ParsedQuestion.params`
-- [scoring.md](../challenge/scoring.md): how the final `Answer:` line is scored
+- [scoring.md](../../archive/hackathon/docs/challenge/scoring.md): how the final `Answer:` line is scored

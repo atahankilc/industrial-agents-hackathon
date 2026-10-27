@@ -1,4 +1,4 @@
-"""Live check of the Building Guide (agent/guide.py) on scripted conversations (calls the Claude API, costs money).
+"""Live check of the Building Guide (backend/agents/guide.py) on scripted conversations (calls the Claude API, costs money).
 
   uv run --env-file .env python scripts/eval_guide.py                      # every tests/guide_conversations/*.json
   uv run --env-file .env python scripts/eval_guide.py tests/guide_conversations/lift_closure.json
@@ -22,9 +22,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from agent.guide import Guide, GuideTurn, Usage, make_client  # noqa: E402
-from agent.tools import BuildingSession  # noqa: E402
-from core import navigation  # noqa: E402
+from backend.agents.guide import Guide, GuideTurn, Usage, make_client  # noqa: E402
+from backend.agents.tools import BuildingSession  # noqa: E402
+from backend.core import navigation  # noqa: E402
 from scripts.live_guide import cost, delta  # noqa: E402
 
 EXPECT_KEYS = {"asked", "tools", "route_to", "no_route", "step_free", "space_ids_include", "grounded", "asset_total"}
@@ -163,8 +163,8 @@ def run_conversation(path: Path, model: str | None, effort: str | None) -> tuple
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run scripted Guide conversations against the live API.")
     parser.add_argument("files", nargs="*", type=Path)
-    parser.add_argument("--model", default=None, help="default: GUIDE_MODEL or agent.guide.DEFAULT_MODEL")
-    parser.add_argument("--effort", default=None, help="default: GUIDE_EFFORT or agent.guide.DEFAULT_EFFORT")
+    parser.add_argument("--model", default=None, help="default: GUIDE_MODEL or backend.agents.guide.DEFAULT_MODEL")
+    parser.add_argument("--effort", default=None, help="default: GUIDE_EFFORT or backend.agents.guide.DEFAULT_EFFORT")
     args = parser.parse_args()
     files = args.files or sorted(CONVERSATIONS.glob("*.json"))
     passed = total = 0

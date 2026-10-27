@@ -1,11 +1,11 @@
-"""Plan import, stage 5: scale, stacking, vertical connectors (core/plan_import/scale.py, stack.py)."""
+"""Plan import, stage 5: scale, stacking, vertical connectors (backend/core/plan_import/scale.py, stack.py)."""
 
 import cv2
 import numpy as np
 
-from core.plan_import import stack
-from core.plan_import.scale import ensure_scales, scale_from_bar, scale_from_doors, scale_prior
-from core.plan_import.stack import align, connectors, to_frame
+from backend.core.plan_import import stack
+from backend.core.plan_import.scale import ensure_scales, scale_from_bar, scale_from_doors, scale_prior
+from backend.core.plan_import.stack import align, connectors, to_frame
 from tests.plan_fixtures import labelled_floor
 
 M_PER_PX = 1 / 20  # fixtures are drawn at 20 px/m

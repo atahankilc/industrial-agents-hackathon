@@ -1,8 +1,9 @@
-"""errand + what_if_door solvers against every labelled train/dev question (rules: core/solvers/routing.py).
+"""errand + what_if_door solvers against every labelled train/dev question (rules: backend/core/solvers/routing.py).
 
   uv run pytest tests/test_solvers_routing.py -q"""
 
 import copy
+import itertools
 import json
 from functools import cache
 from pathlib import Path
@@ -10,11 +11,11 @@ from pathlib import Path
 import pytest
 from shapely.geometry import Polygon
 
-from benchmark.score import score_reply
-from core.building_map import BuildingMap
-from core.formatter import format_reply
-from core.solvers import solve
-from core.solvers.routing import shared_wall_midpoint
+from tests.kit_oracles.score import score_reply
+from backend.core.building_map import OUTSIDE, BuildingMap
+from tests.kit_oracles.formatter import format_reply
+from backend.core.solvers import solve
+from backend.core.solvers.routing import shared_wall_midpoint
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 
@@ -46,16 +47,20 @@ def test_errand_all_labelled_pass_with_gold_via_and_target():
     assert (passed, vias, targets) == (93, 93, 93)
 
 
-def test_errand_evidence_legs_chain_and_sum():
-    directory, question = labelled("errand")[0]
-    result = solve(building(directory), "errand", question["inputs"])
-    first, second = result.evidence["legs"]
-    assert first["nodes"][0] == question["inputs"]["start"]
-    assert first["nodes"][-1] == second["nodes"][0] == result.evidence["via"]
-    assert second["nodes"][-1] == result.evidence["target"]
-    assert abs(first["length_m"] + second["length_m"] - result.value) <= 0.011
-    assert all(element in building(directory).openings or element in building(directory).connectors
-               for leg in (first, second) for element in leg["elements"])
+def test_errand_evidence_legs_are_walkable_and_sum():
+    """Every labelled errand: two legs chained start → via → target, real spaces and elements, adding up to the total."""
+    for directory, question in labelled("errand"):
+        bmap = building(directory)
+        result = solve(bmap, "errand", question["inputs"])
+        first, second = result.evidence["legs"]
+        assert first["nodes"][0] == question["inputs"]["start"]
+        assert first["nodes"][-1] == second["nodes"][0] == result.evidence["via"]
+        assert second["nodes"][-1] == result.evidence["target"]
+        assert abs(first["length_m"] + second["length_m"] - result.value) <= 0.011  # each leg rounded
+        for leg in (first, second):
+            assert all(space == OUTSIDE or space in bmap.spaces for space in leg["spaces"])
+            assert all(element in bmap.openings or element in bmap.connectors for element in leg["elements"])
+            assert all(a != b for a, b in itertools.pairwise(leg["spaces"]))
 
 
 def test_what_if_door_all_labelled_pass():

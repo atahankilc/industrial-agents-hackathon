@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from agent.tools import TOOL_DEFINITIONS, BuildingSession
-from core.building_map import BuildingMap
+from backend.agents.tools import TOOL_DEFINITIONS, BuildingSession
+from backend.core.building_map import BuildingMap
 
 BUILDING = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000"
 

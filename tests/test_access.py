@@ -1,4 +1,4 @@
-"""Access mode (backend/access.py, core/access.py): restricted spaces leave the viewer's building copy, tools answer
+"""Access mode (backend/api/access.py, backend/core/access.py): restricted spaces leave the viewer's building copy, tools answer
 "restricted", the plan darkens them, admin-only settings; with access mode off nothing changes."""
 
 import json
@@ -7,12 +7,13 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from agent.guide import INSTRUCTIONS, system_blocks
-from agent.tools import BuildingSession
-from backend import app as app_module
-from backend.access import ANONYMOUS, Access, AuthError, BuildingAccess, MemoryAccess, Viewer
-from core.access import filter_building, restricted_names
-from core.building_map import BuildingMap
+from backend.agents.guide import INSTRUCTIONS, system_blocks
+from backend.agents.tools import BuildingSession
+from backend.api import app as app_module
+from backend.api import deps
+from backend.api.access import ANONYMOUS, Access, AuthError, BuildingAccess, MemoryAccess, Viewer
+from backend.core.access import filter_building, restricted_names
+from backend.core.building_map import BuildingMap
 
 BUILDING = "train/proc-campus-train-000"
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / BUILDING
@@ -68,7 +69,7 @@ def test_rules_room_type_space_exception_and_groups():
     assert access.restricted_for(ANONYMOUS, BUILDING, data) == expected
     member = Viewer(user_id="u1", email="m@x.org")
     assert access.restricted_for(member, BUILDING, data) == expected
-    from backend.access import Member
+    from backend.api.access import Member
     store.set_member(Member("u1", "m@x.org", BUILDING, ["staff"]))
     assert access.restricted_for(member, BUILDING, data) == frozenset()
     assert access.restricted_for(Viewer(user_id="a", email="a@x.org", admin=True), BUILDING, data) == frozenset()
@@ -96,7 +97,7 @@ class FakeAuth:
 @pytest.fixture
 def client(monkeypatch) -> TestClient:
     monkeypatch.setenv("GUIDE_LLM", "offline")
-    monkeypatch.setattr(app_module, "access", Access(store=MemoryAccess(), auth=FakeAuth(), enabled=True))
+    monkeypatch.setattr(deps, "access", Access(store=MemoryAccess(), auth=FakeAuth(), enabled=True))
     return TestClient(app_module.app)
 
 
@@ -106,7 +107,7 @@ def auth(token: str) -> dict:
 
 def test_restricting_after_the_first_turn_rebuilds_the_system_prompt(monkeypatch):
     monkeypatch.setenv("GUIDE_LLM", "offline")
-    from backend.sessions import SessionStore
+    from backend.api.sessions import SessionStore
     store = SessionStore()
     conversation = store.create(BUILDING)
     names = [conversation.session.building.spaces[space]["name"] for space in STORAGE]
@@ -119,7 +120,7 @@ def test_restricting_after_the_first_turn_rebuilds_the_system_prompt(monkeypatch
 
 
 def test_access_off_config(monkeypatch):
-    monkeypatch.setattr(app_module, "access", Access(store=MemoryAccess(), enabled=False))
+    monkeypatch.setattr(deps, "access", Access(store=MemoryAccess(), enabled=False))
     client = TestClient(app_module.app)
     assert client.get("/config").json() == {"access_mode": False}
     session_id = client.post("/sessions", json={"building": BUILDING}).json()["session_id"]
@@ -143,7 +144,7 @@ def test_admin_rules_reach_anonymous_and_members(client):
     plan = client.get(f"/sessions/{session_id}/plan").json()
     assert {shape["id"] for shape in plan["restricted"]} == STORAGE
     assert not STORAGE & {space["id"] for space in plan["spaces"]}
-    conversation = app_module.store.get(session_id)
+    conversation = deps.store.get(session_id)
     assert conversation.session.call("locate", {"query": "Shelf 1.14-A"})["error"] == "restricted"
 
     # the staff member is invited into the group: the same building, nothing restricted
@@ -173,7 +174,7 @@ def test_private_building_hidden_and_drafts_admin_only(client):
 
 
 def test_preferences_off_keep_tool_list_and_routes():
-    from agent.tools import TOOL_DEFINITIONS
+    from backend.agents.tools import TOOL_DEFINITIONS
     session = BuildingSession.load(DATA_DIR)
     assert session.tool_definitions() is TOOL_DEFINITIONS
     assert session.profile.penalties() is None
@@ -222,7 +223,7 @@ def test_session_preferences_endpoint(client):
     assert response.status_code == 200
     profile = response.json()["profile"]
     assert profile["step_free"] and profile["prefer_lifts"]
-    conversation = app_module.store.get(session_id)
+    conversation = deps.store.get(session_id)
     assert conversation.session.auto_capture is False
     assert "German" in conversation.guide.system[1]["text"]
     assert client.get("/me/preferences").status_code == 404  # anonymous: kept in the browser
@@ -236,7 +237,7 @@ def test_dev_panel_uses_the_viewer_token(client):
     response = client.post(f"/dev/sessions/{session_id}/tool", headers=auth("admin"),
                            json={"name": "locate", "arguments": {"query": "Shelf 1.14-A"}})
     assert response.status_code == 200 and response.json()["result"].get("error") != "restricted"
-    assert not app_module.store.get(session_id).restricted
+    assert not deps.store.get(session_id).restricted
     assert client.get(f"/dev/sessions/{session_id}/state", headers=auth("admin")).status_code == 200
     # without a token the dev panel is anonymous: the restricted copy
     anonymous = client.post(f"/dev/sessions/{session_id}/tool",
@@ -245,7 +246,7 @@ def test_dev_panel_uses_the_viewer_token(client):
 
 
 def test_admin_emails_comma_separated(monkeypatch):
-    from backend.access import admin_emails
+    from backend.api.access import admin_emails
     monkeypatch.setenv("ADMIN_EMAIL", " A@x.org, b@y.org ,")
     assert admin_emails() == {"a@x.org", "b@y.org"}
     monkeypatch.delenv("ADMIN_EMAIL")

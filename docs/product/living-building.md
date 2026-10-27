@@ -2,10 +2,11 @@
 id: living-building
 summary: The living building — connected things (forklifts, AGVs, robots, pallets/carts with BLE tags) that report positions; what they do to routes (cut walks, waits, wet floors), the reroute of the route on the map, the plan layer and the demo simulation.
 sources:
-  - core/live.py
-  - backend/live.py
-  - agent/tools.py (live_effects, reroute, live_status)
-  - frontend/app/src/live/
+  - backend/core/live.py
+  - backend/api/live/
+  - backend/agents/tools/live.py (live_effects, live_status)
+  - backend/agents/tools/routing.py (reroute)
+  - frontend/src/live/
   - tests/test_live.py
 related: [routing-profiles.md, visualization.md, ../kit/route-model.md, ../architecture/ai-agents.md]
 ---
@@ -19,7 +20,7 @@ Branch `5-living-building` (2026-10-25). App only: benchmark answers never pass 
 
 ## What reports
 
-A live world per building (`backend/live.py` `LiveWorld`) holds connected things. Each one has a footprint
+A live world per building (`backend/api/live/world.py` `LiveWorld`) holds connected things. Each one has a footprint
 (length × width, heading), a state and a **report interval**; the app and routing see only the **last reported**
 position, never the simulation's own.
 
@@ -41,7 +42,7 @@ thread ticks every world (0.2 s); robots' route planning runs on a second thread
 device, so a slow plan never holds up the clock. A world is built outside the hub's lock. Robots plan round what
 stands (not what moves), without route notes, at most one new mission per tick.
 
-## What they do to routes (`core/live.py`)
+## What they do to routes (`backend/core/live.py`)
 
 The route graph walks each space door to door. An obstacle doesn't close a space — it cuts the walks **across** it:
 
@@ -103,7 +104,7 @@ A stress run over all 280 buildings (world, 150 s of simulation, snapshot, live 
 checks crashes, path shape and timing. Headless Chrome with the live Guide: reroute while guiding (the step guide
 goes on), alert + dismiss, "clear again" + Take it, tap to drop (outside the building refused), Edit mode hides it.
 
-## On the plan (`frontend/app/src/live/`)
+## On the plan (`frontend/src/live/`)
 
 Footprints at real size — violet moving, orange standing in the way (with the no-pass zone routing uses: footprint +
 clearance), grey standing out of the way; a marker with the kind's icon and one ping per report; trails = the last

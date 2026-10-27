@@ -6,7 +6,9 @@ import math
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import app, store
+from backend.api.app import app
+
+from backend.api.deps import store
 
 BUILDING = "train/proc-campus-train-000"
 ROUTE = "from Main lobby to Meeting room 3.07"
@@ -251,12 +253,11 @@ def test_stream_pings_while_quiet(monkeypatch):
     import queue
     import threading
 
-    import backend.app as backend_app
-
-    monkeypatch.setattr(backend_app, "PING_S", 0.05)
+    from backend.api import deps
+    monkeypatch.setattr(deps, "PING_S", 0.05)
     lines: queue.Queue = queue.Queue()
     threading.Timer(0.3, lambda: (lines.put({"type": "say", "text": "hi"}), lines.put(None))).start()
-    out = [json.loads(line) for line in backend_app.ndjson_with_pings(lines)]
+    out = [json.loads(line) for line in deps.ndjson_with_pings(lines)]
     assert out[-1] == {"type": "say", "text": "hi"} and {"type": "ping"} in out[:-1]
 
 

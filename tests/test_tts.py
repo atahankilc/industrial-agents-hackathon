@@ -1,4 +1,4 @@
-"""POST /tts: ElevenLabs audio for the Guide's voice (backend/tts.py), with ElevenLabs faked — no network, no cost."""
+"""POST /tts: ElevenLabs audio for the Guide's voice (backend/api/tts.py), with ElevenLabs faked — no network, no cost."""
 
 import io
 import json
@@ -7,8 +7,8 @@ import urllib.error
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import tts
-from backend.app import app
+from backend.api import tts
+from backend.api.app import app
 
 client = TestClient(app)
 
@@ -55,7 +55,7 @@ def test_streams_mp3_from_flash_with_the_default_voice_and_language(upstream):
     assert request.full_url == f"{tts.API}/{tts.DEFAULT_VOICE}/stream?output_format={tts.OUTPUT_FORMAT}"
     assert request.get_header("Xi-api-key") == "test-key"
     body = json.loads(request.data)
-    # the text is made speakable first (agent/speech.py): no markdown or arrows read out
+    # the text is made speakable first (backend/agents/speech.py): no markdown or arrows read out
     assert body == {"text": "Take Lift 1 to Floor 3, about 12 metres.", "model_id": "eleven_flash_v2_5",
                     "language_code": "de"}
 

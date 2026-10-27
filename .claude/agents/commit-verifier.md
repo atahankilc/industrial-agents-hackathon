@@ -26,7 +26,7 @@ true until you have seen evidence. You are read-only: never edit files, never ru
    - `uv run pytest -q` (if a `tests/` dir exists)
    - `python3 scripts/check_links.py`
    - Secrets: no `.env`, API keys (`sk-ant-`, `xi-api-key`, `eyJ` JWTs, `SUPABASE_SERVICE_ROLE`) in the staged diff.
-   - `benchmark/score.py` unchanged (`git diff --cached --quiet -- benchmark/score.py`).
+   - `tests/kit_oracles/score.py` unchanged (`git diff --cached --quiet -- tests/kit_oracles/score.py`).
    - No hard-coding of test/Sunday answers: grep staged code for test building ids (`-test-`, ids from
      `data/test/`) or question ids (`-H0`) used as literals in logic.
    - "Checks I ran" in PENDING.md: re-run them; flag any whose real output differs from what was written.
@@ -51,7 +51,7 @@ TREE: <output of `git write-tree`>
 ## Claims
 | # | Status | Evidence |
 |---|---|---|
-| C1 | MET | tests/test_x.py: 96 passed; core/solvers.py:42 |
+| C1 | MET | tests/test_x.py: 96 passed; backend/core/solvers.py:42 |
 
 ## Standard checks
 - pytest: …

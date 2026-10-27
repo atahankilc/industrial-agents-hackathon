@@ -1,4 +1,4 @@
-"""Fit the kit's OSM buildings onto their OpenStreetMap ways and write the map fields of backend/locations.json.
+"""Fit the kit's OSM buildings onto their OpenStreetMap ways and write the map fields of backend/api/locations.json.
 
 For each `osm-way<id>` in locations.json: fetch the way from the OSM API (cached in .cache/osm/), shift the kit
 footprint (ground floor spaces + 0.25 m exterior walls) to the overlap maximum with the way and move `origin` (kit
@@ -24,7 +24,7 @@ LOCATIONS = ROOT / "backend" / "locations.json"
 CACHE = ROOT / ".cache" / "osm"
 R = 6378137.0
 MIN_RATIO = 0.75  # kit footprint area / OSM way area below which the kit is a part of the building: fit inside
-OUTSET_M = 0.6  # exterior walls (core/floorplan.py EXTERIOR_M 0.25) plus a margin, so the map block wraps the OSM one
+OUTSET_M = 0.6  # exterior walls (backend/core/floorplan.py EXTERIOR_M 0.25) plus a margin, so the map block wraps the OSM one
 
 
 def way(key: str) -> dict:
@@ -32,7 +32,7 @@ def way(key: str) -> dict:
     cached = CACHE / f"{key}.json"
     if not cached.exists():
         url = f"https://api.openstreetmap.org/api/0.6/way/{key.removeprefix('osm-way')}/full.json"
-        request = urllib.request.Request(url, headers={"User-Agent": "talk-to-your-building-hackathon/0.1"})
+        request = urllib.request.Request(url, headers={"User-Agent": "steward/0.1"})
         with urllib.request.urlopen(request, timeout=30) as response:
             cached.write_bytes(response.read())
         time.sleep(1)  # OSM API usage policy

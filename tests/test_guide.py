@@ -16,7 +16,7 @@ from backend.agents.guide import Guide, ungrounded
 from backend.agents.offline_llm import OfflineClient, message, text_block, tool_use
 from backend.agents.tools import TOOL_DEFINITIONS, BuildingSession
 
-BUILDING = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000"
+BUILDING = Path(__file__).resolve().parent.parent / "data" / "buildings" / "proc-campus-train-000"
 LIFT_1 = "proc-campus-train-000-V02"
 LIFT_2 = "proc-campus-train-000-V04"
 

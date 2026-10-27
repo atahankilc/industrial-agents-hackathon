@@ -84,7 +84,7 @@ const GO = (
   </span>
 )
 
-const nameOf = (b: Building) => b.name ?? b.id.split('/')[1]
+const nameOf = (b: Building) => b.name ?? b.id.split('/').pop() ?? b.id
 const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 /** the building open on top of the map */
 export type Focus = { id: string; origin: Origin }

@@ -10,7 +10,7 @@ from backend.api.app import app
 
 from backend.api.deps import store
 
-BUILDING = "train/proc-campus-train-000"
+BUILDING = "proc-campus-train-000"
 ROUTE = "from Main lobby to Meeting room 3.07"
 
 
@@ -42,15 +42,15 @@ def test_health_and_buildings(client, monkeypatch):
     monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
     assert client.get("/health").json() == {"ok": True, "llm": "offline", "tts": False, "stt": False}
     ids = [item["id"] for item in client.get("/buildings").json()]
-    assert BUILDING in ids and all(item.count("/") == 1 for item in ids)
+    assert BUILDING in ids and all("/" not in item or item.startswith("user/") for item in ids)
 
 
 def test_buildings_carry_a_location_only_where_one_is_known(client):
     items = {item["id"]: item for item in client.get("/buildings").json()}
     # kit buildings only: a building made from plans (user/…) is placed on the map by its import
     located = {building_id for building_id, item in items.items() if item["location"] and not building_id.startswith("user/")}
-    assert located and all("/osm-way" in building_id for building_id in located)  # only OSM buildings have one
-    main = items["train/osm-way10053349"]["location"]  # TUM main building, Arcisstraße 21
+    assert located and all(building_id.startswith("osm-way") for building_id in located)  # only OSM buildings have one
+    main = items["osm-way10053349"]["location"]  # TUM main building, Arcisstraße 21
     assert abs(main["lat"] - 48.1489) < 0.001 and abs(main["lon"] - 11.5680) < 0.001
     # where the kit's metres start, which puts the model on the map: within 20 m of the outline's centre
     for b in located:

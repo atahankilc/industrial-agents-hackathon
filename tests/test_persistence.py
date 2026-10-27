@@ -9,7 +9,7 @@ import pytest
 from backend.api import persistence
 from backend.api.sessions import SessionStore, summary
 
-BUILDING = "train/proc-campus-train-000"
+BUILDING = "proc-campus-train-000"
 ROUTE = "from Main lobby to Meeting room 3.07"
 
 

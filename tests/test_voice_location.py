@@ -11,7 +11,7 @@ from backend.agents.tools import BuildingSession
 from tests.test_backend import BUILDING, client, new_session  # noqa: F401  (client is a fixture)
 from tests.test_guide import ScriptedClient, say
 
-DATA = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000"
+DATA = Path(__file__).resolve().parent.parent / "data" / "buildings" / "proc-campus-train-000"
 
 
 @pytest.fixture

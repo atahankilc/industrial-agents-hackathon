@@ -1,5 +1,5 @@
 {
-  "building": "data/dev/proc-campus-dev-001",
+  "building": "data/buildings/proc-campus-dev-001",
   "channel": "text",
   "persona": "First day at work, a bit nervous, knows no room names in this building.",
   "goal": "Get directions you can follow to somewhere you can get a coffee.",

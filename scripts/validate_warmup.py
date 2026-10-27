@@ -55,9 +55,8 @@ def building(directory: Path) -> BuildingMap:
 
 def warmup_questions() -> list[tuple[Path, dict]]:
     questions = []
-    for split in ("train", "dev"):
-        for path in sorted((DATA / split).glob("*/questions_basic.jsonl")):
-            questions += [(path.parent, json.loads(line)) for line in path.open(encoding="utf-8") if line.strip()]
+    for path in sorted((DATA / "buildings").glob("*/questions_basic.jsonl")):  # train and dev only
+        questions += [(path.parent, json.loads(line)) for line in path.open(encoding="utf-8") if line.strip()]
     return questions
 
 

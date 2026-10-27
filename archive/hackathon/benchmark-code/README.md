@@ -22,6 +22,11 @@ Kept as test oracles (they check the app's core against the kit's gold answers):
 **To run it again**, restore the files to their old paths (they import `agent.*` and `benchmark.*` from the repo
 root and `core.question_parser`), most simply by working from commit `fd2b50a`, where every file is still in place. The commands below are as documented in `docs/guides/commands.md` before the move.
 
+Since 2026-10-27 ([D-028](../../../memory-bank/decisions.md#d-028)) the repo's `data/` has no `train/`, `dev/`, `test/`
+folders (every building is in `data/buildings/`, the kit split is the manifest's `split` column) and no floor PNG/SVG
+renders; the test set's `questions.csv` and `submission_template.csv` are in [`../test-set/`](../test-set/). Commit
+`fd2b50a` still has the old layout.
+
 ## Starter agent (archived, still runnable)
 
 ```bash

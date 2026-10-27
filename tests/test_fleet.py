@@ -14,13 +14,13 @@ from backend.api.fleet import MemoryFleet
 from backend.core.building_map import BuildingMap
 from backend.core.fleet import Attributes, closures, mission
 
-CAMPUS = "train/proc-campus-train-000"
-FACTORY = "train/proc-factory-train-008"
+CAMPUS = "proc-campus-train-000"
+FACTORY = "proc-factory-train-008"
 DATA = Path(__file__).resolve().parent.parent / "data"
 
 
 def campus() -> BuildingMap:
-    return BuildingMap.load(DATA / CAMPUS)
+    return BuildingMap.load(DATA / "buildings" / CAMPUS)
 
 
 def test_attributes_close_what_the_object_cannot_use():

@@ -113,7 +113,7 @@ def connector_weights(graph, first: str, second: str) -> dict[str, float]:
 
 
 def test_kit_model_without_rules_is_the_kit_graph_and_adds_no_fields():
-    building = BuildingMap.load(DATA / "dev" / "proc-campus-dev-000")
+    building = BuildingMap.load(DATA / "buildings" / "proc-campus-dev-000")
     kit, ours = building.graph(False, outside=True), route_graph(building, False, KIT, NO_RULES)
     assert list(ours.nodes) == list(kit.nodes) and list(ours.edges(keys=True, data=True)) == list(
         kit.edges(keys=True, data=True))
@@ -243,7 +243,7 @@ def test_sequence_length_matches_the_route_and_rejects_invalid_lists():
 
 
 def test_sequence_length_on_real_warmup_routes():
-    directory = DATA / "dev" / "proc-campus-dev-001"
+    directory = DATA / "buildings" / "proc-campus-dev-001"
     building = BuildingMap.load(directory)
     routes = [json.loads(line)["answer"] for line in (directory / "questions_basic.jsonl").open(encoding="utf-8")
               if json.loads(line)["kind"] == "route" and "space_path" in json.loads(line)["answer"]]

@@ -12,7 +12,7 @@ from backend.agents.offline_llm import message, text_block, tool_use
 from backend.api.drafts import DraftStore
 from backend.core.edits import EditError
 
-BASE = "train/proc-campus-train-000"
+BASE = "proc-campus-train-000"
 
 
 class ScriptedClient:

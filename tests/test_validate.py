@@ -9,8 +9,8 @@ import pytest
 from backend.core.validate import validate
 
 DATA = Path(__file__).resolve().parent.parent / "data"
-DATASET = sorted(path for split in ("train", "dev", "test") for path in (DATA / split).glob("*/building.json"))
-FIXTURE = DATA / "train" / "proc-campus-train-000" / "building.json"
+DATASET = sorted((DATA / "buildings").glob("*/building.json"))
+FIXTURE = DATA / "buildings" / "proc-campus-train-000" / "building.json"
 
 
 @pytest.fixture

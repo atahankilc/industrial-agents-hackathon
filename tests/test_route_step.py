@@ -9,7 +9,7 @@ from backend.agents.guide import Guide
 from backend.agents.tools import BuildingSession
 from tests.test_guide import ScriptedClient, say
 
-DATA = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000"
+DATA = Path(__file__).resolve().parent.parent / "data" / "buildings" / "proc-campus-train-000"
 
 
 @pytest.fixture

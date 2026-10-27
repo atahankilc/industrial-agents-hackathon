@@ -48,7 +48,7 @@ def prompts(tools: BuilderTools) -> list[str]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("building", nargs="?", default="train/proc-campus-train-000")
+    parser.add_argument("building", nargs="?", default="proc-campus-train-000")
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--effort", default=DEFAULT_EFFORT)
     args = parser.parse_args()

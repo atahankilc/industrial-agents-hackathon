@@ -1,5 +1,5 @@
 {
-  "building": "data/dev/proc-campus-dev-001",
+  "building": "data/buildings/proc-campus-dev-001",
   "turns": [
     {
       "user": "What's the weather like today?",

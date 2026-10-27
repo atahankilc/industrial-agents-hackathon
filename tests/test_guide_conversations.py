@@ -9,7 +9,7 @@ from backend.agents.tools import TOOL_DEFINITIONS, BuildingSession
 from scripts.eval_guide import EXPECT_KEYS, check_turn, load_conversation
 
 FILES = sorted(Path("tests/guide_conversations").glob("*.json"))
-CAMPUS = Path("data/dev/proc-campus-dev-001")
+CAMPUS = Path("data/buildings/proc-campus-dev-001")
 LOBBY, LAB = "proc-campus-dev-001-F0-S014", "proc-campus-dev-001-F2-S020"
 TOOL_NAMES = {tool["name"] for tool in TOOL_DEFINITIONS}
 

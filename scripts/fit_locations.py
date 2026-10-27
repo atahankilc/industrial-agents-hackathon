@@ -73,7 +73,7 @@ def smallest_inside(kit, osm) -> tuple[float, float, float]:
 
 def main() -> None:
     document = json.loads(LOCATIONS.read_text(encoding="utf-8"))
-    paths = {f.parent.name: f for f in (ROOT / "data").glob("*/*/building.json")}
+    paths = {f.parent.name: f for f in (ROOT / "data" / "buildings").glob("*/building.json")}
     for key, entry in document["buildings"].items():
         building = json.loads(paths[key].read_text(encoding="utf-8"))
         lat0, lon0 = entry["origin"]["lat"], entry["origin"]["lon"]

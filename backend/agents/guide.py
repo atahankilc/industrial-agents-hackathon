@@ -1,6 +1,6 @@
 """The Building Guide: a Claude tool-use loop over the deterministic tool layer (backend/agents/tools/).
 
-  guide = Guide(BuildingSession.load(Path("data/train/proc-campus-train-000")))
+  guide = Guide(BuildingSession.load(Path("data/buildings/proc-campus-train-000")))
   turn = guide.reply("I use a wheelchair. How do I get from the main lobby to meeting room 3.07?")
   turn.text, turn.tool_calls, turn.events
 

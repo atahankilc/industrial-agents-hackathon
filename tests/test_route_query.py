@@ -11,7 +11,7 @@ import pytest
 from backend.core.building_map import BuildingMap
 from backend.core.route_query import resolve_place, route_query
 
-DIRECTORY = Path(__file__).resolve().parent.parent / "data" / "dev" / "proc-factory-dev-004"
+DIRECTORY = Path(__file__).resolve().parent.parent / "data" / "buildings" / "proc-factory-dev-004"
 
 
 @pytest.fixture(scope="module")

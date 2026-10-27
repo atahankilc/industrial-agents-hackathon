@@ -9,7 +9,7 @@ import { ImportScreen } from './import/ImportScreen.tsx'
 
 // Landing is the map of the buildings that have a real position, its search listing every building (the ones without
 // a position after them); ?view=import is the create-from-floor-plans screen.
-// Picking one opens its twin (?building=<split>/<id>); the pill at the top goes back to the map.
+// Picking one opens its twin (?building=<id>); the pill at the top goes back to the map.
 // A building with a position opens on top of the map, which stays mounted: the map flies in, then follows the
 // model's camera, in its city: the neighbours on screen and their pins tappable. Leaving fades the model out while
 // the map flies back.

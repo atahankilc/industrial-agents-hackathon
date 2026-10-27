@@ -14,7 +14,7 @@ from backend.agents.rewriter import TranscriptRewriter, invented_numbers
 from backend.agents.tools import BuildingSession
 from tests.test_guide import ScriptedClient, say
 
-BUILDING = Path(__file__).resolve().parent.parent / "data" / "train" / "proc-campus-train-000"
+BUILDING = Path(__file__).resolve().parent.parent / "data" / "buildings" / "proc-campus-train-000"
 
 
 class FakeRewriteClient:

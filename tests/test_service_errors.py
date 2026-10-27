@@ -14,7 +14,7 @@ from backend.api import deps
 from backend.api.drafts import DraftStore
 from backend.api.service_errors import friendly
 
-BUILDING = "train/proc-campus-train-000"
+BUILDING = "proc-campus-train-000"
 REQUEST = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
 CREDIT = {"type": "error", "error": {"type": "invalid_request_error", "message": "Your credit balance is too low to "
           "access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."}}

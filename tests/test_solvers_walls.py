@@ -23,10 +23,9 @@ def load(directory: Path) -> BuildingMap:
 
 def questions() -> list[tuple[Path, dict]]:
     items = []
-    for split in ("train", "dev"):
-        for path in sorted((DATA / split).glob("*/questions.jsonl")):
-            for line in path.open(encoding="utf-8"):
-                if line.strip() and (question := json.loads(line))["kind"] == "shared_walls_count":
+    for path in sorted((DATA / "buildings").glob("*/questions.jsonl")):  # test-split questions have no answer
+        for line in path.open(encoding="utf-8"):
+            if line.strip() and (question := json.loads(line))["kind"] == "shared_walls_count" and "answer" in question:
                     items.append((path.parent, question))
     return items
 

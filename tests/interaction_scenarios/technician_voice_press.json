@@ -1,5 +1,5 @@
 {
-  "building": "data/dev/proc-factory-dev-004",
+  "building": "data/buildings/proc-factory-dev-004",
   "channel": "voice",
   "persona": "Service technician with both hands full, speaks short, says 'the press' instead of the machine name.",
   "goal": "Get spoken directions to the press you need to service.",

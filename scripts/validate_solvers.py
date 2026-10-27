@@ -6,6 +6,7 @@
 No parsing and no LLM: this isolates solver + formatter correctness."""
 
 import argparse
+import csv
 import json
 import sys
 import traceback
@@ -29,9 +30,12 @@ def building(directory: Path) -> BuildingMap:
 
 
 def labelled(splits: list[str]) -> list[tuple[Path, dict]]:
+    """Questions of the buildings in `splits` (the manifest's `split` column); test questions carry no answer."""
+    with (DATA / "manifest.csv").open(newline="", encoding="utf-8") as handle:
+        wanted = {row["building_id"] for row in csv.DictReader(handle) if row["split"] in splits}
     items = []
-    for split in splits:
-        for path in sorted((DATA / split).glob("*/questions.jsonl")):
+    for path in sorted((DATA / "buildings").glob("*/questions.jsonl")):
+        if path.parent.name in wanted:
             items += [(path.parent, json.loads(line)) for line in path.open(encoding="utf-8") if line.strip()]
     return items
 

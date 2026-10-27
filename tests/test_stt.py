@@ -13,7 +13,7 @@ from backend.api import stt
 from backend.api.app import app
 
 client = TestClient(app)
-FACTORY = Path("data/dev/proc-factory-dev-003")
+FACTORY = Path("data/buildings/proc-factory-dev-003")
 
 
 @pytest.fixture
@@ -44,7 +44,7 @@ def test_health_reports_scribe_and_stt_mode_browser_turns_it_off(monkeypatch):
 
 
 def test_token_with_the_session_buildings_keyterms(scribe):
-    session_id = client.post("/sessions", json={"building": "dev/proc-factory-dev-003"}).json()["session_id"]
+    session_id = client.post("/sessions", json={"building": "proc-factory-dev-003"}).json()["session_id"]
     body = client.post("/stt/token", json={"session_id": session_id}).json()
     assert body["token"] == "sutkn_test"
     assert "CNC mill" in body["keyterms"] and len(body["keyterms"]) == stt.MAX_KEYTERMS

@@ -18,7 +18,7 @@ from backend.core.validate import validate  # noqa: E402
 
 def main() -> None:
     counts: Counter = Counter()
-    buildings = sorted(path for split in ("train", "dev", "test") for path in (ROOT / "data" / split).glob("*/building.json"))
+    buildings = sorted((ROOT / "data" / "buildings").glob("*/building.json"))
     for path in buildings:
         building = json.loads(path.read_text(encoding="utf-8"))
         for item in validate(building):

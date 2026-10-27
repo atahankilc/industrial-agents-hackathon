@@ -50,7 +50,7 @@ def delta(after: Usage, before: Usage) -> Usage:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--building", default="data/train/proc-campus-train-000")
+    parser.add_argument("--building", default="data/buildings/proc-campus-train-000")
     parser.add_argument("--model", default=None)
     parser.add_argument("--effort", default=None)
     parser.add_argument("--out", type=Path, default=None)

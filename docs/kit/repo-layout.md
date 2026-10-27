@@ -11,6 +11,11 @@ related: [data-format.md, questions.md, ../../archive/hackathon/docs/kit/starter
 
 # Kit layout (as delivered)
 
+> **In this repo (2026-10-27, [D-028](../../memory-bank/decisions.md#d-028)):** the three split folders are merged
+> into `data/buildings/<building_id>/` (the split is the manifest's `split` column), the `floor_*.png` / `.svg`
+> renders are deleted, and the test set's `questions.csv` / `submission_template.csv` are in
+> `archive/hackathon/test-set/`. The layout below is the kit as delivered.
+
 [Docs index](../README.md) · Schemas: [data-format.md](data-format.md)
 
 As of 2026-10-24 `data/` and `benchmark/` live at the **repo root**, `starter_agent/building_map.py` was

@@ -16,7 +16,7 @@ from backend.agents.tools import BuildingSession
 from backend.api.drafts import DraftStore
 from backend.api.sessions import DATA_DIR
 
-BASE = "train/proc-campus-train-000"
+BASE = "proc-campus-train-000"
 
 
 @pytest.fixture
@@ -138,7 +138,7 @@ def test_draft_survives_a_new_store(client, tmp_path):
 
 
 def test_dataset_untouched(client):
-    path = DATA_DIR / "train" / "proc-campus-train-000" / "building.json"
+    path = DATA_DIR / "buildings" / "proc-campus-train-000" / "building.json"
     before = hashlib.sha256(path.read_bytes()).hexdigest()
     created = new_draft(client)
     draft_id = created["draft"]["id"]

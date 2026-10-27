@@ -6,7 +6,7 @@ from pathlib import Path
 
 from backend.agents.tools import BuildingSession
 
-DIRECTORY = Path(__file__).resolve().parent.parent / "data" / "dev" / "proc-factory-dev-004"
+DIRECTORY = Path(__file__).resolve().parent.parent / "data" / "buildings" / "proc-factory-dev-004"
 
 
 def session() -> BuildingSession:

@@ -40,10 +40,10 @@ Without `ANTHROPIC_API_KEY` it runs the offline rule-based client; `GUIDE_LLM=of
 ```bash
 GUIDE_LLM=offline uv run uvicorn backend.api.app:app --port 8390          # no key needed
 uv run --env-file .env uvicorn backend.api.app:app --port 8390            # real Claude once the key is set
-# GUIDE_MODEL (default claude-opus-5-5), GUIDE_EFFORT (default medium), GUIDE_BUILDING (default train/proc-campus-train-000)
+# GUIDE_MODEL (default claude-opus-5-5), GUIDE_EFFORT (default medium), GUIDE_BUILDING (default proc-campus-train-000)
 # voice turns: GUIDE_REWRITER=off disables the transcript rewriter (D-013), GUIDE_REWRITER_MODEL (default claude-haiku-5-5)
 curl -s localhost:8390/health
-curl -s -X POST localhost:8390/sessions -H 'content-type: application/json' -d '{"building":"train/proc-campus-train-000"}'
+curl -s -X POST localhost:8390/sessions -H 'content-type: application/json' -d '{"building":"proc-campus-train-000"}'
 curl -s -X POST localhost:8390/chat -H 'content-type: application/json' -d '{"session_id":"<id>","message":"Where is the printer?"}'
 curl -sN -X POST localhost:8390/v1/chat/completions -H 'content-type: application/json' -H 'X-Session-Id: demo' \
      -d '{"stream":true,"messages":[{"role":"user","content":"I use a wheelchair"}]}'
@@ -54,7 +54,7 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
 | GET | `/health` | – | `{"ok", "llm": "anthropic"\|"offline", "tts", "stt"}` — `tts` / `stt`: ElevenLabs voice / Scribe recognition available (see `/tts`, `/stt/token`) |
-| GET | `/buildings` | – | `[{"id": "train/proc-campus-train-000", "split", "name"}]` |
+| GET | `/buildings` | – | `[{"id": "proc-campus-train-000", "split", "name"}]` (kit buildings: the directory in `data/buildings/`; saved ones `user/<slug>`) |
 | POST | `/sessions` | `{"building"?}` | `{"session_id", "building", "overview"}` (unknown building → 422) |
 | GET | `/sessions/{id}` | – | building, profile, applied/pending changes, event count |
 | PUT | `/sessions/{id}/building` | `{"building"}` | fresh session on another building, same id |
@@ -167,9 +167,10 @@ Vite proxies `/api/*` to the backend (`BACKEND_URL`, default `http://127.0.0.1:8
 
 ```bash
 uv run --env-file .env python scripts/live_creator.py <file|folder>... [--out building.json] [--images DIR]  # live run, steps + tokens
-uv run python scripts/eval_import.py --segment-only [--n 30] [--method walls|colours]   # free: segmentation vs dataset renders
-uv run --env-file .env python scripts/eval_import.py --full [--n 10]                    # the Creator on dataset renders
 ```
+
+The dataset's floor renders and `scripts/eval_import.py`, which scored the Creator on them, were removed on
+2026-10-27 ([D-028](../../memory-bank/decisions.md#d-028)); both are in git history before that commit.
 
 In the app: "New building from floor plans" on the map, or "New from floor plans" in the list (`?view=import`) →
 `POST /imports/stream` → the building screen on the private base, opened in the Edit mode (`?building=import/<id>&edit=1`). Locally without the database: `GUIDE_PERSIST=off` (the `builder_imports` table

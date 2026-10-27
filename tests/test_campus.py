@@ -10,9 +10,9 @@ from backend.api.app import app
 from backend.api.sessions import load_catalogue
 from backend.core.building_map import MapError
 
-HAUPT = "train/osm-way10053349"  # Hauptgebäude, Arcisstraße 21: TUM's main campus, several modelled neighbours
-MENSA = "train/osm-way19183732"  # Mensa Arcisstraße, a canteen in it
-LONELY = "train/proc-campus-train-000"  # procedural: no real position, no neighbours
+HAUPT = "osm-way10053349"  # Hauptgebäude, Arcisstraße 21: TUM's main campus, several modelled neighbours
+MENSA = "osm-way19183732"  # Mensa Arcisstraße, a canteen in it
+LONELY = "proc-campus-train-000"  # procedural: no real position, no neighbours
 
 
 @pytest.fixture(scope="module")

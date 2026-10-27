@@ -9,6 +9,17 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-27 — Local folder moved to `~/Documents/steward`
+
+- Repo folder `~/Documents/industrial-agents-hackathon` → `~/Documents/steward`; worktree `collab-edits` →
+  `~/Documents/steward-collab-edits` (`git worktree list` shows both paths). Claude's project memory copied over.
+- The moved `.venv` broke `npm run dev`: its scripts' shebangs still pointed at the old folder, so `uv run uvicorn`
+  ran Anaconda's Python 3.9 uvicorn and the backend died with `No module named 'anthropic'`. Fixed by recreating it
+  (`rm -rf .venv && uv sync`); `pnpm run dev` then served backend `/docs` 200 on 8390 and the app 200 on 5390.
+- WebStorm (local, `.idea/` is git-ignored): module file renamed to `steward.iml`, `.idea/.name` = `steward`.
+- A `[vite] http proxy error … ECONNREFUSED 127.0.0.1:8390` right after start is the frontend asking before the
+  backend listens (backend start took ~18 s on the fresh `.venv`); it stops once uvicorn is up.
+
 ## 2026-10-27 — Steward outside the repo: GitHub, Vercel, Supabase
 
 - GitHub repo renamed `atahankilc/industrial-agents-hackathon` → `atahankilc/steward` (`gh repo rename`); `origin`

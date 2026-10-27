@@ -61,8 +61,10 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
    (remote updated, homepage set), Vercel project → `steward`, deployed at https://steward-io.vercel.app
    (`steward.vercel.app` and `steward-app.vercel.app` were taken). Supabase project renamed and Auth URL configuration
    (Site URL, Redirect URLs → steward-io) updated by Atahan by hand (his report; not checked from here). The old `industrial-agents-hackathon.vercel.app` now
-   answers a 308 redirect to https://steward-io.vercel.app/, `/api/*` paths included (checked 2026-10-27). Last: local folder → `~/Documents/steward` (then
-   `git worktree repair` for `../iah-collab-edits` and move Claude's project memory).
+   answers a 308 redirect to https://steward-io.vercel.app/, `/api/*` paths included (checked 2026-10-27). Local folder moved to `~/Documents/steward`, the
+   `collab-edits` worktree to `~/Documents/steward-collab-edits` (`git worktree list` shows both), Claude's project
+   memory copied over. After a folder move, recreate `.venv` (`rm -rf .venv && uv sync`): its scripts keep the old
+   absolute path and `uv run uvicorn` then falls back to another Python on `PATH`.
 1. **Bays marked `through: false`.** The jury's eval data marks factory bays with `through: false` and our core
    ignores the flag; another session's re-score (2026-10-26, UNVERIFIED here) says that is the main reason our routes
    scored 0, and that with it and the right answer format we would have reached ~0.89 on the 36 sample questions.
@@ -70,7 +72,7 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
    to re-score are archived in [archive/hackathon/benchmark-code/](../archive/hackathon/benchmark-code/README.md) with how to restore them.
 2. **Slim `data/`?** 208 MB / 3,475 files; `data/train` alone is 122 MB. Only worth it if the app needs fewer
    buildings (the list shows all of them). Keep the licence files in step.
-3. **Branch `collab-edits`** (worktree `../iah-collab-edits`, started before the D-024 restructure, so it needs a
+3. **Branch `collab-edits`** (worktree `../steward-collab-edits`, started before the D-024 restructure, so it needs a
    rebase onto the new paths): 1 commit not in `dev` (shared building edits,
    collaboration phase 1) plus uncommitted changes. Finish or drop.
 4. **Old stashes** saved as branches `archive/stash-0` … `archive/stash-3` (2026-10-24/25 pull and rebase

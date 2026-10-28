@@ -1,13 +1,13 @@
 ---
 id: project-state
 summary: Current phase, what exists, what is next, blockers. Read first every session.
-updated: 2026-10-27
+updated: 2026-10-28
 related: [decisions.md, open-questions.md, log.md, ../archive/hackathon/README.md]
 ---
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-27** (rename to Steward [D-027](decisions.md#d-027), repo restructure [D-024](decisions.md#d-024), solvers + API routers [D-025](decisions.md#d-025), tool layer + live packages [D-026](decisions.md#d-026))
+[Memory bank](README.md) · Last updated: **2026-10-28** (dataset in one folder [D-028](decisions.md#d-028), rename to Steward [D-027](decisions.md#d-027), repo restructure [D-024](decisions.md#d-024), solvers + API routers [D-025](decisions.md#d-025), tool layer + live packages [D-026](decisions.md#d-026))
 
 ## Phase
 
@@ -48,15 +48,17 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
 - **Workflow:** verified commits via `/ship` ([D-008](decisions.md#d-008),
   [dev-workflow.md](../docs/guides/dev-workflow.md)); work on `dev`, never on `main`.
 
-## What works (verified 2026-10-27)
+## What works (verified 2026-10-27, deploy 2026-10-28)
 
 - `npm run dev` (repo root) → backend http://127.0.0.1:8390 + app http://localhost:5390.
 - `uv run pytest -q` → 955 passed, 2 skipped (after archiving the benchmark tests).
 - `python3 scripts/check_links.py` → all links resolve.
-- `main` is at `25c79b5` (2026-10-26 cleanup); `dev` is ahead (restructure, routers, packages, dev ports, the Steward rename).
+- `main` is at `30ddf99` (PR #11, 2026-10-28: data/buildings merge, README features, CLAUDE.md); production serves it.
 - Deployed app: https://steward-io.vercel.app → `/` 200 (title "Steward"), `/api/health` 200
   `{"ok":true,"llm":"anthropic","tts":true,"stt":true}`; `POST /api/tts` returns MP3, `POST /api/stt/token` 200
-  (checked 2026-10-27, after `ELEVENLABS_API_KEY` was added to Vercel).
+  (checked 2026-10-27, after `ELEVENLABS_API_KEY` was added to Vercel). After D-028 (2026-10-28): `/api/buildings` 286
+  entries with kit ids like `osm-way10053349`; `POST /api/sessions` 200 for `proc-campus-train-000` and for the saved
+  `user/arcisstra-e-21-edited`; the old id `train/proc-campus-train-000` → 422.
 
 ## Next
 
@@ -73,8 +75,10 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
    scored 0, and that with it and the right answer format we would have reached ~0.89 on the 36 sample questions.
    Worth handling in `backend/core/` for the app too (people should not be routed through a bay). The benchmark runners
    to re-score are archived in [archive/hackathon/benchmark-code/](../archive/hackathon/benchmark-code/README.md) with how to restore them.
-2. **Apply the building-id migration** ([D-028](decisions.md#d-028)): `supabase/migrations/20261027120000_building_ids.sql`
-   on Supabase when `dev` with the merged `data/buildings/` is deployed (not applied yet).
+2. **Production deploys from `main`** (PRs `dev` → `main`); a push to `dev` only makes a Vercel preview. Seen on
+   2026-10-28: right after the PR #11 deploy every `/api/*` call answered 500 `FUNCTION_INVOCATION_FAILED` for
+   ~2–3 min, then recovered by itself (cause unknown: no Vercel logs from here; the same bundle and DB ran fine locally).
+   Worth a look in the Vercel logs if it repeats.
 3. **Branch `collab-edits`** (worktree `../steward-collab-edits`, started before the D-024 restructure, so it needs a
    rebase onto the new paths): 1 commit not in `dev` (shared building edits,
    collaboration phase 1) plus uncommitted changes. Finish or drop.

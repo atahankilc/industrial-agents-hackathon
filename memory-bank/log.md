@@ -9,6 +9,19 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-28 — D-028 deployed and the building-id migration applied
+
+- Shipped `306fd5a` (data merge), `366dd05` (Atahan's README features), `e57a9b2` (CLAUDE.md data line, Atahan
+  approved); PR #11 `dev` → `main` merged (`30ddf99`). A push to `dev` only made a preview: production follows `main`.
+- Migration `20261027120000_building_ids.sql`: dry run in a rolled-back transaction first, then applied once
+  production served the new ids: conversations 826 (+13 states), builder_drafts 54, saved_buildings 4 (+4 jsonb),
+  access_buildings 2, access_members 1, fleet_objects 0; afterwards 0 old-style ids in any of these columns.
+- Right after the deploy every `/api/*` call answered 500 `FUNCTION_INVOCATION_FAILED` for ~2–3 min, then it recovered
+  by itself. The same code against the same (migrated) DB, and a copy of the exact function bundle, answered 200
+  locally; cause unknown (no Vercel logs from here). Now: `/api/health` 200 (`tts`/`stt` true), `/api/buildings` 286
+  with new ids, sessions on `proc-campus-train-000` and `user/arcisstra-e-21-edited` 200, old id 422.
+- Size: the function's repo files 49.7 → 49.6 MB (renders were already excluded); the repo 217 → 71.5 MB.
+
 ## 2026-10-27 — Dataset in one `data/buildings/` folder, floor renders removed ([D-028](decisions.md#d-028))
 
 - Atahan: merge train/dev/test and drop the PNG/SVG renders (only `building.json` builds a building). Before: the API
@@ -20,7 +33,7 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 - Ids: kit buildings are now their directory name (Atahan chose a DB migration over aliases):
   `backend/api/sessions.py` catalogue, `DEMO_BUILDING`, default building; tests, scripts, docstrings and
   `tests/*_scenarios` JSON follow. Labelled-question tests filter on `answer` instead of the folder.
-  `supabase/migrations/20261027120000_building_ids.sql` written, **not applied**. Local `data/user/.drafts` (8 files,
+  `supabase/migrations/20261027120000_building_ids.sql` written (applied 2026-10-28, entry above). Local `data/user/.drafts` (8 files,
   gitignored) rewritten the same way.
 - `uv run pytest -q` 955 passed / 2 skipped; `validate_solvers.py --kinds shared_walls_count` 143/143. Found, not
   fixed: `scripts/check_routes.py` already crashed at HEAD (MapError, no route in dev `osm-way360544293`, Lufthansa

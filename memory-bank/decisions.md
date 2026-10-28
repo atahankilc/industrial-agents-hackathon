@@ -472,4 +472,4 @@ Template:
   rules and fleet objects point at unknown ids. The archived benchmark code still expects the old layout (run it from
   commit `fd2b50a`).
 - **Evidence:** `uv run pytest -q` green after the move; `git ls-files data` → 280 `building.json`, 281 csv,
-  520 jsonl, 1 md.
+  520 jsonl, 1 md. Migration applied 2026-10-28 with the PR #11 deploy (0 old ids left; [log](log.md)).

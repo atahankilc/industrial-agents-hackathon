@@ -5,7 +5,7 @@ import { api, type Building, type ImportPlace, type OrgMapView } from './api'
 import { BuildingScreen } from './building/BuildingScreen.tsx'
 import { prefetch } from './building/opening'
 import { MapLanding } from './map/MapLanding.tsx'
-import { boardOf, onBoard } from './map/board'
+import { boardOf, onBoard, type Layout } from './map/board'
 import { ImportScreen } from './import/ImportScreen.tsx'
 import { OrgScreen } from './org/OrgScreen.tsx'
 
@@ -15,6 +15,7 @@ import { OrgScreen } from './org/OrgScreen.tsx'
 // (docs/product/organizations.md); it stays on while buildings open and close. There the map is an island board
 // (src/map/board.ts): the buildings are moved onto it here, so the map, the pins and the open model agree; the
 // building screen still gets the real origin for what it measures in the world (the walk to the next building).
+// The map's editors arrange and name its islands on the map; each change is stored in the map's layout at once.
 // Picking one opens its twin (?building=<id>); the pill at the top goes back to the map.
 // A building with a position opens on top of the map, which stays mounted: the map flies in, then follows the
 // model's camera, in its city: the neighbours on screen and their pins tappable. Leaving fades the model out while
@@ -112,9 +113,21 @@ export function Root() {
 
   // an organisation's map: its sites side by side, in a row on a wide screen, a column on a phone
   const board = useMemo(
-    () => (view.map && buildings ? boardOf(buildings, matchMedia('(max-width: 899px)').matches ? 'column' : 'row') : null),
-    [view.map, buildings],
+    () => (view.map && buildings ? boardOf(buildings, matchMedia('(max-width: 899px)').matches ? 'column' : 'row', scope?.layout) : null),
+    [view.map, buildings, scope?.layout],
   )
+  // shown at once, put back if the backend refuses
+  const arrange = async (layout: Layout) => {
+    if (!scope) return
+    const before = scope
+    setScope({ ...scope, layout })
+    try {
+      await api.updateMap(scope.slug, { layout })
+    } catch (reason) {
+      setScope(before)
+      throw reason
+    }
+  }
   const placed = useMemo(() => (board && buildings ? buildings.map((building) => onBoard(board, building)) : buildings), [board, buildings])
   const originIn = (list: Building[] | null, id: string | null) => {
     const location = id ? list?.find((item) => item.id === id)?.location : null
@@ -141,6 +154,7 @@ export function Root() {
           go(null, 'import')
         }} onDeleted={() => setDeleted((n) => n + 1)}
         scope={!view.map ? null : scope ? { name: scope.name, org: scope.org.name, orgSlug: scope.org.slug, verified: scope.org.verified } : error ? { name: error, org: null } : null}
+        onArrange={scope?.can_edit ? arrange : undefined}
         onLeaveScope={() => go(null, 'map', false, { map: null })} />
       )}
       {!view.building && !shown && view.landing === 'org' && (

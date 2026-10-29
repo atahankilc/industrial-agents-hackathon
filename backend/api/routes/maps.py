@@ -1,10 +1,11 @@
 """Organisations' maps (backend/api/maps.py, docs/product/organizations.md phase 2): an org's editors make maps of
 their buildings (and of anyone's listed ones), choose who opens them, and share a link; the app opens one with
 `?map=<slug>` (`&k=<token>` for a link-shared map). A map lists only the buildings its viewer may open: unlisted
-ones for everyone who has the map, private ones for the org's people. Access mode only."""
+ones for everyone who has the map, private ones for the org's people. Access mode only. Phase 3: editors arrange the
+map's island board (frontend/src/map/board.ts) and name its sites; that arrangement is the map's `layout`."""
 
 from fastapi import APIRouter, Header, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.api import deps
 from backend.api.access import ADMIN_ROLES, Viewer
@@ -21,9 +22,23 @@ class NewMap(BaseModel):
     visibility: str = "private"
 
 
+class Site(BaseModel):
+    """One island of the board: the buildings it was made from (to find it again when the map changes), its name, and
+    its move from where it really is, in steps of the z14 tiles' 4096 grid (board.ts STEP; null = placed by the app)."""
+    buildings: list[str] = Field(max_length=500)
+    name: str | None = Field(None, max_length=60)
+    dx: int | None = Field(None, ge=-(2**26), le=2**26)
+    dy: int | None = Field(None, ge=-(2**26), le=2**26)
+
+
+class Layout(BaseModel):
+    sites: list[Site] = Field(default_factory=list, max_length=200)
+
+
 class MapUpdate(BaseModel):
     name: str | None = None
     visibility: str | None = None
+    layout: Layout | None = None
 
 
 class MapBuilding(BaseModel):
@@ -41,6 +56,13 @@ def name_or_422(name: str) -> str:
     if not name or len(name) > 120:
         raise HTTPException(422, "give the map a name (at most 120 characters)")
     return name
+
+
+def layout_site(site: Site) -> dict:
+    name = (site.name or "").strip() or None
+    moved = site.dx is not None and site.dy is not None
+    return {"buildings": list(dict.fromkeys(site.buildings)), "name": name,
+            "dx": site.dx if moved else None, "dy": site.dy if moved else None}
 
 
 def map_or_404(slug: str, viewer: Viewer, token: str | None) -> tuple[OrgMap, str | None]:
@@ -115,6 +137,8 @@ def update_map(slug: str, body: MapUpdate, authorization: str | None = Header(No
         row.visibility = body.visibility
         if row.visibility == "link" and not row.token:
             row.token = new_token()
+    if body.layout is not None:
+        row.layout = {"sites": [layout_site(site) for site in body.layout.sites if site.buildings]}
     deps.maps.put(row)
     return map_payload(row, viewer, role)
 

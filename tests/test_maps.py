@@ -86,3 +86,23 @@ def test_map_row_opens_with():
     assert row.opens_with("abc") and not row.opens_with("abd") and not row.opens_with(None)
     assert not OrgMap("m", "o", "M", "private", token="abc").opens_with("abc")
     assert OrgMap("m", "o", "M", "public").opens_with(None)
+
+
+def test_editors_arrange_and_name_the_islands(maps):
+    layout = {"sites": [{"buildings": [HAUPT, MENSA, HAUPT], "name": "  Stammgelände ", "dx": 120, "dy": -40},
+                        {"buildings": [OTHER], "name": "", "dx": 5},  # half a move: placed by the app
+                        {"buildings": [], "name": "empty"}]}  # no buildings: dropped
+    saved = maps.put("/maps/tum-campus", headers=auth("editor"), json={"layout": layout})
+    assert saved.status_code == 200
+    assert saved.json()["layout"] == {"sites": [
+        {"buildings": [HAUPT, MENSA], "name": "Stammgelände", "dx": 120, "dy": -40},
+        {"buildings": [OTHER], "name": None, "dx": None, "dy": None}]}
+    assert maps.get("/maps/tum-campus", headers=auth("student")).json()["layout"]["sites"][0]["name"] == "Stammgelände"
+    assert maps.put("/maps/tum-campus", headers=auth("student"), json={"layout": {"sites": []}}).status_code == 403
+    too_long = {"sites": [{"buildings": [HAUPT], "name": "x" * 61}]}
+    assert maps.put("/maps/tum-campus", headers=auth("editor"), json={"layout": too_long}).status_code == 422
+    far = {"sites": [{"buildings": [HAUPT], "dx": 2**27, "dy": 0}]}
+    assert maps.put("/maps/tum-campus", headers=auth("editor"), json={"layout": far}).status_code == 422
+    # a name or visibility change keeps the layout
+    maps.put("/maps/tum-campus", headers=auth("editor"), json={"name": "Campus"})
+    assert deps.maps.get("tum-campus").layout["sites"][0]["dx"] == 120

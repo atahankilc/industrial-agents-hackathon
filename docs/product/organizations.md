@@ -1,6 +1,6 @@
 ---
 id: organizations
-summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings), phase 2 (maps, share links, ?map= scope, organisations sheet, Edit mode and imports for org editors) and the first cut of phase 3 (the island board) are built; the rest of 3 and 4 are the plan.
+summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings), phase 2 (maps, share links, ?map= scope, organisations sheet, Edit mode and imports for org editors) and phase 3's island board with dragging and naming are built; drawn areas, location on the board and phase 4 are the plan.
 sources:
   - backend/api/access.py
   - backend/api/routes/orgs.py
@@ -10,6 +10,7 @@ sources:
   - supabase/migrations/20261029120000_maps.sql
   - frontend/src/org/OrgScreen.tsx, frontend/src/Root.tsx, frontend/src/map/MapLanding.tsx
   - frontend/src/map/board.ts, frontend/src/map/boardTiles.ts, frontend/src/map/style.ts, frontend/scripts/board.check.ts
+  - tests/test_maps.py (layout)
   - tests/test_maps.py
   - tests/test_org_editing.py
   - backend/api/deps.py
@@ -156,10 +157,20 @@ Built (2026-10-29), all in the app (`frontend/src/map/board.ts`, `boardTiles.ts`
   snapshot to refresh. Still rejected: real geography with a mask (keeps the 15 km gaps), one map instance per island
   (WebGL context limit, no continuous pan).
 
+- **Arranging** (2026-10-29): the map's editors (`can_edit`) get "Arrange" under the map's title. An island is dragged
+  with the mouse or a finger (the map does not pan meanwhile); its outline shows where it will land, pulled against
+  another island's edge within 14 px so they meet without a gap, red where it would lie on another island (dropped
+  there, it stays where it was). A tap without a move names the site (shown over its top left corner). Each change is
+  saved at once: `PUT /maps/{slug}` `{"layout": {"sites": [{buildings, name, dx, dy}]}}` (moves in grid steps, null =
+  placed by the app; names up to 60 characters, at most 200 sites) and put back with "Not saved: …" in the bar if the
+  backend refuses. A stored site is found again by the buildings it shares most with a new site. Once any island is
+  placed by hand the board is the stored one on every screen, and a new site goes to its right; "Line them up" drops
+  the places and keeps the names. Seams are drawn wherever two islands meet. The board's tiles change in place
+  (`setTiles`) so moving an island does not blink the map.
+
 Still to do in phase 3:
 
-- Editors drag islands closer or apart and name, merge or split sites; stored in the map's `layout` (the column already
-  exists).
+- Merging or splitting sites by hand.
 - An area the org draws instead of the rectangle round the buildings.
 - **Location:** the blue dot moved onto the board when the user stands inside an island; otherwise "nearest site:
   Garching, 3 km".

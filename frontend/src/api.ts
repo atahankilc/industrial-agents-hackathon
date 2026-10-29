@@ -1,5 +1,7 @@
 // Typed client for the FastAPI backend (backend/api/, routes in backend/api/routes/), reached through the Vite proxy at /api.
 
+import type { Layout } from './map/board'
+
 const BASE = import.meta.env.VITE_API_BASE ?? '/api'
 /** the API base as an absolute URL (for commands shown to the admin, e.g. the object simulator) */
 export const apiUrl = () => new URL(BASE, location.origin).href.replace(/\/$/, '')
@@ -488,13 +490,15 @@ export type OrgMember = { org: string; user_id: string; email: string; role: Org
 export type OrgDetail = Org & { buildings: { id: string; listing: Listing }[]; members?: OrgMember[] }
 export type MapVisibility = 'private' | 'link' | 'public'
 export type OrgMapSummary = { slug: string; name: string; visibility: MapVisibility; buildings: number }
-/** GET /maps/{slug}: the buildings this viewer may open; `token` (editors only) is the share link's key. */
+/** GET /maps/{slug}: the buildings this viewer may open; `token` (editors only) is the share link's key; `layout`
+ * the island board as its editors arranged it (src/map/board.ts). */
 export type OrgMapView = {
   slug: string
   name: string
   org: Org
   visibility: MapVisibility
   buildings: Building[]
+  layout: Layout
   can_edit: boolean
   token?: string | null
 }
@@ -525,7 +529,7 @@ export const api = {
   orgMaps: (org: string) => request<OrgMapSummary[]>(`/orgs/${part(org)}/maps`),
   createMap: (org: string, slug: string, name: string) => request<OrgMapView>(`/orgs/${part(org)}/maps`, json('POST', { slug, name })),
   map: (slug: string, key: string | null) => request<OrgMapView>(`/maps/${part(slug)}${key ? `?k=${part(key)}` : ''}`),
-  updateMap: (slug: string, change: { name?: string; visibility?: MapVisibility }) => request<OrgMapView>(`/maps/${part(slug)}`, json('PUT', change)),
+  updateMap: (slug: string, change: { name?: string; visibility?: MapVisibility; layout?: Layout }) => request<OrgMapView>(`/maps/${part(slug)}`, json('PUT', change)),
   renewMapLink: (slug: string) => request<OrgMapView>(`/maps/${part(slug)}/link`, { method: 'POST' }),
   setMapBuilding: (slug: string, building: string, on: boolean) =>
     request<OrgMapView>(`/maps/${part(slug)}/buildings`, json('PUT', { building, on })),

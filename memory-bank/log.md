@@ -9,6 +9,21 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-29 — Organisations phase 3: editors arrange and name the islands
+
+- The first cut shipped as `cbd043b`.
+- Backend: `PUT /maps/{slug}` takes `layout` (`Site`: buildings, name ≤ 60, dx / dy in grid steps within ±2^26, both or
+  neither; ≤ 200 sites; empty sites dropped, buildings de-duplicated). `tests/test_maps.py::test_editors_arrange_and_name_the_islands`.
+- `board.ts`: `boardOf(…, layout)` matches stored sites by shared buildings; any hand-placed island → the stored board
+  on every screen, unplaced sites to its right; `seamsOf` (wherever islands meet), `dropAt` (pull to edges, refuse
+  overlap), `changed`, `layoutOf`, `byHand`. MapLanding: "Arrange" under the title for editors, drag with mouse or
+  touch (no pan), ghost outline (red = refused), tap to name, "Line them up", "Not saved: …"; tiles swapped with
+  `setTiles` once a board is shown (the first board still gets a style of its own: a `setTiles` while the empty
+  board's style was loading left the islands blank after a reload, found headless and fixed).
+- Headless (fake owner, :8391/:5391): dragging Weihenstephan under the main campus snapped to its left and lower
+  edges, saved `dx/dy`, seam "30 km apart"; naming Garching showed its name; after a reload the arrangement and the
+  tiles came back; on a phone a touch drag moved the island without panning the map; no console errors.
+
 ## 2026-10-29 — Organisations phase 3, first cut: the island board
 
 - 2c shipped as `090b423`.

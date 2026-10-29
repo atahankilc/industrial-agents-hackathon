@@ -1,7 +1,7 @@
 // node --experimental-strip-types frontend/scripts/board.check.ts — an organisation's island board (src/map/board.ts):
 // sites from nearby buildings, islands edge to edge, moved by whole grid steps, seams with the real distance.
 import assert from 'node:assert/strict'
-import { arrange, boardOf, boardRect, distanceLabel, islandAt, islandsOf, lngOf, latOf, metresBetween, onBoard, STEP, toBoard, toReal, worldX, worldY } from '../src/map/board.ts'
+import { arrange, boardOf, boardRect, boardShapes, changed, distanceLabel, dropAt, islandAt, islandsOf, layoutOf, lngOf, latOf, metresBetween, onBoard, STEP, toBoard, toReal, worldX, worldY } from '../src/map/board.ts'
 
 const close = (a: number, b: number, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`)
 const square = (lng: number, lat: number, d = 0.0005): [number, number][] => [[lng - d, lat - d], [lng + d, lat - d], [lng + d, lat + d], [lng - d, lat + d], [lng - d, lat - d]]
@@ -61,6 +61,39 @@ const alone = boardOf([main], 'row')!
 assert.equal(alone.seams.length, 0)
 assert.deepEqual(onBoard(alone, main).location.outline, main.location.outline)
 assert.equal(boardOf([{ id: 'x', location: null }], 'row'), null)
+
+// an editor's layout: Garching dragged below the main campus, named; the stored board is the same on every screen
+const all = [main, mensa, garching, freising]
+const g = board.islands.findIndex((candidate) => candidate.buildings.includes('garching'))
+const m = board.islands.findIndex((candidate) => candidate.buildings.includes('main'))
+const home = boardRect(board.islands[m])
+const size = boardRect(board.islands[g])
+const below = { x0: home.x0 + 3 * STEP, y0: home.y1 + 5 * STEP, x1: home.x0 + 3 * STEP + size.x1 - size.x0, y1: home.y1 + 5 * STEP + size.y1 - size.y0 }
+const dropped = dropAt(board, g, below, 10 * STEP)!
+assert.equal(dropped.y0, home.y1) // pulled against the main campus's lower edge
+assert.equal(dropped.x0, home.x0) // and its left edge
+const arranged = changed(changed(board, g, { rect: dropped }), g, { name: '  Garching  ' })
+assert.equal(arranged.islands[g].name, 'Garching')
+assert.ok(arranged.seams.some((seam) => seam.anchor === 'right')) // a seam along the edge they now share
+assert.equal(dropAt(board, g, home, 0), null) // onto another island: refused
+const layout = layoutOf(arranged)
+for (const arrangement of ['row', 'column'] as const) {
+  const again = boardOf(all, arrangement, layout)!
+  assert.equal(again.key, arranged.key)
+  assert.deepEqual(again.islands.map(boardRect), arranged.islands.map(boardRect))
+}
+assert.ok(boardShapes(arranged).features.some((f) => f.properties.kind === 'island-name' && 'label' in f.properties && f.properties.label === 'Garching'))
+// a building far away joins the map: its new island goes right of the stored board, the rest stay put
+const tower = building('tower', 11.4600, 48.1800)
+const grown = boardOf([...all, tower], 'row', layout)!
+const right = Math.max(...arranged.islands.map((island) => boardRect(island).x1))
+assert.equal(boardRect(grown.islands.find((island) => island.buildings.includes('tower'))!).x0, right)
+assert.deepEqual(boardRect(grown.islands.find((island) => island.buildings.includes('garching'))!), dropped)
+// names alone (nothing moved) keep the automatic arrangement
+const named = boardOf(all, 'row', { sites: [{ buildings: ['freising'], name: 'Weihenstephan', dx: null, dy: null }] })!
+assert.equal(named.key, row.key)
+assert.ok(!named.byHand && arranged.byHand)
+assert.equal(named.islands.find((island) => island.buildings.includes('freising'))!.name, 'Weihenstephan')
 
 assert.equal(distanceLabel(842), '840 m')
 assert.equal(distanceLabel(3420), '3.4 km')

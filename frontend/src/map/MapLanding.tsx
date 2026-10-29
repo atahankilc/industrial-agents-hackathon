@@ -11,9 +11,10 @@
 // An organisation's map (`scoped`) is an island board instead of the world (./board.ts, docs/product/organizations.md
 // phase 3): its sites as islands side by side on their own tiles (./boardTiles.ts), the buildings moved with them
 // (src/Root.tsx), no "you are here" (the board is not the world), "Create a building here" only on an island, at the
-// real place under the tap.
+// real place under the tap. The map's editors "Arrange" it: an island dragged is pulled against its neighbours' edges
+// (never onto one) and a tapped one is named; each change is saved at once (`onArrange`, the map's layout).
 
-import maplibregl, { type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from 'maplibre-gl'
+import maplibregl, { type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap, type VectorTileSource } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useAccess } from '../access/auth'
@@ -25,7 +26,7 @@ import { applyBlocks, attachMap, FLAT_FOV, osmHeights, setTheme, toLngLat, type 
 import '../building/hud.css' // the HUD tokens (--hud-*) the panel shares with the building screen
 import './map.css'
 import { BUILDINGS_FROM_ZOOM, MODEL_TONES, boardStyle, mapStyle, mix, modelColours, modelTones } from './style'
-import { boardBounds, boardShapes, islandAt, toReal, type Board } from './board'
+import { at as worldAt, boardBounds, boardRect, boardShapes, changed, dropAt, islandAt, layoutOf, toReal, worldX, worldY, type Board, type Layout, type Rect } from './board'
 import { boardTilesUrl, registerBoard } from './boardTiles'
 import { reducedMotion } from '../motion'
 
@@ -113,7 +114,7 @@ function easeFov(map: MapLibreMap, to: number, ms: number) {
 }
 
 // an organisation's map before its buildings are in: the table alone, not a flash of the world
-const NO_ISLANDS: Board = { key: 'none', islands: [], seams: [] }
+const NO_ISLANDS: Board = { key: 'none', islands: [], seams: [], byHand: false }
 function styleFor(dark: boolean, scoped: boolean, board: Board | null) {
   if (!scoped) return mapStyle(dark)
   const shown = board ?? NO_ISLANDS
@@ -124,7 +125,10 @@ function styleFor(dark: boolean, scoped: boolean, board: Board | null) {
 /** "Version 2" for a saved building whose name was taken (user/<slug>-2), "Version 1" for the first save. */
 const versionOf = (id: string) => (id.startsWith('user/') ? `Version ${/-(\d+)$/.exec(id)?.[1] ?? 1}` : null)
 
-export function MapLanding({ buildings, error, focus, scope = null, scoped = false, board = null, onOpen, onImport, onDeleted, onLeaveScope }: {
+// an island dragged this close (px) to another's edge meets it
+const PULL_PX = 14
+
+export function MapLanding({ buildings, error, focus, scope = null, scoped = false, board = null, onArrange, onOpen, onImport, onDeleted, onLeaveScope }: {
   buildings: Building[] | null
   error: string | null
   /** an organisation's map (?map=, docs/product/organizations.md): its name and org head the map instead of Steward's */
@@ -133,6 +137,8 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
    * `buildings` are then already on the board */
   scoped?: boolean
   board?: Board | null
+  /** the map's editors moved or named an island: the new layout to store (absent: the viewer may not arrange) */
+  onArrange?: (layout: Layout) => Promise<void>
   focus: Focus | null
   onOpen: (id: string) => void
   onImport: (place?: ImportPlace) => void
@@ -151,6 +157,20 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
   focusRef.current = focus
   const boardRef = useRef(board)
   boardRef.current = board
+  // arranging the board: drag islands, tap one to name it
+  const [arranging, setArranging] = useState(false)
+  const arrangingRef = useRef(arranging)
+  arrangingRef.current = arranging && Boolean(onArrange)
+  // a change the backend refused is put back by Root and said in the bar
+  const [arrangeError, setArrangeError] = useState<string | null>(null)
+  const save = (layout: Layout) => {
+    setArrangeError(null)
+    onArrange?.(layout).catch((reason) => setArrangeError(reason instanceof Error ? reason.message : String(reason)))
+  }
+  const arrangeRef = useRef(save)
+  arrangeRef.current = save
+  const [naming, setNaming] = useState<{ index: number; name: string; x: number; y: number } | null>(null)
+  const namingRef = useRef(setNaming)
   const geolocateRef = useRef<maplibregl.GeolocateControl | null>(null)
   // the building picked in the list: the map flies to it and keeps it lit; a tap on it on the map opens it
   const [picked, setPicked] = useState<string | null>(null)
@@ -287,6 +307,7 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
     map.on('click', (event) => {
       setListOpen(false) // a tap on the map closes the list first
       input.current?.blur()
+      if (arrangingRef.current) return // taps name islands (below)
       if (cardOpenRef.current) return setCard(null)
       const at: [number, number] = [event.lngLat.lng, event.lngLat.lat]
       const ours = oursAt(event.point)
@@ -314,7 +335,67 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
       const name = typeof tile?.properties?.name === 'string' ? tile.properties.name : undefined
       setCard({ kind: 'osm', place: ring ? { ring, name } : { point: at }, at })
     })
+    // arranging: an island under the pointer goes with it (the map does not pan), its outline shown where it would land
+    // (red where it may not: on another island); let go, it lands there; a tap without a move names it
+    let drag: { index: number; from: [number, number]; rect: Rect; to: Rect | null; moved: boolean; start: maplibregl.Point } | null = null
+    const ghost = (rect: Rect | null, ok: boolean) => {
+      const ring = rect ? [[rect.x0, rect.y0], [rect.x1, rect.y0], [rect.x1, rect.y1], [rect.x0, rect.y1], [rect.x0, rect.y0]].map((p) => worldAt(p as [number, number])) : []
+      const data: GeoJSONSourceSpecification['data'] = { type: 'Feature', properties: { ok }, geometry: { type: 'Polygon', coordinates: ring.length ? [ring] : [] } }
+      const source = map.getSource('board-drag') as GeoJSONSource | undefined
+      if (source) return source.setData(data)
+      if (!rect) return
+      const ink = document.documentElement.dataset.theme === 'light' ? '#111318' : '#FFFFFF'
+      const colour: maplibregl.ExpressionSpecification = ['case', ['get', 'ok'], ink, '#E5484D']
+      map.addSource('board-drag', { type: 'geojson', data })
+      map.addLayer({ id: 'board-drag-fill', type: 'fill', source: 'board-drag', paint: { 'fill-color': colour, 'fill-opacity': 0.12 } })
+      map.addLayer({ id: 'board-drag-line', type: 'line', source: 'board-drag', paint: { 'line-color': colour, 'line-width': 2, 'line-dasharray': [2, 1.5] } })
+    }
+    const grab = (event: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+      const current = boardRef.current
+      if (!arrangingRef.current || !current || ('points' in event && event.points.length > 1)) return
+      const island = islandAt(current, [event.lngLat.lng, event.lngLat.lat])
+      if (!island) return
+      event.preventDefault() // no pan: the island moves instead
+      const rect = boardRect(island)
+      drag = { index: current.islands.indexOf(island), from: [worldX(event.lngLat.lng), worldY(event.lngLat.lat)], rect, to: rect, moved: false, start: event.point }
+    }
+    const move = (event: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+      const current = boardRef.current
+      if (!drag || !current) return
+      if (!drag.moved && event.point.dist(drag.start) < 5) return
+      drag.moved = true
+      const dx = worldX(event.lngLat.lng) - drag.from[0]
+      const dy = worldY(event.lngLat.lat) - drag.from[1]
+      const moved = { x0: drag.rect.x0 + dx, y0: drag.rect.y0 + dy, x1: drag.rect.x1 + dx, y1: drag.rect.y1 + dy }
+      const pull = PULL_PX / (512 * 2 ** map.getZoom()) // world units per px at this zoom
+      drag.to = dropAt(current, drag.index, moved, pull)
+      ghost(drag.to ?? moved, drag.to !== null)
+    }
+    const drop = () => {
+      const current = boardRef.current
+      const done = drag
+      drag = null
+      if (!done || !current) return
+      ghost(null, true)
+      if (!done.moved) {
+        const { x, y } = map.project(worldAt([(done.rect.x0 + done.rect.x1) / 2, done.rect.y0]))
+        return namingRef.current({ index: done.index, name: current.islands[done.index].name ?? '', x, y })
+      }
+      if (done.to) arrangeRef.current(layoutOf(changed(current, done.index, { rect: done.to })))
+    }
+    map.on('mousedown', grab)
+    map.on('touchstart', grab)
+    map.on('mousemove', move)
+    map.on('touchmove', move)
+    map.on('mouseup', drop)
+    map.on('touchend', drop)
+    map.on('touchcancel', drop)
     map.on('mousemove', (event) => {
+      if (arrangingRef.current) {
+        const current = boardRef.current
+        map.getCanvas().style.cursor = drag ? 'grabbing' : current && islandAt(current, [event.lngLat.lng, event.lngLat.lat]) ? 'grab' : ''
+        return
+      }
       const id = hit(event.point)
       if (id === hovered) return
       if (hovered) hoverBuilding(map, hovered, false)
@@ -541,14 +622,30 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
   // theme change or new islands: swap the base style (pins are re-added on style.load above)
   const styleKey = `${dark}|${board?.key ?? ''}`
   const shownStyle = useRef(styleKey)
+  const shownDark = useRef(dark)
   useEffect(() => {
     const map = mapRef.current
     if (!map || shownStyle.current === styleKey) return
+    const hadIslands = !shownStyle.current.endsWith('|')
     shownStyle.current = styleKey
+    const tiles = map.getSource('openmaptiles') as VectorTileSource | undefined
+    // islands moved: new tiles and shapes in the same style (a style swap would blink every layer); the first islands
+    // get a style of their own (the empty board's may still be loading, and would keep its tiles)
+    if (hadIslands && dark === shownDark.current && board && tiles?.setTiles && map.getSource('board')) {
+      registerBoard(board)
+      tiles.setTiles([boardTilesUrl(board)])
+      return
+    }
+    shownDark.current = dark
     map.setStyle(styleFor(dark, scoped, board), { diff: false })
     // board is read with its key
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [styleKey])
+  // names and seams follow the board (a name alone keeps the key)
+  useEffect(() => {
+    const source = mapRef.current?.getSource('board') as GeoJSONSource | undefined
+    if (board && source) source.setData(boardShapes(board))
+  }, [board])
   // the camera stays over the board, with room round it to tilt and turn
   useEffect(() => {
     const map = mapRef.current
@@ -815,11 +912,47 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
           </div>
         </div>
       )}
+      {arranging && onArrange && board && !focus && (
+        <div className="ml-arrange" role="toolbar" aria-label="Arrange the map">
+          <p>{arrangeError ? `Not saved: ${arrangeError}` : 'Drag an island to move it. Tap one to name it.'}</p>
+          {board.byHand && (
+            <button type="button" onClick={() => save({ sites: board.islands.map((island) => ({ buildings: island.buildings, name: island.name, dx: null, dy: null })) })}>
+              Line them up
+            </button>
+          )}
+          <button type="button" className="ml-arrange-done" onClick={() => {
+            setArranging(false)
+            setNaming(null)
+          }}>Done</button>
+        </div>
+      )}
+      {naming && arranging && onArrange && board?.islands[naming.index] && (
+        <form
+          className="ml-create" role="dialog" aria-labelledby="ml-site-title"
+          style={!narrow ? { left: naming.x, top: naming.y } : undefined}
+          onKeyDown={(event) => event.key === 'Escape' && setNaming(null)}
+          onSubmit={(event) => {
+            event.preventDefault()
+            save(layoutOf(changed(board, naming.index, { name: naming.name })))
+            setNaming(null)
+          }}
+        >
+          <p id="ml-site-title" className="ml-create-title">Name this site</p>
+          <p className="ml-create-sub">{board.islands[naming.index].buildings.map(nameOfId).join(', ')}</p>
+          <input className="ml-site-name" autoFocus maxLength={60} value={naming.name} placeholder="e.g. Garching"
+            onChange={(event) => setNaming({ ...naming, name: event.target.value })} />
+          <div className="ml-create-actions">
+            <button type="submit" className="ml-create-main">Save name</button>
+            <button type="button" onClick={() => setNaming(null)}>Cancel</button>
+          </div>
+        </form>
+      )}
       {scope ? (
         <div className="ml-logo ml-scope">
           <h1>{scope.name}</h1>
           <p>
             {scope.org ? `${scope.org} · ` : ''}<button type="button" onClick={onLeaveScope}>{scope.org ? 'on Steward' : 'Back to the main map'}</button>
+            {onArrange && board && !focus && !arranging && <> · <button type="button" onClick={() => setArranging(true)}>Arrange</button></>}
           </p>
         </div>
       ) : (

@@ -329,7 +329,8 @@ const ATTRIBUTION = '<a href="https://openfreemap.org">OpenFreeMap</a> © <a hre
 const TABLE = { dark: '#09090B', light: '#DCDBD5' }
 
 /** The style of an island board: the same layers on the board's own tiles (./boardTiles.ts), the islands' ground
- * on the table, a seam between neighbouring islands and, past its end, how far apart they really are. */
+ * on the table, each named island's name over its top left corner, a seam between neighbouring islands and, past its
+ * end, how far apart they really are. */
 export function boardStyle(dark: boolean, tiles: string, shapes: GeoJSONSourceSpecification['data']): StyleSpecification {
   const p = PALETTE[dark ? 'dark' : 'light']
   const table = TABLE[dark ? 'dark' : 'light']
@@ -345,6 +346,11 @@ export function boardStyle(dark: boolean, tiles: string, shapes: GeoJSONSourceSp
       { id: 'island', type: 'fill', source: 'board', filter: kind('island'), paint: { 'fill-color': p.land } },
       ...rest,
       { id: 'island-edge', type: 'line', source: 'board', filter: kind('island'), paint: { 'line-color': p.footprintLine, 'line-width': 1 } },
+      {
+        id: 'island-name', type: 'symbol', source: 'board', filter: kind('island-name'),
+        layout: { 'text-field': ['get', 'label'], 'text-font': FONT.bold, 'text-size': 14, 'text-anchor': 'bottom-left', 'text-offset': [0, -0.5], 'text-allow-overlap': true },
+        paint: { 'text-color': p.label, 'text-halo-color': table, 'text-halo-width': 2 },
+      },
       { id: 'seam', type: 'line', source: 'board', filter: kind('seam'), paint: { 'line-color': p.labelMuted, 'line-width': 1.5, 'line-dasharray': [3, 3] } },
       {
         id: 'seam-label', type: 'symbol', source: 'board', filter: kind('seam-label'),

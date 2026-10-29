@@ -79,9 +79,23 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
 
 ## Next
 
-- **Organisations** ([organizations.md](../docs/product/organizations.md)): apply `20261028120000_orgs.sql` and
-  `20261029120000_maps.sql` before this code is deployed (it reads the new tables and columns); then
-  a per-org Creator quota, org badges on the main map, merging / splitting sites. Open: [Q-022](open-questions.md#q-022)–[Q-024](open-questions.md#q-024).
+- **Organisations — handoff (2026-10-29, end of session):** phases 1–3 are committed on `dev`, last commit `d6de58c`.
+  `origin/dev` is at `d6de58c` too (phases 1–3 pushed to `dev`), not merged to `main` (`30ddf99`); logs in
+  `.claude/worklog/history/2026-10-29-*`. In order:
+  1. **Apply the two migrations** `supabase/migrations/20261028120000_orgs.sql` and `20261029120000_maps.sql` to the
+     shared Supabase DB: **only after Atahan says so explicitly** (asked, not yet answered). The code reads the new
+     tables and columns, so `dev` must not be deployed before they are in. Then PR `dev` → `main` when asked.
+     (2026-10-30: Atahan said go ahead; the apply was blocked by Claude Code's auto-mode permission check, so Atahan
+     runs it or allows it. Still **not applied**.)
+  2. After a deploy: the admin verifies an org and gives it buildings (no orgs exist yet).
+  3. Small fix: in `frontend/src/api.ts` the old JSDoc "JSON headers plus the bearer token when signed in." sits above
+     `mapHeaders` instead of `headers()` (verifier note, `d6de58c`).
+  4. Open work, Atahan to pick: org badges on the main map; a per-org Creator quota; merging / splitting sites;
+     polygon areas (now rectangles); phase 4 (email-domain join, iframe embed, paged listing).
+  5. Questions for Atahan: [Q-022](open-questions.md#q-022) (who may start an org), [Q-023](open-questions.md#q-023)
+     (islands show streets: built as the default), [Q-024](open-questions.md#q-024) (name of a map, owner of `user/*`).
+  Browser checks of the board were headless Playwright scripts in the session scratchpad (gone now): an in-memory
+  backend with a fake owner token and a public map of four TUM buildings (Hauptgebäude, Mensa, StudiTUM, TUM 4107).
 
 0. **Rename to Steward outside the repo** ([D-027](decisions.md#d-027)): done: GitHub repo → `atahankilc/steward`
    (remote updated, homepage set), Vercel project → `steward`, deployed at https://steward-io.vercel.app

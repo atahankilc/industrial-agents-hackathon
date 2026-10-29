@@ -10,8 +10,8 @@
 // when it was opened (every pin, if it was opened from a link).
 // An organisation's map (`scoped`) is an island board instead of the world (./board.ts, docs/product/organizations.md
 // phase 3): its sites as islands side by side on their own tiles (./boardTiles.ts), the buildings moved with them
-// (src/Root.tsx), no "you are here" (the board is not the world), "Create a building here" only on an island, at the
-// real place under the tap. The map's editors "Arrange" it: an island dragged is pulled against its neighbours' edges
+// (src/Root.tsx), "you are here" only where it is on the board (standing on an island: the dot moved with it; else
+// the nearest site and how far), "Create a building here" only on an island, at the real place under the tap. The map's editors "Arrange" it: an island dragged is pulled against its neighbours' edges
 // (never onto one) and a tapped one is named; each change is saved at once (`onArrange`, the map's layout).
 
 import maplibregl, { type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap, type VectorTileSource } from 'maplibre-gl'
@@ -26,7 +26,7 @@ import { applyBlocks, attachMap, FLAT_FOV, osmHeights, setTheme, toLngLat, type 
 import '../building/hud.css' // the HUD tokens (--hud-*) the panel shares with the building screen
 import './map.css'
 import { BUILDINGS_FROM_ZOOM, MODEL_TONES, boardStyle, mapStyle, mix, modelColours, modelTones } from './style'
-import { at as worldAt, boardBounds, boardRect, boardShapes, changed, dropAt, islandAt, layoutOf, overlaps, reshapeAt, toReal, worldX, worldY, type Board, type Edges, type Layout, type Rect } from './board'
+import { at as worldAt, boardBounds, boardRect, boardShapes, changed, distanceLabel, dropAt, islandAt, layoutOf, overlaps, reshapeAt, toReal, whereOnBoard, worldX, worldY, type Board, type Edges, type Layout, type Rect } from './board'
 import { boardTilesUrl, registerBoard } from './boardTiles'
 import { reducedMotion } from '../motion'
 
@@ -120,6 +120,33 @@ function styleFor(dark: boolean, scoped: boolean, board: Board | null) {
   const shown = board ?? NO_ISLANDS
   registerBoard(shown)
   return boardStyle(dark, boardTilesUrl(shown), boardShapes(shown))
+}
+
+/** The board's own "you are here" button (MapLibre's would show where the user really is, off the board), dressed
+ * as MapLibre's. */
+class BoardLocate implements maplibregl.IControl {
+  private box: HTMLDivElement | null = null
+  private press: () => void
+  constructor(press: () => void) {
+    this.press = press
+  }
+  onAdd() {
+    const box = document.createElement('div')
+    box.className = 'maplibregl-ctrl maplibregl-ctrl-group'
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'maplibregl-ctrl-geolocate'
+    button.title = 'Where am I on this map'
+    button.setAttribute('aria-label', 'Where am I on this map')
+    button.innerHTML = '<span class="maplibregl-ctrl-icon" aria-hidden="true"></span>'
+    button.addEventListener('click', () => this.press())
+    box.append(button)
+    this.box = box
+    return box
+  }
+  onRemove() {
+    this.box?.remove()
+  }
 }
 
 /** "Version 2" for a saved building whose name was taken (user/<slug>-2), "Version 1" for the first save. */
@@ -286,12 +313,13 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
     // the compact credits start open, a two-line bar over the map on a phone: closed to their (i) button
     map.once('idle', () => container.current?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show'))
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right')
-    // the viewer's own position as a dot (the browser asks first; it needs https or localhost); not on a board
+    // the viewer's own position as a dot (the browser asks first; it needs https or localhost); on a board, our own
+    // button and dot (below)
     if (!scoped) {
       const geolocate = new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true, fitBoundsOptions: { maxZoom: 16 } })
       map.addControl(geolocate, 'bottom-right')
       geolocateRef.current = geolocate
-    }
+    } else map.addControl(new BoardLocate(() => locateRef.current('tap')), 'bottom-right')
     // a building opens from its pin, its name, the halo round the pin or its block, and the pointer may miss by a
     // finger's width (HIT_SLOP px): the pin alone is too small a target
     const hit = (point: maplibregl.Point) => {
@@ -774,14 +802,75 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
   // building (a reload or a link), this waits until the map is first shown, then runs once
   const locateAsked = useRef(false)
   const locate = () => {
+    if (scoped) return locateOnBoard('auto')
     const map = mapRef.current
     const geolocate = geolocateRef.current
     if (!map || !geolocate) return
     if (map.loaded()) geolocate.trigger()
     else map.once('load', () => geolocate.trigger())
   }
+  // on a board: the browser's position, watched, shown where it is on the board (./board.ts whereOnBoard). Started
+  // like the main map's dot (allowed before) or by the button; the map flies to the dot, and after a tap on the
+  // button, when the user is on no island, to the nearest one
+  const [fix, setFix] = useState<{ at: [number, number]; flyTo: 'auto' | 'tap' | null } | null>(null)
+  const [locateError, setLocateError] = useState<string | null>(null)
+  const [nearClosed, setNearClosed] = useState(false)
+  const watching = useRef<number | null>(null)
+  const locateOnBoard = (why: 'auto' | 'tap') => {
+    setNearClosed(false)
+    setLocateError(null)
+    if (watching.current !== null) return setFix((last) => (last ? { ...last, flyTo: why } : last))
+    if (!('geolocation' in navigator)) return setLocateError('This browser cannot tell where you are.')
+    let first = true
+    watching.current = navigator.geolocation.watchPosition(
+      (position) => {
+        setFix({ at: [position.coords.longitude, position.coords.latitude], flyTo: first ? why : null })
+        first = false
+      },
+      (failure) => {
+        setLocateError(failure.code === failure.PERMISSION_DENIED ? 'Location is off for this site.' : 'Your position could not be found.')
+        if (watching.current !== null) navigator.geolocation.clearWatch(watching.current)
+        watching.current = null
+      },
+      { enableHighAccuracy: true },
+    )
+  }
+  const locateRef = useRef(locateOnBoard)
+  locateRef.current = locateOnBoard
+  useEffect(() => () => {
+    if (watching.current !== null) navigator.geolocation.clearWatch(watching.current)
+  }, [])
+  const where = fix && board ? whereOnBoard(board, fix.at) : null
   useEffect(() => {
-    if (!('geolocation' in navigator) || scoped || focusId || locateAsked.current) return
+    const map = mapRef.current
+    if (!map || !scoped) return
+    const at = where && 'at' in where ? where.at : null
+    const data: GeoJSONSourceSpecification['data'] = { type: 'FeatureCollection', features: at ? [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: at } }] : [] }
+    const place = () => {
+      const source = map.getSource('board-me') as GeoJSONSource | undefined
+      if (source) return source.setData(data)
+      if (!at) return
+      map.addSource('board-me', { type: 'geojson', data })
+      map.addLayer({ id: 'board-me-halo', type: 'circle', source: 'board-me', paint: { 'circle-radius': 16, 'circle-color': '#2F7CF6', 'circle-opacity': 0.18, 'circle-pitch-alignment': 'map' } })
+      map.addLayer({ id: 'board-me', type: 'circle', source: 'board-me', paint: { 'circle-radius': 6.5, 'circle-color': '#2F7CF6', 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 2.5 } })
+    }
+    try {
+      place()
+    } catch {
+      map.once('idle', place) // the style is still coming in
+    }
+    if (!fix?.flyTo || !where || focusRef.current) return
+    if (at) map.flyTo({ center: at, zoom: Math.max(map.getZoom(), 16), duration: flyMs(), essential: true })
+    else if (fix.flyTo === 'tap' && 'nearest' in where) {
+      const r = boardRect(where.nearest)
+      map.fitBounds([worldAt([r.x0, r.y1]), worldAt([r.x1, r.y0])], { padding: fitPadding(), maxZoom: 16, duration: flyMs() })
+    }
+    setFix({ ...fix, flyTo: null }) // flown once; the dot keeps following
+    // `where` follows `fix` and `board`; `dark`: a theme change drops the layers
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fix, board, dark, scoped])
+  useEffect(() => {
+    if (!('geolocation' in navigator) || focusId || locateAsked.current) return
     locateAsked.current = true
     let dismissed = false
     let allowed = false
@@ -872,6 +961,16 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
       style={topHeight ? ({ '--ml-top': `${topHeight}px` } as CSSProperties) : undefined}
     >
       <div ref={container} className="ml-map" />
+      {scoped && !focus && !arranging && !nearClosed && (locateError || (where && 'nearest' in where)) && (
+        <p className="ml-near" role="status">
+          <span>
+            {locateError ?? (where && 'nearest' in where
+              ? `You are not on this map. Nearest site: ${where.nearest.name ?? nameOfId(where.nearest.buildings[0])}, ${distanceLabel(where.metres)} away.`
+              : '')}
+          </span>
+          <button type="button" aria-label="Close" onClick={() => setNearClosed(true)}>×</button>
+        </p>
+      )}
       {askLocation && !focus && (
         <div className="ml-locate-scrim" onKeyDown={(e) => e.key === 'Escape' && answerLocation(false)}>
           <div className="ml-locate" role="dialog" aria-modal="true" aria-labelledby="ml-locate-title">

@@ -1,7 +1,7 @@
 // node --experimental-strip-types frontend/scripts/board.check.ts — an organisation's island board (src/map/board.ts):
 // sites from nearby buildings, islands edge to edge, moved by whole grid steps, seams with the real distance.
 import assert from 'node:assert/strict'
-import { arrange, boardOf, boardRect, boardShapes, changed, distanceLabel, dropAt, MAX_AREA_M, reshapeAt, islandAt, islandsOf, layoutOf, lngOf, latOf, metresBetween, onBoard, STEP, toBoard, toReal, worldX, worldY } from '../src/map/board.ts'
+import { whereOnBoard, arrange, boardOf, boardRect, boardShapes, changed, distanceLabel, dropAt, MAX_AREA_M, reshapeAt, islandAt, islandsOf, layoutOf, lngOf, latOf, metresBetween, onBoard, STEP, toBoard, toReal, worldX, worldY } from '../src/map/board.ts'
 
 const close = (a: number, b: number, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`)
 const square = (lng: number, lat: number, d = 0.0005): [number, number][] => [[lng - d, lat - d], [lng + d, lat - d], [lng + d, lat + d], [lng - d, lat + d], [lng - d, lat - d]]
@@ -119,6 +119,14 @@ const small = layoutOf(drawn)
 small.sites![g].area = { x0: small.sites![g].area!.x0 + 999999, y0: small.sites![g].area!.y0, x1: small.sites![g].area!.x0 + 999999 + 10, y1: small.sites![g].area!.y0 + 10 }
 const grownBack = boardOf(all, 'row', small)!.islands.find((island) => island.buildings.includes('garching'))!
 assert.ok(grownBack.real.x0 <= grownBack.core.x0 && grownBack.real.x1 >= grownBack.core.x1)
+
+// someone standing in Garching is on its island, moved with it; someone in Pasing is told the nearest site
+const standing = whereOnBoard(board, [11.6701, 48.2651])!
+assert.ok('at' in standing)
+assert.deepEqual(standing.at, toBoard(island, [11.6701, 48.2651]))
+const away = whereOnBoard(board, [11.4600, 48.1500])!
+assert.ok('nearest' in away && away.nearest.buildings.includes('main'))
+assert.ok('metres' in away && away.metres > 6000 && away.metres < 9000, JSON.stringify(away))
 
 assert.equal(distanceLabel(842), '840 m')
 assert.equal(distanceLabel(3420), '3.4 km')

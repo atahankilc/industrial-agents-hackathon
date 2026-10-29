@@ -344,3 +344,19 @@
   .ml-arrange { top: 84px; bottom: auto; left: 16px; right: 16px; transform: none; max-width: none; border-radius: 22px; }
   .ml-arrange p { flex: 1; font-size: 13px; }
 }
+
+/* on an island board: the user is on none of its islands (or the position is unknown); the nearest site and how far */
+.ml-near {
+  position: absolute; z-index: 5; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: calc(100vw - 32px);
+  display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 8px 8px 16px;
+  border: 1px solid var(--hair); border-radius: 999px; background: var(--panel); color: var(--ink-2); font-size: 13.5px;
+  backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1), 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+.ml-near button {
+  flex: none; width: 28px; height: 28px; border: 0; border-radius: 999px; background: var(--fill); color: var(--ink);
+  font-size: 16px; line-height: 1; cursor: pointer;
+}
+@media (max-width: 899px) {
+  .ml-near { top: 84px; bottom: auto; left: 16px; right: 16px; transform: none; max-width: none; border-radius: 18px; }
+}

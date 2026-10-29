@@ -9,6 +9,19 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-29 — Organisations phase 3: you are here on the board
+
+- Drawn areas shipped as `c656a9a`.
+- `board.ts` `whereOnBoard(board, real point)`: on an island → the point moved with it; else the nearest island and
+  metres to its area's edge. MapLanding: a `BoardLocate` control (MapLibre's look) instead of `GeolocateControl` on a
+  board; the main map's location card and remembered answer now apply on a board too (`locate` → `locateOnBoard`);
+  `watchPosition`; dot layers `board-me(-halo)`; fly to the dot, or after a tap to the nearest island; `.ml-near` note
+  (nearest site, or a refused / failed position), closable.
+- Headless (Playwright geolocation, map `tum-sites`): standing at StudiTUM → the dot on the Garching island, map flown
+  there (zoom 16), no note; in Pasing → no dot, "You are not on this map. Nearest site: Hauptgebäude, 7.5 km away.",
+  the button then flies to that island; the phone shows the note under the title; a point 200 m south of StudiTUM is
+  rightly "40 m away" (outside the island). No console errors.
+
 ## 2026-10-29 — Organisations phase 3: drawn areas
 
 - Arranging and naming shipped as `a636f91`.

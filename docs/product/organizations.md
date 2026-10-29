@@ -1,6 +1,6 @@
 ---
 id: organizations
-summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings), phase 2 (maps, share links, ?map= scope, organisations sheet, Edit mode and imports for org editors) and phase 3's island board with dragging, naming and drawn (rectangular) areas are built; location on the board and phase 4 are the plan.
+summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings), phase 2 (maps, share links, ?map= scope, organisations sheet, Edit mode and imports for org editors) and phase 3's island board with dragging, naming and drawn (rectangular) areas and location on the board are built; merging / splitting sites, areas of any shape and phase 4 are the plan.
 sources:
   - backend/api/access.py
   - backend/api/routes/orgs.py
@@ -151,8 +151,8 @@ Built (2026-10-29), all in the app (`frontend/src/map/board.ts`, `boardTiles.ts`
 - **Buildings:** `Root.tsx` moves each building's position, origin and outline with its island, so pins, model
   blocks, framing and the open building's model and camera all agree. The building screen gets the real origin too
   (`realOrigin`) for the walk outside to the next building, which the Guide gives in real coordinates.
-- **On the board:** no "you are here" (the board is not the world); "Create a building here" works only on an island
-  and sends the real place under the tap; the camera is kept over the board.
+- **On the board:** "Create a building here" works only on an island and sends the real place under the tap; the
+  camera is kept over the board.
 - The decision against stored snapshots: cutting the tiles in the browser needs no publish step, no storage and no
   snapshot to refresh. Still rejected: real geography with a mask (keeps the 15 km gaps), one map instance per island
   (WebGL context limit, no continuous pan).
@@ -178,13 +178,18 @@ Built (2026-10-29), all in the app (`frontend/src/map/board.ts`, `boardTiles.ts`
   so new tiles are fetched when one changes; `bridge.ts` rebuilds the put-back block pieces when their places change,
   not only their number (found when a shrunk area left blocks standing in the gap).
 
+- **You are here** (2026-10-29): the board has its own location button (MapLibre's would put the dot where the user
+  really is, off the board) and asks for location like the main map (the same card, the same remembered answer). The
+  browser's position is watched; standing inside an island's real area, the blue dot is drawn moved with that island
+  and the map flies to it (`whereOnBoard`); anywhere else there is no dot, and a note says "You are not on this map.
+  Nearest site: Garching, 3.2 km away." (metres to the nearest island's edge; its name, else its first building's);
+  after a tap on the button the map then flies to that island. A refused or failed position says so in the same note.
+
 Still to do in phase 3:
 
 - Merging or splitting sites by hand.
 - Areas of any shape (now rectangles: a polygon needs general clipping in `boardTiles.ts`, and irregular islands
   cannot meet edge to edge).
-- **Location:** the blue dot moved onto the board when the user stands inside an island; otherwise "nearest site:
-  Garching, 3 km".
 - A building on an org map that has no position still has no island (it is listed under the map, as on the main map).
 
 ## Phase 4 — polish (planned)

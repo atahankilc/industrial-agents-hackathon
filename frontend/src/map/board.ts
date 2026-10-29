@@ -290,6 +290,21 @@ export function islandAt(board: Board, [lng, lat]: LngLat): Island | null {
     return x >= rect.x0 && x <= rect.x1 && y >= rect.y0 && y <= rect.y1
   }) ?? null
 }
+/** Where someone standing at a real point is on the board: on an island (`at`, moved with it), else how far the
+ * nearest island's area is (`nearest`, metres to its edge). */
+export function whereOnBoard(board: Board, [lng, lat]: LngLat): { at: LngLat } | { nearest: Island; metres: number } | null {
+  const [x, y] = [worldX(lng), worldY(lat)]
+  let best: { nearest: Island; metres: number } | null = null
+  for (const island of board.islands) {
+    const { x0, y0, x1, y1 } = island.real
+    if (x >= x0 && x <= x1 && y >= y0 && y <= y1) return { at: toBoard(island, [lng, lat]) }
+    const edge = at([Math.min(Math.max(x, x0), x1), Math.min(Math.max(y, y0), y1)])
+    const metres = metresBetween([lng, lat], edge)
+    if (!best || metres < best.metres) best = { nearest: island, metres }
+  }
+  return best
+}
+
 /** the board's extent ([west, south], [east, north]), for framing and bounding the camera */
 export function boardBounds(board: Board, pad = 0): [LngLat, LngLat] | null {
   if (!board.islands.length) return null

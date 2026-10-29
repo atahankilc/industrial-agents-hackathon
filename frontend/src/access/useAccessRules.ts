@@ -55,8 +55,10 @@ export function useAccessRules(buildingId: string, active: boolean) {
     setSaving(true)
     setError(null)
     try {
-      const saved = await api.saveAccessBuilding(buildingId, { public: next.public, room_types: cleaned(next.room_types), spaces: cleaned(next.spaces) })
-      if (id === sent.current) setLoaded((current) => (current ? { ...current, public: saved.public, room_types: saved.room_types, spaces: saved.spaces } : current))
+      // a listing that still matches `public` is sent; a `public` switch (the Access tool) alone lets the backend pick it
+      const listing = next.listing && (next.listing !== 'private') === next.public ? next.listing : undefined
+      const saved = await api.saveAccessBuilding(buildingId, { public: next.public, listing, room_types: cleaned(next.room_types), spaces: cleaned(next.spaces) })
+      if (id === sent.current) setLoaded((current) => (current ? { ...current, public: saved.public, listing: saved.listing, room_types: saved.room_types, spaces: saved.spaces } : current))
     } catch (reason) {
       if (id === sent.current) {
         setLoaded(before)

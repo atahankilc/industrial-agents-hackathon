@@ -9,6 +9,26 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-29 — Organisations phase 2a/2b: maps, share links, the Organisations sheet
+
+- Phase 1 shipped as `b614c91` (verifier round 1 found that any signed-in user could change the listing of a platform
+  building through their own org with `owned: false`; fixed and tested before the commit).
+- Backend: `backend/api/maps.py` (OrgMap, memory / Postgres stores), `backend/api/routes/maps.py`, migration
+  `20261029120000_maps.sql` (not applied); `listing_item` shared by `/buildings` and `/maps/{slug}`; the Guide's
+  campus keeps the session's own building (an unlisted one opened by link kept no neighbours). The share key is stored
+  as is, not hashed as first planned, so editors can copy the link again (it only opens a map; renewing shuts out the
+  old link). `tests/test_maps.py` (6).
+- Frontend: `?map=` scope in `Root.tsx` / `MapLanding.tsx` (map name + org, "on Steward"; a map the viewer may not
+  open says so there), `src/org/OrgScreen.tsx` + `org.css` (account menu → Organisations), `administers()` in
+  `src/access/auth.ts` (org editors get the Building settings; the pencil stays the admin's), three listings in the
+  Building settings, listing-aware saves in `useAccessRules.ts`.
+- Checked headless (Playwright, Chrome extension not connected) against an in-memory test backend on :8391 with a fake
+  signed-in owner (scratchpad script, nothing on Supabase): map scope wide and phone, a private map's note, the sheet
+  signed out and in, making a map, link visibility, a building on and off it, a listing change, opening the map by its
+  link; no console errors. Fixed on the way: the sheet lacked the HUD tokens outside `.access-layer`; the map title ran
+  under the account button on phones; "1 buildings".
+- `uv run pytest -q` → 972 passed, 2 skipped; `npx tsc -b` clean; `check_links.py` OK.
+
 ## 2026-10-28 — Organisations: plan and phase 1 ([D-029](decisions.md#d-029))
 
 - Atahan: institutions (TUM) want their own map with only their buildings, shared by link or workspace, sites shown

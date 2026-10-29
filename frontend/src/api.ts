@@ -376,9 +376,11 @@ async function config(): Promise<AppConfig> {
 }
 
 /** GET /me */
-export type Me = { user_id: string | null; email: string | null; admin: boolean; anonymous: boolean; buildings: Record<string, string[]> }
-/** GET /access/building: the rules plus what the editor offers. */
-export type AccessRules = { public: boolean; room_types: Record<string, string[]>; spaces: Record<string, string[]> }
+export type Me = { user_id: string | null; email: string | null; admin: boolean; anonymous: boolean; buildings: Record<string, string[]>; orgs?: Record<string, OrgRole> }
+/** A building's listing (backend/api/access.py): on the main map, opened by link or its org's map, or members only. */
+export type Listing = 'listed' | 'unlisted' | 'private'
+/** GET /access/building: the rules plus what the editor offers. `public` = not private (the older flag). */
+export type AccessRules = { public: boolean; listing?: Listing; org?: string | null; room_types: Record<string, string[]>; spaces: Record<string, string[]> }
 export type AccessSpaceOption = { id: string; name: string; ref: string; room_type: string; floor_id: string }
 export type BuildingAccess = AccessRules & { building: string; room_type_options: string[]; space_options: AccessSpaceOption[] }
 /** Remembered preferences (design "Preferences"); a field left out = not set. */
@@ -479,6 +481,26 @@ export type LiveAction = 'speed' | 'pause' | 'resume' | 'drop' | 'clear' | 'bloc
 
 export type AccessMember = { user_id: string; email: string; building: string; groups: string[] }
 
+/** Organisations and their maps (backend/api/routes/orgs.py, maps.py; docs/product/organizations.md). */
+export type OrgRole = 'viewer' | 'editor' | 'owner'
+export type Org = { slug: string; name: string; verified: boolean; role?: OrgRole | null }
+export type OrgMember = { org: string; user_id: string; email: string; role: OrgRole | null }
+export type OrgDetail = Org & { buildings: { id: string; listing: Listing }[]; members?: OrgMember[] }
+export type MapVisibility = 'private' | 'link' | 'public'
+export type OrgMapSummary = { slug: string; name: string; visibility: MapVisibility; buildings: number }
+/** GET /maps/{slug}: the buildings this viewer may open; `token` (editors only) is the share link's key. */
+export type OrgMapView = {
+  slug: string
+  name: string
+  org: Org
+  visibility: MapVisibility
+  buildings: Building[]
+  can_edit: boolean
+  token?: string | null
+}
+const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) })
+const part = encodeURIComponent
+
 export const api = {
   config,
   me: () => request<Me>('/me'),
@@ -492,6 +514,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, building, groups, redirect_to: redirectTo }),
     }),
+  orgs: () => request<Org[]>('/orgs'),
+  org: (slug: string) => request<OrgDetail>(`/orgs/${part(slug)}`),
+  createOrg: (slug: string, name: string) => request<OrgDetail>('/orgs', json('POST', { slug, name })),
+  inviteToOrg: (org: string, email: string, role: OrgRole, redirectTo: string) =>
+    request<OrgMember & { link: string }>(`/orgs/${part(org)}/invite`, json('POST', { email, role, redirect_to: redirectTo })),
+  setOrgMember: (member: OrgMember) => request<OrgMember>(`/orgs/${part(member.org)}/members`, json('PUT', member)),
+  setOrgBuilding: (org: string, building: string, listing: Listing) =>
+    request<AccessRules & { building: string }>(`/orgs/${part(org)}/buildings`, json('PUT', { building, listing })),
+  orgMaps: (org: string) => request<OrgMapSummary[]>(`/orgs/${part(org)}/maps`),
+  createMap: (org: string, slug: string, name: string) => request<OrgMapView>(`/orgs/${part(org)}/maps`, json('POST', { slug, name })),
+  map: (slug: string, key: string | null) => request<OrgMapView>(`/maps/${part(slug)}${key ? `?k=${part(key)}` : ''}`),
+  updateMap: (slug: string, change: { name?: string; visibility?: MapVisibility }) => request<OrgMapView>(`/maps/${part(slug)}`, json('PUT', change)),
+  renewMapLink: (slug: string) => request<OrgMapView>(`/maps/${part(slug)}/link`, { method: 'POST' }),
+  setMapBuilding: (slug: string, building: string, on: boolean) =>
+    request<OrgMapView>(`/maps/${part(slug)}/buildings`, json('PUT', { building, on })),
+  deleteMap: (slug: string) => request<{ deleted: string }>(`/maps/${part(slug)}`, { method: 'DELETE' }),
   myPreferences: () => request<Partial<PreferenceStore>>('/me/preferences'),
   saveMyPreferences: (store: PreferenceStore) => request<PreferenceStore>('/me/preferences', { method: 'PUT', body: JSON.stringify(store) }),
   sessionPreferences: (id: string, values: Preferences, autoCapture: boolean) =>

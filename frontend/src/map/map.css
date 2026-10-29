@@ -14,6 +14,14 @@
   background: radial-gradient(closest-side, var(--hud-scrim), transparent); opacity: 0.7;
 }
 .ml-logo img { display: block; width: 60px; height: 60px; }
+/* an organisation's map (?map=): its name, and its org with the way back to the main map, in the logo's place */
+.ml-scope { flex-direction: column; align-items: flex-start; gap: 2px; max-width: min(420px, calc(100vw - 44px)); }
+.ml-scope h1 { margin: 0; font: 650 26px/1.15 var(--font-ui); letter-spacing: -0.01em; color: var(--hud-ink); }
+.ml-scope p { margin: 0; font: 500 13px/1.4 var(--font-ui); color: var(--hud-ink-2); }
+.ml-scope button {
+  pointer-events: auto; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
+}
 .ml-wordmark { display: block; height: 34px; width: auto; }
 
 /* the panel, under the logo. Closed, it is only its top and has no card: the search field is a glass pill of its own
@@ -258,6 +266,9 @@
   .ml-logo { top: calc(16px + env(safe-area-inset-top)); left: 18px; gap: 10px; }
   .ml-logo img { width: 42px; height: 42px; }
   .ml-wordmark { height: 24px; }
+  /* an organisation's map: its name wraps short of the account button (top right) */
+  .ml-scope { max-width: calc(100vw - 180px); }
+  .ml-scope h1 { font-size: 21px; }
   .ml-panel { top: auto; left: 4px; right: 4px; bottom: calc(4px + env(safe-area-inset-bottom)); width: auto; }
   /* the sheet: always its open height, slid down so only its top shows while closed (the rest is below the screen) */
   .ml-panel { height: calc(100dvh - 88px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); clip-path: none; transform: translateY(calc(100% - var(--ml-top, 68px) - 2px)); }

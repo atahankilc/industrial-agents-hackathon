@@ -40,7 +40,7 @@ Back to [CLAUDE.md](../CLAUDE.md) · Live state lives in [memory-bank/](../memor
 - [product/visualization.md](product/visualization.md) — app visuals: current vector plan view (`backend/core/floorplan.py`, `GET /sessions/{id}/plan`) and the superseded (removed) point-cloud scene; three.js vs react-three-fiber.
 - [product/routing-profiles.md](product/routing-profiles.md) — deterministic profile model (hard filters + soft penalties) on top of the exact route model.
 - [product/living-building.md](product/living-building.md) — connected things (forklifts, robots, tagged pallets) reporting positions; how they cut walks, reroute the route on the map, the plan layer and the demo simulation.
-- [product/organizations.md](product/organizations.md) — organisations own buildings (roles, listed / unlisted / private), their own maps shared by link, sites shown as close islands; phase 1 built, 2–4 planned.
+- [product/organizations.md](product/organizations.md) — organisations own buildings (roles, listed / unlisted / private), their own maps shared by link, sites shown as close islands; phase 1 and 2a/2b (maps, share links, organisations sheet) built, 2c–4 planned.
 
 ### Research (dated 2026-10-24)
 - [research/elevenlabs.md](research/elevenlabs.md) — Agents Platform, Scribe STT, TTS, integration options.

@@ -1,0 +1,30 @@
+/* Organisations (./OrgScreen.tsx): the Building settings' inset groups (access/access.css), plus a row that is a
+   button, a building or person with its choice beside it, and a map that opens into its settings. */
+
+.settings .org-row {
+  width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.settings .org-row:hover .pref-label > span { color: var(--tone); }
+.settings .pref-group .org-building { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.settings .pref-group .org-building > .pref-label { flex: 1 1 180px; }
+.settings .pref-group .org-building > .pref-scope { flex: 0 1 auto; margin: 0; }
+.settings .pref-group .org-building > .pref-scope button { flex: none; height: var(--btn-sm); padding: 0 12px; font-size: 13px; }
+.settings .pref-group .org-building > :not(.pref-label) { margin-left: 0; }
+.settings .pref-group .org-building > small { color: var(--hud-ink-2); font-size: 13px; }
+.settings .pref-scope button[aria-checked='true'] { background: var(--hud-solid); color: var(--hud-solid-ink); }
+
+.settings .org-map .settings-actions { margin-top: 0; }
+.settings .org-map .settings-button { height: var(--btn-md); padding: 0 14px; font-size: 13px; }
+.org-map-edit { display: flex; flex-direction: column; gap: 10px; }
+.org-map-edit .sheet-quiet { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
+.org-map-buildings { margin: 0; padding: 0; list-style: none; }
+.org-map-buildings li { padding: 6px 0; }
+.org-map-buildings label { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500; }
+.org-map-buildings input { width: 18px; height: 18px; accent-color: var(--tone); }
+
+.org-new-map { display: flex; gap: 8px; margin: 12px 0 0; }
+.org-new-map input {
+  flex: 1; min-width: 0; height: var(--btn-lg); padding: 0 16px; border: 0; border-radius: 999px;
+  background: var(--hud-fill); color: var(--hud-ink); font: inherit; font-size: 15px;
+}
+.org-new-map input:focus { outline: none; background: var(--hud-glass-2); }

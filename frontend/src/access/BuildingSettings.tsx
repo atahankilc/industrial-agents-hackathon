@@ -9,9 +9,9 @@
 // Groups already used here (in rules or by members) are offered as one-tap chips.
 // A viewer's own preferences for the building are in the Preferences sheet (./PreferencesForm.tsx).
 
-import { Check, Copy, DoorClosed, Globe, Lock, Map, Plus, Search, Shapes, Trash2, UserPlus, UserRound, Users, X } from 'lucide-react'
+import { Check, Copy, DoorClosed, Globe, Link2, Lock, Map, Plus, Search, Shapes, Trash2, UserPlus, UserRound, Users, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { api, type AccessMember, type AccessRules, type FleetObject, type Plan } from '../api'
+import { api, type AccessMember, type AccessRules, type FleetObject, type Listing, type Plan } from '../api'
 import { ObjectsSection } from './ObjectsSection'
 import { GroupChips, Sheet } from './Sheet'
 import { PUBLIC_GROUP, type AccessRulesState } from './useAccessRules'
@@ -26,6 +26,12 @@ const TABS: { tab: Tab; label: string }[] = [
   { tab: 'access', label: 'Access' },
   { tab: 'people', label: 'People' },
   { tab: 'objects', label: 'Objects' },
+]
+/** Who finds and opens the building (backend/api/access.py listings); main-map listing needs a verified org. */
+const LISTINGS: { listing: Listing; label: string; Icon: typeof Globe; note: string }[] = [
+  { listing: 'listed', label: 'Everyone', Icon: Globe, note: 'On the main map: anyone can find and open it. Restricted areas below stay closed to them.' },
+  { listing: 'unlisted', label: 'By link', Icon: Link2, note: 'Not on the main map. Anyone with its link or its organisation’s map can open it.' },
+  { listing: 'private', label: 'Members only', Icon: Lock, note: 'Only its organisation, its members (People) and the admin can find and open it.' },
 ]
 /** A restricted area: every room of a type, or one room. */
 type Area = { kind: 'type'; key: string } | { kind: 'space'; key: string }
@@ -121,6 +127,7 @@ function AccessTab({ access, plan, known, onShowOnPlan }: { access: AccessRulesS
   const [searching, setSearching] = useState(false)
 
   if (!rules) return <p className="sheet-hint">{error ?? 'Loading…'}</p>
+  const listing: Listing = rules.listing ?? (rules.public ? 'listed' : 'private')
 
   const floorName = (floorId: string) => plan?.floors.find((floor) => floor.id === floorId)?.name ?? ''
   const roomsOfType = (type: string) => rules.space_options.filter((space) => space.room_type === type).length
@@ -150,16 +157,14 @@ function AccessTab({ access, plan, known, onShowOnPlan }: { access: AccessRulesS
       <div className="pref-group tone-route">
         <div className="pref-row">
           <div className="pref-scope settings-choice" role="radiogroup" aria-label="Who can open this building">
-            <button type="button" role="radio" aria-checked={rules.public} onClick={() => !rules.public && void save({ ...rules, public: true })}>
-              <Globe size={15} strokeWidth={2} /><span>Everyone</span>
-            </button>
-            <button type="button" role="radio" aria-checked={!rules.public} onClick={() => rules.public && void save({ ...rules, public: false })}>
-              <Lock size={15} strokeWidth={2} /><span>Members only</span>
-            </button>
+            {LISTINGS.map(({ listing: value, label, Icon }) => (
+              <button key={value} type="button" role="radio" aria-checked={listing === value}
+                onClick={() => listing !== value && void save({ ...rules, listing: value, public: value !== 'private' })}>
+                <Icon size={15} strokeWidth={2} /><span>{label}</span>
+              </button>
+            ))}
           </div>
-          <p className="sheet-hint settings-note">
-            {rules.public ? 'Anyone can find and open it. Restricted areas below stay closed to them.' : 'Only its members (People) and the admin can find and open it.'}
-          </p>
+          <p className="sheet-hint settings-note">{LISTINGS.find((item) => item.listing === listing)!.note}</p>
         </div>
       </div>
 

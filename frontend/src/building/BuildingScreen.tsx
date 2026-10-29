@@ -17,7 +17,7 @@
 
 import { ChevronLeft, ChevronsUpDown, Layers, LoaderCircle, PencilRuler, ShieldCheck } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { notify, useAccess } from '../access/auth'
+import { administers, notify, useAccess } from '../access/auth'
 import { BuildingSettings } from '../access/BuildingSettings'
 import { useAccessRules } from '../access/useAccessRules'
 import { capture, effective, sessionValues as toSession, setHere, setSpokenReplies, usePreferences } from '../access/preferences'
@@ -126,9 +126,11 @@ type ScreenProps = {
   onOpen: (buildingId: string) => void
   /** open straight into the Edit mode (a building just created from floor plans: ImportScreen) */
   startEditing?: boolean
+  /** the organisation that owns it (GET /buildings `org`): its editors and owners get the Building settings */
+  org?: string | null
 }
 
-export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, startEditing = false }: ScreenProps) {
+export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, startEditing = false, org = null }: ScreenProps) {
   const theme = useTheme()
   const palette = theme.dark ? DARK : LIGHT
   const viewport = useViewport()
@@ -151,8 +153,9 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   // who may change the building: its admin in access mode, anyone without it (editing works on a copy); nobody
   // until /config (and a signed-in viewer's /me) has answered, so ?edit=1 never shows the Edit mode to the wrong one
   const mayChange = !access.checking && (!access.mode || access.admin)
-  // the admin in access mode also sets who may go where: the Access tool, and the Building settings button
-  const admin = access.mode && access.admin
+  // the building's admin in access mode (the admin, or an editor / owner of its org) also sets who may go where: the
+  // Access tool, and the Building settings button
+  const admin = access.mode && administers(access, org)
   // the Edit mode as asked for (the admin button, the Guide, ?edit=1) and as shown: only to whoever may change the
   // building — a link with ?edit=1 opens the plain building for anyone else, and the admin's once /me says so
   const [editAsked, setEditing] = useState(startEditing)
@@ -770,7 +773,7 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   const current = shownPlan?.floors[floor]
   // the plan's buttons (figure, street view, compass), then the admin corner (Edit, and Building settings for the
   // admin in access mode): the Live button goes on top of them
-  const liveBottom = insets.bottom + 16 + (44 + 10) * (3 + (!access.mode || access.admin ? (admin ? 2 : 1) : 0))
+  const liveBottom = insets.bottom + 16 + (44 + 10) * (3 + (admin ? 1 : 0) + (!access.mode || access.admin ? 1 : 0))
   const suggestions = useMemo(() => (plan ? suggest(plan, plan.floors[floor]?.name ?? '') : []), [plan, floor])
 
   const info = useMemo((): InfoCard | null => {
@@ -1209,7 +1212,7 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
           the compass while editing) — beside the floor rail on a wide screen, above the Guide on a phone. The pencil
           turns the Edit mode on and off; above it (the admin in access mode) the Building settings: access, members,
           objects. */}
-      {plan && (!access.mode || access.admin) && (
+      {plan && (!access.mode || admin) && (
         <div className="admin-corner" style={{ right: insets.right + 16, bottom: insets.bottom + 16 + (44 + 10) * (editing ? 1 : 3) }}>
           {admin && (
             <button
@@ -1223,16 +1226,18 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
               <ShieldCheck size={19} strokeWidth={2} />
             </button>
           )}
-          <button
-            type="button"
-            className="admin-button"
-            aria-pressed={editing}
-            aria-label={editing ? 'Stop editing' : 'Edit this building'}
-            title={editing ? 'Stop editing' : 'Edit this building (on a copy)'}
-            onClick={() => setEditing((on) => !on)}
-          >
-            <PencilRuler size={19} strokeWidth={2} />
-          </button>
+          {(!access.mode || access.admin) && (
+            <button
+              type="button"
+              className="admin-button"
+              aria-pressed={editing}
+              aria-label={editing ? 'Stop editing' : 'Edit this building'}
+              title={editing ? 'Stop editing' : 'Edit this building (on a copy)'}
+              onClick={() => setEditing((on) => !on)}
+            >
+              <PencilRuler size={19} strokeWidth={2} />
+            </button>
+          )}
         </div>
       )}
 
@@ -1284,7 +1289,7 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
         <BuildingSettings
           buildingId={buildingId}
           plan={plan}
-          admin={access.admin}
+          admin={admin}
           objects={objects}
           access={accessRules}
           onClose={() => setSettingsOpen(false)}

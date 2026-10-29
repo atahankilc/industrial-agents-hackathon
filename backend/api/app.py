@@ -33,7 +33,7 @@ from backend.api.access import AuthError, AuthUnavailable
 from backend.api.deps import building_admin_or_403, conversation_or_404, known_or_422, save_or_409, viewer_restricted
 from backend.api.fleet import router as fleet_router
 from backend.api.live import router as live_router
-from backend.api.routes import accounts, drafts, guide, imports, openai_chat, orgs, voice
+from backend.api.routes import accounts, drafts, guide, imports, maps, openai_chat, orgs, voice
 
 API_PREFIX = "/api"
 
@@ -108,7 +108,7 @@ def health() -> dict:
     return {"ok": True, "llm": llm_mode(), "tts": tts.enabled(), "stt": stt.enabled()}
 
 
-for routes in (guide, voice, accounts, orgs, drafts, imports, openai_chat):
+for routes in (guide, voice, accounts, orgs, maps, drafts, imports, openai_chat):
     app.include_router(routes.router)
 app.include_router(live_router(deps.live, known_or_422, conversation_or_404, save_or_409,
                                lambda authorization, building: deps.live_hidden(authorization, building),

@@ -1,10 +1,15 @@
 ---
 id: organizations
-summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings) is built; phases 2–4 are the plan.
+summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings) and phase 2a/2b (maps, share links, ?map= scope, organisations sheet) are built; 2c–4 are the plan.
 sources:
   - backend/api/access.py
   - backend/api/routes/orgs.py
   - backend/api/routes/accounts.py
+  - backend/api/maps.py
+  - backend/api/routes/maps.py
+  - supabase/migrations/20261029120000_maps.sql
+  - frontend/src/org/OrgScreen.tsx, frontend/src/Root.tsx, frontend/src/map/MapLanding.tsx
+  - tests/test_maps.py
   - backend/api/deps.py
   - supabase/migrations/20261028120000_orgs.sql
   - tests/test_orgs.py
@@ -74,21 +79,36 @@ written: code from before the migration reads and writes only `public`, so when 
 | `GET /buildings` | anyone | each item now has `org` |
 | `GET /me` | anyone | now also `orgs: {slug: role}` |
 
-## Phase 2 — maps and sharing (planned)
+## Phase 2 — maps and sharing (2a + 2b built, 2c planned)
 
-- `maps` (org, slug, name, visibility, share-token hash, layout) and `map_buildings` (map, building, site): one
-  building may sit on several maps (a joint TUM–LMU map).
-- `GET /maps/{slug}` returns the map, its buildings (including unlisted ones) and its layout; `?map=tum` opens it,
-  `?map=tum&k=<token>` a link-shared one (only the token's hash is stored; revoking makes a new one).
-- `MapLanding` gets a scope (`world` | `map`): the search pill and the Guide's neighbours search only the map's
-  buildings, across all its sites (the Guide states the real distance to another site and draws no route between
-  sites). The org's name and logo replace the wordmark, with a small "on Steward".
-- Org settings screen: people and roles, buildings and their listing, maps, the share link. Building settings
-  (`src/access/`) open for org editors, not only the admin.
-- Edit mode and imports for org editors, saving into their org.
+Built (2026-10-29):
+
+- **Maps** (`backend/api/maps.py`, `backend/api/routes/maps.py`, `supabase/migrations/20261029120000_maps.sql`, not
+  applied yet): `maps` (slug, org, name, visibility, token, buildings, layout). A map's address is global (`?map=<slug>`);
+  `buildings` is an ordered list of ids, so one building may sit on several maps; `layout` waits for phase 3.
+  Visibility: `private` (the org's people), `link` (anyone with `&k=<token>`), `public` (anyone). The token is stored
+  as is (not hashed), so editors can copy the link again; it only opens the map, and `POST /maps/{slug}/link` makes a
+  new one that shuts out the old link.
+- A map lists only the buildings its viewer may open: unlisted ones for everyone who has the map, private ones only for
+  the org's people. Editors put on a map the org's own buildings and anyone's listed ones; owners delete maps.
+- **App:** `?map=<slug>[&k=]` turns the landing into the map (`Root.tsx` → `GET /maps/{slug}`): only its buildings,
+  framed on them, its name and org in place of Steward's mark with "on Steward" back to the main map; a map the viewer
+  may not open says so in the same place. The scope stays while buildings open and close.
+- **Organisations sheet** (`src/org/OrgScreen.tsx`, account menu → Organisations, `?view=org[&org=]`): the viewer's
+  organisations and a new one; per org its maps (open, copy link, who opens it, new link, which buildings, delete),
+  its buildings' listing, and for owners its people (role, remove, invite link).
+- **Building settings** open for the org's editors and owners (`administers` in `src/access/auth.ts`, from `GET /me`
+  `orgs`), with the three listings; the Edit-mode pencil stays the admin's.
+- The Guide's campus keeps the session's own building even when it is hidden for the viewer (an unlisted building
+  opened by its link still has its neighbours).
+
+Still to do in phase 2:
+
+- **2c:** Edit mode and imports for org editors, saving into their org (Creator runs are paid: per-org quota first).
+- The Guide's neighbours on a map: today they are the buildings the viewer may list, so an outsider on a link-shared
+  map does not get the map's unlisted buildings as neighbours.
 - Main map: listed buildings carry their org's badge; tapping it opens the org's public map.
-- An unlisted building opened by `?building=` without its map has no position on the landing (the list omits it);
-  `GET /maps/{slug}` fixes that for the map, a single-building lookup for a bare link.
+- An unlisted building opened by a bare `?building=` link (without its map) has no position on the landing.
 
 ## Phase 3 — the compact island board (planned)
 

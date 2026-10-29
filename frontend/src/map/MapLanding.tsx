@@ -109,13 +109,17 @@ function easeFov(map: MapLibreMap, to: number, ms: number) {
 /** "Version 2" for a saved building whose name was taken (user/<slug>-2), "Version 1" for the first save. */
 const versionOf = (id: string) => (id.startsWith('user/') ? `Version ${/-(\d+)$/.exec(id)?.[1] ?? 1}` : null)
 
-export function MapLanding({ buildings, error, focus, onOpen, onImport, onDeleted }: {
+export function MapLanding({ buildings, error, focus, scope = null, onOpen, onImport, onDeleted, onLeaveScope }: {
   buildings: Building[] | null
   error: string | null
+  /** an organisation's map (?map=, docs/product/organizations.md): its name and org head the map instead of Steward's */
+  scope?: { name: string; org: string | null } | null
   focus: Focus | null
   onOpen: (id: string) => void
   onImport: (place?: ImportPlace) => void
   onDeleted: () => void
+  /** back to the main map from an organisation's map */
+  onLeaveScope?: () => void
 }) {
   const access = useAccess() // access mode: only the admin creates buildings (an import is a paid Creator run)
   const { dark } = useTheme()
@@ -769,10 +773,19 @@ export function MapLanding({ buildings, error, focus, onOpen, onImport, onDelete
           </div>
         </div>
       )}
-      <h1 className="ml-logo">
-        <img src={dark ? '/brand/mark.svg' : '/brand/mark-light.svg'} alt="" />
-        <Wordmark dark={dark} className="ml-wordmark" />
-      </h1>
+      {scope ? (
+        <div className="ml-logo ml-scope">
+          <h1>{scope.name}</h1>
+          <p>
+            {scope.org ? `${scope.org} · ` : ''}<button type="button" onClick={onLeaveScope}>{scope.org ? 'on Steward' : 'Back to the main map'}</button>
+          </p>
+        </div>
+      ) : (
+        <h1 className="ml-logo">
+          <img src={dark ? '/brand/mark.svg' : '/brand/mark-light.svg'} alt="" />
+          <Wordmark dark={dark} className="ml-wordmark" />
+        </h1>
+      )}
       <aside className={`ml-panel${listOpen ? ' open' : ''}`} onKeyDown={(e) => {
         if (e.key !== 'Escape') return
         if (query) setQuery('')

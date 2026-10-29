@@ -3,7 +3,7 @@
 // pill; over a building a round button beside the HUD's top line.
 // Access mode also brings the sign-in, set-a-password and Preferences sheets and the quiet notice line.
 
-import { AudioLines, KeyRound, LogIn, LogOut, Moon, Settings, SlidersHorizontal, Sun, SunMoon, UserRound, X } from 'lucide-react'
+import { AudioLines, Building2, KeyRound, LogIn, LogOut, Moon, Settings, SlidersHorizontal, Sun, SunMoon, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTheme } from '../theme'
 import { openPanel, setPassword, signIn, signOut, useAccess } from './auth'
@@ -57,6 +57,15 @@ function LearnedCard() {
       </button>
     </aside>
   )
+}
+
+/** The organisations sheet (?view=org, src/org/OrgScreen.tsx), opened the way Root reads the address. */
+function openOrganisations() {
+  const params = new URLSearchParams(location.search)
+  for (const key of ['view', 'org', 'building', 'edit']) params.delete(key)
+  params.set('view', 'org')
+  history.pushState(null, '', `${location.pathname}?${params}`)
+  dispatchEvent(new PopStateEvent('popstate'))
 }
 
 /** The settings button top right: the theme, and in access mode Preferences and the account. */
@@ -119,6 +128,12 @@ function Corner({ compact }: { compact: boolean }) {
             <button type="button" role="menuitem" onClick={pick(() => openPanel('signin'))}>
               <LogIn size={16} strokeWidth={2} />
               Sign in
+            </button>
+          )}
+          {access.email && (
+            <button type="button" role="menuitem" onClick={pick(openOrganisations)}>
+              <Building2 size={16} strokeWidth={2} />
+              Organisations
             </button>
           )}
           {access.email && access.needsPassword && (

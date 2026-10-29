@@ -71,10 +71,15 @@ def buildings(authorization: str | None = Header(None)) -> list[dict]:
     hidden = deps.access.hidden_buildings(viewer_or_401(authorization))
     owners = ({building: access.org for building, access in deps.access.store.all_buildings().items() if access.org}
               if deps.access.enabled else {})  # the owning organisation (docs/product/organizations.md)
-    return [{"id": item["id"], "split": item["split"], "name": item["name"], "kind": item.get("kind"),
-             "location": None if item.get("superseded") else item.get("location"),  # a newer save stands there
-             "org": owners.get(item["id"])}
-            for item in deps.store.catalogue.values() if item["id"] not in hidden]
+    return [listing_item(item, owners.get(item["id"])) for item in deps.store.catalogue.values()
+            if item["id"] not in hidden]
+
+
+def listing_item(item: dict, org: str | None) -> dict:
+    """A catalogue entry as GET /buildings (and GET /maps/{slug}) lists it."""
+    return {"id": item["id"], "split": item["split"], "name": item["name"], "kind": item.get("kind"),
+            "location": None if item.get("superseded") else item.get("location"),  # a newer save stands there
+            "org": org}
 
 
 @router.post("/sessions")

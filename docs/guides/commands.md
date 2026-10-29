@@ -136,6 +136,10 @@ uv run python scripts/sim_object.py --api http://localhost:8390 --object <id> --
 | PUT | `/orgs/{slug}` | owner; `verified`: admin | `{"name"?, "verified"?}` |
 | POST | `/orgs/{slug}/invite`, PUT `/orgs/{slug}/members` | owner | invite `{"email","role"}` → sign-in link; change a role or remove (`role: null`); an organisation keeps an owner (409) |
 | PUT | `/orgs/{slug}/buildings` | admin; editor / owner for the org's own buildings | `{"building","listing"?,"owned"?}`: only the admin gives a building to the org or hands it back (`owned: false`); editors and owners set the listing of buildings the org owns (another's → 403); `listed` needs a verified org |
+| POST/GET | `/orgs/{slug}/maps` | editor / owner (POST); its people (GET) | make a map `{"slug","name","visibility"?}` (address taken → 409) / list its maps |
+| GET | `/maps/{slug}?k=` | its org's people; anyone if `public`; anyone with the key if `link` | the map with the buildings this viewer may open (unlisted ones too; private ones for the org's people); `token` for editors |
+| PUT | `/maps/{slug}`, `/maps/{slug}/buildings` | editor / owner | `{"name"?, "visibility"?}` (`private` / `link` / `public`) / `{"building","on"}`: the org's own or any listed building |
+| POST/DELETE | `/maps/{slug}/link`, DELETE `/maps/{slug}` | editor / owner; delete: owner | a new share key (the old link stops working) / delete the map |
 
 `/drafts` (Edit mode) answers 403 for anyone but the admin while access mode is on.
 

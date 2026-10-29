@@ -19,6 +19,7 @@ from backend.api.access import Access, AuthError, AuthUnavailable, Viewer
 from backend.api.drafts import Draft, DraftStore, backend_from_env
 from backend.api.fleet import Fleet, fleet_from_env
 from backend.api.live import LiveHub, SessionLive
+from backend.api.maps import maps_from_env
 from backend.api.sessions import DATA_DIR, Conversation, SessionStore
 from backend.core.building_map import BuildingMap
 
@@ -28,6 +29,7 @@ store.user_buildings = drafts
 access = Access()  # access mode (ACCESS_MODE=on): accounts, restricted spaces — backend/api/access.py
 live = LiveHub(lambda building: BuildingMap(copy.deepcopy(store.base_data(building))))  # backend/api/live/
 fleet = Fleet(fleet_from_env(), store.base_data)  # moving objects (access mode): backend/api/fleet.py
+maps = maps_from_env()  # organisations' maps (access mode): backend/api/maps.py
 
 
 def viewer_or_401(authorization: str | None) -> Viewer:
@@ -66,7 +68,9 @@ def with_live(conversation: Conversation) -> Conversation:
 
 def with_campus(conversation: Conversation, hidden: set[str] = frozenset()) -> Conversation:
     """The session's buildings nearby (backend/agents/campus.py); sessions are rebuilt on restores and switches.
-    `hidden`: buildings this viewer may not list (access mode), so the Guide neither names nor routes to them."""
+    `hidden`: buildings this viewer may not list (access mode), so the Guide neither names nor routes to them; the
+    session's own building stays (an unlisted one opened by its link still has its neighbours)."""
+    hidden = set(hidden) - {conversation.building}
     catalogue = {key: entry for key, entry in store.catalogue.items() if key not in hidden} if hidden else store.catalogue
     campus = conversation.session.campus
     if campus is None or campus.building_id != conversation.building:

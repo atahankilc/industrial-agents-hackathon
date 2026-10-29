@@ -9,7 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useSyncExternalStore } from 'react'
-import { api, auth } from '../api'
+import { api, auth, type OrgRole } from '../api'
 
 export type Panel = 'signin' | 'password' | 'preferences' | null
 
@@ -20,6 +20,8 @@ export type AccessState = {
   email: string | null
   /** the admin (GET /me) */
   admin: boolean
+  /** the signed-in viewer's organisations and role in each (GET /me; docs/product/organizations.md) */
+  orgs: Record<string, OrgRole>
   /** GET /config, or a signed-in viewer's GET /me, not answered yet: whether this is the admin is still open */
   checking: boolean
   /** arrived from an invite: the account has no password yet */
@@ -32,7 +34,7 @@ export type AccessState = {
   notice: string | null
 }
 
-let state: AccessState = { mode: false, email: null, admin: false, checking: true, needsPassword: false, version: 0, panel: null, notice: null }
+let state: AccessState = { mode: false, email: null, admin: false, orgs: {}, checking: true, needsPassword: false, version: 0, panel: null, notice: null }
 const listeners = new Set<() => void>()
 let client: SupabaseClient | null = null
 let userId: string | null = null
@@ -157,14 +159,14 @@ async function viewerChanged(id: string | null, email: string | null, reload = t
   const version = state.version + (reload ? 1 : 0)
   if (!id) {
     storeFlag(NEEDS_PASSWORD_KEY, false)
-    set({ email: null, admin: false, checking: false, needsPassword: false, version })
+    set({ email: null, admin: false, orgs: {}, checking: false, needsPassword: false, version })
     return
   }
   const needsPassword = storedFlag(NEEDS_PASSWORD_KEY)
-  set({ email, admin: false, checking: true, needsPassword, panel: needsPassword ? 'password' : state.panel === 'signin' ? null : state.panel, version })
+  set({ email, admin: false, orgs: {}, checking: true, needsPassword, panel: needsPassword ? 'password' : state.panel === 'signin' ? null : state.panel, version })
   try {
     const me = await api.me()
-    if (userId === id) set({ admin: me.admin, checking: false })
+    if (userId === id) set({ admin: me.admin, orgs: me.orgs ?? {}, checking: false })
   } catch {
     // /me failed (a 401 signs out on its own); the account just isn't treated as admin
     if (userId === id) set({ checking: false })
@@ -190,4 +192,19 @@ export async function setPassword(password: string): Promise<string | null> {
   set({ needsPassword: false, panel: null })
   notify('Password set. Use it to sign in next time.')
   return null
+}
+
+/** Re-read the viewer's organisations (one was started or left): GET /me again. */
+export async function refreshOrgs() {
+  if (!userId) return
+  const id = userId
+  const me = await api.me()
+  if (userId === id) set({ orgs: me.orgs ?? {} })
+}
+
+/** Whoever administers a building in access mode: the admin, or an editor / owner of the org that owns it. */
+export function administers(access: AccessState, org: string | null | undefined): boolean {
+  if (access.admin) return true
+  const role = org ? access.orgs[org] : undefined
+  return role === 'editor' || role === 'owner'
 }

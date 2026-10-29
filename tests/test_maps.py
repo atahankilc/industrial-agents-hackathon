@@ -81,6 +81,22 @@ def test_the_guide_keeps_neighbours_of_an_unlisted_building_opened_by_link(maps)
     assert HAUPT in campus.catalogue and MENSA not in campus.catalogue  # its own place stays, the hidden one does not
 
 
+def test_the_guide_gets_the_maps_unlisted_buildings_as_neighbours_on_the_map(maps):
+    maps.put("/orgs/tum/buildings", headers=auth("editor"), json={"building": HAUPT, "listing": "unlisted"})
+    token = maps.put("/maps/tum-campus", headers=auth("editor"), json={"visibility": "link"}).json()["token"]
+    session_id = maps.post("/sessions", json={"building": HAUPT}).json()["session_id"]
+
+    def campus(headers: dict) -> set[str]:
+        assert maps.get(f"/sessions/{session_id}", headers=headers).status_code == 200  # rebuilds it for this request
+        return set(deps.store.get(session_id).session.campus.catalogue)
+
+    assert MENSA not in campus({})  # unlisted and not on a map: not a neighbour
+    assert MENSA in campus({"X-Steward-Map": "tum-campus", "X-Steward-Map-Key": token})  # the map's link opens it
+    assert MENSA not in campus({"X-Steward-Map": "tum-campus", "X-Steward-Map-Key": "wrong"})
+    assert MENSA not in campus({"X-Steward-Map": "nope"})
+    assert MENSA in campus({"X-Steward-Map": "tum-campus", **auth("student")})  # the org's people need no key
+
+
 def test_map_row_opens_with():
     row = OrgMap("m", "o", "M", "link", token="abc")
     assert row.opens_with("abc") and not row.opens_with("abd") and not row.opens_with(None)

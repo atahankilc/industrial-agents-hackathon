@@ -345,9 +345,18 @@ function streamError(item: Record<string, unknown>): ServiceError {
 }
 
 /** JSON headers plus the bearer token when signed in. */
+/** On an organisation's map (?map=, &k=): which one, so the Guide counts its buildings among the neighbours
+ * (backend/api/deps.py map_scope). */
+function mapHeaders(): Record<string, string> {
+  const params = new URLSearchParams(location.search)
+  const map = params.get('map')
+  const key = params.get('k')
+  return map ? { 'x-steward-map': map, ...(key ? { 'x-steward-map-key': key } : {}) } : {}
+}
+
 export async function headers(extra?: HeadersInit): Promise<HeadersInit> {
   if (gate) await gate.catch(() => undefined)
-  return { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), ...extra }
+  return { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), ...mapHeaders(), ...extra }
 }
 
 async function failed(response: Response, path: string): Promise<ApiError> {

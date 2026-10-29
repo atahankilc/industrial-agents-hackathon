@@ -104,6 +104,12 @@ Built (2026-10-29):
   `orgs`), with the three listings; the Edit-mode pencil stays the admin's.
 - The Guide's campus keeps the session's own building even when it is hidden for the viewer (an unlisted building
   opened by its link still has its neighbours).
+- **The Guide's neighbours on a map** (2026-10-29): while on `?map=`, the app sends `X-Steward-Map` (and
+  `X-Steward-Map-Key` for `&k=`) with every request (`api.ts` `headers`); an app-wide async dependency puts them in
+  `deps.map_scope`, and `conversation_or_404` stops hiding the map's buildings from the campus for whoever may open
+  that map (`shown_by_map`: the org's people, the admin, or the right key; private buildings still only for the org).
+  So an outsider on a link-shared map gets its unlisted buildings as neighbours. Per request, not stored with the
+  session: a session restored on another instance (Vercel) gets the same answer.
 
 - **2c, Edit mode and imports for org editors** (2026-10-29): a draft is reachable by whoever administers its base
   (`deps.draft_or_404`; anyone else gets 404, and `/drafts`, `/imports` keep a first gate in `app.py` for the admin and
@@ -117,8 +123,6 @@ Built (2026-10-29):
 Still to do:
 
 - A per-org quota on Creator runs (now only verified orgs may run them).
-- The Guide's neighbours on a map: today they are the buildings the viewer may list, so an outsider on a link-shared
-  map does not get the map's unlisted buildings as neighbours.
 - Main map: listed buildings carry their org's badge; tapping it opens the org's public map.
 - An unlisted building opened by a bare `?building=` link (without its map) has no position on the landing.
 

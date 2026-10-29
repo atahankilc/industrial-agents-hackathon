@@ -60,6 +60,8 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
   the buildings and the open model moved with their island. Editors arrange (drag, pull to edges), name the
   islands and draw their (rectangular) areas, stored in the map's `layout`. The blue dot shows on the board when the user
   stands on an island, else the nearest site and its distance. Not yet: merging / splitting sites, areas of any shape.
+- **Organisations, the Guide on a map:** on `?map=` the app sends the map (`X-Steward-Map[-Key]`); the Guide then
+  counts the map's buildings the viewer may open through it among the neighbours (`deps.shown_by_map`).
 - **Workflow:** verified commits via `/ship` ([D-008](decisions.md#d-008),
   [dev-workflow.md](../docs/guides/dev-workflow.md)); work on `dev`, never on `main`.
 
@@ -78,8 +80,8 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
 ## Next
 
 - **Organisations** ([organizations.md](../docs/product/organizations.md)): apply `20261028120000_orgs.sql` and
-  `20261029120000_maps.sql` before this code is deployed (it reads the new tables and columns); then the Guide's
-  neighbours on a map, a per-org Creator quota, org badges on the main map, merging / splitting sites. Open: [Q-022](open-questions.md#q-022)–[Q-024](open-questions.md#q-024).
+  `20261029120000_maps.sql` before this code is deployed (it reads the new tables and columns); then
+  a per-org Creator quota, org badges on the main map, merging / splitting sites. Open: [Q-022](open-questions.md#q-022)–[Q-024](open-questions.md#q-024).
 
 0. **Rename to Steward outside the repo** ([D-027](decisions.md#d-027)): done: GitHub repo → `atahankilc/steward`
    (remote updated, homepage set), Vercel project → `steward`, deployed at https://steward-io.vercel.app

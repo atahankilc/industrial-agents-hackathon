@@ -9,9 +9,10 @@ import json
 import os
 import queue
 from collections.abc import Iterator
+from contextvars import ContextVar
 from pathlib import Path
 
-from fastapi import HTTPException
+from fastapi import Header, HTTPException
 
 from backend.agents.campus import Campus
 from backend.api import persistence
@@ -32,6 +33,28 @@ fleet = Fleet(fleet_from_env(), store.base_data)  # moving objects (access mode)
 maps = maps_from_env()  # organisations' maps (access mode): backend/api/maps.py
 
 
+# The organisation's map a request comes from (the app sends `X-Steward-Map` and `X-Steward-Map-Key` while on
+# `?map=`): for whoever may open that map, its buildings count as listed among the Guide's neighbours, so an outsider
+# on a link-shared map gets the map's unlisted buildings nearby too (docs/product/organizations.md).
+map_scope: ContextVar[tuple[str, str | None] | None] = ContextVar("map_scope", default=None)
+
+
+async def read_map_scope(x_steward_map: str | None = Header(None), x_steward_map_key: str | None = Header(None)) -> None:
+    """App-wide dependency (backend/api/app.py): async, so the value reaches the sync routes run in the threadpool."""
+    map_scope.set((x_steward_map, x_steward_map_key) if x_steward_map else None)
+
+
+def shown_by_map(viewer: Viewer) -> set[str]:
+    """The buildings of the request's map that this viewer may open through it (none without a map it opens)."""
+    scope = map_scope.get()
+    if scope is None or not access.enabled:
+        return set()
+    row = maps.get(scope[0])
+    if row is None or not (viewer.admin or access.role(viewer, row.org) or row.opens_with(scope[1])):
+        return set()
+    return {building for building in row.buildings if access.visible(viewer, building)}
+
+
 def viewer_or_401(authorization: str | None) -> Viewer:
     try:
         return access.viewer(authorization)
@@ -47,7 +70,8 @@ def conversation_or_404(session_id: str, authorization: str | None = None) -> Co
     if conversation is None:
         raise HTTPException(404, f"unknown session {session_id!r}")
     viewer = viewer_or_401(authorization)
-    return with_live(with_campus(with_access(conversation, viewer), access.hidden_buildings(viewer)))
+    hidden = access.hidden_buildings(viewer) - shown_by_map(viewer)
+    return with_live(with_campus(with_access(conversation, viewer), hidden))
 
 
 def live_hidden(authorization: str | None, building: str) -> frozenset[str] | None:

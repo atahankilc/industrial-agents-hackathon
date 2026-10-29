@@ -9,6 +9,18 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-29 — Organisations: the Guide's neighbours on a map
+
+- You-are-here shipped as `4ec7c94`. The migrations are still not applied: they wait for Atahan's explicit go
+  (shared database).
+- The app sends `X-Steward-Map` / `X-Steward-Map-Key` on `?map=` (`frontend/src/api.ts` `headers`); `backend/api/app.py`
+  registers `deps.read_map_scope` as an app-wide async dependency (a ContextVar reaches the sync routes in the
+  threadpool); `deps.shown_by_map(viewer)` = the map's buildings the viewer may open through it;
+  `conversation_or_404` hides `hidden_buildings(viewer) - shown_by_map(viewer)` from the campus.
+- `tests/test_maps.py::test_the_guide_gets_the_maps_unlisted_buildings_as_neighbours_on_the_map` (no header, right key,
+  wrong key, unknown map, org member without key). Headless: requests on `?map=tum-sites` carry `x-steward-map`, the
+  main map's do not.
+
 ## 2026-10-29 — Organisations phase 3: you are here on the board
 
 - Drawn areas shipped as `c656a9a`.

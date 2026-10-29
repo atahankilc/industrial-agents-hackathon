@@ -20,7 +20,7 @@ import os
 
 import anthropic
 import psycopg
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -53,7 +53,7 @@ class StripPrefix:
 
 
 origins = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "*").split(",") if origin.strip()]
-app = FastAPI(title="Steward")
+app = FastAPI(title="Steward", dependencies=[Depends(deps.read_map_scope)])  # the request's org map (deps.map_scope)
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
 # the floor plan export is up to ~0.5 MB of JSON; NDJSON streams stay uncompressed: gzip held a Guide turn's lines
 # back until the turn ended (browsers ask for gzip), so the app saw no steps and a phone's connection sat idle

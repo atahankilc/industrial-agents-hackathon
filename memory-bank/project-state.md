@@ -57,8 +57,9 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
   buildings from plans; saves belong to the org (and go onto the org map they were made from).
 - **Organisations, phase 3 (first cut):** an org map (`?map=`) is an island board (`frontend/src/map/board.ts`,
   `boardTiles.ts`): sites side by side on tiles cut from the real ones in the browser, seams saying the real distance,
-  the buildings and the open model moved with their island. Editors arrange (drag, pull to edges) and name the
-  islands, stored in the map's `layout`. Not yet: drawn areas, merging / splitting sites, the blue dot on the board.
+  the buildings and the open model moved with their island. Editors arrange (drag, pull to edges), name the
+  islands and draw their (rectangular) areas, stored in the map's `layout`. Not yet: merging / splitting sites,
+  areas of any shape, the blue dot on the board.
 - **Workflow:** verified commits via `/ship` ([D-008](decisions.md#d-008),
   [dev-workflow.md](../docs/guides/dev-workflow.md)); work on `dev`, never on `main`.
 
@@ -78,8 +79,8 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
 
 - **Organisations** ([organizations.md](../docs/product/organizations.md)): apply `20261028120000_orgs.sql` and
   `20261029120000_maps.sql` before this code is deployed (it reads the new tables and columns); then the Guide's
-  neighbours on a map, a per-org Creator quota, org badges on the main map, the rest of phase 3 (drawn areas, location
-  on the board). Open: [Q-022](open-questions.md#q-022)–[Q-024](open-questions.md#q-024).
+  neighbours on a map, a per-org Creator quota, org badges on the main map, the rest of phase 3 (location on the board,
+  merging / splitting sites). Open: [Q-022](open-questions.md#q-022)–[Q-024](open-questions.md#q-024).
 
 0. **Rename to Steward outside the repo** ([D-027](decisions.md#d-027)): done: GitHub repo → `atahankilc/steward`
    (remote updated, homepage set), Vercel project → `steward`, deployed at https://steward-io.vercel.app

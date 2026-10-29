@@ -95,8 +95,8 @@ def test_editors_arrange_and_name_the_islands(maps):
     saved = maps.put("/maps/tum-campus", headers=auth("editor"), json={"layout": layout})
     assert saved.status_code == 200
     assert saved.json()["layout"] == {"sites": [
-        {"buildings": [HAUPT, MENSA], "name": "Stammgelände", "dx": 120, "dy": -40},
-        {"buildings": [OTHER], "name": None, "dx": None, "dy": None}]}
+        {"buildings": [HAUPT, MENSA], "name": "Stammgelände", "dx": 120, "dy": -40, "area": None},
+        {"buildings": [OTHER], "name": None, "dx": None, "dy": None, "area": None}]}
     assert maps.get("/maps/tum-campus", headers=auth("student")).json()["layout"]["sites"][0]["name"] == "Stammgelände"
     assert maps.put("/maps/tum-campus", headers=auth("student"), json={"layout": {"sites": []}}).status_code == 403
     too_long = {"sites": [{"buildings": [HAUPT], "name": "x" * 61}]}
@@ -106,3 +106,15 @@ def test_editors_arrange_and_name_the_islands(maps):
     # a name or visibility change keeps the layout
     maps.put("/maps/tum-campus", headers=auth("editor"), json={"name": "Campus"})
     assert deps.maps.get("tum-campus").layout["sites"][0]["dx"] == 120
+
+
+def test_a_drawn_area_is_a_rectangle_on_the_grid(maps):
+    area = {"x0": 35_700_000, "y0": 23_000_000, "x1": 35_703_000, "y1": 23_002_000}
+    saved = maps.put("/maps/tum-campus", headers=auth("editor"),
+                     json={"layout": {"sites": [{"buildings": [HAUPT], "area": area}]}})
+    assert saved.json()["layout"]["sites"][0]["area"] == area
+    for bad in ({**area, "x1": area["x0"]},  # no width
+                {**area, "x1": area["x0"] + 20_001},  # too long a side
+                {**area, "y1": 2**26 + 1}):  # off the world
+        refused = maps.put("/maps/tum-campus", headers=auth("editor"), json={"layout": {"sites": [{"buildings": [HAUPT], "area": bad}]}})
+        assert refused.status_code == 422, bad

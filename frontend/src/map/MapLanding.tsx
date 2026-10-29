@@ -26,7 +26,7 @@ import { applyBlocks, attachMap, FLAT_FOV, osmHeights, setTheme, toLngLat, type 
 import '../building/hud.css' // the HUD tokens (--hud-*) the panel shares with the building screen
 import './map.css'
 import { BUILDINGS_FROM_ZOOM, MODEL_TONES, boardStyle, mapStyle, mix, modelColours, modelTones } from './style'
-import { at as worldAt, boardBounds, boardRect, boardShapes, changed, dropAt, islandAt, layoutOf, toReal, worldX, worldY, type Board, type Layout, type Rect } from './board'
+import { at as worldAt, boardBounds, boardRect, boardShapes, changed, dropAt, islandAt, layoutOf, overlaps, reshapeAt, toReal, worldX, worldY, type Board, type Edges, type Layout, type Rect } from './board'
 import { boardTilesUrl, registerBoard } from './boardTiles'
 import { reducedMotion } from '../motion'
 
@@ -127,6 +127,24 @@ const versionOf = (id: string) => (id.startsWith('user/') ? `Version ${/-(\d+)$/
 
 // an island dragged this close (px) to another's edge meets it
 const PULL_PX = 14
+// an island's edge or corner is taken (to draw its area) this close (px): a finger needs more room than a pointer
+const EDGE_PX = { mouse: 10, touch: 22 }
+
+/** the island edges (and so corners) within `reach` (world units) of a board point, if any; where two islands meet,
+ * the edge of the one the point is on */
+function edgesAt(board: Board, [x, y]: [number, number], reach: number): { index: number; edges: Edges } | null {
+  const found: { index: number; edges: Edges; inside: boolean }[] = []
+  for (const [index, island] of board.islands.entries()) {
+    const r = boardRect(island)
+    if (x < r.x0 - reach || x > r.x1 + reach || y < r.y0 - reach || y > r.y1 + reach) continue
+    const edges = { left: Math.abs(x - r.x0) <= reach, right: Math.abs(x - r.x1) <= reach, top: Math.abs(y - r.y0) <= reach, bottom: Math.abs(y - r.y1) <= reach }
+    if (edges.left || edges.right || edges.top || edges.bottom) found.push({ index, edges, inside: x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1 })
+  }
+  const best = found.find((candidate) => candidate.inside) ?? found[0]
+  return best ? { index: best.index, edges: best.edges } : null
+}
+const CURSORS: Record<string, string> = { left: 'ew-resize', right: 'ew-resize', top: 'ns-resize', bottom: 'ns-resize', 'left top': 'nwse-resize', 'right bottom': 'nwse-resize', 'right top': 'nesw-resize', 'left bottom': 'nesw-resize' }
+const cursorOf = (edges: Edges) => CURSORS[(['left', 'right', 'top', 'bottom'] as const).filter((edge) => edges[edge]).join(' ')] ?? 'move'
 
 export function MapLanding({ buildings, error, focus, scope = null, scoped = false, board = null, onArrange, onOpen, onImport, onDeleted, onLeaveScope }: {
   buildings: Building[] | null
@@ -336,8 +354,9 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
       setCard({ kind: 'osm', place: ring ? { ring, name } : { point: at }, at })
     })
     // arranging: an island under the pointer goes with it (the map does not pan), its outline shown where it would land
-    // (red where it may not: on another island); let go, it lands there; a tap without a move names it
-    let drag: { index: number; from: [number, number]; rect: Rect; to: Rect | null; moved: boolean; start: maplibregl.Point } | null = null
+    // (red where it may not: on another island); let go, it lands there; a tap without a move names it. Taken by an
+    // edge or corner, the island's area is drawn instead: those edges follow the pointer
+    let drag: { index: number; from: [number, number]; rect: Rect; to: Rect | null; moved: boolean; start: maplibregl.Point; edges: Edges | null } | null = null
     const ghost = (rect: Rect | null, ok: boolean) => {
       const ring = rect ? [[rect.x0, rect.y0], [rect.x1, rect.y0], [rect.x1, rect.y1], [rect.x0, rect.y1], [rect.x0, rect.y0]].map((p) => worldAt(p as [number, number])) : []
       const data: GeoJSONSourceSpecification['data'] = { type: 'Feature', properties: { ok }, geometry: { type: 'Polygon', coordinates: ring.length ? [ring] : [] } }
@@ -353,11 +372,14 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
     const grab = (event: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
       const current = boardRef.current
       if (!arrangingRef.current || !current || ('points' in event && event.points.length > 1)) return
-      const island = islandAt(current, [event.lngLat.lng, event.lngLat.lat])
+      const from: [number, number] = [worldX(event.lngLat.lng), worldY(event.lngLat.lat)]
+      const reach = EDGE_PX['points' in event ? 'touch' : 'mouse'] / (512 * 2 ** map.getZoom())
+      const edge = edgesAt(current, from, reach)
+      const island = edge ? current.islands[edge.index] : islandAt(current, [event.lngLat.lng, event.lngLat.lat])
       if (!island) return
       event.preventDefault() // no pan: the island moves instead
       const rect = boardRect(island)
-      drag = { index: current.islands.indexOf(island), from: [worldX(event.lngLat.lng), worldY(event.lngLat.lat)], rect, to: rect, moved: false, start: event.point }
+      drag = { index: current.islands.indexOf(island), from, rect, to: rect, moved: false, start: event.point, edges: edge?.edges ?? null }
     }
     const move = (event: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
       const current = boardRef.current
@@ -366,9 +388,12 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
       drag.moved = true
       const dx = worldX(event.lngLat.lng) - drag.from[0]
       const dy = worldY(event.lngLat.lat) - drag.from[1]
-      const moved = { x0: drag.rect.x0 + dx, y0: drag.rect.y0 + dy, x1: drag.rect.x1 + dx, y1: drag.rect.y1 + dy }
       const pull = PULL_PX / (512 * 2 ** map.getZoom()) // world units per px at this zoom
-      drag.to = dropAt(current, drag.index, moved, pull)
+      const { edges, rect } = drag
+      const moved = edges
+        ? { x0: rect.x0 + (edges.left ? dx : 0), y0: rect.y0 + (edges.top ? dy : 0), x1: rect.x1 + (edges.right ? dx : 0), y1: rect.y1 + (edges.bottom ? dy : 0) }
+        : { x0: rect.x0 + dx, y0: rect.y0 + dy, x1: rect.x1 + dx, y1: rect.y1 + dy }
+      drag.to = edges ? reshapeAt(current, drag.index, moved, edges, pull) : dropAt(current, drag.index, moved, pull)
       ghost(drag.to ?? moved, drag.to !== null)
     }
     const drop = () => {
@@ -381,7 +406,7 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
         const { x, y } = map.project(worldAt([(done.rect.x0 + done.rect.x1) / 2, done.rect.y0]))
         return namingRef.current({ index: done.index, name: current.islands[done.index].name ?? '', x, y })
       }
-      if (done.to) arrangeRef.current(layoutOf(changed(current, done.index, { rect: done.to })))
+      if (done.to) arrangeRef.current(layoutOf(changed(current, done.index, done.edges ? { area: done.to } : { rect: done.to })))
     }
     map.on('mousedown', grab)
     map.on('touchstart', grab)
@@ -393,7 +418,9 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
     map.on('mousemove', (event) => {
       if (arrangingRef.current) {
         const current = boardRef.current
-        map.getCanvas().style.cursor = drag ? 'grabbing' : current && islandAt(current, [event.lngLat.lng, event.lngLat.lat]) ? 'grab' : ''
+        const edge = current && !drag ? edgesAt(current, [worldX(event.lngLat.lng), worldY(event.lngLat.lat)], EDGE_PX.mouse / (512 * 2 ** map.getZoom())) : null
+        map.getCanvas().style.cursor = drag ? (drag.edges ? cursorOf(drag.edges) : 'grabbing')
+          : edge ? cursorOf(edge.edges) : current && islandAt(current, [event.lngLat.lng, event.lngLat.lat]) ? 'grab' : ''
         return
       }
       const id = hit(event.point)
@@ -641,6 +668,43 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
     // board is read with its key
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [styleKey])
+  // while arranging, every island's outline and corners are drawn, so it is clear what can be taken
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !scoped) return
+    const shown = arranging && onArrange && board && !focus ? board : null
+    const corners = (shown?.islands ?? []).flatMap((island) => {
+      const r = boardRect(island)
+      return [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]].map((p) => worldAt(p as [number, number]))
+    })
+    const rings = (shown?.islands ?? []).map((island) => {
+      const r = boardRect(island)
+      return [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1], [r.x0, r.y0]].map((p) => worldAt(p as [number, number]))
+    })
+    const data: GeoJSONSourceSpecification['data'] = {
+      type: 'FeatureCollection',
+      features: [
+        ...rings.map((ring) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: ring } })),
+        ...corners.map((point) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'Point' as const, coordinates: point } })),
+      ],
+    }
+    const place = () => {
+      const source = map.getSource('board-handles') as GeoJSONSource | undefined
+      if (source) return source.setData(data)
+      if (!shown) return
+      const ink = dark ? '#FFFFFF' : '#111318'
+      map.addSource('board-handles', { type: 'geojson', data })
+      map.addLayer({ id: 'board-handle-edges', type: 'line', source: 'board-handles', filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-color': ink, 'line-width': 1.5, 'line-opacity': 0.7 } })
+      map.addLayer({ id: 'board-handle-corners', type: 'circle', source: 'board-handles', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-color': dark ? '#0F1013' : '#FFFFFF', 'circle-stroke-color': ink, 'circle-stroke-width': 2 } })
+    }
+    try {
+      place()
+    } catch {
+      map.once('idle', place) // the style is still coming in
+    }
+    // (a theme change swaps the style and drops the layers: `dark` brings them back)
+  }, [arranging, onArrange, board, focus, dark, scoped])
+
   // names and seams follow the board (a name alone keeps the key)
   useEffect(() => {
     const source = mapRef.current?.getSource('board') as GeoJSONSource | undefined
@@ -914,9 +978,9 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
       )}
       {arranging && onArrange && board && !focus && (
         <div className="ml-arrange" role="toolbar" aria-label="Arrange the map">
-          <p>{arrangeError ? `Not saved: ${arrangeError}` : 'Drag an island to move it. Tap one to name it.'}</p>
+          <p>{arrangeError ? `Not saved: ${arrangeError}` : 'Drag an island to move it, its edges to draw its area. Tap one to name it.'}</p>
           {board.byHand && (
-            <button type="button" onClick={() => save({ sites: board.islands.map((island) => ({ buildings: island.buildings, name: island.name, dx: null, dy: null })) })}>
+            <button type="button" onClick={() => save({ sites: (layoutOf(board).sites ?? []).map((site) => ({ ...site, dx: null, dy: null })) })}>
               Line them up
             </button>
           )}
@@ -943,6 +1007,15 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
             onChange={(event) => setNaming({ ...naming, name: event.target.value })} />
           <div className="ml-create-actions">
             <button type="submit" className="ml-create-main">Save name</button>
+            {board.islands[naming.index].drawn && (
+              <button type="button" disabled={overlaps(board, naming.index, boardRect(changed(board, naming.index, { fit: true }).islands[naming.index]))}
+                title="Back to the area the app gives it: its buildings and 150 m round them" onClick={() => {
+                  save(layoutOf(changed(board, naming.index, { fit: true })))
+                  setNaming(null)
+                }}>
+                Fit the area to its buildings
+              </button>
+            )}
             <button type="button" onClick={() => setNaming(null)}>Cancel</button>
           </div>
         </form>

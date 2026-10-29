@@ -9,6 +9,24 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-29 — Organisations phase 3: drawn areas
+
+- Arranging and naming shipped as `a636f91`.
+- Areas are rectangles (decided here, said to Atahan): polygons would need general clipping in `boardTiles.ts` and
+  irregular islands cannot meet edge to edge.
+- Backend: `Site.area` `{x0,y0,x1,y1}` in world grid steps (0..2^26, 0 < side ≤ 20 000). `board.ts`: `Island.core`
+  (buildings + 10 m), `auto`, `drawn`; `reshapeAt` (pull, grid, never inside `core`, ≤ 3 km a side, refuse overlap),
+  `changed({area} | {fit})`, `overlaps`; stored areas grown back round grown sites; the board key includes the areas.
+  MapLanding: edges / corners taken within 10 px (22 px touch), the island under the pointer winning on a shared edge,
+  resize cursors, outlines and corner handles while arranging, "Fit the area to its buildings".
+- Found headless: (1) the key held only places, so a shrunk area kept its old tiles; (2) `bridge.ts` kept stale
+  put-back block pieces (`rest`) in the gap because its key was ids + count: now also where the pieces lie. Both fixed;
+  `refreshTiles` turned out unnecessary once the key changes.
+- Headless (fake owner): a corner drag grew Weihenstephan right and down, pulled to the main campus's lower edge, saved
+  `area`; dragging Garching's left edge inward stopped at its building; the gap then showed only the table; a reload
+  kept both; the fit button shows for a drawn area; opening a building on the board and on the main map still works
+  (bridge state ok); no console errors.
+
 ## 2026-10-29 — Organisations phase 3: editors arrange and name the islands
 
 - The first cut shipped as `cbd043b`.

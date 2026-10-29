@@ -1,6 +1,6 @@
 ---
 id: organizations
-summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings), phase 2 (maps, share links, ?map= scope, organisations sheet, Edit mode and imports for org editors) and phase 3's island board with dragging and naming are built; drawn areas, location on the board and phase 4 are the plan.
+summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings), phase 2 (maps, share links, ?map= scope, organisations sheet, Edit mode and imports for org editors) and phase 3's island board with dragging, naming and drawn (rectangular) areas are built; location on the board and phase 4 are the plan.
 sources:
   - backend/api/access.py
   - backend/api/routes/orgs.py
@@ -167,11 +167,22 @@ Built (2026-10-29), all in the app (`frontend/src/map/board.ts`, `boardTiles.ts`
   placed by hand the board is the stored one on every screen, and a new site goes to its right; "Line them up" drops
   the places and keeps the names. Seams are drawn wherever two islands meet. The board's tiles change in place
   (`setTiles`) so moving an island does not blink the map.
+- **Drawn areas** (2026-10-29): while arranging, every island shows its outline and corners; taken by an edge or corner
+  (within 10 px, 22 px with a finger; where two islands meet, the one under the pointer) its area follows the pointer
+  instead of the island moving. The area is a rectangle, so islands still meet edge to edge and the tiles are cut
+  exactly; it always holds the site's buildings (and 10 m round them: `core`), is at most 3 km a side (`MAX_AREA_M`;
+  the backend allows 20 000 grid steps, ~8 km at Munich), is pulled to neighbouring edges like a move, and is refused
+  (red) over another island. Stored as `area` (grid steps of the world) with the site; a site that has grown past its
+  drawn area gets it grown back round its buildings. A tapped island whose area was drawn offers "Fit the area to its
+  buildings" (the app's area again); "Line them up" keeps drawn areas. The board's key includes every island's area,
+  so new tiles are fetched when one changes; `bridge.ts` rebuilds the put-back block pieces when their places change,
+  not only their number (found when a shrunk area left blocks standing in the gap).
 
 Still to do in phase 3:
 
 - Merging or splitting sites by hand.
-- An area the org draws instead of the rectangle round the buildings.
+- Areas of any shape (now rectangles: a polygon needs general clipping in `boardTiles.ts`, and irregular islands
+  cannot meet edge to edge).
 - **Location:** the blue dot moved onto the board when the user stands inside an island; otherwise "nearest site:
   Garching, 3 km".
 - A building on an org map that has no position still has no island (it is listed under the map, as on the main map).

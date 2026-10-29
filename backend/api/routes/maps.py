@@ -5,7 +5,7 @@ ones for everyone who has the map, private ones for the org's people. Access mod
 map's island board (frontend/src/map/board.ts) and name its sites; that arrangement is the map's `layout`."""
 
 from fastapi import APIRouter, Header, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from backend.api import deps
 from backend.api.access import ADMIN_ROLES, Viewer
@@ -22,13 +22,33 @@ class NewMap(BaseModel):
     visibility: str = "private"
 
 
+GRID = 2**26  # steps of the z14 tiles' 4096 grid across the world (board.ts STEP)
+AREA_STEPS = 20_000  # a drawn area's longest side in steps: ~8 km at Munich (the app stops at 3 km)
+
+
+class Area(BaseModel):
+    """A drawn area of a site: a rectangle in grid steps of the world (x east, y south)."""
+    x0: int = Field(ge=0, le=GRID)
+    y0: int = Field(ge=0, le=GRID)
+    x1: int = Field(ge=0, le=GRID)
+    y1: int = Field(ge=0, le=GRID)
+
+    @model_validator(mode="after")
+    def a_rectangle(self) -> "Area":
+        if not (0 < self.x1 - self.x0 <= AREA_STEPS and 0 < self.y1 - self.y0 <= AREA_STEPS):
+            raise ValueError(f"an area is a rectangle up to {AREA_STEPS} steps a side")
+        return self
+
+
 class Site(BaseModel):
     """One island of the board: the buildings it was made from (to find it again when the map changes), its name, and
-    its move from where it really is, in steps of the z14 tiles' 4096 grid (board.ts STEP; null = placed by the app)."""
+    its move from where it really is, in steps of the z14 tiles' 4096 grid (board.ts STEP; null = placed by the app),
+    and the area an editor drew for it (null = the app's)."""
     buildings: list[str] = Field(max_length=500)
     name: str | None = Field(None, max_length=60)
     dx: int | None = Field(None, ge=-(2**26), le=2**26)
     dy: int | None = Field(None, ge=-(2**26), le=2**26)
+    area: Area | None = None
 
 
 class Layout(BaseModel):
@@ -62,7 +82,8 @@ def layout_site(site: Site) -> dict:
     name = (site.name or "").strip() or None
     moved = site.dx is not None and site.dy is not None
     return {"buildings": list(dict.fromkeys(site.buildings)), "name": name,
-            "dx": site.dx if moved else None, "dy": site.dy if moved else None}
+            "dx": site.dx if moved else None, "dy": site.dy if moved else None,
+            "area": site.area.model_dump() if site.area else None}
 
 
 def map_or_404(slug: str, viewer: Viewer, token: str | None) -> tuple[OrgMap, str | None]:

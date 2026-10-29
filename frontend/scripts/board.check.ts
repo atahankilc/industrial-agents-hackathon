@@ -1,7 +1,7 @@
 // node --experimental-strip-types frontend/scripts/board.check.ts — an organisation's island board (src/map/board.ts):
 // sites from nearby buildings, islands edge to edge, moved by whole grid steps, seams with the real distance.
 import assert from 'node:assert/strict'
-import { arrange, boardOf, boardRect, boardShapes, changed, distanceLabel, dropAt, islandAt, islandsOf, layoutOf, lngOf, latOf, metresBetween, onBoard, STEP, toBoard, toReal, worldX, worldY } from '../src/map/board.ts'
+import { arrange, boardOf, boardRect, boardShapes, changed, distanceLabel, dropAt, MAX_AREA_M, reshapeAt, islandAt, islandsOf, layoutOf, lngOf, latOf, metresBetween, onBoard, STEP, toBoard, toReal, worldX, worldY } from '../src/map/board.ts'
 
 const close = (a: number, b: number, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`)
 const square = (lng: number, lat: number, d = 0.0005): [number, number][] => [[lng - d, lat - d], [lng + d, lat - d], [lng + d, lat + d], [lng - d, lat + d], [lng - d, lat - d]]
@@ -94,6 +94,31 @@ const named = boardOf(all, 'row', { sites: [{ buildings: ['freising'], name: 'We
 assert.equal(named.key, row.key)
 assert.ok(!named.byHand && arranged.byHand)
 assert.equal(named.islands.find((island) => island.buildings.includes('freising'))!.name, 'Weihenstephan')
+
+// a drawn area: Garching's right edge dragged out by 400 m and its top pulled in past its buildings
+const gi = arranged.islands[g]
+const now = boardRect(gi)
+const metre = 1 / (2 * Math.PI * 6378137 * Math.cos((48.27 * Math.PI) / 180))
+const wider = reshapeAt(arranged, g, { ...now, x1: now.x1 + 400 * metre }, { right: true }, 0)!
+close(wider.x1 - now.x1, 400 * metre, STEP)
+assert.equal(wider.x0, now.x0)
+const tight = reshapeAt(arranged, g, { ...now, y0: now.y1 }, { top: true }, 0)!
+assert.equal(tight.y0, gi.core.y0 + gi.dy) // stops at its buildings
+const huge = reshapeAt(arranged, g, { ...now, x1: now.x1 + 9000 * metre }, { right: true }, 0)!
+assert.ok((huge.x1 - huge.x0) / metre <= MAX_AREA_M + 1)
+assert.equal(reshapeAt(arranged, g, { ...now, y0: now.y0 - 5000 * metre }, { top: true }, 0), null) // into the main campus
+const drawn = changed(arranged, g, { area: wider })
+assert.ok(drawn.islands[g].drawn)
+assert.notEqual(drawn.key, arranged.key) // a new area is new tiles
+assert.deepEqual(boardRect(drawn.islands[g]), wider) // drawn where it was dragged
+const back = boardOf(all, 'row', layoutOf(drawn))!
+assert.deepEqual(back.islands.map(boardRect), drawn.islands.map(boardRect)) // stored and found again
+assert.ok(!changed(drawn, g, { fit: true }).islands[g].drawn)
+// a drawn area too small for its site (a building added) grows back round the buildings
+const small = layoutOf(drawn)
+small.sites![g].area = { x0: small.sites![g].area!.x0 + 999999, y0: small.sites![g].area!.y0, x1: small.sites![g].area!.x0 + 999999 + 10, y1: small.sites![g].area!.y0 + 10 }
+const grownBack = boardOf(all, 'row', small)!.islands.find((island) => island.buildings.includes('garching'))!
+assert.ok(grownBack.real.x0 <= grownBack.core.x0 && grownBack.real.x1 >= grownBack.core.x1)
 
 assert.equal(distanceLabel(842), '840 m')
 assert.equal(distanceLabel(3420), '3.4 km')

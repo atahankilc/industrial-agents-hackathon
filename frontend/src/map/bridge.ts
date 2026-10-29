@@ -348,8 +348,10 @@ export function applyBlocks() {
     const size = mine.reduce((sum, ring) => sum + ring.length, 0)
     if ((own.get(id)?.size ?? -1) < size) own.set(id, { rings: mine, base, top, size })
   }
-  // rebuilt only when what it is built from changed (tiles arrive, a building opens or closes)
-  const key = `${[...ids].join(',')}|${rest.length}`
+  // rebuilt only when what it is built from changed (tiles arrive, a building opens or closes, an island of an
+  // organisation's board is redrawn: the same pieces in other places, so where they lie is part of the key)
+  const where = rest.reduce((sum, piece) => sum + piece.geometry.coordinates[0][0][0] + piece.geometry.coordinates[0][0][1], 0)
+  const key = `${[...ids].join(',')}|${rest.length}|${where.toFixed(7)}`
   const source = map.getSource('rest') as GeoJSONSource | undefined
   if (source && (key !== restKey || source !== restSource)) {
     restKey = key

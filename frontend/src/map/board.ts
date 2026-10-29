@@ -11,17 +11,22 @@
 // An org's editors may drag the islands elsewhere and name them: the map's `layout` (backend/api/routes/maps.py) keeps
 // each site's name and move, and finds the site again by its buildings when the map changes. Once any island has been
 // placed by hand, the board is the stored one on every screen; a site without a place goes to the right of it.
+// An editor may also draw a site's area: its rectangle's edges dragged out or in (a rectangle, so islands still meet
+// edge to edge and the tiles are cut exactly). A drawn area always holds the site's buildings and is at most
+// MAX_AREA_M a side.
 // Pure: `node --experimental-strip-types frontend/scripts/board.check.ts` checks it.
 
 export type LngLat = [number, number]
 /** in world units, y down */
 export type Rect = { x0: number; y0: number; x1: number; y1: number }
-/** `real`: where the island's area is; `dx`, `dy`: its move onto the board; `name`: given by the org's editors */
-export type Island = { buildings: string[]; real: Rect; dx: number; dy: number; name: string | null }
+/** `real`: where the island's area is; `dx`, `dy`: its move onto the board; `name`: given by the org's editors;
+ * `core`: the least area (round its buildings); `auto`: the area the app gives it; `drawn`: `real` drawn by an editor */
+export type Island = { buildings: string[]; real: Rect; dx: number; dy: number; name: string | null; core: Rect; auto: Rect; drawn: boolean }
 /** an island before it is placed */
-export type Piece = { buildings: string[]; real: Rect; name?: string | null }
-/** one site of a map's stored layout: moves in STEP units, null = placed by the app */
-export type SiteLayout = { buildings: string[]; name: string | null; dx: number | null; dy: number | null }
+export type Piece = { buildings: string[]; real: Rect; name?: string | null; core: Rect; auto: Rect; drawn?: boolean }
+/** one site of a map's stored layout: moves in STEP units, null = placed by the app; `area`: a drawn area, in STEP
+ * units of the world (null = the app's) */
+export type SiteLayout = { buildings: string[]; name: string | null; dx: number | null; dy: number | null; area?: Rect | null }
 export type Layout = { sites?: SiteLayout[] }
 /** `at`: where the label goes, past the seam's end on the table (`anchor`: the label's side that touches it), so it
  * never covers a pin or a name */
@@ -35,6 +40,8 @@ export type Site = { id: string; points: LngLat[] }
 
 export const NEARBY_M = 600 // backend/agents/campus.py NEARBY_M: buildings this close are one site
 export const MARGIN_M = 150 // the streets round a site's buildings that its island shows
+export const CORE_M = 10 // a drawn area keeps at least this much round the site's buildings
+export const MAX_AREA_M = 3000 // a drawn area's longest side (each island's tiles are cut live)
 export const STEP = 2 ** -26 // one unit of a z14 tile's 4096 grid (2^14 · 2^12 units across the world)
 const R = 6378137
 
@@ -76,13 +83,16 @@ export function islandsOf(sites: Site[]): Piece[] {
     const xs = points.map(([lng]) => worldX(lng))
     const ys = points.map(([, lat]) => worldY(lat))
     const lat = points.reduce((sum, [, value]) => sum + value, 0) / points.length
-    const margin = MARGIN_M / metresPerUnit(lat)
     // snapped outward to the grid, so islands placed edge to edge meet without a hairline between them
-    const real = {
-      x0: outward(Math.min(...xs) - margin, false), y0: outward(Math.min(...ys) - margin, false),
-      x1: outward(Math.max(...xs) + margin, true), y1: outward(Math.max(...ys) + margin, true),
+    const round = (metres: number) => {
+      const margin = metres / metresPerUnit(lat)
+      return {
+        x0: outward(Math.min(...xs) - margin, false), y0: outward(Math.min(...ys) - margin, false),
+        x1: outward(Math.max(...xs) + margin, true), y1: outward(Math.max(...ys) + margin, true),
+      }
     }
-    return { buildings: indices.map((i) => placed[i].id), real }
+    const real = round(MARGIN_M)
+    return { buildings: indices.map((i) => placed[i].id), real, auto: real, core: round(CORE_M) }
   })
 }
 
@@ -102,21 +112,21 @@ export function arrange(islands: Piece[], arrangement: Arrangement): Board {
   for (const island of ordered) {
     const before = placed[placed.length - 1]
     if (!before) {
-      placed.push({ ...island, name: island.name ?? null, dx: 0, dy: 0 })
+      placed.push({ ...island, name: island.name ?? null, drawn: island.drawn ?? false, dx: 0, dy: 0 })
       continue
     }
     const first = centre(placed[0].real)
     const [cx, cy] = centre(island.real)
     const dx = row ? before.real.x1 + before.dx - island.real.x0 : Math.round((first[0] - cx) / STEP) * STEP
     const dy = row ? Math.round((first[1] - cy) / STEP) * STEP : before.real.y1 + before.dy - island.real.y0
-    placed.push({ ...island, name: island.name ?? null, dx, dy })
+    placed.push({ ...island, name: island.name ?? null, drawn: island.drawn ?? false, dx, dy })
   }
   return boardFrom(placed, arrangement[0])
 }
 
-/** A board from placed islands: a seam wherever two islands touch, a key from the places. */
+/** A board from placed islands: a seam wherever two islands touch, a key from their areas and places. */
 function boardFrom(islands: Island[], prefix: string): Board {
-  const text = islands.map((island) => `${island.buildings.join(',')}@${island.dx / STEP},${island.dy / STEP}`).join('|')
+  const text = islands.map(({ buildings, dx, dy, real }) => `${buildings.join(',')}@${[dx, dy, real.x0, real.y0, real.x1, real.y1].map((v) => v / STEP).join(',')}`).join('|')
   let hash = 5381
   for (let i = 0; i < text.length; i++) hash = ((hash * 33) ^ text.charCodeAt(i)) >>> 0
   return { key: `${prefix}${hash.toString(36)}`, islands, seams: seamsOf(islands), byHand: prefix === 'l' }
@@ -171,14 +181,14 @@ function placeByLayout(islands: Piece[], sites: (SiteLayout | null)[]): Board {
   const loose: Piece[] = []
   islands.forEach((island, i) => {
     const site = sites[i]
-    if (site && site.dx !== null && site.dy !== null) placed.push({ ...island, name: site.name, dx: site.dx * STEP, dy: site.dy * STEP })
+    if (site && site.dx !== null && site.dy !== null) placed.push({ ...island, name: site.name, drawn: island.drawn ?? false, dx: site.dx * STEP, dy: site.dy * STEP })
     else loose.push({ ...island, name: site?.name ?? island.name ?? null })
   })
   const rects = placed.map(boardRect)
   let right = Math.max(...rects.map((rect) => rect.x1))
   const top = Math.min(...rects.map((rect) => rect.y0))
   for (const island of loose.sort((a, b) => centre(a.real)[0] - centre(b.real)[0])) {
-    placed.push({ ...island, name: island.name ?? null, dx: right - island.real.x0, dy: top - island.real.y0 })
+    placed.push({ ...island, name: island.name ?? null, drawn: island.drawn ?? false, dx: right - island.real.x0, dy: top - island.real.y0 })
     right += island.real.x1 - island.real.x0
   }
   return boardFrom(placed, 'l')
@@ -186,21 +196,63 @@ function placeByLayout(islands: Piece[], sites: (SiteLayout | null)[]): Board {
 
 /** The layout to store for a board: every island's buildings, name and move. */
 export const layoutOf = (board: Board): Layout => ({
-  sites: board.islands.map((island) => ({ buildings: island.buildings, name: island.name, dx: Math.round(island.dx / STEP), dy: Math.round(island.dy / STEP) })),
+  sites: board.islands.map((island) => ({
+    buildings: island.buildings, name: island.name, dx: Math.round(island.dx / STEP), dy: Math.round(island.dy / STEP),
+    area: island.drawn ? { x0: Math.round(island.real.x0 / STEP), y0: Math.round(island.real.y0 / STEP), x1: Math.round(island.real.x1 / STEP), y1: Math.round(island.real.y1 / STEP) } : null,
+  })),
 })
 
-/** The board with one island moved to `rect` (its new place on the board, on the grid) or renamed. */
-export function changed(board: Board, index: number, change: { rect?: Rect; name?: string | null }): Board {
+/** The board with one island moved to `rect` (its new place on the board, on the grid), its area drawn as `area`
+ * (on the board; it stays where it is), its area given back to the app (`fit`), or renamed. */
+export function changed(board: Board, index: number, change: { rect?: Rect; area?: Rect; fit?: boolean; name?: string | null }): Board {
   const islands = board.islands.map((island, i) => {
     if (i !== index) return island
-    const rect = change.rect
+    const { rect, area } = change
     return {
       ...island,
       ...(rect ? { dx: Math.round((rect.x0 - island.real.x0) / STEP) * STEP, dy: Math.round((rect.y0 - island.real.y0) / STEP) * STEP } : {}),
+      ...(area ? { drawn: true, real: { x0: area.x0 - island.dx, y0: area.y0 - island.dy, x1: area.x1 - island.dx, y1: area.y1 - island.dy } } : {}),
+      ...(change.fit ? { drawn: false, real: island.auto } : {}),
       ...(change.name !== undefined ? { name: change.name?.trim() || null } : {}),
     }
   })
   return boardFrom(islands, 'l')
+}
+
+/** whether `rect` (on the board) would lie over an island other than `index` */
+export function overlaps(board: Board, index: number, rect: Rect) {
+  return board.islands.some((island, i) => {
+    if (i === index) return false
+    const other = boardRect(island)
+    return rect.x0 < other.x1 - STEP / 2 && other.x0 < rect.x1 - STEP / 2 && rect.y0 < other.y1 - STEP / 2 && other.y0 < rect.y1 - STEP / 2
+  })
+}
+
+export type Edges = { left?: boolean; right?: boolean; top?: boolean; bottom?: boolean }
+
+/** Island `index`'s area with the `edges` being dragged at `rect` (on the board): those edges pulled onto another
+ * island's edge within `pull`, on the grid, never inside the site's buildings (`core`) nor past MAX_AREA_M a side;
+ * null when it would lie over another island. */
+export function reshapeAt(board: Board, index: number, rect: Rect, edges: Edges, pull: number): Rect | null {
+  const island = board.islands[index]
+  const others = board.islands.filter((_, i) => i !== index).map(boardRect)
+  const snap = (value: number, targets: number[]) => {
+    const near = targets.filter((target) => Math.abs(target - value) <= pull).sort((a, b) => Math.abs(a - value) - Math.abs(b - value))[0]
+    return Math.round((near ?? value) / STEP) * STEP
+  }
+  const xs = others.flatMap((other) => [other.x0, other.x1])
+  const ys = others.flatMap((other) => [other.y0, other.y1])
+  const now = boardRect(island)
+  const core = { x0: island.core.x0 + island.dx, y0: island.core.y0 + island.dy, x1: island.core.x1 + island.dx, y1: island.core.y1 + island.dy }
+  const longest = Math.floor(MAX_AREA_M / metresPerUnit(latOf(centre(island.real)[1])) / STEP) * STEP
+  let { x0, y0, x1, y1 } = now
+  // (the buildings win over the longest side: a site spread wider than that keeps them all)
+  if (edges.left) x0 = Math.min(Math.max(snap(rect.x0, xs), x1 - longest), core.x0)
+  if (edges.right) x1 = Math.max(Math.min(snap(rect.x1, xs), x0 + longest), core.x1)
+  if (edges.top) y0 = Math.min(Math.max(snap(rect.y0, ys), y1 - longest), core.y0)
+  if (edges.bottom) y1 = Math.max(Math.min(snap(rect.y1, ys), y0 + longest), core.y1)
+  const shaped = { x0, y0, x1, y1 }
+  return overlaps(board, index, shaped) ? null : shaped
 }
 
 /** Island `index` dragged to `rect`: its edges pulled onto another island's within `pull` (world units), so islands
@@ -219,8 +271,7 @@ export function dropAt(board: Board, index: number, rect: Rect, pull: number): R
   const x0 = Math.round((rect.x0 + shiftX) / STEP) * STEP
   const y0 = Math.round((rect.y0 + shiftY) / STEP) * STEP
   const snapped = { x0, y0, x1: x0 + width, y1: y0 + height }
-  const over = others.some((other) => snapped.x0 < other.x1 - STEP / 2 && other.x0 < snapped.x1 - STEP / 2 && snapped.y0 < other.y1 - STEP / 2 && other.y0 < snapped.y1 - STEP / 2)
-  return over ? null : snapped
+  return overlaps(board, index, snapped) ? null : snapped
 }
 
 /** where an island lies on the board */
@@ -272,8 +323,18 @@ type Located = { id: string; location: { lat: number; lon: number; origin?: { la
 export function boardOf(buildings: Located[], arrangement: Arrangement, layout: Layout | null = null): Board | null {
   const sites = buildings.flatMap((b) => (b.location ? [{ id: b.id, points: b.location.outline?.flat().length ? b.location.outline.flat() : [[b.location.lon, b.location.lat] as LngLat] }] : []))
   if (!sites.length) return null
-  const islands = islandsOf(sites)
-  const stored = matchSites(islands, layout?.sites ?? [])
+  const found = islandsOf(sites)
+  const stored = matchSites(found, layout?.sites ?? [])
+  // a drawn area, grown back round the buildings if the site has grown past it
+  const islands = found.map((island, i) => {
+    const area = stored[i]?.area
+    if (!area) return island
+    const real = {
+      x0: Math.min(area.x0 * STEP, island.core.x0), y0: Math.min(area.y0 * STEP, island.core.y0),
+      x1: Math.max(area.x1 * STEP, island.core.x1), y1: Math.max(area.y1 * STEP, island.core.y1),
+    }
+    return { ...island, real, drawn: true }
+  })
   if (stored.some((site) => site && site.dx !== null && site.dy !== null)) return placeByLayout(islands, stored)
   return arrange(islands.map((island, i) => ({ ...island, name: stored[i]?.name ?? null })), arrangement)
 }

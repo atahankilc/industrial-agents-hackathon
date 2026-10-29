@@ -155,8 +155,8 @@ Template:
 
 <a id="q-023"></a>
 ### Q-023 — What does an island on an org's map show?
-- **Status:** open · **Priority:** med · **Resolve by:** team decision, before phase 3
-- **Context:** [organizations.md § Phase 3](../docs/product/organizations.md#phase-3--the-compact-island-board-planned).
+- **Status:** open (default built 2026-10-29: streets, green, water and OSM blocks round the buildings) · **Priority:** low · **Resolve by:** team decision
+- **Context:** [organizations.md § Phase 3](../docs/product/organizations.md#phase-3--the-compact-island-board-first-cut-built).
   Planned: the drawn area with its streets, green, water and OSM blocks (a snapshot from the tiles). Alternative:
   only the org's buildings and the area outline — no snapshot, much simpler, less context for finding the entrance.
 - **How to resolve:** Atahan picks; a mock of both on the TUM main campus would help.

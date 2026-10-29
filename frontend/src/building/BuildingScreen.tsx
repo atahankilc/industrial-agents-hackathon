@@ -120,6 +120,8 @@ type ScreenProps = {
   buildingId: string
   /** where the building's metres start on the map, when the map is under this screen */
   origin: Origin | null
+  /** where the building really is, when `origin` is its place on an organisation's island board (src/map/board.ts) */
+  realOrigin?: Origin | null
   /** fading out (another building, or the landing, is coming) */
   leaving: boolean
   onBack: () => void
@@ -130,7 +132,7 @@ type ScreenProps = {
   org?: string | null
 }
 
-export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, startEditing = false, org = null }: ScreenProps) {
+export function BuildingScreen({ buildingId, origin, realOrigin, leaving, onBack, onOpen, startEditing = false, org = null }: ScreenProps) {
   const theme = useTheme()
   const palette = theme.dark ? DARK : LIGHT
   const viewport = useViewport()
@@ -373,7 +375,7 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
       const runs = routeRuns(next.route.line)
       if (!runs.length) return
       const points = next.route.line.map(([x, y, at]) => [x, y, at] as [number, number, number])
-      const outdoor = next.route.next && origin ? outdoorWalk(next.route.next, origin, runs[runs.length - 1].floor) : null
+      const outdoor = next.route.next && origin ? outdoorWalk(next.route.next, realOrigin ?? origin, runs[runs.length - 1].floor) : null
       if (outdoor) points.push([...outdoor.to, outdoor.floor])
       const floorsCrossed = new Set(runs.map((run) => run.floor))
       setFloor(runs[0].floor)
@@ -645,8 +647,8 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
     const next = story.route?.next
     if (!next || !origin || !story.route) return null
     const runs = routeRuns(story.route.line)
-    return runs.length ? outdoorWalk(next, origin, runs[runs.length - 1].floor) : null
-  }, [story.route, origin])
+    return runs.length ? outdoorWalk(next, realOrigin ?? origin, runs[runs.length - 1].floor) : null
+  }, [story.route, origin, realOrigin])
   const continueTo = (next: NextBuilding) => {
     const arrival: Arrival = { entrance: next.entrance, destination: next.destination, from: sessionId, fromName: plan?.building.name ?? '', name: next.name, destinationName: next.destination_name }
     sessionStorage.setItem(arrivalKey(next.building), JSON.stringify(arrival))

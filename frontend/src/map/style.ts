@@ -4,7 +4,7 @@
 // as footprints that rise into 3D blocks (OSM `render_height`). Farmland stays ground colour, so the countryside
 // reads calm instead of patchy. Labels use the tile server's Noto glyphs.
 
-import type { ExpressionSpecification, FillExtrusionLayerSpecification, FilterSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl'
+import type { ExpressionSpecification, FillExtrusionLayerSpecification, FilterSpecification, GeoJSONSourceSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl'
 
 export const BUILDINGS_FROM_ZOOM = 14 // OpenMapTiles carries buildings from z14
 export const BUILDINGS_3D_FILTER: FilterSpecification = ['!=', ['get', 'hide_3d'], true] // outlines split into parts draw as their parts
@@ -322,13 +322,46 @@ export const blockLook = (dark: boolean) => {
 /** the map's ground colour (the model tints what lies under the ground with it) */
 export const groundColour = (dark: boolean) => PALETTE[dark ? 'dark' : 'light'].land
 
+const ATTRIBUTION = '<a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/">OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+
+// an organisation's island board (./board.ts): the islands lie on a table a shade off the ground, so where the world
+// was cut away reads as "not on this map", not as empty land
+const TABLE = { dark: '#09090B', light: '#DCDBD5' }
+
+/** The style of an island board: the same layers on the board's own tiles (./boardTiles.ts), the islands' ground
+ * on the table, a seam between neighbouring islands and, past its end, how far apart they really are. */
+export function boardStyle(dark: boolean, tiles: string, shapes: GeoJSONSourceSpecification['data']): StyleSpecification {
+  const p = PALETTE[dark ? 'dark' : 'light']
+  const table = TABLE[dark ? 'dark' : 'light']
+  const style = mapStyle(dark)
+  const kind = (name: string): FilterSpecification => ['==', ['get', 'kind'], name]
+  const [land, ...rest] = style.layers
+  return {
+    ...style,
+    sources: { ...style.sources, openmaptiles: { type: 'vector', tiles: [tiles], maxzoom: 14, attribution: ATTRIBUTION }, board: { type: 'geojson', data: shapes } },
+    sky: { ...style.sky, 'sky-color': table, 'horizon-color': table, 'fog-color': table },
+    layers: [
+      { ...land, paint: { 'background-color': table } } as LayerSpecification,
+      { id: 'island', type: 'fill', source: 'board', filter: kind('island'), paint: { 'fill-color': p.land } },
+      ...rest,
+      { id: 'island-edge', type: 'line', source: 'board', filter: kind('island'), paint: { 'line-color': p.footprintLine, 'line-width': 1 } },
+      { id: 'seam', type: 'line', source: 'board', filter: kind('seam'), paint: { 'line-color': p.labelMuted, 'line-width': 1.5, 'line-dasharray': [3, 3] } },
+      {
+        id: 'seam-label', type: 'symbol', source: 'board', filter: kind('seam-label'),
+        layout: { 'text-field': ['get', 'label'], 'text-font': FONT.bold, 'text-size': 12, 'text-anchor': ['get', 'anchor'] as never, 'text-offset': ['match', ['get', 'anchor'], 'top', ['literal', [0, 0.6]], ['literal', [-0.6, 0]]] as never, 'text-allow-overlap': true },
+        paint: { 'text-color': p.label, 'text-halo-color': p.halo, 'text-halo-width': 2 },
+      },
+    ],
+  }
+}
+
 export function mapStyle(dark: boolean): StyleSpecification {
   const p = PALETTE[dark ? 'dark' : 'light']
   return {
     version: 8,
     sources: {
       rest: { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, promoteId: 'piece' },
-      openmaptiles: { type: 'vector', url: 'https://tiles.openfreemap.org/planet', attribution: '<a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/">OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' },
+      openmaptiles: { type: 'vector', url: 'https://tiles.openfreemap.org/planet', attribution: ATTRIBUTION },
     },
     glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
     // the far ground fades into the background colour when the map is tilted, so the horizon stays quiet

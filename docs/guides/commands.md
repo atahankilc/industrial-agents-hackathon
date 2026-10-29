@@ -154,6 +154,8 @@ BACKEND_PORT=8400 FRONTEND_PORT=5400 npm run dev            # other ports when t
 GUIDE_LLM=offline uv run uvicorn backend.api.app:app --port 8390    # backend alone; or: uv run --env-file .env uvicorn … (real Claude)
 cd frontend && npm install && npm run dev                   # app alone: http://localhost:5390 (?building=<id>), strictPort
 cd frontend && npm run build                                # type-check + production bundle in dist/
+node --experimental-strip-types frontend/scripts/board.check.ts   # an org map's island board (src/map/board.ts)
+node --experimental-strip-types frontend/scripts/geo.check.ts     # building metres ↔ lat/lon (src/map/geo.ts)
 ```
 
 **Edit mode** (ruler-pencil button in the building screen's right-hand controls): edits a draft copy of the current

@@ -7,7 +7,7 @@ related: [decisions.md, open-questions.md, log.md, ../archive/hackathon/README.m
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-28** (organisations phase 1 [D-029](decisions.md#d-029), dataset in one folder [D-028](decisions.md#d-028), rename to Steward [D-027](decisions.md#d-027), repo restructure [D-024](decisions.md#d-024), solvers + API routers [D-025](decisions.md#d-025), tool layer + live packages [D-026](decisions.md#d-026))
+[Memory bank](README.md) · Last updated: **2026-10-29** (organisations phases 1–3 [D-029](decisions.md#d-029), dataset in one folder [D-028](decisions.md#d-028), rename to Steward [D-027](decisions.md#d-027), repo restructure [D-024](decisions.md#d-024), solvers + API routers [D-025](decisions.md#d-025), tool layer + live packages [D-026](decisions.md#d-026))
 
 ## Phase
 
@@ -55,6 +55,10 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
   Migration `20261029120000_maps.sql` written, **not applied**.
 - **Organisations, phase 2c:** org editors use Edit mode on their org's buildings and, in a verified org, create
   buildings from plans; saves belong to the org (and go onto the org map they were made from).
+- **Organisations, phase 3 (first cut):** an org map (`?map=`) is an island board (`frontend/src/map/board.ts`,
+  `boardTiles.ts`): sites side by side on tiles cut from the real ones in the browser, seams saying the real distance,
+  the buildings and the open model moved with their island. Not yet: dragging / naming islands, drawn areas, the
+  blue dot on the board.
 - **Workflow:** verified commits via `/ship` ([D-008](decisions.md#d-008),
   [dev-workflow.md](../docs/guides/dev-workflow.md)); work on `dev`, never on `main`.
 
@@ -74,7 +78,8 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
 
 - **Organisations** ([organizations.md](../docs/product/organizations.md)): apply `20261028120000_orgs.sql` and
   `20261029120000_maps.sql` before this code is deployed (it reads the new tables and columns); then the Guide's
-  neighbours on a map, a per-org Creator quota, org badges on the main map, phase 3 (island board). Open: [Q-022](open-questions.md#q-022)–[Q-024](open-questions.md#q-024).
+  neighbours on a map, a per-org Creator quota, org badges on the main map, the rest of phase 3 (editors arrange and
+  name islands, drawn areas, location on the board). Open: [Q-022](open-questions.md#q-022)–[Q-024](open-questions.md#q-024).
 
 0. **Rename to Steward outside the repo** ([D-027](decisions.md#d-027)): done: GitHub repo → `atahankilc/steward`
    (remote updated, homepage set), Vercel project → `steward`, deployed at https://steward-io.vercel.app

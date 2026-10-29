@@ -8,6 +8,10 @@
 // follows the model's camera (./bridge.ts), so in the city view the neighbours stay on screen and their pins can be
 // tapped; shown alone, the building screen's own stage covers it. Closing the building flies back to where the map was
 // when it was opened (every pin, if it was opened from a link).
+// An organisation's map (`scoped`) is an island board instead of the world (./board.ts, docs/product/organizations.md
+// phase 3): its sites as islands side by side on their own tiles (./boardTiles.ts), the buildings moved with them
+// (src/Root.tsx), no "you are here" (the board is not the world), "Create a building here" only on an island, at the
+// real place under the tap.
 
 import maplibregl, { type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -20,7 +24,9 @@ import { outerRing, ringContains, TILE_BUILDINGS } from './geo'
 import { applyBlocks, attachMap, FLAT_FOV, osmHeights, setTheme, toLngLat, type Origin } from './bridge'
 import '../building/hud.css' // the HUD tokens (--hud-*) the panel shares with the building screen
 import './map.css'
-import { BUILDINGS_FROM_ZOOM, MODEL_TONES, mapStyle, mix, modelColours, modelTones } from './style'
+import { BUILDINGS_FROM_ZOOM, MODEL_TONES, boardStyle, mapStyle, mix, modelColours, modelTones } from './style'
+import { boardBounds, boardShapes, islandAt, toReal, type Board } from './board'
+import { boardTilesUrl, registerBoard } from './boardTiles'
 import { reducedMotion } from '../motion'
 
 // the list's kind chips, in this order; a chip shows only when some building has that kind
@@ -106,14 +112,27 @@ function easeFov(map: MapLibreMap, to: number, ms: number) {
   easing.set(map, requestAnimationFrame(step))
 }
 
+// an organisation's map before its buildings are in: the table alone, not a flash of the world
+const NO_ISLANDS: Board = { key: 'none', islands: [], seams: [] }
+function styleFor(dark: boolean, scoped: boolean, board: Board | null) {
+  if (!scoped) return mapStyle(dark)
+  const shown = board ?? NO_ISLANDS
+  registerBoard(shown)
+  return boardStyle(dark, boardTilesUrl(shown), boardShapes(shown))
+}
+
 /** "Version 2" for a saved building whose name was taken (user/<slug>-2), "Version 1" for the first save. */
 const versionOf = (id: string) => (id.startsWith('user/') ? `Version ${/-(\d+)$/.exec(id)?.[1] ?? 1}` : null)
 
-export function MapLanding({ buildings, error, focus, scope = null, onOpen, onImport, onDeleted, onLeaveScope }: {
+export function MapLanding({ buildings, error, focus, scope = null, scoped = false, board = null, onOpen, onImport, onDeleted, onLeaveScope }: {
   buildings: Building[] | null
   error: string | null
   /** an organisation's map (?map=, docs/product/organizations.md): its name and org head the map instead of Steward's */
   scope?: { name: string; org: string | null; orgSlug?: string; verified?: boolean } | null
+  /** the map is an organisation's (fixed for this map's life: Root keys it by the map) and shows `board` once known;
+   * `buildings` are then already on the board */
+  scoped?: boolean
+  board?: Board | null
   focus: Focus | null
   onOpen: (id: string) => void
   onImport: (place?: ImportPlace) => void
@@ -130,6 +149,8 @@ export function MapLanding({ buildings, error, focus, scope = null, onOpen, onIm
   openRef.current = onOpen
   const focusRef = useRef(focus)
   focusRef.current = focus
+  const boardRef = useRef(board)
+  boardRef.current = board
   const geolocateRef = useRef<maplibregl.GeolocateControl | null>(null)
   // the building picked in the list: the map flies to it and keeps it lit; a tap on it on the map opens it
   const [picked, setPicked] = useState<string | null>(null)
@@ -215,7 +236,7 @@ export function MapLanding({ buildings, error, focus, scope = null, onOpen, onIm
   useEffect(() => {
     const map = new maplibregl.Map({
       container: container.current!,
-      style: mapStyle(dark),
+      style: styleFor(dark, scoped, board),
       ...MUNICH,
       pitch: PITCH,
       maxPitch: 75, // the model tilts to 69° (src/plan/PlanView.tsx MAX_POLAR)
@@ -227,10 +248,12 @@ export function MapLanding({ buildings, error, focus, scope = null, onOpen, onIm
     // the compact credits start open, a two-line bar over the map on a phone: closed to their (i) button
     map.once('idle', () => container.current?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show'))
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right')
-    // the viewer's own position as a dot (the browser asks first; it needs https or localhost)
-    const geolocate = new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true, fitBoundsOptions: { maxZoom: 16 } })
-    map.addControl(geolocate, 'bottom-right')
-    geolocateRef.current = geolocate
+    // the viewer's own position as a dot (the browser asks first; it needs https or localhost); not on a board
+    if (!scoped) {
+      const geolocate = new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true, fitBoundsOptions: { maxZoom: 16 } })
+      map.addControl(geolocate, 'bottom-right')
+      geolocateRef.current = geolocate
+    }
     // a building opens from its pin, its name, the halo round the pin or its block, and the pointer may miss by a
     // finger's width (HIT_SLOP px): the pin alone is too small a target
     const hit = (point: maplibregl.Point) => {
@@ -279,7 +302,8 @@ export function MapLanding({ buildings, error, focus, scope = null, onOpen, onIm
       const ours = oursAt(event.point)
       const pinned = ours.length ? null : hit(event.point)
       if (ours.length || pinned) return setCard({ kind: 'ours', ids: ours.length ? ours : [pinned!], at, pick: true })
-      if (!canCreateRef.current) return setCard(null)
+      // on a board only on an island (open table is nowhere)
+      if (!canCreateRef.current || (boardRef.current && !islandAt(boardRef.current, at))) return setCard(null)
       // the building whose footprint holds the ground point under the cursor (tile data, not the tilted 3D blocks), else
       // the block drawn under the cursor
       const onGround = map.querySourceFeatures('openmaptiles', { sourceLayer: 'building' })
@@ -500,7 +524,7 @@ export function MapLanding({ buildings, error, focus, scope = null, onOpen, onIm
       return
     }
     if (!was) return
-    const bounds = pinBounds(located)
+    const bounds = boardRef.current ? boardBounds(boardRef.current) : pinBounds(located)
     const ms = flyMs()
     const back = before.current
     before.current = null
@@ -514,14 +538,30 @@ export function MapLanding({ buildings, error, focus, scope = null, onOpen, onIm
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusId])
 
-  // theme change: swap the base style (pins are re-added on style.load above)
-  const shownStyle = useRef(dark)
+  // theme change or new islands: swap the base style (pins are re-added on style.load above)
+  const styleKey = `${dark}|${board?.key ?? ''}`
+  const shownStyle = useRef(styleKey)
   useEffect(() => {
     const map = mapRef.current
-    if (!map || shownStyle.current === dark) return
-    shownStyle.current = dark
-    map.setStyle(mapStyle(dark), { diff: false })
-  }, [dark])
+    if (!map || shownStyle.current === styleKey) return
+    shownStyle.current = styleKey
+    map.setStyle(styleFor(dark, scoped, board), { diff: false })
+    // board is read with its key
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [styleKey])
+  // the camera stays over the board, with room round it to tilt and turn
+  useEffect(() => {
+    const map = mapRef.current
+    if (map && scoped) map.setMaxBounds(board ? boardBounds(board, 1) : null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board?.key])
+
+  /** a place tapped on a board, back where it really is (the import stands the building there) */
+  const realPlace = (place: ImportPlace, at: [number, number]): ImportPlace => {
+    const island = boardRef.current ? islandAt(boardRef.current, at) : null
+    if (!island) return place
+    return 'ring' in place ? { ...place, ring: place.ring.map((point) => toReal(island, point)) } : { ...place, point: toReal(island, place.point) }
+  }
 
   // the card sits at the tapped point (above it, below when there is no room), following it as the map moves; on narrow
   // screens it stays a bottom sheet (map.css)
@@ -562,7 +602,7 @@ export function MapLanding({ buildings, error, focus, scope = null, onOpen, onIm
   const framed = useRef(false)
   useEffect(() => {
     const map = mapRef.current
-    const bounds = pinBounds(located)
+    const bounds = boardRef.current ? boardBounds(boardRef.current) : pinBounds(located)
     if (!map || framed.current || !bounds) return
     framed.current = true
     map.fitBounds(bounds, { pitch: PITCH, padding: fitPadding(), maxZoom: 15, duration: 0 })
@@ -580,7 +620,7 @@ export function MapLanding({ buildings, error, focus, scope = null, onOpen, onIm
     else map.once('load', () => geolocate.trigger())
   }
   useEffect(() => {
-    if (!('geolocation' in navigator) || focusId || locateAsked.current) return
+    if (!('geolocation' in navigator) || scoped || focusId || locateAsked.current) return
     locateAsked.current = true
     let dismissed = false
     let allowed = false
@@ -766,7 +806,7 @@ export function MapLanding({ buildings, error, focus, scope = null, onOpen, onIm
             ) : (
               <button className="ml-create-main" autoFocus onClick={() => {
                 setCard(null)
-                onImport(card.place)
+                onImport(realPlace(card.place, card.at))
               }}>
                 Create a building here
               </button>

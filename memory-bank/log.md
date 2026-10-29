@@ -9,6 +9,23 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-29 — Organisations phase 3, first cut: the island board
+
+- 2c shipped as `090b423`.
+- `frontend/src/map/board.ts` (pure): sites by single linkage at 600 m, an island = rectangle round the outlines + 150 m,
+  laid edge to edge in a row (wide) or column (phone), moved by whole z14 grid steps in Web Mercator; seams with the real
+  distance ("15 km apart": the Noto glyphs have no arrows, the first try drew "↔" as dots). `boardTiles.ts`: a
+  `board://` MapLibre protocol cuts each board tile from the real OpenFreeMap tiles (clip to island and to the real
+  tile's square, move, re-encode with `@maplibre/vt-pbf`). `style.ts` `boardStyle`: the same layers on the board tiles,
+  islands on a table colour. `Root.tsx` moves the map's buildings onto the board; `BuildingScreen` gets `realOrigin` for
+  the outdoor walk. No geolocation on a board; "Create a building here" only on an island, at the real place.
+- Checks: `node --experimental-strip-types frontend/scripts/board.check.ts` ok, `geo.check.ts` ok, `npx tsc -b` clean,
+  `npx oxlint` on the changed files: no warnings. Headless (in-memory backend :8391, map `tum-sites`: Hauptgebäude +
+  Mensa, StudiTUM Garching, Weihenstephan): three islands in a row (wide) and a column (phone), streets and blocks
+  inside, "15 km apart" under each seam; StudiTUM opened from the board sits on its island with Lichtenbergstraße
+  round it; the theme switch rebuilds the board style (light); the main map still uses the OpenFreeMap source; no
+  console errors.
+
 ## 2026-10-29 — Organisations phase 2c: Edit mode and imports for org editors
 
 - 2a/2b shipped as `b126fd7` (1 verifier round).

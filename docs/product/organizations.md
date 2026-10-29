@@ -1,6 +1,6 @@
 ---
 id: organizations
-summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings) and phase 2 (maps, share links, ?map= scope, organisations sheet, Edit mode and imports for org editors) are built; 3–4 are the plan.
+summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings), phase 2 (maps, share links, ?map= scope, organisations sheet, Edit mode and imports for org editors) and the first cut of phase 3 (the island board) are built; the rest of 3 and 4 are the plan.
 sources:
   - backend/api/access.py
   - backend/api/routes/orgs.py
@@ -9,6 +9,7 @@ sources:
   - backend/api/routes/maps.py
   - supabase/migrations/20261029120000_maps.sql
   - frontend/src/org/OrgScreen.tsx, frontend/src/Root.tsx, frontend/src/map/MapLanding.tsx
+  - frontend/src/map/board.ts, frontend/src/map/boardTiles.ts, frontend/src/map/style.ts, frontend/scripts/board.check.ts
   - tests/test_maps.py
   - tests/test_org_editing.py
   - backend/api/deps.py
@@ -34,7 +35,7 @@ its own map: only its buildings, shared with its people or by a link, and some o
 | **Role** | `viewer` opens the org's private buildings · `editor` also administers them (rules, members, objects, listing) · `owner` also manages the org's people | — |
 | **Listing** (per building) | `listed` on the main map · `unlisted` anyone with the link or the org's map opens it, only the org finds it · `private` only the org and invited members | — |
 | **Map** (phase 2) | An org's curated set of buildings with its own address and visibility (`private` / `link` / `public`); an org may have several | "TUM Campuses" |
-| **Site** (phase 3) | One island on a map: buildings close together and the area the org draws around them | Stammgelände, Garching, Weihenstephan |
+| **Site** (phase 3) | One island on a map: buildings close together and the area round them (later: the area the org draws) | Stammgelände, Garching, Weihenstephan |
 | **Admin** | `ADMIN_EMAIL`, as before: every building and org | — |
 
 Buildings without an org belong to the platform (the admins): the kit dataset and today's saved `user/*` buildings.
@@ -120,27 +121,49 @@ Still to do:
 - Main map: listed buildings carry their org's badge; tapping it opens the org's public map.
 - An unlisted building opened by a bare `?building=` link (without its map) has no position on the landing.
 
-## Phase 3 — the compact island board (planned)
+## Phase 3 — the compact island board (first cut built)
 
-The org's map does not show the world. Each site is an island cut to the area drawn for it (default: the buildings'
-hull plus a margin) with its streets, green, water and OSM blocks; the islands sit next to each other instead of
-15 km apart, and the org may drag them closer.
+The org's map does not show the world. Each site is an island cut to the area round its buildings, with its streets,
+green, water and OSM blocks; the islands sit next to each other instead of 15 km apart.
 
-- **Honest compression:** inside an island everything is at true scale and true north. Between islands a seam marks
-  the cut and says the real distance ("↔ 15 km"), like an axis break on a chart. Islands are only moved, never
-  turned or scaled.
-- **How:** one MapLibre map on "board" coordinates. When a map is published, each site's OSM content inside its
-  area is taken once from the vector tiles (OpenMapTiles schema, ODbL attribution kept, snapshot date stored),
-  shifted to the island's place on the board and stored as GeoJSON; the board style is generated from `style.ts`'s
-  palette, so it looks like the main map. The model, the camera bridge (`bridge.ts`) and the x-ray blocks
-  (`neighbours.ts`) work as now with the shifted origin.
-  Rejected: real geography with a mask (keeps the 15 km gaps), one map instance per island (WebGL context limit,
-  no continuous pan), rewriting tile URLs (only shifts by whole z14 tiles, ~1.6 km).
-- **Layout:** islands packed by size, in a column on a phone and a row on a wide screen; editors may rearrange.
-  Sites come from clustering the buildings by distance (the campus already uses `NEARBY_M` = 600 m), then are named,
-  merged or split by the org.
-- **Location:** the blue dot appears shifted onto the board when the user stands inside an island; otherwise "nearest
-  site: Garching, 3 km".
+Built (2026-10-29), all in the app (`frontend/src/map/board.ts`, `boardTiles.ts`; checked by
+`node --experimental-strip-types frontend/scripts/board.check.ts`):
+
+- **Sites:** the map's buildings with a position, grouped by single linkage at `NEARBY_M` = 600 m (the Guide's campus
+  uses the same distance). An island is the rectangle round a site's outlines plus `MARGIN_M` = 150 m.
+- **Layout:** islands edge to edge, in a row west to east on a wide screen and a column north to south on a phone
+  (decided when the map's buildings arrive), each centred on the first, which stays where it really is. Nothing is
+  stored: the board follows the map's buildings.
+- **Honest compression:** an island is only moved, never turned or scaled. The move is a Web Mercator translation in
+  whole steps of the z14 tiles' 4096 grid, so the base map can be cut and moved exactly. (Mercator's scale changes a
+  little with a move north or south: about 0.3 % per 15 km at Munich's latitude.) A dashed seam marks each cut, and
+  past its end the table says how far apart the two sites really are ("15 km apart"; the map's Noto glyphs have no
+  arrows).
+- **Tiles:** a `board://<key>/{z}/{x}/{y}` protocol (`maplibregl.addProtocol`) builds each board tile from the real
+  OpenFreeMap tiles under the islands it shows: every feature clipped to the island and to its real tile's own square,
+  moved, and written back as a vector tile (`@mapbox/vector-tile`, `pbf`, `@maplibre/vt-pbf`, already maplibre's
+  dependencies, now listed directly). The style (`style.ts` `boardStyle`) is the main map's, on these tiles, with the
+  table round the islands a shade off the ground. The OSM block heights, the blocks hidden under an open building and
+  the x-ray blocks (`bridge.ts`, `neighbours.ts`) read the same `openmaptiles` source unchanged. The tiles are fetched
+  live, so the board shows OSM as it is today (ODbL attribution as on the main map). Known limit: a polygon cut at a
+  real tile's edge draws that edge faintly on the flat `footprint` layer (z13–14.6).
+- **Buildings:** `Root.tsx` moves each building's position, origin and outline with its island, so pins, model
+  blocks, framing and the open building's model and camera all agree. The building screen gets the real origin too
+  (`realOrigin`) for the walk outside to the next building, which the Guide gives in real coordinates.
+- **On the board:** no "you are here" (the board is not the world); "Create a building here" works only on an island
+  and sends the real place under the tap; the camera is kept over the board.
+- The decision against stored snapshots: cutting the tiles in the browser needs no publish step, no storage and no
+  snapshot to refresh. Still rejected: real geography with a mask (keeps the 15 km gaps), one map instance per island
+  (WebGL context limit, no continuous pan).
+
+Still to do in phase 3:
+
+- Editors drag islands closer or apart and name, merge or split sites; stored in the map's `layout` (the column already
+  exists).
+- An area the org draws instead of the rectangle round the buildings.
+- **Location:** the blue dot moved onto the board when the user stands inside an island; otherwise "nearest site:
+  Garching, 3 km".
+- A building on an org map that has no position still has no island (it is listed under the map, as on the main map).
 
 ## Phase 4 — polish (planned)
 
@@ -151,6 +174,6 @@ paging or bounding-box listing once there are many orgs.
 
 - [Q-022](../../memory-bank/open-questions.md#q-022): who may start an org (anyone, as built, or approved first).
 - [Q-023](../../memory-bank/open-questions.md#q-023): do islands show the surrounding streets and OSM blocks or only
-  the org's buildings and drawn area.
+  the org's buildings and drawn area (built: streets and blocks, the plan's default).
 - [Q-024](../../memory-bank/open-questions.md#q-024): what the app calls a map ("workspace", "map", …) and who owns
   today's unowned `user/*` buildings (now: the platform).

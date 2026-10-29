@@ -494,4 +494,8 @@ Template:
   this code reaches a deploy on the shared database (the new code selects `listing` and `org`); older code keeps
   working on the migrated table because `public` is still written and wins on disagreement. Edit mode and imports
   stay admin-only until phase 2.
+- **Update 2026-10-29 (phase 3, first cut):** the island board cuts the real tiles in the browser (`board://`
+  protocol, `frontend/src/map/boardTiles.ts`) instead of storing per-site snapshots: no publish step, no storage, OSM
+  as it is today. Islands are moved by whole z14 grid steps in Web Mercator, never turned or scaled
+  ([organizations.md § Phase 3](../docs/product/organizations.md#phase-3--the-compact-island-board-first-cut-built)).
 - **Evidence:** `tests/test_orgs.py` (11 tests), `uv run pytest -q` → 966 passed, 2 skipped.

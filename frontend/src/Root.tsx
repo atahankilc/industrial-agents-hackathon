@@ -5,13 +5,16 @@ import { api, type Building, type ImportPlace, type OrgMapView } from './api'
 import { BuildingScreen } from './building/BuildingScreen.tsx'
 import { prefetch } from './building/opening'
 import { MapLanding } from './map/MapLanding.tsx'
+import { boardOf, onBoard } from './map/board'
 import { ImportScreen } from './import/ImportScreen.tsx'
 import { OrgScreen } from './org/OrgScreen.tsx'
 
 // Landing is the map of the buildings that have a real position, its search listing every building (the ones without
 // a position after them); ?view=import is the create-from-floor-plans screen, ?view=org&org=<slug> an organisation's
 // settings. ?map=<slug> (&k=<key> for a link-shared one) makes the landing an organisation's map: only its buildings
-// (docs/product/organizations.md); it stays on while buildings open and close.
+// (docs/product/organizations.md); it stays on while buildings open and close. There the map is an island board
+// (src/map/board.ts): the buildings are moved onto it here, so the map, the pins and the open model agree; the
+// building screen still gets the real origin for what it measures in the world (the walk to the next building).
 // Picking one opens its twin (?building=<id>); the pill at the top goes back to the map.
 // A building with a position opens on top of the map, which stays mounted: the map flies in, then follows the
 // model's camera, in its city: the neighbours on screen and their pins tappable. Leaving fades the model out while
@@ -107,10 +110,19 @@ export function Root() {
     setView(fromUrl())
   }
 
-  const originOf = (id: string | null) => {
-    const location = id ? buildings?.find((item) => item.id === id)?.location : null
+  // an organisation's map: its sites side by side, in a row on a wide screen, a column on a phone
+  const board = useMemo(
+    () => (view.map && buildings ? boardOf(buildings, matchMedia('(max-width: 899px)').matches ? 'column' : 'row') : null),
+    [view.map, buildings],
+  )
+  const placed = useMemo(() => (board && buildings ? buildings.map((building) => onBoard(board, building)) : buildings), [board, buildings])
+  const originIn = (list: Building[] | null, id: string | null) => {
+    const location = id ? list?.find((item) => item.id === id)?.location : null
     return location?.origin ? { ...location.origin, bearing: location.bearing ?? 0 } : null
   }
+  const originOf = (id: string | null) => originIn(placed, id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const realOrigin = useMemo(() => originIn(buildings, shown), [buildings, shown])
   const target = originOf(view.building)
   const focus = useMemo(
     () => (view.building && target ? { id: view.building, origin: target } : null),
@@ -124,7 +136,7 @@ export function Root() {
   return (
     <>
       {withMap && (
-        <MapLanding key={view.map ?? ''} buildings={buildings} error={error} focus={focus} onOpen={(id) => go(id, 'map')} onImport={(where) => {
+        <MapLanding key={view.map ?? ''} buildings={placed} scoped={Boolean(view.map)} board={board} error={error} focus={focus} onOpen={(id) => go(id, 'map')} onImport={(where) => {
           setPlace(where ?? null)
           go(null, 'import')
         }} onDeleted={() => setDeleted((n) => n + 1)}
@@ -143,6 +155,7 @@ export function Root() {
           key={shown}
           buildingId={shown}
           origin={withMap ? shownOrigin : null}
+          realOrigin={realOrigin}
           leaving={leaving}
           startEditing={view.edit && view.building === shown}
           onBack={() => go(null, view.landing)}

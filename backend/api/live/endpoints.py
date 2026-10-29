@@ -52,15 +52,16 @@ class Shorter(BaseModel):
 
 
 def router(hub: LiveHub, known_or_422, conversation_or_404, save_or_409, hidden_spaces=lambda authorization, building: None,
-           enabled: Callable[[], bool] = lambda: False, admin_or_403: Callable = lambda authorization: None) -> APIRouter:
+           enabled: Callable[[], bool] = lambda: False,
+           admin_or_403: Callable = lambda authorization, building: None) -> APIRouter:
     """`hidden_spaces(authorization, building)`: space ids this viewer may not see (access mode), or None.
-    `enabled()`: access mode is on; then the demo controls and device registration need `admin_or_403(authorization)`
-    (the building admin). With access mode off they stay open (demo)."""
+    `enabled()`: access mode is on; then the demo controls and device registration need `admin_or_403(authorization, building)`
+    (whoever administers the building). With access mode off they stay open (demo)."""
     api = APIRouter()
 
-    def admin_in_access_mode(authorization: str | None) -> None:
+    def admin_in_access_mode(authorization: str | None, building: str) -> None:
         if enabled():
-            admin_or_403(authorization)
+            admin_or_403(authorization, building)
 
     @api.get("/live")
     def get_live(building: str, session_id: str | None = Query(None), authorization: str | None = Header(None)) -> dict:
@@ -97,7 +98,7 @@ def router(hub: LiveHub, known_or_422, conversation_or_404, save_or_409, hidden_
 
     @api.post("/live/control")
     def control(body: Control, authorization: str | None = Header(None)) -> dict:
-        admin_in_access_mode(authorization)
+        admin_in_access_mode(authorization, body.building)
         known_or_422(body.building)
         world = hub.world(body.building)
         with world.lock:
@@ -145,7 +146,7 @@ def router(hub: LiveHub, known_or_422, conversation_or_404, save_or_409, hidden_
     @api.post("/live/devices")
     def register(body: Register, authorization: str | None = Header(None)) -> dict:
         """A real connected device joins a building's live world; its token is shown once. Access mode: admin only."""
-        admin_in_access_mode(authorization)
+        admin_in_access_mode(authorization, body.building)
         known_or_422(body.building)
         world = hub.world(body.building)
         token = secrets.token_urlsafe(18)

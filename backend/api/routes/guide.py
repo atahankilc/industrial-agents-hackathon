@@ -69,8 +69,11 @@ def turn_payload(conversation: Conversation, turn: object) -> dict:
 def buildings(authorization: str | None = Header(None)) -> list[dict]:
     deps.drafts.refresh(quiet=True)  # buildings saved on other instances; dataset buildings even if the database is down
     hidden = deps.access.hidden_buildings(viewer_or_401(authorization))
+    owners = ({building: access.org for building, access in deps.access.store.all_buildings().items() if access.org}
+              if deps.access.enabled else {})  # the owning organisation (docs/product/organizations.md)
     return [{"id": item["id"], "split": item["split"], "name": item["name"], "kind": item.get("kind"),
-             "location": None if item.get("superseded") else item.get("location")}  # a newer save stands there
+             "location": None if item.get("superseded") else item.get("location"),  # a newer save stands there
+             "org": owners.get(item["id"])}
             for item in deps.store.catalogue.values() if item["id"] not in hidden]
 
 

@@ -8,8 +8,8 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from backend.api import deps
-from backend.api.access import AuthError, AuthUnavailable, BuildingAccess, Member
-from backend.api.deps import admin_or_403, conversation_or_404, known_or_422, save_or_409, viewer_or_401
+from backend.api.access import LISTINGS, AuthError, AuthUnavailable, BuildingAccess, Member, Viewer
+from backend.api.deps import building_admin_or_403, conversation_or_404, known_or_422, save_or_409, viewer_or_401
 from backend.api.sessions import summary
 
 router = APIRouter()
@@ -23,6 +23,7 @@ class SessionPreferences(BaseModel):
 class AccessUpdate(BaseModel):
     building: str
     public: bool = True
+    listing: str | None = None  # listed / unlisted / private; without it `public` (an unlisted building stays so)
     room_types: dict[str, list[str]] = {}
     spaces: dict[str, list[str]] = {}
 
@@ -92,14 +93,16 @@ def put_my_preferences(body: dict, authorization: str | None = Header(None)) -> 
 @router.get("/me")
 def me(authorization: str | None = Header(None)) -> dict:
     viewer = viewer_or_401(authorization)
-    groups = deps.access.store.member_buildings(viewer.user_id) if deps.access.enabled and viewer.user_id else {}
-    return {**viewer.to_dict(), "buildings": groups}
+    signed_in = deps.access.enabled and viewer.user_id
+    groups = deps.access.store.member_buildings(viewer.user_id) if signed_in else {}
+    orgs = deps.access.store.user_orgs(viewer.user_id) if signed_in else {}
+    return {**viewer.to_dict(), "buildings": groups, "orgs": orgs}
 
 
 @router.get("/access/building")
 def get_access(building: str, authorization: str | None = Header(None)) -> dict:
     """The building's access settings plus what the editor needs: its room types and spaces."""
-    admin_or_403(authorization)
+    building_admin_or_403(authorization, building)
     known_or_422(building)
     data = deps.store.base_data(building)
     spaces = [{"id": space["id"], "name": space["name"], "ref": space.get("ref") or "",
@@ -111,27 +114,43 @@ def get_access(building: str, authorization: str | None = Header(None)) -> dict:
 
 @router.put("/access/building")
 def put_access(body: AccessUpdate, authorization: str | None = Header(None)) -> dict:
-    admin_or_403(authorization)
+    """Rules and listing; the owning org is kept (it changes through /orgs/{slug}/buildings)."""
+    viewer = building_admin_or_403(authorization, body.building)
     known_or_422(body.building)
     space_ids = {space["id"] for space in deps.store.base_data(body.building)["spaces"]}
     unknown = sorted(set(body.spaces) - space_ids)
     if unknown:
         raise HTTPException(422, f"unknown space ids: {', '.join(unknown[:5])}")
-    rules = BuildingAccess.from_dict(body.model_dump())
+    current = deps.access.store.building(body.building)
+    listing = body.listing or (current.listing if current.public == body.public else
+                               "listed" if body.public else "private")
+    listing_or_403(viewer, current.org, listing, current.listing)
+    rules = BuildingAccess.from_dict({**body.model_dump(), "listing": listing, "org": current.org})
     deps.access.store.set_building(body.building, rules)
     return {"building": body.building, **rules.to_dict()}
 
 
+def listing_or_403(viewer: Viewer, org: str | None, listing: str, before: str) -> None:
+    """Only an admin or a verified org puts a building on the main map (anyone could name an org after a university)."""
+    if listing not in LISTINGS:
+        raise HTTPException(422, f"listing must be one of {', '.join(LISTINGS)}")
+    if listing != "listed" or before == "listed" or viewer.admin:
+        return
+    owner = deps.access.store.org(org) if org else None
+    if not (owner and owner.verified):
+        raise HTTPException(403, "only a verified organisation can list a building on the main map")
+
+
 @router.get("/access/members")
 def get_members(building: str, authorization: str | None = Header(None)) -> list[dict]:
-    admin_or_403(authorization)
+    building_admin_or_403(authorization, building)
     return [member.to_dict() for member in deps.access.store.list_members(building)]
 
 
 @router.post("/access/invite")
 def invite(body: Invite, authorization: str | None = Header(None)) -> dict:
     """Create (or find) the account and return a sign-in link for the admin to pass on; no email is sent."""
-    admin_or_403(authorization)
+    building_admin_or_403(authorization, body.building)
     known_or_422(body.building)
     email = body.email.strip().lower()
     if "@" not in email:
@@ -148,7 +167,7 @@ def invite(body: Invite, authorization: str | None = Header(None)) -> dict:
 @router.put("/access/members")
 def put_member(body: MemberUpdate, authorization: str | None = Header(None)) -> dict:
     """Change a member's groups in a building; no groups removes the membership."""
-    admin_or_403(authorization)
+    building_admin_or_403(authorization, body.building)
     member = Member(body.user_id, body.email.strip().lower(), body.building,
                     sorted({g.strip() for g in body.groups if g.strip()}))
     deps.access.store.set_member(member)

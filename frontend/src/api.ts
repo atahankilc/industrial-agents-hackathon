@@ -15,6 +15,8 @@ export type Building = {
   name: string | null
   /** what the landing list filters by (backend/api/sessions.py building_kind); null for an unknown source */
   kind: BuildingKind | null
+  /** the owning organisation's slug (access mode; docs/product/organizations.md), null = the platform's */
+  org?: string | null
   location: {
     lat: number
     lon: number

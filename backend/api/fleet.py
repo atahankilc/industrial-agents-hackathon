@@ -196,7 +196,8 @@ class Fleet:
 
 def router(fleet: Fleet, enabled: Callable[[], bool], admin_or_403: Callable, viewer_restricted: Callable,
            known_or_422: Callable) -> APIRouter:
-    """`viewer_restricted(authorization, building)` → (viewer, restricted space ids) for listing."""
+    """`viewer_restricted(authorization, building)` → (viewer, restricted space ids) for listing;
+    `admin_or_403(authorization, building)`: whoever administers that building."""
     api = APIRouter()
 
     def on() -> None:
@@ -218,16 +219,14 @@ def router(fleet: Fleet, enabled: Callable[[], bool], admin_or_403: Callable, vi
     @api.get("/objects")
     def list_objects(building: str, authorization: str | None = Header(None)) -> list[dict]:
         on()
-        viewer, restricted = viewer_restricted(authorization, building)
-        rows = fleet.store.list(building)
-        if not viewer.admin:
-            rows = [row for row in rows if (row.get("position") or {}).get("space_id") not in restricted]
+        _, restricted = viewer_restricted(authorization, building)  # nothing restricted for its admins
+        rows = [row for row in fleet.store.list(building) if (row.get("position") or {}).get("space_id") not in restricted]
         return [fleet.public(row) for row in rows]
 
     @api.post("/objects")
     def create_object(body: NewObject, authorization: str | None = Header(None)) -> dict:
         on()
-        admin_or_403(authorization)
+        admin_or_403(authorization, body.building)
         known_or_422(body.building)
         try:
             row, token = fleet.create(body)
@@ -240,7 +239,7 @@ def router(fleet: Fleet, enabled: Callable[[], bool], admin_or_403: Callable, vi
         """The building's forklift assets (equipment.csv) as objects at their asset position; vehicle width = the
         narrow side of the footprint (the forklift rule's 3 m openings apply on top)."""
         on()
-        admin_or_403(authorization)
+        admin_or_403(authorization, body.building)
         known_or_422(body.building)
         existing = {row["name"] for row in fleet.store.list(body.building)}
         created = []
@@ -260,8 +259,8 @@ def router(fleet: Fleet, enabled: Callable[[], bool], admin_or_403: Callable, vi
     @api.put("/objects/{object_id}")
     def update_object(object_id: str, body: ObjectUpdate, authorization: str | None = Header(None)) -> dict:
         on()
-        admin_or_403(authorization)
         row = object_or_404(object_id)
+        admin_or_403(authorization, row["building"])
         try:
             if body.attributes is not None:
                 row["attributes"] = Attributes.from_dict(body.attributes).to_dict()
@@ -275,15 +274,16 @@ def router(fleet: Fleet, enabled: Callable[[], bool], admin_or_403: Callable, vi
     @api.delete("/objects/{object_id}")
     def delete_object(object_id: str, authorization: str | None = Header(None)) -> dict:
         on()
-        admin_or_403(authorization)
-        fleet.store.delete(object_or_404(object_id)["id"])
+        row = object_or_404(object_id)
+        admin_or_403(authorization, row["building"])
+        fleet.store.delete(row["id"])
         return {"deleted": object_id}
 
     @api.post("/objects/{object_id}/mission")
     def dispatch(object_id: str, body: Dispatch, authorization: str | None = Header(None)) -> dict:
         on()
-        admin_or_403(authorization)
         row = object_or_404(object_id)
+        admin_or_403(authorization, row["building"])
         try:
             result = fleet.dispatch(row, body.destination)
         except (MapError, ValueError, KeyError) as error:
@@ -293,8 +293,8 @@ def router(fleet: Fleet, enabled: Callable[[], bool], admin_or_403: Callable, vi
     @api.delete("/objects/{object_id}/mission")
     def cancel(object_id: str, authorization: str | None = Header(None)) -> dict:
         on()
-        admin_or_403(authorization)
         row = object_or_404(object_id)
+        admin_or_403(authorization, row["building"])
         if row.get("mission"):
             row["mission"] = {**row["mission"], "status": "cancelled",
                               "version": row["mission"]["version"] + 1, "steps": []}

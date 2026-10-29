@@ -6,7 +6,7 @@ related: [decisions.md, project-state.md, ../docs/kit/questions.md]
 
 # Open questions
 
-[Memory bank](README.md) · Next free id: **Q-022**
+[Memory bank](README.md) · Next free id: **Q-025**
 
 Template:
 
@@ -144,6 +144,29 @@ Template:
   `fleet_objects`, `backend/api/fleet.py`) and let `/live` read from it; (c) for many devices, an always-on ingest
   (e.g. MQTT broker + small worker) writing to the database.
 - **How to resolve:** decide when real-device support becomes a product goal.
+
+<a id="q-022"></a>
+### Q-022 — Who may start an organisation?
+- **Status:** open · **Priority:** med · **Resolve by:** team decision (Atahan)
+- **Context:** [organizations.md](../docs/product/organizations.md), [D-029](decisions.md#d-029). Built: anyone signed
+  in; impersonation is held off because only the admin assigns buildings and verifies orgs (needed to list on the
+  main map). Alternative: orgs only after the admin approves, or verified by email domain (phase 4).
+- **How to resolve:** Atahan picks; change `POST /orgs` in `backend/api/routes/orgs.py` if it is "approved first".
+
+<a id="q-023"></a>
+### Q-023 — What does an island on an org's map show?
+- **Status:** open · **Priority:** med · **Resolve by:** team decision, before phase 3
+- **Context:** [organizations.md § Phase 3](../docs/product/organizations.md#phase-3--the-compact-island-board-planned).
+  Planned: the drawn area with its streets, green, water and OSM blocks (a snapshot from the tiles). Alternative:
+  only the org's buildings and the area outline — no snapshot, much simpler, less context for finding the entrance.
+- **How to resolve:** Atahan picks; a mock of both on the TUM main campus would help.
+
+<a id="q-024"></a>
+### Q-024 — Name of an org's map in the app, and owner of today's `user/*` buildings
+- **Status:** open · **Priority:** low · **Resolve by:** team decision
+- **Context:** Atahan used both "workspace" and "map". Code says `org` and (phase 2) `map`. Saved buildings have no
+  owner; phase 1 leaves them the platform's (admin), assignable to an org by the admin.
+- **How to resolve:** pick a word before the phase 2 UI; decide whether to hand the saved buildings to orgs.
 
 ## Resolved
 

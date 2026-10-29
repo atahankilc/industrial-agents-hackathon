@@ -54,7 +54,7 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
 | GET | `/health` | – | `{"ok", "llm": "anthropic"\|"offline", "tts", "stt"}` — `tts` / `stt`: ElevenLabs voice / Scribe recognition available (see `/tts`, `/stt/token`) |
-| GET | `/buildings` | – | `[{"id": "proc-campus-train-000", "split", "name"}]` (kit buildings: the directory in `data/buildings/`; saved ones `user/<slug>`) |
+| GET | `/buildings` | – | `[{"id": "proc-campus-train-000", "split", "name", "org"}]` (kit buildings: the directory in `data/buildings/`; saved ones `user/<slug>`; `org` = the owning organisation's slug, `null` for the platform's or with access mode off; access mode leaves out unlisted / private buildings unless the viewer is the admin, in the owning org or a member of the building) |
 | POST | `/sessions` | `{"building"?}` | `{"session_id", "building", "overview"}` (unknown building → 422) |
 | GET | `/sessions/{id}` | – | building, profile, applied/pending changes, event count |
 | PUT | `/sessions/{id}/building` | `{"building"}` | fresh session on another building, same id |
@@ -123,17 +123,24 @@ uv run python scripts/sim_object.py --api http://localhost:8390 --object <id> --
 | Method | Path | Who | Does |
 |---|---|---|---|
 | GET | `/config` | all | `{"access_mode"}` (+ Supabase URL / anon key when on) |
-| GET | `/me` | all | viewer (`admin`, `anonymous`) + member groups per building |
+| GET | `/me` | all | viewer (`admin`, `anonymous`) + member groups per building + `orgs` (slug → the viewer's role) |
 | GET/PUT | `/me/preferences` | signed in | stored preferences (anonymous users keep theirs in the browser) |
 | PUT | `/sessions/{id}/preferences` | all | `{"values", "auto_capture"}` → the session's profile + talking preferences |
-| GET/PUT | `/access/building` | admin | public flag, room-type / space rules (groups; `public` = exception) |
-| GET/PUT | `/access/members`, POST `/access/invite` | admin | members' groups; invite → sign-in link, no email sent |
+| GET/PUT | `/access/building` | building admin | `listing` (`listed` / `unlisted` / `private`; the older `public` flag is still read and written) + `org` (read-only here), room-type / space rules (groups; `public` = exception); newly listing needs the admin or a verified org |
+| GET/PUT | `/access/members`, POST `/access/invite` | building admin | members' groups; invite → sign-in link, no email sent |
 | GET | `/objects?building=` | all | moving objects: position, trail, mission + its `line` (objects in spaces the viewer may not enter left out) |
-| POST/PUT/DELETE | `/objects`, `/objects/{id}`, POST `/objects/import-forklifts` | admin | create (returns the device `token` once), edit, delete, forklifts from `equipment.csv` |
-| POST/DELETE | `/objects/{id}/mission` | admin | dispatch `{"destination"}` / cancel |
+| POST/PUT/DELETE | `/objects`, `/objects/{id}`, POST `/objects/import-forklifts` | building admin | create (returns the device `token` once), edit, delete, forklifts from `equipment.csv` |
+| POST/DELETE | `/objects/{id}/mission` | building admin | dispatch `{"destination"}` / cancel |
 | POST | `/objects/{id}/position`, GET `/objects/{id}/mission`, POST `.../mission/done` | device (`X-Object-Token`) | report position, fetch machine steps, finish |
+| POST/GET | `/orgs`, GET `/orgs/{slug}` | signed in | start an organisation (`{"slug","name"}`; you become its owner; address taken → 409) / your organisations (all for the admin) / one with its buildings (+ members for its owners; 404 to outsiders) |
+| PUT | `/orgs/{slug}` | owner; `verified`: admin | `{"name"?, "verified"?}` |
+| POST | `/orgs/{slug}/invite`, PUT `/orgs/{slug}/members` | owner | invite `{"email","role"}` → sign-in link; change a role or remove (`role: null`); an organisation keeps an owner (409) |
+| PUT | `/orgs/{slug}/buildings` | admin; editor / owner for the org's own buildings | `{"building","listing"?,"owned"?}`: only the admin gives a building to the org or hands it back (`owned: false`); editors and owners set the listing of buildings the org owns (another's → 403); `listed` needs a verified org |
 
 `/drafts` (Edit mode) answers 403 for anyone but the admin while access mode is on.
+
+"Building admin" = the admin or an editor / owner of the organisation that owns the building; roles, listings and
+the plan for later phases: [organizations.md](../product/organizations.md).
 
 ## Frontend app
 

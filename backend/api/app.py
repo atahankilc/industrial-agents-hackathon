@@ -30,10 +30,10 @@ from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES
 from backend.agents.guide import llm_mode
 from backend.api import deps, devtools, persistence, service_errors, stt, tts
 from backend.api.access import AuthError, AuthUnavailable
-from backend.api.deps import admin_or_403, conversation_or_404, known_or_422, save_or_409, viewer_restricted
+from backend.api.deps import building_admin_or_403, conversation_or_404, known_or_422, save_or_409, viewer_restricted
 from backend.api.fleet import router as fleet_router
 from backend.api.live import router as live_router
-from backend.api.routes import accounts, drafts, guide, imports, openai_chat, voice
+from backend.api.routes import accounts, drafts, guide, imports, openai_chat, orgs, voice
 
 API_PREFIX = "/api"
 
@@ -108,10 +108,10 @@ def health() -> dict:
     return {"ok": True, "llm": llm_mode(), "tts": tts.enabled(), "stt": stt.enabled()}
 
 
-for routes in (guide, voice, accounts, drafts, imports, openai_chat):
+for routes in (guide, voice, accounts, orgs, drafts, imports, openai_chat):
     app.include_router(routes.router)
 app.include_router(live_router(deps.live, known_or_422, conversation_or_404, save_or_409,
                                lambda authorization, building: deps.live_hidden(authorization, building),
-                               lambda: deps.access.enabled, admin_or_403))
-app.include_router(fleet_router(deps.fleet, lambda: deps.access.enabled, admin_or_403, viewer_restricted, known_or_422))
+                               lambda: deps.access.enabled, building_admin_or_403))
+app.include_router(fleet_router(deps.fleet, lambda: deps.access.enabled, building_admin_or_403, viewer_restricted, known_or_422))
 app.include_router(devtools.router(deps.store, conversation_or_404, save_or_409))  # the app's dev panel (backend/api/devtools.py)

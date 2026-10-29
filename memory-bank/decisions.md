@@ -6,7 +6,7 @@ related: [open-questions.md, project-state.md, ../docs/architecture/overview.md]
 
 # Decisions
 
-[Memory bank](README.md) · Next free id: **D-027**
+[Memory bank](README.md) · Next free id: **D-030**
 
 Template:
 
@@ -473,3 +473,25 @@ Template:
   commit `fd2b50a`).
 - **Evidence:** `uv run pytest -q` green after the move; `git ls-files data` → 280 `building.json`, 281 csv,
   520 jsonl, 1 md. Migration applied 2026-10-28 with the PR #11 deploy (0 old ids left; [log](log.md)).
+
+<a id="d-029"></a>
+### D-029 — Organisations own buildings; listings replace the public flag; orgs get their own maps
+- **Status:** proposed · **Date:** 2026-10-28 · **By:** Atahan (request), designed and phase 1 built by Claude
+- **Context:** The landing map shows whatever anyone saved, and access mode ([D-015](#d-015)) has one admin over
+  every building. Institutions (TUM) want their own map with only their buildings, shared by link or membership,
+  their sites shown as pieces pulled close together instead of the whole world, and a choice of which buildings
+  also appear on the main map. Plan: [organizations.md](../docs/product/organizations.md).
+- **Decision:** An org owns buildings; its people are `viewer` / `editor` / `owner`. A building's listing is
+  `listed` (main map) / `unlisted` (link or the org's map) / `private` (org and invited members), replacing
+  `public`. The admin assigns ownership and verifies orgs; only verified orgs list on the main map. Editors and
+  owners administer their org's buildings like the admin (`can_admin`). Buildings without an org stay the
+  platform's. Phase 2 adds maps with share links, phase 3 the island board (one MapLibre map on board coordinates
+  with per-site OSM snapshots and seams that state the real distance between sites). Defaults taken without an
+  answer yet: anyone signed in may start an org ([Q-022](open-questions.md#q-022)); unowned `user/*` buildings stay
+  the platform's ([Q-024](open-questions.md#q-024)).
+- **Consequences:** behind `ACCESS_MODE=on` only; off = unchanged. The Guide's neighbours now leave out the buildings
+  a viewer may not list (they leaked before). `supabase/migrations/20261028120000_orgs.sql` must be applied before
+  this code reaches a deploy on the shared database (the new code selects `listing` and `org`); older code keeps
+  working on the migrated table because `public` is still written and wins on disagreement. Edit mode and imports
+  stay admin-only until phase 2.
+- **Evidence:** `tests/test_orgs.py` (11 tests), `uv run pytest -q` → 966 passed, 2 skipped.

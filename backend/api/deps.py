@@ -44,7 +44,8 @@ def conversation_or_404(session_id: str, authorization: str | None = None) -> Co
     conversation = store.get(session_id)
     if conversation is None:
         raise HTTPException(404, f"unknown session {session_id!r}")
-    return with_live(with_campus(with_access(conversation, viewer_or_401(authorization))))
+    viewer = viewer_or_401(authorization)
+    return with_live(with_campus(with_access(conversation, viewer), access.hidden_buildings(viewer)))
 
 
 def live_hidden(authorization: str | None, building: str) -> frozenset[str] | None:
@@ -52,7 +53,8 @@ def live_hidden(authorization: str | None, building: str) -> frozenset[str] | No
     if not access.enabled:
         return None
     viewer = viewer_or_401(authorization)
-    return None if viewer.admin else access.restricted_for(viewer, building, store.base_data(building))
+    return None if access.can_admin(viewer, building) else access.restricted_for(viewer, building,
+                                                                                store.base_data(building))
 
 
 def with_live(conversation: Conversation) -> Conversation:
@@ -62,11 +64,15 @@ def with_live(conversation: Conversation) -> Conversation:
     return conversation
 
 
-def with_campus(conversation: Conversation) -> Conversation:
-    """The session's buildings nearby (backend/agents/campus.py); sessions are rebuilt on restores and switches."""
+def with_campus(conversation: Conversation, hidden: set[str] = frozenset()) -> Conversation:
+    """The session's buildings nearby (backend/agents/campus.py); sessions are rebuilt on restores and switches.
+    `hidden`: buildings this viewer may not list (access mode), so the Guide neither names nor routes to them."""
+    catalogue = {key: entry for key, entry in store.catalogue.items() if key not in hidden} if hidden else store.catalogue
     campus = conversation.session.campus
     if campus is None or campus.building_id != conversation.building:
-        conversation.session.campus = Campus(conversation.building, store.catalogue)
+        conversation.session.campus = Campus(conversation.building, catalogue)
+    else:
+        campus.catalogue = catalogue
     return conversation
 
 
@@ -81,7 +87,8 @@ def with_access(conversation: Conversation, viewer: Viewer) -> Conversation:
     conversation.session.preferences_enabled = True
     building = conversation.building
     conversation.session.object_dispatch = (
-        (lambda name, destination: dispatch_by_name(building, name, destination)) if viewer.admin else None)
+        (lambda name, destination: dispatch_by_name(building, name, destination))
+        if access.can_admin(viewer, building) else None)
     return conversation
 
 
@@ -111,10 +118,21 @@ def save_or_409(conversation: Conversation) -> None:
 
 
 def admin_or_403(authorization: str | None) -> Viewer:
+    """An admin: rights over every building and org (ADMIN_EMAIL)."""
     if not access.enabled:
         raise HTTPException(404, "access mode is off")
     viewer = viewer_or_401(authorization)
     if not viewer.admin:
+        raise HTTPException(403, "only the admin can do this")
+    return viewer
+
+
+def building_admin_or_403(authorization: str | None, building: str) -> Viewer:
+    """Whoever administers this building: an admin, or an editor / owner of the org that owns it."""
+    if not access.enabled:
+        raise HTTPException(404, "access mode is off")
+    viewer = viewer_or_401(authorization)
+    if not access.can_admin(viewer, building):
         raise HTTPException(403, "only the building admin can do this")
     return viewer
 

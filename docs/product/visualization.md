@@ -9,7 +9,7 @@ sources:
   - frontend/src/building/RouteHud.tsx, src/dev/StoryLayer.tsx, backend/core/directions.py maneuvers (route following, verified headless 2026-10-25)
   - https://threejs.org/docs/ (three.js r160)
   - https://r3f.docs.pmnd.rs/ (react-three-fiber)
-related: [../../archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md, ../architecture/overview.md, personas.md, routing-profiles.md, ../architecture/ai-agents.md]
+related: [../../archive/hackathon/superpowers/specs/2026-10-25-plan-reference-and-location-design.md, ../architecture/overview.md, personas.md, routing-profiles.md, ../architecture/ai-agents.md, organizations.md]
 ---
 
 # Visualization

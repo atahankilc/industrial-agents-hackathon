@@ -5,14 +5,18 @@ Off unless ACCESS_MODE=on; off = every viewer sees everything, exactly as before
 - A viewer is anonymous, a member (Supabase Auth user, invited by the admin, with access groups per building) or
   an admin (an account whose email is listed in ADMIN_EMAIL, comma-separated; rights over every building). The bearer token is checked with
   Supabase `GET /auth/v1/user` (cached for a minute), so no JWT secret lives in our code.
-- Per building: a `public` flag (default true) and rules — by room_type and by space id (a space rule wins) — that
-  restrict spaces to groups. The reserved group "public" makes a space public again (an exception to a room-type
-  rule). No rules = everything public.
+- Per building: a listing — listed (default; on the main map), unlisted (anyone may open it, only its org and
+  members find it) or private (only they may open it) — and rules — by room_type and by space id (a space rule
+  wins) — that restrict spaces to groups. The reserved group "public" makes a space public again (an exception to a
+  room-type rule). No rules = everything public.
+- Organisations (docs/product/organizations.md): a building may belong to one; its editors and owners administer
+  it like the admin does, its viewers may open its private buildings. An org lists a building on the main map only
+  once an admin has verified it. Buildings without an org belong to the platform (the admins).
 - `restricted_for` gives the space ids a viewer may not enter; the session then runs on a filtered copy of the
   building (backend/core/access.py, backend/api/sessions.py ensure_access).
 
-Stores: `MemoryAccess` (one process) or `PostgresAccess` (tables in supabase/migrations/20261025200000_access.sql,
-when SUPABASE_DB_URL is set)."""
+Stores: `MemoryAccess` (one process) or `PostgresAccess` (tables in supabase/migrations/20261025200000_access.sql
+and 20261028120000_orgs.sql, when SUPABASE_DB_URL is set)."""
 
 import json
 import os
@@ -137,22 +141,36 @@ class SupabaseAuth:
 # ---------- rules ----------
 
 
+LISTINGS = ("listed", "unlisted", "private")  # on the main map / opened by link or the org's map / members only
+
+
 @dataclass
 class BuildingAccess:
-    public: bool = True
+    listing: str = "listed"
     room_types: dict[str, list[str]] = field(default_factory=dict)  # room_type → groups
     spaces: dict[str, list[str]] = field(default_factory=dict)  # space id → groups (wins over room_type)
+    org: str | None = None  # the owning organisation's slug; None = the platform (the admins)
+
+    @property
+    def public(self) -> bool:
+        """Anyone may open it (listed or unlisted)."""
+        return self.listing != "private"
 
     def to_dict(self) -> dict:
-        return {"public": self.public, "room_types": self.room_types, "spaces": self.spaces}
+        return {"public": self.public, "listing": self.listing, "org": self.org, "room_types": self.room_types,
+                "spaces": self.spaces}
 
     @classmethod
     def from_dict(cls, data: dict) -> "BuildingAccess":
+        """`listing` wins; without it the older `public` flag (true → listed, false → private)."""
         def clean(rules: dict) -> dict[str, list[str]]:
             return {str(key): sorted({str(group).strip() for group in groups if str(group).strip()})
                     for key, groups in (rules or {}).items()}
-        return cls(public=bool(data.get("public", True)), room_types=clean(data.get("room_types")),
-                   spaces=clean(data.get("spaces")))
+        listing = data.get("listing") or ("listed" if data.get("public", True) else "private")
+        if listing not in LISTINGS:
+            raise ValueError(f"listing must be one of {', '.join(LISTINGS)}")
+        return cls(listing=listing, room_types=clean(data.get("room_types")), spaces=clean(data.get("spaces")),
+                   org=data.get("org") or None)
 
     def groups_for(self, space: dict) -> list[str] | None:
         """The groups that may enter `space`, or None if it is public."""
@@ -175,12 +193,84 @@ class Member:
         return {"user_id": self.user_id, "email": self.email, "building": self.building, "groups": self.groups}
 
 
+# ---------- organisations (docs/product/organizations.md) ----------
+
+ROLES = ("viewer", "editor", "owner")  # opens its private buildings / also administers them / also its people
+ADMIN_ROLES = ("editor", "owner")
+
+
+@dataclass
+class Org:
+    slug: str
+    name: str
+    verified: bool = False  # set by an admin; only a verified org may list a building on the main map
+    created_by: str | None = None
+
+    def to_dict(self) -> dict:
+        return {"slug": self.slug, "name": self.name, "verified": self.verified}
+
+
+@dataclass
+class OrgMember:
+    org: str
+    user_id: str
+    email: str
+    role: str | None  # None removes the membership
+
+    def to_dict(self) -> dict:
+        return {"org": self.org, "user_id": self.user_id, "email": self.email, "role": self.role}
+
+
 class MemoryAccess:
     def __init__(self) -> None:
         self.buildings: dict[str, BuildingAccess] = {}
         self.members: dict[tuple[str, str], Member] = {}
         self.prefs: dict[str, dict] = {}
+        self.orgs: dict[str, Org] = {}
+        self.org_people: dict[tuple[str, str], OrgMember] = {}
         self.lock = threading.Lock()
+
+    def org(self, slug: str) -> Org | None:
+        with self.lock:
+            org = self.orgs.get(slug)
+            return Org(**vars(org)) if org else None
+
+    def all_orgs(self) -> list[Org]:
+        with self.lock:
+            return sorted((Org(**vars(org)) for org in self.orgs.values()), key=lambda org: org.slug)
+
+    def insert_org(self, org: Org, owner: OrgMember) -> bool:
+        """False = the slug is taken."""
+        with self.lock:
+            if org.slug in self.orgs:
+                return False
+            self.orgs[org.slug] = org
+            self.org_people[(org.slug, owner.user_id)] = owner
+            return True
+
+    def set_org(self, org: Org) -> None:
+        with self.lock:
+            self.orgs[org.slug] = org
+
+    def org_role(self, user_id: str, slug: str) -> str | None:
+        with self.lock:
+            member = self.org_people.get((slug, user_id))
+            return member.role if member else None
+
+    def user_orgs(self, user_id: str) -> dict[str, str]:
+        with self.lock:
+            return {m.org: m.role for (_, uid), m in self.org_people.items() if uid == user_id}
+
+    def org_members(self, slug: str) -> list[OrgMember]:
+        with self.lock:
+            return sorted((m for m in self.org_people.values() if m.org == slug), key=lambda m: m.email)
+
+    def set_org_member(self, member: OrgMember) -> None:
+        with self.lock:
+            if member.role:
+                self.org_people[(member.org, member.user_id)] = member
+            else:
+                self.org_people.pop((member.org, member.user_id), None)
 
     def building(self, building: str) -> BuildingAccess:
         with self.lock:
@@ -223,26 +313,73 @@ class MemoryAccess:
                 self.members.pop((member.user_id, member.building), None)
 
 
+def building_row(public: bool, listing: str | None, org: str | None, rules: dict | None) -> BuildingAccess:
+    """An `access_buildings` row. `public` is still written (code deployed before the orgs migration reads and writes
+    only it), so a `listing` that disagrees with it was left behind by such a write and `public` wins."""
+    if listing is None or (listing != "private") != public:
+        listing = "listed" if public else "private"
+    return BuildingAccess.from_dict({**(rules or {}), "listing": listing, "org": org})
+
+
 class PostgresAccess(PostgresConnection):
-    """Tables `access_buildings` (building, public, rules), `access_members` (user, building, groups) and
-    `user_preferences` (user, preferences)."""
+    """Tables `access_buildings` (building, public, listing, org, rules), `access_members` (user, building, groups),
+    `user_preferences` (user, preferences), `orgs` and `org_members`."""
 
     def building(self, building: str) -> BuildingAccess:
-        rows = self.execute("select public, rules from access_buildings where building = %s", (building,))
-        if not rows:
-            return BuildingAccess()
-        return BuildingAccess.from_dict({"public": rows[0][0], **(rows[0][1] or {})})
+        rows = self.execute("select public, listing, org, rules from access_buildings where building = %s",
+                            (building,))
+        return building_row(*rows[0]) if rows else BuildingAccess()
 
     def set_building(self, building: str, access: BuildingAccess) -> None:
         rules = {"room_types": access.room_types, "spaces": access.spaces}
         self.execute(
-            "insert into access_buildings (building, public, rules) values (%s, %s, %s) on conflict (building) do "
-            "update set public = excluded.public, rules = excluded.rules, updated_at = now()",
-            (building, access.public, Jsonb(rules)))
+            "insert into access_buildings (building, public, listing, org, rules) values (%s, %s, %s, %s, %s) "
+            "on conflict (building) do update set public = excluded.public, listing = excluded.listing, "
+            "org = excluded.org, rules = excluded.rules, updated_at = now()",
+            (building, access.public, access.listing, access.org, Jsonb(rules)))
 
     def all_buildings(self) -> dict[str, BuildingAccess]:
-        rows = self.execute("select building, public, rules from access_buildings", ())
-        return {row[0]: BuildingAccess.from_dict({"public": row[1], **(row[2] or {})}) for row in rows}
+        rows = self.execute("select building, public, listing, org, rules from access_buildings", ())
+        return {row[0]: building_row(*row[1:]) for row in rows}
+
+    def org(self, slug: str) -> Org | None:
+        rows = self.execute("select slug, name, verified, created_by from orgs where slug = %s", (slug,))
+        return Org(*rows[0]) if rows else None
+
+    def all_orgs(self) -> list[Org]:
+        return [Org(*row) for row in self.execute("select slug, name, verified, created_by from orgs order by slug", ())]
+
+    def insert_org(self, org: Org, owner: OrgMember) -> bool:
+        rows = self.execute(
+            "with made as (insert into orgs (slug, name, verified, created_by) values (%s, %s, %s, %s) "
+            "on conflict (slug) do nothing returning slug) "
+            "insert into org_members (org, user_id, email, role) select slug, %s, %s, %s from made returning org",
+            (org.slug, org.name, org.verified, org.created_by, owner.user_id, owner.email, owner.role))
+        return bool(rows)
+
+    def set_org(self, org: Org) -> None:
+        self.execute("update orgs set name = %s, verified = %s, updated_at = now() where slug = %s",
+                     (org.name, org.verified, org.slug))
+
+    def org_role(self, user_id: str, slug: str) -> str | None:
+        rows = self.execute("select role from org_members where user_id = %s and org = %s", (user_id, slug))
+        return rows[0][0] if rows else None
+
+    def user_orgs(self, user_id: str) -> dict[str, str]:
+        return dict(self.execute("select org, role from org_members where user_id = %s", (user_id,)))
+
+    def org_members(self, slug: str) -> list[OrgMember]:
+        rows = self.execute("select org, user_id, email, role from org_members where org = %s order by email", (slug,))
+        return [OrgMember(row[0], str(row[1]), row[2], row[3]) for row in rows]
+
+    def set_org_member(self, member: OrgMember) -> None:
+        if not member.role:
+            self.execute("delete from org_members where org = %s and user_id = %s", (member.org, member.user_id))
+            return
+        self.execute(
+            "insert into org_members (org, user_id, email, role) values (%s, %s, %s, %s) on conflict (org, user_id) "
+            "do update set email = excluded.email, role = excluded.role, updated_at = now()",
+            (member.org, member.user_id, member.email, member.role))
 
     def groups(self, user_id: str, building: str) -> list[str]:
         rows = self.execute("select groups from access_members where user_id = %s and building = %s",
@@ -304,23 +441,39 @@ class Access:
             return ANONYMOUS
         return self.auth.viewer(authorization)
 
+    def role(self, viewer: Viewer, org: str | None) -> str | None:
+        """The viewer's role in `org` (None: not a member, anonymous, or no org)."""
+        if not org or not viewer.user_id:
+            return None
+        return self.store.org_role(viewer.user_id, org)
+
+    def can_admin(self, viewer: Viewer, building: str) -> bool:
+        """Its rules, members and objects: an admin (every building) or an editor / owner of the owning org."""
+        if viewer.admin:
+            return True
+        return self.role(viewer, self.store.building(building).org) in ADMIN_ROLES
+
     def visible(self, viewer: Viewer, building: str) -> bool:
+        """May open it: anyone unless private; then the admins, its org's people and its invited members."""
         if not self.enabled or viewer.admin:
             return True
-        if self.store.building(building).public:
+        access = self.store.building(building)
+        if access.public:
             return True
-        return bool(viewer.user_id and self.store.groups(viewer.user_id, building))
+        return bool(viewer.user_id and (self.role(viewer, access.org) or self.store.groups(viewer.user_id, building)))
 
     def hidden_buildings(self, viewer: Viewer) -> set[str]:
-        """Catalogue ids this viewer may not list (non-public buildings without a membership)."""
+        """Catalogue ids this viewer may not list, nor find from a neighbour: private and unlisted buildings, unless
+        the viewer is in the owning org or a member of the building."""
         if not self.enabled or viewer.admin:
             return set()
         mine = self.store.member_buildings(viewer.user_id) if viewer.user_id else {}
+        orgs = self.store.user_orgs(viewer.user_id) if viewer.user_id else {}
         return {building for building, access in self.store.all_buildings().items()
-                if not access.public and not mine.get(building)}
+                if access.listing != "listed" and not mine.get(building) and access.org not in orgs}
 
     def restricted_for(self, viewer: Viewer, building: str, data: dict) -> frozenset[str]:
-        if not self.enabled or viewer.admin:
+        if not self.enabled or self.can_admin(viewer, building):
             return frozenset()
         access = self.store.building(building)
         if not access.room_types and not access.spaces:

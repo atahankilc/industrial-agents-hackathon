@@ -9,6 +9,24 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-28 — Organisations: plan and phase 1 ([D-029](decisions.md#d-029))
+
+- Atahan: institutions (TUM) want their own map with only their buildings, shared by link or workspace, sites shown
+  as pieces pulled together, some buildings also on the main map. Plan in
+  [organizations.md](../docs/product/organizations.md) (4 phases); Atahan said "start" without answering the open
+  points, so defaults were taken and recorded as [Q-022](open-questions.md#q-022)–[Q-024](open-questions.md#q-024).
+- Phase 1 (backend): `backend/api/access.py` (listing, `Org`, `OrgMember`, `can_admin`, stores),
+  `backend/api/routes/orgs.py`, per-building admin in `/access/*`, `/objects*`, `/live/control|register`, `deps`
+  (`building_admin_or_403`, campus catalogue filtered by `hidden_buildings`), `org` in `GET /buildings`, `orgs` in
+  `GET /me`, migration `20261028120000_orgs.sql` (not applied).
+- Found while planning: `with_campus` gave the Guide the whole catalogue, so neighbours / nearby search could name a
+  private building to a viewer who may not list it; now filtered (`test_the_guide_does_not_name_buildings_…`).
+- Verifier round 1: an org's people could change a building their org does not own (e.g. hide a platform building
+  with `owned: false`); `PUT /orgs/{slug}/buildings` now answers 403 to non-admins unless the org owns the building
+  (`test_an_org_cannot_change_buildings_it_does_not_own`). The access-mode API table in
+  [commands.md](../docs/guides/commands.md) now says who the building admin is, listing / `org`, and the `/orgs` endpoints.
+- `uv run pytest -q` → 966 passed, 2 skipped; `npx tsc -b` clean; `check_links.py` OK.
+
 ## 2026-10-28 — D-028 deployed and the building-id migration applied
 
 - Shipped `306fd5a` (data merge), `366dd05` (Atahan's README features), `e57a9b2` (CLAUDE.md data line, Atahan

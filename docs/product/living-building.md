@@ -8,7 +8,7 @@ sources:
   - backend/agents/tools/routing.py (reroute)
   - frontend/src/live/
   - tests/test_live.py
-related: [routing-profiles.md, visualization.md, ../kit/route-model.md, ../architecture/ai-agents.md]
+related: [routing-profiles.md, visualization.md, ../kit/route-model.md, ../architecture/ai-agents.md, organizations.md]
 ---
 
 # The living building

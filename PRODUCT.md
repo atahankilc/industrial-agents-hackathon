@@ -65,7 +65,7 @@ prove and explain the answer, not to make the user do the work.
 
 ## Evidence on Hand
 
-- Real building data in `data/` (train/dev/test, 280 buildings) and live Guide answers from the backend.
+- Real building data in `data/buildings/` (280 kit buildings, one folder each) and live Guide answers from the backend.
 - No real user photos, testimonials, customers or real QR codes; do not invent them.
 
 ## Product Principles

@@ -128,7 +128,7 @@ export function Root() {
           setPlace(where ?? null)
           go(null, 'import')
         }} onDeleted={() => setDeleted((n) => n + 1)}
-        scope={!view.map ? null : scope ? { name: scope.name, org: scope.org.name } : error ? { name: error, org: null } : null}
+        scope={!view.map ? null : scope ? { name: scope.name, org: scope.org.name, orgSlug: scope.org.slug, verified: scope.org.verified } : error ? { name: error, org: null } : null}
         onLeaveScope={() => go(null, 'map', false, { map: null })} />
       )}
       {!view.building && !shown && view.landing === 'org' && (
@@ -136,7 +136,7 @@ export function Root() {
           onOpenOrg={(org) => go(null, 'org', false, { org })} />
       )}
       {!view.building && !shown && view.landing === 'import' && (
-        <ImportScreen place={place} onDone={(base) => go(base, 'map', true)} onExit={() => go(null, 'map')} />
+        <ImportScreen place={place} org={view.map ? scope?.org.slug ?? null : null} onDone={(base) => go(base, 'map', true)} onExit={() => go(null, 'map')} />
       )}
       {shown && (
         <BuildingScreen

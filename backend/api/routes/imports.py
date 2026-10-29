@@ -6,7 +6,7 @@ import json
 import queue
 import threading
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from shapely.geometry import Point as ShapelyPoint, Polygon as ShapelyPolygon
@@ -14,7 +14,7 @@ from shapely.geometry import Point as ShapelyPoint, Polygon as ShapelyPolygon
 from backend.agents.creator import Creator
 from backend.agents.creator_tools import ImportSession
 from backend.api import deps
-from backend.api.deps import draft_or_404
+from backend.api.deps import creator_org_or_403, draft_or_404, own_import, viewer_or_401
 from backend.core import osm_lookup
 from backend.core.edits import EditError, apply_op
 from backend.core.geoplace import Placement, distance_m, location_for, place as place_on_map, placement_ops
@@ -35,7 +35,8 @@ def make_creator(session: ImportSession) -> Creator:
 @router.post("/imports/stream")
 def import_stream(files: list[UploadFile] = File(...), place: str | None = Form(None),
                   device: str | None = Form(None), draft: str | None = Form(None),
-                  levels: str | None = Form(None)) -> StreamingResponse:
+                  levels: str | None = Form(None), org: str | None = Form(None),
+                  authorization: str | None = Header(None)) -> StreamingResponse:
     """Floor plans (PDF / images) → the Creator → a draft on a private base `import/<id>`, as NDJSON:
     {"type": "warning", "detail"} per unreadable file, {"type": "step", …} while the Creator works, then one of
     {"type": "done", "draft_id", "base", "name", "issues", "notes"}, {"type": "no_plan", "reason"} or
@@ -47,9 +48,13 @@ def import_stream(files: list[UploadFile] = File(...), place: str | None = Form(
     `located_by`: "tap" | "photos" | "device" | null. `levels` (JSON list, one int per file, all different): the floor
     each file is, as the user said — the Creator registers each file at that level. `draft` (an open draft's id, Edit
     mode's "Add a floor"): the new floors go into that draft as one undo step (edit op `add_floors`, laid onto the
-    building, backend/core/plan_import/merge.py); a level the draft already has → 422; the `done` line names that draft."""
+    building, backend/core/plan_import/merge.py); a level the draft already has → 422; the `done` line names that draft.
+    `org` (access mode): the organisation the new building belongs to (`creator_org_or_403`: a verified org's editors, or
+    the admin with or without one)."""
     where = place_or_422(place)
-    target = draft_or_404(draft) if draft else None
+    target = draft_or_404(draft, authorization) if draft else None
+    if target is None and deps.access.enabled:
+        org = creator_org_or_403(viewer_or_401(authorization), org)
     given = levels_or_422(levels, len(files))
     if target is not None and given is not None:
         have = {floor["level"] for floor in deps.drafts.building(target)["floors"]}
@@ -103,6 +108,7 @@ def import_stream(files: list[UploadFile] = File(...), place: str | None = Form(
                 building, located_by, suggestion = locate_import(result.building, where, gps or browser,
                                                                  "photos" if gps else "device" if browser else None)
                 draft = deps.drafts.create_import(building)
+                own_import(draft.base, org)
                 lines.put({"type": "done", "draft_id": draft.id, "base": draft.base, "name": draft.name,
                            "issues": deps.drafts.issues(draft),
                            "notes": strip_import_images(building["building"]["source_ref"].get("import")),
@@ -202,9 +208,9 @@ class DraftFit(BaseModel):
 
 
 @router.post("/drafts/{draft_id}/fit")
-def draft_fit(draft_id: str, body: DraftFit) -> dict:
+def draft_fit(draft_id: str, body: DraftFit, authorization: str | None = Header(None)) -> dict:
     """Fit the draft's building onto another OSM footprint (the "did you mean" building): one undo step."""
-    draft = draft_or_404(draft_id)
+    draft = draft_or_404(draft_id, authorization)
     where = place_or_422(json.dumps({"ring": body.ring}))
     try:
         deps.drafts.apply(draft, placement_ops(deps.drafts.building(draft), ring=where["ring"], address=body.name))
@@ -229,10 +235,10 @@ class DraftLocation(BaseModel):
 
 
 @router.put("/drafts/{draft_id}/location")
-def draft_location(draft_id: str, body: DraftLocation) -> dict:
+def draft_location(draft_id: str, body: DraftLocation, authorization: str | None = Header(None)) -> dict:
     """Where the building stands on the map, set by hand (move / rotate / scale over the OSM footprint): one undo
     step of `scale_building` (when the scale changes) + `set_location`. Scale per call within 0.75–1.25."""
-    draft = draft_or_404(draft_id)
+    draft = draft_or_404(draft_id, authorization)
     if not 0.75 <= body.scale <= 1.25:
         raise HTTPException(422, "scale must be within 0.75–1.25 (the map fit corrects the import's scale by ±25 % at most)")
     try:
@@ -257,7 +263,7 @@ def draft_location(draft_id: str, body: DraftLocation) -> dict:
 
 
 @router.get("/drafts/{draft_id}/references")
-def draft_references(draft_id: str) -> dict:
+def draft_references(draft_id: str, authorization: str | None = Header(None)) -> dict:
     """The import's straightened plan per floor (image data URL + 2×3 px → metres transform) for Edit mode's
     reference panel and trace; empty for buildings that did not come from an import."""
-    return {"floors": deps.drafts.references(draft_or_404(draft_id))}
+    return {"floors": deps.drafts.references(draft_or_404(draft_id, authorization))}

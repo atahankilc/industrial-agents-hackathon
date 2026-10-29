@@ -6,13 +6,14 @@ import queue
 import re
 import threading
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from backend.agents.builder import Builder
 from backend.api import deps, persistence, service_errors
-from backend.api.deps import draft_or_404, ndjson_with_pings
+from backend.api.access import ADMIN_ROLES
+from backend.api.deps import adopt, building_admin_or_403, draft_or_404, ndjson_with_pings, viewer_or_401
 from backend.api.drafts import Draft
 from backend.core.edits import EditError
 
@@ -29,6 +30,7 @@ class DraftOps(BaseModel):
 
 class SaveDraft(BaseModel):
     name: str
+    map: str | None = None  # an organisation's map the new building goes onto (the app's ?map=), if the saver edits it
 
 
 class BuilderMessage(BaseModel):
@@ -36,16 +38,20 @@ class BuilderMessage(BaseModel):
 
 
 @router.delete("/buildings/{split}/{slug}")
-def delete_building(split: str, slug: str) -> dict:
+def delete_building(split: str, slug: str, authorization: str | None = Header(None)) -> dict:
     """Delete a building saved from the Edit mode or an import (user/<slug>); dataset buildings cannot be deleted.
-    A version it superseded comes back to the map."""
+    A version it superseded comes back to the map. Access mode: whoever administers it."""
+    if deps.access.enabled:
+        building_admin_or_403(authorization, f"{split}/{slug}")
     if split != "user" or not re.fullmatch(r"[a-z0-9-]+", slug) or not deps.drafts.delete(f"user/{slug}"):
         raise HTTPException(404, f"no saved building {split}/{slug}")
     return {"deleted": f"user/{slug}"}
 
 
 @router.post("/drafts")
-def create_draft(body: NewDraft) -> dict:
+def create_draft(body: NewDraft, authorization: str | None = Header(None)) -> dict:
+    if deps.access.enabled:
+        building_admin_or_403(authorization, body.base)
     try:
         draft = deps.drafts.create(body.base)
     except KeyError:
@@ -54,18 +60,18 @@ def create_draft(body: NewDraft) -> dict:
 
 
 @router.get("/drafts/{draft_id}")
-def get_draft(draft_id: str) -> dict:
-    return deps.drafts.state(draft_or_404(draft_id))
+def get_draft(draft_id: str, authorization: str | None = Header(None)) -> dict:
+    return deps.drafts.state(draft_or_404(draft_id, authorization))
 
 
 @router.get("/drafts/{draft_id}/plan")
-def draft_plan(draft_id: str) -> dict:
-    return deps.drafts.plan(draft_or_404(draft_id))
+def draft_plan(draft_id: str, authorization: str | None = Header(None)) -> dict:
+    return deps.drafts.plan(draft_or_404(draft_id, authorization))
 
 
 @router.post("/drafts/{draft_id}/ops")
-def draft_ops(draft_id: str, body: DraftOps) -> dict:
-    draft = draft_or_404(draft_id)
+def draft_ops(draft_id: str, body: DraftOps, authorization: str | None = Header(None)) -> dict:
+    draft = draft_or_404(draft_id, authorization)
     try:
         deps.drafts.apply(draft, body.ops)
     except EditError as error:
@@ -75,8 +81,8 @@ def draft_ops(draft_id: str, body: DraftOps) -> dict:
 
 
 @router.post("/drafts/{draft_id}/undo")
-def draft_undo(draft_id: str) -> dict:
-    draft = draft_or_404(draft_id)
+def draft_undo(draft_id: str, authorization: str | None = Header(None)) -> dict:
+    draft = draft_or_404(draft_id, authorization)
     try:
         deps.drafts.undo(draft)
     except EditError as error:
@@ -86,10 +92,22 @@ def draft_undo(draft_id: str) -> dict:
 
 
 @router.post("/drafts/{draft_id}/save")
-def draft_save(draft_id: str, body: SaveDraft) -> dict:
-    draft = draft_or_404(draft_id)
+def draft_save(draft_id: str, body: SaveDraft, authorization: str | None = Header(None)) -> dict:
+    draft = draft_or_404(draft_id, authorization)
     issues = deps.drafts.issues(draft)
-    return {"building": deps.drafts.save(draft, body.name), "issues": issues}
+    building = deps.drafts.save(draft, body.name)
+    adopt(draft.base, building)
+    if body.map and deps.access.enabled:
+        on_map(body.map, building, viewer_or_401(authorization))
+    return {"building": building, "issues": issues}
+
+
+def on_map(slug: str, building: str, viewer) -> None:
+    """Put a just-saved building on the organisation's map it was made from, if the saver may edit that map."""
+    row = deps.maps.get(slug)
+    if row and building not in row.buildings and (viewer.admin or deps.access.role(viewer, row.org) in ADMIN_ROLES):
+        row.buildings.append(building)
+        deps.maps.put(row)
 
 
 # ---------- Edit mode: the Builder agent (backend/agents/builder.py) — prompt edits ----------
@@ -163,10 +181,10 @@ def proposal_payload(draft: Draft, proposal: object | None) -> dict | None:
 
 
 @router.post("/drafts/{draft_id}/chat/stream")
-def draft_chat_stream(draft_id: str, body: BuilderMessage) -> StreamingResponse:
+def draft_chat_stream(draft_id: str, body: BuilderMessage, authorization: str | None = Header(None)) -> StreamingResponse:
     """One Builder turn as NDJSON: {"type": "step", …} while it works, then {"type": "reply", "reply", "tool_calls",
     "proposal" (or null), "applied" (summary when a "yes" applied the open proposal), "state"} or {"type": "error"}."""
-    draft = draft_or_404(draft_id)
+    draft = draft_or_404(draft_id, authorization)
     lines: queue.Queue[dict | None] = queue.Queue()
 
     def work() -> None:
@@ -202,8 +220,8 @@ def draft_chat_stream(draft_id: str, body: BuilderMessage) -> StreamingResponse:
 
 
 @router.post("/drafts/{draft_id}/proposals/{proposal_id}/cancel")
-def cancel_proposal(draft_id: str, proposal_id: str) -> dict:
-    draft = draft_or_404(draft_id)
+def cancel_proposal(draft_id: str, proposal_id: str, authorization: str | None = Header(None)) -> dict:
+    draft = draft_or_404(draft_id, authorization)
     with builder_lock(draft.id):
         builder = load_builder(draft)
         builder.cancel(proposal_id)
@@ -212,8 +230,8 @@ def cancel_proposal(draft_id: str, proposal_id: str) -> dict:
 
 
 @router.post("/drafts/{draft_id}/proposals/{proposal_id}/apply")
-def apply_proposal(draft_id: str, proposal_id: str) -> dict:
-    draft = draft_or_404(draft_id)
+def apply_proposal(draft_id: str, proposal_id: str, authorization: str | None = Header(None)) -> dict:
+    draft = draft_or_404(draft_id, authorization)
     with builder_lock(draft.id):
         builder = load_builder(draft)
         try:

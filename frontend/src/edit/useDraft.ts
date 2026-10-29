@@ -326,7 +326,8 @@ export function useDraft(base: string, active: boolean, accessTool = false) {
     if (!draftId) return null
     setBusy(true)
     try {
-      const saved = await api.saveDraft(draftId, name)
+      // made on an organisation's map (?map=): the saved building goes onto it
+      const saved = await api.saveDraft(draftId, name, new URLSearchParams(location.search).get('map'))
       localStorage.removeItem(draftKey(base))
       return saved.building
     } catch (error) {

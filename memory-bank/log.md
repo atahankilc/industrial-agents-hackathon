@@ -9,6 +9,22 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-29 — Organisations phase 2c: Edit mode and imports for org editors
+
+- 2a/2b shipped as `b126fd7` (1 verifier round).
+- Backend: `deps.draft_or_404(draft_id, authorization)` lets only whoever administers the draft's base reach it (404
+  otherwise); `creator_org_or_403` (admin, or editor / owner of a **verified** org, because a Creator run is paid);
+  `own_import` gives the `import/<id>` base an access row with that org; `adopt` hands a saved building to the base's
+  org (an edit keeps the listing, a building from plans starts unlisted); `SaveDraft.map` puts it on the org map it was
+  made from. `/drafts`, `/imports` gate in `app.py` lets org editors / owners through; deleting a saved building needs
+  its admin. `tests/test_org_editing.py` (6).
+- Frontend: the pencil and Edit mode follow `administers(access, org)`; "New building from floor plans" shows on a
+  verified org's map for its editors, and the import sends that org; saves send `?map=`.
+- Headless (fake signed-in owner, in-memory backend :8391): on `?map=tum-campus` the create button is offered; on
+  Hauptgebäude both the settings and the pencil show; the pencil opens Edit mode (`POST /api/drafts` 200, plan and
+  references 200); no console errors.
+- `uv run pytest -q` → 978 passed, 2 skipped.
+
 ## 2026-10-29 — Organisations phase 2a/2b: maps, share links, the Organisations sheet
 
 - Phase 1 shipped as `b614c91` (verifier round 1 found that any signed-in user could change the listing of a platform

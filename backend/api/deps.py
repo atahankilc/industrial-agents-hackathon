@@ -15,8 +15,8 @@ from fastapi import HTTPException
 
 from backend.agents.campus import Campus
 from backend.api import persistence
-from backend.api.access import Access, AuthError, AuthUnavailable, Viewer
-from backend.api.drafts import Draft, DraftStore, backend_from_env
+from backend.api.access import ADMIN_ROLES, Access, AuthError, AuthUnavailable, BuildingAccess, Viewer
+from backend.api.drafts import IMPORT_PREFIX, Draft, DraftStore, backend_from_env
 from backend.api.fleet import Fleet, fleet_from_env
 from backend.api.live import LiveHub, SessionLive
 from backend.api.maps import maps_from_env
@@ -154,11 +154,46 @@ def viewer_restricted(authorization: str | None, building: str) -> tuple[Viewer,
     return viewer, access.restricted_for(viewer, building, store.base_data(building))
 
 
-def draft_or_404(draft_id: str) -> Draft:
+def draft_or_404(draft_id: str, authorization: str | None = None) -> Draft:
+    """The draft, if this request's viewer administers the building it copies (access mode; any draft when off): the
+    admin, or an editor / owner of the org that owns its base (`import/<id>` too, see `creator_org_or_403`). Anyone else
+    gets a 404, as if it did not exist."""
     draft = drafts.get(draft_id)
-    if draft is None:
+    if draft is None or (access.enabled and not access.can_admin(viewer_or_401(authorization), draft.base)):
         raise HTTPException(404, f"unknown draft {draft_id!r}")
     return draft
+
+
+def creator_org_or_403(viewer: Viewer, org: str | None) -> str | None:
+    """The org a building from plans will belong to (access mode). The admin may name one or none; anyone else needs
+    the editor or owner role in a verified org, because a Creator run is paid (docs/product/organizations.md)."""
+    owner = access.store.org(org) if org else None
+    if org and owner is None:
+        raise HTTPException(422, f"unknown organisation {org!r}")
+    if viewer.admin:
+        return org
+    if owner is None or access.role(viewer, org) not in ADMIN_ROLES:
+        raise HTTPException(403, "only the admin, or an organisation's editors, create buildings from plans")
+    if not owner.verified:
+        raise HTTPException(403, "creating buildings from plans needs a verified organisation; ask the admin")
+    return org
+
+
+def own_import(base: str, org: str | None) -> None:
+    """The private base of a building from plans belongs to its org, so the org's editors may open its draft."""
+    if access.enabled and org:
+        access.store.set_building(base, BuildingAccess(listing="private", org=org))
+
+
+def adopt(base: str, building: str) -> None:
+    """A building saved from a draft belongs to the org that owns the draft's base: an edit keeps the base's listing, a
+    building from plans starts unlisted (its org lists it when it wants). The platform's stay without a row."""
+    if not access.enabled:
+        return
+    owner = access.store.building(base)
+    if owner.org:
+        listing = "unlisted" if base.startswith(IMPORT_PREFIX) else owner.listing
+        access.store.set_building(building, BuildingAccess(listing=listing, org=owner.org))
 
 
 PING_S = 10  # a quiet turn (the model thinking) still sends a line this often; the app gives up after 45 s of silence

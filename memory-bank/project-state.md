@@ -53,13 +53,15 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
   `/maps` routes; private / link / public, share key), `?map=<slug>[&k=]` scopes the landing to a map, the
   Organisations sheet (`frontend/src/org/`, account menu), Building settings for org editors with three listings.
   Migration `20261029120000_maps.sql` written, **not applied**.
+- **Organisations, phase 2c:** org editors use Edit mode on their org's buildings and, in a verified org, create
+  buildings from plans; saves belong to the org (and go onto the org map they were made from).
 - **Workflow:** verified commits via `/ship` ([D-008](decisions.md#d-008),
   [dev-workflow.md](../docs/guides/dev-workflow.md)); work on `dev`, never on `main`.
 
 ## What works (verified 2026-10-27, deploy 2026-10-28)
 
 - `npm run dev` (repo root) → backend http://127.0.0.1:8390 + app http://localhost:5390.
-- `uv run pytest -q` → 972 passed, 2 skipped (2026-10-28, with `tests/test_orgs.py`).
+- `uv run pytest -q` → 978 passed, 2 skipped (2026-10-29, with the organisations tests).
 - `python3 scripts/check_links.py` → all links resolve.
 - `main` is at `30ddf99` (PR #11, 2026-10-28: data/buildings merge, README features, CLAUDE.md); production serves it.
 - Deployed app: https://steward-io.vercel.app → `/` 200 (title "Steward"), `/api/health` 200
@@ -71,8 +73,8 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
 ## Next
 
 - **Organisations** ([organizations.md](../docs/product/organizations.md)): apply `20261028120000_orgs.sql` and
-  `20261029120000_maps.sql` before this code is deployed (it reads the new tables and columns); then 2c (Edit mode
-  and imports for org editors), the Guide's neighbours on a map, org badges on the main map, phase 3 (island board). Open: [Q-022](open-questions.md#q-022)–[Q-024](open-questions.md#q-024).
+  `20261029120000_maps.sql` before this code is deployed (it reads the new tables and columns); then the Guide's
+  neighbours on a map, a per-org Creator quota, org badges on the main map, phase 3 (island board). Open: [Q-022](open-questions.md#q-022)–[Q-024](open-questions.md#q-024).
 
 0. **Rename to Steward outside the repo** ([D-027](decisions.md#d-027)): done: GitHub repo → `atahankilc/steward`
    (remote updated, homepage set), Vercel project → `steward`, deployed at https://steward-io.vercel.app

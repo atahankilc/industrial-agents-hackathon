@@ -113,7 +113,7 @@ export function MapLanding({ buildings, error, focus, scope = null, onOpen, onIm
   buildings: Building[] | null
   error: string | null
   /** an organisation's map (?map=, docs/product/organizations.md): its name and org head the map instead of Steward's */
-  scope?: { name: string; org: string | null } | null
+  scope?: { name: string; org: string | null; orgSlug?: string; verified?: boolean } | null
   focus: Focus | null
   onOpen: (id: string) => void
   onImport: (place?: ImportPlace) => void
@@ -139,7 +139,9 @@ export function MapLanding({ buildings, error, focus, scope = null, onOpen, onIm
   // "Delete" asks once more in place (no browser dialog); a failure is said in the card
   const [deleting, setDeleting] = useState<'ask' | 'busy' | string | null>(null)
   useEffect(() => setDeleting(null), [card])
-  const canCreate = !access.mode || access.admin
+  // and in access mode on a verified organisation's map, its editors (for that organisation)
+  const orgRole = scope?.orgSlug ? access.orgs[scope.orgSlug] : undefined
+  const canCreate = !access.mode || access.admin || (Boolean(scope?.verified) && (orgRole === 'editor' || orgRole === 'owner'))
   const canCreateRef = useRef(canCreate)
   canCreateRef.current = canCreate
   const cardOpenRef = useRef(false)
@@ -886,7 +888,7 @@ export function MapLanding({ buildings, error, focus, scope = null, onOpen, onIm
               </p>
             )}
           </div>
-          {(!access.mode || access.admin) && (
+          {canCreate && (
             <button className="ml-more" onClick={() => onImport()}>
               <span>New building from floor plans</span>
               <span aria-hidden>Create →</span>

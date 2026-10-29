@@ -1,6 +1,6 @@
 ---
 id: organizations
-summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings) and phase 2a/2b (maps, share links, ?map= scope, organisations sheet) are built; 2c–4 are the plan.
+summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings) and phase 2 (maps, share links, ?map= scope, organisations sheet, Edit mode and imports for org editors) are built; 3–4 are the plan.
 sources:
   - backend/api/access.py
   - backend/api/routes/orgs.py
@@ -10,6 +10,7 @@ sources:
   - supabase/migrations/20261029120000_maps.sql
   - frontend/src/org/OrgScreen.tsx, frontend/src/Root.tsx, frontend/src/map/MapLanding.tsx
   - tests/test_maps.py
+  - tests/test_org_editing.py
   - backend/api/deps.py
   - supabase/migrations/20261028120000_orgs.sql
   - tests/test_orgs.py
@@ -79,7 +80,7 @@ written: code from before the migration reads and writes only `public`, so when 
 | `GET /buildings` | anyone | each item now has `org` |
 | `GET /me` | anyone | now also `orgs: {slug: role}` |
 
-## Phase 2 — maps and sharing (2a + 2b built, 2c planned)
+## Phase 2 — maps and sharing (built)
 
 Built (2026-10-29):
 
@@ -102,9 +103,18 @@ Built (2026-10-29):
 - The Guide's campus keeps the session's own building even when it is hidden for the viewer (an unlisted building
   opened by its link still has its neighbours).
 
-Still to do in phase 2:
+- **2c, Edit mode and imports for org editors** (2026-10-29): a draft is reachable by whoever administers its base
+  (`deps.draft_or_404`; anyone else gets 404, and `/drafts`, `/imports` keep a first gate in `app.py` for the admin and
+  orgs' editors / owners). A building from plans needs the admin, or an editor / owner of a **verified** org
+  (`creator_org_or_403`: a Creator run is paid, and verifying is the admin's call); its private base `import/<id>`
+  gets an access row with that org (`own_import`). A saved draft belongs to its base's org (`adopt`): an edit keeps
+  the base's listing, a building from plans starts unlisted. Saved from an org map (`?map=`), it goes onto that map
+  when the saver edits it. In the app the pencil and "New building from floor plans" show for those who may use
+  them; an import started on a verified org's map sends that org. Deleting a saved building: whoever administers it.
 
-- **2c:** Edit mode and imports for org editors, saving into their org (Creator runs are paid: per-org quota first).
+Still to do:
+
+- A per-org quota on Creator runs (now only verified orgs may run them).
 - The Guide's neighbours on a map: today they are the buildings the viewer may list, so an outsider on a link-shared
   map does not get the map's unlisted buildings as neighbours.
 - Main map: listed buildings carry their org's badge; tapping it opens the org's public map.

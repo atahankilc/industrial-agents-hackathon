@@ -152,7 +152,7 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   const access = useAccess()
   // who may change the building: its admin in access mode, anyone without it (editing works on a copy); nobody
   // until /config (and a signed-in viewer's /me) has answered, so ?edit=1 never shows the Edit mode to the wrong one
-  const mayChange = !access.checking && (!access.mode || access.admin)
+  const mayChange = !access.checking && (!access.mode || administers(access, org))
   // the building's admin in access mode (the admin, or an editor / owner of its org) also sets who may go where: the
   // Access tool, and the Building settings button
   const admin = access.mode && administers(access, org)
@@ -401,7 +401,7 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
     // the Guide switched to the Edit mode: the Builder takes the request once the draft is open
     const edit = events.find((event) => event.type === 'edit_mode')
     if (edit?.type === 'edit_mode') {
-      if (access.mode && !access.admin) {
+      if (access.mode && !administers(access, org)) {
         setMessages((list) => [...list, { role: 'note', text: 'Editing this building needs its admin account.' }])
       } else {
         handOver.current = edit.request ? { text: edit.request, spoken } : null
@@ -773,7 +773,7 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
   const current = shownPlan?.floors[floor]
   // the plan's buttons (figure, street view, compass), then the admin corner (Edit, and Building settings for the
   // admin in access mode): the Live button goes on top of them
-  const liveBottom = insets.bottom + 16 + (44 + 10) * (3 + (admin ? 1 : 0) + (!access.mode || access.admin ? 1 : 0))
+  const liveBottom = insets.bottom + 16 + (44 + 10) * (3 + (admin ? 1 : 0) + (!access.mode || admin ? 1 : 0))
   const suggestions = useMemo(() => (plan ? suggest(plan, plan.floors[floor]?.name ?? '') : []), [plan, floor])
 
   const info = useMemo((): InfoCard | null => {
@@ -1226,7 +1226,7 @@ export function BuildingScreen({ buildingId, origin, leaving, onBack, onOpen, st
               <ShieldCheck size={19} strokeWidth={2} />
             </button>
           )}
-          {(!access.mode || access.admin) && (
+          {(!access.mode || admin) && (
             <button
               type="button"
               className="admin-button"

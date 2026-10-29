@@ -594,8 +594,9 @@ export const api = {
   applyOps: (id: string, ops: Op[]) =>
     request<DraftState>(`/drafts/${id}/ops`, { method: 'POST', body: JSON.stringify({ ops }) }),
   undo: (id: string) => request<DraftState>(`/drafts/${id}/undo`, { method: 'POST' }),
-  saveDraft: (id: string, name: string) =>
-    request<{ building: string; issues: Issue[] }>(`/drafts/${id}/save`, { method: 'POST', body: JSON.stringify({ name }) }),
+  /** `map`: the organisation's map the building was made from (?map=); the new building goes onto it */
+  saveDraft: (id: string, name: string, map?: string | null) =>
+    request<{ building: string; issues: Issue[] }>(`/drafts/${id}/save`, { method: 'POST', body: JSON.stringify({ name, map: map ?? null }) }),
   builderStream,
   importPlans,
   /** Delete a building saved from the Edit mode or an import (user/<slug>); a version it replaced comes back. */
@@ -739,7 +740,7 @@ async function readBuilder(reader: { read: () => Promise<ReadableStreamReadResul
  *  stops the Creator). */
 async function importPlans(
   files: File[], onLine: (line: ImportLine) => void, signal?: AbortSignal, place?: ImportPlace | null,
-  device?: { lat: number; lon: number } | null, draft?: string | null, levels?: number[],
+  device?: { lat: number; lon: number } | null, draft?: string | null, levels?: number[], org?: string | null,
 ): Promise<void> {
   const form = new FormData()
   for (const file of files) form.append('files', file, file.name)
@@ -747,6 +748,7 @@ async function importPlans(
   if (device) form.append('device', JSON.stringify(device))
   if (draft) form.append('draft', draft) // Edit mode's "Add a floor": into the open draft, one undo step
   if (levels) form.append('levels', JSON.stringify(levels)) // the floor of each file, as the user said
+  if (org) form.append('org', org) // access mode: the organisation the new building belongs to
   const { 'content-type': _json, ...auth } = (await headers()) as Record<string, string> // the browser sets the multipart boundary
   const response = await fetch(BASE + '/imports/stream', { method: 'POST', body: form, headers: auth, signal })
   if (!response.ok || !response.body) throw await failed(response, '/imports/stream')

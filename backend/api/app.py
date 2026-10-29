@@ -29,7 +29,7 @@ from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES
 
 from backend.agents.guide import llm_mode
 from backend.api import deps, devtools, persistence, service_errors, stt, tts
-from backend.api.access import AuthError, AuthUnavailable
+from backend.api.access import ADMIN_ROLES, AuthError, AuthUnavailable
 from backend.api.deps import building_admin_or_403, conversation_or_404, known_or_422, save_or_409, viewer_restricted
 from backend.api.fleet import router as fleet_router
 from backend.api.live import router as live_router
@@ -65,7 +65,7 @@ app.add_middleware(StripPrefix)  # added last = outermost: routes see the path w
 @app.middleware("http")
 async def drafts_admin_only(request: Request, call_next):
     """Access mode: Edit mode (/drafts) hands out a building's full data, and an import (/imports) is a paid Creator
-    run that ends in the Edit mode, so only the admin may use them."""
+    run that ends in the Edit mode, so only the admin and organisations' editors / owners get past here."""
     path = request.url.path.removeprefix(API_PREFIX)
     admin_only = (any(path == root or path.startswith(root + "/") for root in ("/drafts", "/imports"))
                   or (request.method == "DELETE" and path.startswith("/buildings/")))  # deleting a saved building
@@ -76,7 +76,10 @@ async def drafts_admin_only(request: Request, call_next):
             return JSONResponse({"detail": "sign-in expired or invalid; sign in again"}, status_code=401)
         except AuthUnavailable as error:
             return JSONResponse({"detail": f"sign-in is unavailable right now ({error})"}, status_code=503)
-        if not viewer.admin:
+        # a first gate; the routes check the building itself (deps.draft_or_404, creator_org_or_403, …)
+        roles = (await run_in_threadpool(deps.access.store.user_orgs, viewer.user_id)
+                 if viewer.user_id and not viewer.admin else {})
+        if not viewer.admin and not set(roles.values()) & set(ADMIN_ROLES):
             return JSONResponse({"detail": "only the building admin can edit buildings"}, status_code=403)
     return await call_next(request)
 

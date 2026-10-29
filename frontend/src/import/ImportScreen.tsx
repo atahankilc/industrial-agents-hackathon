@@ -28,12 +28,14 @@ type Phase = 'pick' | 'working' | 'no_plan' | 'error' | 'place'
 /** `draft`: Edit mode's "Add a floor" — the new floors go into that open draft (`levels`: the floors it has). */
 type Props = {
   place?: ImportPlace | null; draft?: { id: string; name: string; levels: number[] } | null
+  /** access mode: the organisation the new building belongs to (started from its map) */
+  org?: string | null
   onDone: (base: string) => void; onExit: () => void
 }
 
 const keyOf = (file: File) => `${file.name}:${file.size}`
 
-export function ImportScreen({ place, draft, onDone, onExit }: Props) {
+export function ImportScreen({ place, draft, org = null, onDone, onExit }: Props) {
   const [placed, setPlaced] = useState<{
     draftId: string; base: string; location: PlacedLocation; locatedBy: 'tap' | 'photos' | 'device' | null; suggestion: ImportSuggestion | null
   } | null>(null)
@@ -103,7 +105,7 @@ export function ImportScreen({ place, draft, onDone, onExit }: Props) {
     try {
       // the browser's position, for when the photos carry no GPS (phone browsers often strip it): asked once, 4 s at most
       const device = draft ? null : await browserPosition()
-      await api.importPlans(files, onLine, controller.signal, draft ? null : place, device, draft?.id, levels.map(Number))
+      await api.importPlans(files, onLine, controller.signal, draft ? null : place, device, draft?.id, levels.map(Number), draft ? null : org)
     } catch (error) {
       if (controller.signal.aborted) return
       setMessage(error instanceof Error ? error.message : String(error))

@@ -173,7 +173,7 @@ function edgesAt(board: Board, [x, y]: [number, number], reach: number): { index
 const CURSORS: Record<string, string> = { left: 'ew-resize', right: 'ew-resize', top: 'ns-resize', bottom: 'ns-resize', 'left top': 'nwse-resize', 'right bottom': 'nwse-resize', 'right top': 'nesw-resize', 'left bottom': 'nesw-resize' }
 const cursorOf = (edges: Edges) => CURSORS[(['left', 'right', 'top', 'bottom'] as const).filter((edge) => edges[edge]).join(' ')] ?? 'move'
 
-export function MapLanding({ buildings, error, focus, scope = null, scoped = false, board = null, onArrange, onOpen, onImport, onDeleted, onLeaveScope }: {
+export function MapLanding({ buildings, error, focus, scope = null, scoped = false, board = null, onArrange, onOpen, onImport, onDeleted, onLeaveScope, onOpenMap }: {
   buildings: Building[] | null
   error: string | null
   /** an organisation's map (?map=, docs/product/organizations.md): its name and org head the map instead of Steward's */
@@ -190,6 +190,8 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
   onDeleted: () => void
   /** back to the main map from an organisation's map */
   onLeaveScope?: () => void
+  /** an org's badge tapped on the main map: open that org's public map (Building `badge`) */
+  onOpenMap?: (slug: string) => void
 }) {
   const access = useAccess() // access mode: only the admin creates buildings (an import is a paid Creator run)
   const { dark } = useTheme()
@@ -295,6 +297,8 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
     return building ? nameOf(building) : id
   }
   const addressOf = (id: string) => buildings?.find((item) => item.id === id)?.location?.address ?? null
+  const badgeOf = (id: string) => buildings?.find((item) => item.id === id)?.badge ?? null
+  const pickedBadge = picked ? badgeOf(picked) : null
   const outlineOf = (id: string) => buildings?.find((item) => item.id === id)?.location?.outline?.[0] ?? null
 
   // the map: created once; its style follows the theme (a style swap drops our layers, so they go back on style.load)
@@ -484,7 +488,7 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
       type: 'FeatureCollection',
       features: located.map((b) => ({
         type: 'Feature',
-        properties: { id: b.id, name: nameOf(b) },
+        properties: { id: b.id, name: nameOf(b), org: b.badge?.name ?? '' },
         geometry: { type: 'Point', coordinates: [b.location.lon, b.location.lat] },
       })),
     }
@@ -559,7 +563,9 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
         type: 'symbol',
         source: 'buildings',
         layout: {
-          'text-field': ['get', 'name'],
+          // an org's building: its org under the name, smaller (the main map's badge)
+          'text-field': ['case', ['==', ['get', 'org'], ''], ['get', 'name'],
+            ['format', ['get', 'name'], {}, '\n', {}, ['get', 'org'], { 'font-scale': 0.85, 'text-font': ['literal', ['Noto Sans Regular']] }]],
           'text-font': ['Noto Sans Bold'],
           'text-size': 12,
           'text-letter-spacing': 0.02,
@@ -1015,6 +1021,12 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
                   ? card.ids.length > 1 ? `${card.ids.length} versions stand here.` : addressOf(card.ids[0]) ?? 'A building with its own model.'
                   : 'ring' in card.place ? 'Make a model of it from photos or PDFs of its floor plans.' : 'No building is mapped here. Place a new one on this spot from its floor plans.'}
               </p>
+              {card.kind === 'ours' && card.ids.length === 1 && badgeOf(card.ids[0]) && (
+                <OrgBadge badge={badgeOf(card.ids[0])!} onOpenMap={onOpenMap && ((slug) => {
+                  setCard(null)
+                  onOpenMap(slug)
+                })} />
+              )}
             </div>
           </div>
           {card.kind === 'ours' && card.ids.length > 1 && (
@@ -1180,6 +1192,7 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
               {GO}
             </button>
           )}
+          {!listOpen && pickedBadge && <OrgBadge badge={pickedBadge} onOpenMap={onOpenMap} />}
         </div>
         <div className="ml-body" id="ml-list" inert={listOpen ? undefined : true}>
           {kinds.length > 1 && (
@@ -1217,7 +1230,12 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
                           >
                             <span className="ml-row-text">
                               <span className="ml-name">{nameOf(b)}</span>
-                              {b.location?.address && <span className="ml-address">{b.location.address}</span>}
+                              {(b.location?.address || b.badge) && (
+                                <span className="ml-address">
+                                  {b.badge && <span className="ml-org">{b.badge.name}</span>}
+                                  {b.location?.address}
+                                </span>
+                              )}
                             </span>
                             {picked === b.id && GO}
                           </button>
@@ -1242,6 +1260,19 @@ export function MapLanding({ buildings, error, focus, scope = null, scoped = fal
         </div>
       </aside>
     </main>
+  )
+}
+
+/** An org's badge on the main map: its name; with a public map, a button that opens it. */
+function OrgBadge({ badge, onOpenMap }: { badge: NonNullable<Building['badge']>; onOpenMap?: (slug: string) => void }) {
+  const map = badge.map
+  if (!map || !onOpenMap) return <p className="ml-badge"><span className="ml-org">{badge.name}</span></p>
+  return (
+    <button type="button" className="ml-badge" onClick={() => onOpenMap(map.slug)} title={`Open ${map.name}, ${badge.name}'s map`}>
+      <span className="ml-org">{badge.name}</span>
+      <span className="ml-badge-map">{map.name}</span>
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="M9 6l6 6-6 6" /></svg>
+    </button>
   )
 }
 

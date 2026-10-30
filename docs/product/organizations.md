@@ -1,6 +1,6 @@
 ---
 id: organizations
-summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings), phase 2 (maps, share links, ?map= scope, organisations sheet, Edit mode and imports for org editors) and phase 3's island board with dragging, naming and drawn (rectangular) areas and location on the board are built; merging / splitting sites, areas of any shape and phase 4 are the plan.
+summary: Organisations and their own maps — an org (TUM) owns buildings, lists them on the main map or keeps them to its own map, shares that map by link or membership, and shows its sites as islands pulled close together instead of the whole world. Phase 1 (ownership, roles, listings), phase 2 (maps, share links, ?map= scope, organisations sheet, Edit mode and imports for org editors) and phase 3's island board with dragging, naming and drawn (rectangular) areas and location on the board are built, and the main map's org badges; merging / splitting sites, areas of any shape and phase 4 are the plan.
 sources:
   - backend/api/access.py
   - backend/api/routes/orgs.py
@@ -79,7 +79,7 @@ written: code from before the migration reads and writes only `public`, so when 
 | `PUT /orgs/{slug}/members` `{user_id, email, role\|null}` | owner | change or remove a role |
 | `PUT /orgs/{slug}/buildings` `{building, listing?, owned?}` | admin (ownership), editor (listing) | |
 | `PUT /access/building` `{…, listing?}` | building admin | as before; `public` alone keeps an unlisted building unlisted |
-| `GET /buildings` | anyone | each item now has `org` |
+| `GET /buildings` | anyone | each item has `org` and `badge` (`{org, name, map}` or null) |
 | `GET /me` | anyone | now also `orgs: {slug: role}` |
 
 ## Phase 2 — maps and sharing (built)
@@ -111,6 +111,13 @@ Built (2026-10-29):
   So an outsider on a link-shared map gets its unlisted buildings as neighbours. Per request, not stored with the
   session: a session restored on another instance (Vercel) gets the same answer.
 
+- **Badges on the main map** (2026-10-30): `GET /buildings` gives each building an org owns a `badge`: the org's name
+  and the public map a tap opens: the first public one (by slug) that holds the building, else the org's first public
+  one, else none (`backend/api/routes/guide.py` `badges`, `badge_of`). The app shows the org under the building's name
+  on the map (`pin-names`), as a chip in its list row, and, for the picked building (and in the right-click card), as a
+  chip "org · map ›" that opens `?map=<slug>`; without a public map the chip only names the org. On an org's own map no
+  badge (its head names the org already).
+
 - **2c, Edit mode and imports for org editors** (2026-10-29): a draft is reachable by whoever administers its base
   (`deps.draft_or_404`; anyone else gets 404, and `/drafts`, `/imports` keep a first gate in `app.py` for the admin and
   orgs' editors / owners). A building from plans needs the admin, or an editor / owner of a **verified** org
@@ -123,7 +130,6 @@ Built (2026-10-29):
 Still to do:
 
 - A per-org quota on Creator runs (now only verified orgs may run them).
-- Main map: listed buildings carry their org's badge; tapping it opens the org's public map.
 - An unlisted building opened by a bare `?building=` link (without its map) has no position on the landing.
 
 ## Phase 3 — the compact island board (first cut built)

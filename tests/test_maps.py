@@ -134,3 +134,17 @@ def test_a_drawn_area_is_a_rectangle_on_the_grid(maps):
                 {**area, "y1": 2**26 + 1}):  # off the world
         refused = maps.put("/maps/tum-campus", headers=auth("editor"), json={"layout": {"sites": [{"buildings": [HAUPT], "area": bad}]}})
         assert refused.status_code == 422, bad
+
+
+def test_the_main_maps_badges_name_the_org_and_open_its_public_map(maps):
+    def badges(token: str | None = None) -> dict:
+        return {item["id"]: item["badge"] for item in maps.get("/buildings", headers=auth(token) if token else {}).json()}
+
+    assert badges()[OTHER] is None  # the platform's
+    assert badges()[HAUPT] == {"org": "tum", "name": "TU München", "map": None}  # its only map is private
+    maps.post("/orgs/tum/maps", headers=auth("editor"), json={"slug": "a-tum-sites", "name": "TUM Sites"})
+    maps.put("/maps/a-tum-sites", headers=auth("editor"), json={"visibility": "public"})
+    assert badges()[HAUPT]["map"] == {"slug": "a-tum-sites", "name": "TUM Sites"}  # not on it: the org's first public
+    maps.put("/maps/tum-campus", headers=auth("editor"), json={"visibility": "public"})
+    assert badges()[HAUPT]["map"] == {"slug": "tum-campus", "name": "TUM Campus"}  # the public map that holds it
+    assert badges("student")[MENSA]["name"] == "TU München"  # unlisted: only the org's people see it, badge and all

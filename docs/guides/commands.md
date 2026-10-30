@@ -54,7 +54,7 @@ uv run --env-file .env python scripts/live_guide.py [--model claude-sonnet-5-5] 
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
 | GET | `/health` | – | `{"ok", "llm": "anthropic"\|"offline", "tts", "stt"}` — `tts` / `stt`: ElevenLabs voice / Scribe recognition available (see `/tts`, `/stt/token`) |
-| GET | `/buildings` | – | `[{"id": "proc-campus-train-000", "split", "name", "org"}]` (kit buildings: the directory in `data/buildings/`; saved ones `user/<slug>`; `org` = the owning organisation's slug, `null` for the platform's or with access mode off; access mode leaves out unlisted / private buildings unless the viewer is the admin, in the owning org or a member of the building) |
+| GET | `/buildings` | – | `[{"id": "proc-campus-train-000", "split", "name", "org", "badge"}]` (kit buildings: the directory in `data/buildings/`; saved ones `user/<slug>`; `org` = the owning organisation's slug, `null` for the platform's or with access mode off; `badge` = `{"org", "name", "map": {"slug", "name"} | null}` for an org's building (the public map its badge opens), else `null`; access mode leaves out unlisted / private buildings unless the viewer is the admin, in the owning org or a member of the building) |
 | POST | `/sessions` | `{"building"?}` | `{"session_id", "building", "overview"}` (unknown building → 422) |
 | GET | `/sessions/{id}` | – | building, profile, applied/pending changes, event count |
 | PUT | `/sessions/{id}/building` | `{"building"}` | fresh session on another building, same id |

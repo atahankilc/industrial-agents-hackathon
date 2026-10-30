@@ -138,6 +138,25 @@
 .ml-list .ml-row:focus-visible, .ml-picked:focus-visible { background: var(--hud-fill); outline: 2px solid var(--hud-route); outline-offset: -2px; }
 .ml-name { font-size: 14.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ml-address { font-size: 12.5px; color: var(--hud-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* an org's building on the main map (Building `badge`): the org's name as a chip in its row's second line, and under
+   the picked building a chip that opens the org's public map */
+.ml-org {
+  display: inline-block; margin-right: 6px; padding: 0 7px; border-radius: 999px; vertical-align: 1px;
+  background: var(--hud-fill-2); color: var(--hud-ink); font-size: 11.5px; font-weight: 600; line-height: 18px;
+}
+.ml-badge {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 32px; margin: 8px 0 0; padding: 4px 10px 4px 5px;
+  border: 1px solid var(--hud-line); border-radius: 999px; background: var(--hud-glass); color: var(--hud-ink-2);
+  font: inherit; font-size: 13px; text-align: left;
+  -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4);
+}
+p.ml-badge { padding-right: 5px; }
+.ml-badge .ml-org { margin: 0; flex: none; }
+.ml-badge-map { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-badge svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+button.ml-badge { cursor: pointer; }
+button.ml-badge:focus-visible { outline: 2px solid var(--hud-route); outline-offset: 2px; }
+@media (hover: hover) { button.ml-badge:hover { background: var(--hud-glass-2); color: var(--hud-ink); } }
 .ml-empty { margin: 0; padding: 18px 14px; font-size: 13.5px; color: var(--hud-ink-2); }
 /* the panel's last row: "New building from floor plans … Create →" (MapLanding, admin / access mode off) */
 .ml-more {
@@ -295,6 +314,10 @@
 }
 .ml-create-title { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); }
 .ml-create-sub { margin: 3px 0 0; font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
+/* the badge in the card: the card's own colours */
+.ml-create .ml-badge { border-color: var(--hair); background: transparent; color: var(--ink-2); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.ml-create .ml-org { background: var(--fill); color: var(--ink); }
+@media (hover: hover) { .ml-create button.ml-badge:hover { background: var(--fill); color: var(--ink); } }
 .ml-create-versions { list-style: none; margin: 12px -8px 0; padding: 0 8px; border-top: 1px solid var(--hair); max-height: 220px; overflow: auto; }
 .ml-create-versions button {
   display: grid; width: 100%; padding: 10px; border: 0; border-bottom: 1px solid var(--hair); border-radius: 0;

@@ -1,13 +1,13 @@
 ---
 id: project-state
 summary: Current phase, what exists, what is next, blockers. Read first every session.
-updated: 2026-10-28
+updated: 2026-10-30
 related: [decisions.md, open-questions.md, log.md, ../archive/hackathon/README.md]
 ---
 
 # Project state
 
-[Memory bank](README.md) · Last updated: **2026-10-29** (organisations phases 1–3 [D-029](decisions.md#d-029), dataset in one folder [D-028](decisions.md#d-028), rename to Steward [D-027](decisions.md#d-027), repo restructure [D-024](decisions.md#d-024), solvers + API routers [D-025](decisions.md#d-025), tool layer + live packages [D-026](decisions.md#d-026))
+[Memory bank](README.md) · Last updated: **2026-10-30** (organisations phases 1–3 and main-map badges [D-029](decisions.md#d-029), dataset in one folder [D-028](decisions.md#d-028), rename to Steward [D-027](decisions.md#d-027), repo restructure [D-024](decisions.md#d-024), solvers + API routers [D-025](decisions.md#d-025), tool layer + live packages [D-026](decisions.md#d-026))
 
 ## Phase
 
@@ -60,6 +60,8 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
   the buildings and the open model moved with their island. Editors arrange (drag, pull to edges), name the
   islands and draw their (rectangular) areas, stored in the map's `layout`. The blue dot shows on the board when the user
   stands on an island, else the nearest site and its distance. Not yet: merging / splitting sites, areas of any shape.
+- **Organisations, badges on the main map** (2026-10-30): an org's buildings carry its name (under the map label, a
+  chip in the list); the picked one's chip opens the org's public map (`GET /buildings` `badge`).
 - **Organisations, the Guide on a map:** on `?map=` the app sends the map (`X-Steward-Map[-Key]`); the Guide then
   counts the map's buildings the viewer may open through it among the neighbours (`deps.shown_by_map`).
 - **Workflow:** verified commits via `/ship` ([D-008](decisions.md#d-008),
@@ -68,7 +70,7 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
 ## What works (verified 2026-10-27, deploy 2026-10-28)
 
 - `npm run dev` (repo root) → backend http://127.0.0.1:8390 + app http://localhost:5390.
-- `uv run pytest -q` → 978 passed, 2 skipped (2026-10-29, with the organisations tests).
+- `uv run pytest -q` → 982 passed, 2 skipped (2026-10-30, with the organisations tests).
 - `python3 scripts/check_links.py` → all links resolve.
 - `main` is at `30ddf99` (PR #11, 2026-10-28: data/buildings merge, README features, CLAUDE.md); production serves it.
 - Deployed app: https://steward-io.vercel.app → `/` 200 (title "Steward"), `/api/health` 200
@@ -90,7 +92,7 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
   2. After a deploy: the admin verifies an org and gives it buildings (no orgs exist yet).
   3. Done 2026-10-30: the `headers()` JSDoc in `frontend/src/api.ts` sits above `headers()` again (it was above
      `mapHeaders`, verifier note on `d6de58c`).
-  4. Open work, Atahan to pick: org badges on the main map; a per-org Creator quota; merging / splitting sites;
+  4. Open work, Atahan to pick: a per-org Creator quota; merging / splitting sites;
      polygon areas (now rectangles); phase 4 (email-domain join, iframe embed, paged listing).
   5. Questions for Atahan: [Q-022](open-questions.md#q-022) (who may start an org), [Q-023](open-questions.md#q-023)
      (islands show streets: built as the default), [Q-024](open-questions.md#q-024) (name of a map, owner of `user/*`).

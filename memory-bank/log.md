@@ -9,6 +9,19 @@ related: [project-state.md, ../archive/hackathon/log-2026-10-24-to-25.md]
 [Memory bank](README.md) · Hackathon weekend (2026-10-24 – 2026-10-25):
 [archive/hackathon/log-2026-10-24-to-25.md](../archive/hackathon/log-2026-10-24-to-25.md)
 
+## 2026-10-30 — Organisations: badges on the main map
+
+- `GET /buildings` items get `badge` (`{org, name, map}` or null): the org's name and the public map a tap opens (the
+  first public one holding the building, else the org's first public one) — `backend/api/routes/guide.py` `badges`,
+  `badge_of`; test `test_the_main_maps_badges_name_the_org_and_open_its_public_map`.
+- App (`MapLanding`): the org under the pin name (`format`, Noto Sans Regular, 0.85), a chip in the list row, and
+  `OrgBadge` under the picked building and in the right-click card → `onOpenMap` → `?map=<slug>` (`Root.tsx`).
+- Headless (in-memory backend with org `tum`, public map `tum-sites`), wide and phone: chip "TU München" in the row,
+  badge "TU München · TUM Sites" under the picked building, a tap → `?map=tum-sites` with "TUM Sites" as the head; no
+  console errors.
+- Also: the handoff note (`5be6946`) and the `headers()` JSDoc fix (`66f1337`), both pushed. The two migrations are
+  still not applied (blocked by the permission check; Atahan runs them).
+
 ## 2026-10-29 — Organisations: the Guide's neighbours on a map
 
 - You-are-here shipped as `4ec7c94`. The migrations are still not applied: they wait for Atahan's explicit go

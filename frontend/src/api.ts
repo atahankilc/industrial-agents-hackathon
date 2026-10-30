@@ -19,6 +19,8 @@ export type Building = {
   kind: BuildingKind | null
   /** the owning organisation's slug (access mode; docs/product/organizations.md), null = the platform's */
   org?: string | null
+  /** the main map's badge for an org's building: its name, and the public map a tap opens (null: none) */
+  badge?: { org: string; name: string; map: { slug: string; name: string } | null } | null
   location: {
     lat: number
     lon: number

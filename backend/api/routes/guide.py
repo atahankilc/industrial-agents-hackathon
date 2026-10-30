@@ -17,6 +17,7 @@ from backend.agents.campus import arrive
 from backend.agents.guide import PHOTO_TYPES
 from backend.api import deps, persistence, service_errors
 from backend.api.deps import conversation_or_404, ndjson_with_pings, save_or_409, viewer_or_401, visible_or_422, with_access
+from backend.api.maps import OrgMap
 from backend.api.sessions import Conversation, UnknownBuilding, summary
 from backend.core.building_map import MapError
 
@@ -71,8 +72,29 @@ def buildings(authorization: str | None = Header(None)) -> list[dict]:
     hidden = deps.access.hidden_buildings(viewer_or_401(authorization))
     owners = ({building: access.org for building, access in deps.access.store.all_buildings().items() if access.org}
               if deps.access.enabled else {})  # the owning organisation (docs/product/organizations.md)
-    return [listing_item(item, owners.get(item["id"])) for item in deps.store.catalogue.values()
-            if item["id"] not in hidden]
+    shown = [item for item in deps.store.catalogue.values() if item["id"] not in hidden]
+    marks = badges({owners[item["id"]] for item in shown if item["id"] in owners})
+    return [{**listing_item(item, owners.get(item["id"])), "badge": badge_of(marks, owners.get(item["id"]), item["id"])}
+            for item in shown]
+
+
+def badges(orgs: set[str]) -> dict[str, tuple[str, list[OrgMap]]]:
+    """Per organisation: its name and its public maps (the main map's badges, docs/product/organizations.md)."""
+    marks = {}
+    for slug in orgs:
+        org = deps.access.store.org(slug)
+        marks[slug] = (org.name if org else slug, [row for row in deps.maps.of_org(slug) if row.visibility == "public"])
+    return marks
+
+
+def badge_of(marks: dict[str, tuple[str, list[OrgMap]]], org: str | None, building: str) -> dict | None:
+    """The owning org's name, and the public map a tap on the badge opens: the first one holding the building, else the
+    org's first; None without one."""
+    if org is None:
+        return None
+    name, public = marks[org]
+    row = next((row for row in public if building in row.buildings), public[0] if public else None)
+    return {"org": org, "name": name, "map": {"slug": row.slug, "name": row.name} if row else None}
 
 
 def listing_item(item: dict, org: str | None) -> dict:

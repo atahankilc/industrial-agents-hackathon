@@ -155,7 +155,8 @@ export function Root() {
         }} onDeleted={() => setDeleted((n) => n + 1)}
         scope={!view.map ? null : scope ? { name: scope.name, org: scope.org.name, orgSlug: scope.org.slug, verified: scope.org.verified } : error ? { name: error, org: null } : null}
         onArrange={scope?.can_edit ? arrange : undefined}
-        onLeaveScope={() => go(null, 'map', false, { map: null })} />
+        onLeaveScope={() => go(null, 'map', false, { map: null })}
+        onOpenMap={(slug) => go(null, 'map', false, { map: slug })} />
       )}
       {!view.building && !shown && view.landing === 'org' && (
         <OrgScreen slug={view.org} onExit={() => go(null, 'map')} onOpenMap={(map, key) => go(null, 'map', false, { map, key })}

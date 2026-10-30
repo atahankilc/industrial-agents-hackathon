@@ -344,7 +344,6 @@ function streamError(item: Record<string, unknown>): ServiceError {
   return new ServiceError(String(item.message ?? item.detail), String(item.code ?? 'internal'))
 }
 
-/** JSON headers plus the bearer token when signed in. */
 /** On an organisation's map (?map=, &k=): which one, so the Guide counts its buildings among the neighbours
  * (backend/api/deps.py map_scope). */
 function mapHeaders(): Record<string, string> {
@@ -354,6 +353,7 @@ function mapHeaders(): Record<string, string> {
   return map ? { 'x-steward-map': map, ...(key ? { 'x-steward-map-key': key } : {}) } : {}
 }
 
+/** JSON headers plus the bearer token when signed in, and the map headers on an organisation's map. */
 export async function headers(extra?: HeadersInit): Promise<HeadersInit> {
   if (gate) await gate.catch(() => undefined)
   return { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), ...mapHeaders(), ...extra }

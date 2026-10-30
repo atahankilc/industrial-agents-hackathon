@@ -88,8 +88,8 @@ Layout ([D-024](decisions.md#d-024)): `frontend/` (React) and `backend/` (all Py
      (2026-10-30: Atahan said go ahead; the apply was blocked by Claude Code's auto-mode permission check, so Atahan
      runs it or allows it. Still **not applied**.)
   2. After a deploy: the admin verifies an org and gives it buildings (no orgs exist yet).
-  3. Small fix: in `frontend/src/api.ts` the old JSDoc "JSON headers plus the bearer token when signed in." sits above
-     `mapHeaders` instead of `headers()` (verifier note, `d6de58c`).
+  3. Done 2026-10-30: the `headers()` JSDoc in `frontend/src/api.ts` sits above `headers()` again (it was above
+     `mapHeaders`, verifier note on `d6de58c`).
   4. Open work, Atahan to pick: org badges on the main map; a per-org Creator quota; merging / splitting sites;
      polygon areas (now rectangles); phase 4 (email-domain join, iframe embed, paged listing).
   5. Questions for Atahan: [Q-022](open-questions.md#q-022) (who may start an org), [Q-023](open-questions.md#q-023)
